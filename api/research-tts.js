@@ -6,7 +6,10 @@ const CHUNK_LIMIT = 4800;
 const VOICE_DEFAULT = 'ZF6FPAbjXT4488VcRRnw';
 
 export function chunkText(text, max = CHUNK_LIMIT) {
-  if (text.length <= max) return [text];
+  text = typeof text === 'string' ? text : '';
+  // Whitespace-only / empty short text yields NO chunk — a whitespace chunk
+  // POSTed to ElevenLabs 502s the whole readout.
+  if (text.length <= max) return text.trim() ? [text] : [];
   const out = [];
   const paragraphs = text.split(/\n\n+/);
   let buf = '';
@@ -15,7 +18,9 @@ export function chunkText(text, max = CHUNK_LIMIT) {
   const flush = () => { if (buf.trim()) out.push(buf.trim()); buf = ''; };
   for (const p of paragraphs) {
     if (p.length > max) {
-      const sentences = p.match(/[^.!?]+[.!?]+/g) ?? [p];
+      // Match terminated sentences AND any un-terminated trailing run, so a
+      // giant paragraph that doesn't end in . ! ? doesn't silently drop its tail.
+      const sentences = p.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [p];
       for (const s of sentences) {
         if (s.length > max) {
           // A single sentence (or a punctuation-less run) longer than the cap:

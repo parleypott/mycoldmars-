@@ -102,6 +102,32 @@ const splitWords = chunkText('a'.repeat(MAX + 1)).join('');
 eq(splitWords.length, MAX + 1, 'hard-split preserves all characters');
 
 // ---------------------------------------------------------------------------
+// TAIL-DROP — a paragraph over the cap that ends in an un-terminated run (no
+// trailing . ! ?). The old sentence regex /[^.!?]+[.!?]+/g matched terminated
+// sentences ONLY, so the trailing run was silently dropped from the readout —
+// the listener never hears the conclusion. The fix adds |[^.!?]+$ so the tail
+// is captured. (chunkTextOLD above carries the old regex = the RED reference.)
+// ---------------------------------------------------------------------------
+const C = 'A'.repeat(MAX - 20) + '. ' + 'CONCLUSION_WITH_NO_PERIOD';
+ok(!chunkTextOLD(C).join(' ').includes('CONCLUSION'), 'RED(C): old regex drops the un-terminated tail');
+ok(chunkText(C).join(' ').includes('CONCLUSION'), 'FIX(C): un-terminated tail is preserved');
+invariantOK(chunkText(C), 'C tail-after-cap paragraph');
+
+// Same shape but the tail is its own short paragraph with no terminator -> preserved.
+const C2 = 'B'.repeat(3000) + '. ' + 'C'.repeat(3000) + '\n\n' + 'final words no period';
+ok(chunkText(C2).join(' ').includes('final words no period'), 'FIX(C2): trailing un-terminated paragraph kept');
+
+// WHITESPACE-ONLY short text -> NO chunk (old code returned ['   '], a whitespace
+// chunk POSTed to ElevenLabs that 502s the whole readout).
+eq(chunkText('   ').length, 0, 'whitespace-only short text -> no chunk');
+eq(chunkText('').length, 0, 'empty string -> no chunk');
+eq(chunkText('\n\n  \n').length, 0, 'whitespace+newlines -> no chunk');
+ok(!chunkText('   ').some(c => !c.trim()), 'FIX: never emits a blank short chunk');
+// Non-string input is coerced, not crashed.
+eq(chunkText(null).length, 0, 'null input -> no chunk (no crash)');
+eq(chunkText(undefined).length, 0, 'undefined input -> no chunk (no crash)');
+
+// ---------------------------------------------------------------------------
 // strip() — markdown -> speech cleaner (so the narrator never reads symbols aloud).
 // ---------------------------------------------------------------------------
 eq(strip('# Heading'), 'Heading', 'strip ATX heading marker');
