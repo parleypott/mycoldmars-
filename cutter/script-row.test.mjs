@@ -149,6 +149,22 @@ ok('FIX: shipped row survives numeric timestamp_start (renders 12)',
   (() => { try { return buildScriptRowHtml({ timestamp_start: 12, words: 'hi', visual: 'v' }).includes('12'); } catch { return false; } })());
 ok('FIX: shipped row survives numeric words (no throw)',
   (() => { try { buildScriptRowHtml({ timestamp_start: '0:00', words: 5, visual: 'v' }); return true; } catch { return false; } })());
+
+// ── truthy-zero trap: a numeric 0 start (first segment of numeric-seconds JSON) ─
+// must RENDER as "0", not get blanked by `0 || ''`. The buggy `|| ''` form drops
+// the opening segment's start while every later segment (12, 90 above) shows its
+// number — a silent, segment-1-only loss. JSON.parse can't produce NaN, so 0 is
+// the only reachable falsy-non-null timestamp; this asserts the `?? ''` fix.
+ok('RED-proof: OLD `|| \'\'` start-builder blanks a numeric 0 start',
+  oldBuildRow({ timestamp_start: 0, words: 'hi', visual: 'v' }).includes('<td class="ts"></td>'));
+ok('FIX: shipped row renders a numeric 0 start as "0" (not blank)',
+  buildScriptRowHtml({ timestamp_start: 0, words: 'hi', visual: 'v' }).includes('>0<'));
+ok('FIX: numeric 0 start + numeric end both render (0–90, opening segment intact)',
+  buildScriptRowHtml({ timestamp_start: 0, timestamp_end: 90, words: 'hi', visual: 'v' }).includes('0–90'));
+ok('no-regression: empty-string start still → empty ts cell',
+  buildScriptRowHtml({ timestamp_start: '', words: 'hi', visual: 'v' }).includes('<td class="ts"></td>'));
+ok('no-regression: missing start still → empty ts cell',
+  buildScriptRowHtml({ words: 'hi', visual: 'v' }).includes('<td class="ts"></td>'));
 ok('FIX: numeric/zero words does not falsely trigger no-dialogue',
   !buildScriptRowHtml({ words: 0, visual: 'v' }).includes('no-dialogue'));
 ok('FIX: a non-string visual is still HTML-escaped, not crashed',
