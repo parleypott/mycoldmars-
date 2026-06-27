@@ -94,7 +94,11 @@ export function chunkText(text, max = CHUNK_LIMIT) {
   let buf = '';
   const flush = () => { const t = buf.trim(); if (t) out.push(t); buf = ''; };
   // Emit a single over-long string in <=max slices, never empty, never over cap.
-  const hardSplit = (s) => { for (let i = 0; i < s.length; i += max) out.push(s.slice(i, i + max)); };
+  // Each slice is trimmed and whitespace-only slices are dropped — an interior
+  // whitespace run >= max would otherwise yield an all-blank chunk, which POSTed
+  // to ElevenLabs fails the whole readout (the very thing this fn guards). This
+  // matches the hardened research-tts twin.
+  const hardSplit = (s) => { for (let i = 0; i < s.length; i += max) { const piece = s.slice(i, i + max).trim(); if (piece) out.push(piece); } };
 
   for (const p of text.split(/\n\n+/)) {
     if (p.length > max) {

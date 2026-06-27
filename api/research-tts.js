@@ -1,54 +1,15 @@
 import { readJsonBody } from './_lib/read-json-body.js';
+// chunkText is the single, mutation-locked TTS chunker shared with the Burma
+// Essays narrator. Re-exported here so this endpoint (and its test) keep a stable
+// import surface while there is exactly ONE implementation — no divergent copy to
+// drift. Both feed the same ElevenLabs per-request budget (CHUNK_LIMIT = 4800).
+import { chunkText } from './_lib/burma-essays-text.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
-const CHUNK_LIMIT = 4800;
 const VOICE_DEFAULT = 'ZF6FPAbjXT4488VcRRnw';
 
-export function chunkText(text, max = CHUNK_LIMIT) {
-  text = typeof text === 'string' ? text : '';
-  // Whitespace-only / empty short text yields NO chunk — a whitespace chunk
-  // POSTed to ElevenLabs 502s the whole readout.
-  if (text.length <= max) return text.trim() ? [text] : [];
-  const out = [];
-  const paragraphs = text.split(/\n\n+/);
-  let buf = '';
-  // Flush the working buffer as a chunk — never push an empty/whitespace chunk
-  // (an empty chunk would be POSTed to ElevenLabs and fail the whole readout).
-  const flush = () => { if (buf.trim()) out.push(buf.trim()); buf = ''; };
-  for (const p of paragraphs) {
-    if (p.length > max) {
-      // Match terminated sentences AND any un-terminated trailing run, so a
-      // giant paragraph that doesn't end in . ! ? doesn't silently drop its tail.
-      const sentences = p.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [p];
-      for (const s of sentences) {
-        if (s.length > max) {
-          // A single sentence (or a punctuation-less run) longer than the cap:
-          // hard-split it so no chunk can ever exceed `max`.
-          flush();
-          for (let i = 0; i < s.length; i += max) {
-            const piece = s.slice(i, i + max).trim();
-            if (piece) out.push(piece);
-          }
-          continue;
-        }
-        if ((buf + ' ' + s).trim().length > max) {
-          flush();
-          buf = s;
-        } else {
-          buf = buf ? buf + ' ' + s : s;
-        }
-      }
-    } else if ((buf + '\n\n' + p).length > max) {
-      flush();
-      buf = p;
-    } else {
-      buf = buf ? buf + '\n\n' + p : p;
-    }
-  }
-  flush();
-  return out;
-}
+export { chunkText };
 
 export function strip(md) {
   return md

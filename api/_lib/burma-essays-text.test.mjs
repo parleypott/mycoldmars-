@@ -294,5 +294,25 @@ eq(chunkText('a'.repeat(M)).every(c => c.length <= M), true, 'exactly-max chunk 
 eq(overIn(chunkText('z'.repeat(50), 10)), 0, 'custom small max: no over-cap');
 eq(chunkText('z'.repeat(50), 10).length, 5, 'custom max=10 splits 50 chars into 5');
 
+// ---- WHITESPACE-SLICE GAP (hardSplit): a no-punctuation run-on with an interior
+// whitespace run >= max makes a hard-split window land ENTIRELY inside whitespace.
+// The old hardSplit pushed that slice verbatim -> an all-blank chunk of length max
+// (NOT length 0, so emptiesIn misses it) -> POSTed to ElevenLabs, 502s the readout.
+// blankIn catches the trimmed-empty case the fix now drops.
+const blankIn = (a) => a.filter(c => c.trim() === '').length;
+// RED PROOF: hardSplit WITHOUT the per-slice trim/skip (the pre-fix form).
+const hardSplitOLD = (s, max) => { const out = []; for (let i = 0; i < s.length; i += max) out.push(s.slice(i, i + max)); return out; };
+const wsGap = 'ab' + ' '.repeat(2 * M) + 'cd';            // one run-on, interior ws run = 2*max
+eq(wsGap.length > M, true, 'wsGap fixture exceeds the cap (hard-split path)');
+eq(blankIn(hardSplitOLD(wsGap.trim(), M)) > 0, true, 'RED: un-trimmed hardSplit emits an all-blank chunk');
+eq(blankIn(chunkText(wsGap)), 0, 'FIX: no all-blank chunk from an interior whitespace run');
+eq(emptiesIn(chunkText(wsGap)), 0, 'FIX: wsGap has no length-0 chunk');
+eq(overIn(chunkText(wsGap)), 0, 'FIX: wsGap stays under cap');
+eq(dense(chunkText(wsGap).join('')), dense(wsGap), 'FIX: wsGap content (ab/cd) preserved');
+// same gap with a custom small max, exercised end-to-end
+const wsGapSmall = 'xy' + ' '.repeat(40) + 'zw';
+eq(blankIn(chunkText(wsGapSmall, 10)), 0, 'FIX: custom-max interior whitespace yields no blank chunk');
+eq(dense(chunkText(wsGapSmall, 10).join('')), 'xyzw', 'FIX: custom-max whitespace-gap content preserved');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
