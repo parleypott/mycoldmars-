@@ -88,6 +88,34 @@ eq(safeHref('plain text without a scheme'), 'plain text without a scheme', 'safe
 eq(safeHref('javascript:alert(1)'), null, 'safeHref dangerous scheme -> null');
 eq(safeHref('  https://e.com  '), 'https://e.com', 'safeHref trims surrounding whitespace');
 
+// ── ordered lists wrap in <ol> (regression: they used to render as orphan <li>) ──
+// The ordered-item -> <li> conversion used to run AFTER the <li>-run -> <ul> wrap,
+// so every numbered list emitted bare <li> with NO list container. RED PROOF: the
+// genuine old renderer (fullOldMd, below) leaves the orphan-<li> bug in place.
+{
+  const olOut = mdToHtml('1. first\n2. second\n3. third');
+  ok(/<ol>/.test(olOut), 'ordered list is wrapped in <ol>');
+  ok(/<ol><li>first<\/li>/.test(olOut), 'ordered list opens with <ol><li>');
+  ok(/<\/li>\n?<\/ol>/.test(olOut), 'ordered list closes with </li></ol>');
+  ok(!/<ul>/.test(olOut), 'ordered list does NOT use <ul>');
+  ok(!/<\/?oli>/.test(olOut), 'no leaked <oli> marker tag in output');
+  // RED PROOF: the old renderer left ordered items as orphan <li>, no <ol>/<ul>
+  const oldOl = fullOldMd('1. first\n2. second\n3. third');
+  ok(!/<ol>/.test(oldOl) && /<li>first<\/li>/.test(oldOl), 'RED PROOF: old renderer emits orphan <li>, no <ol>');
+}
+// unordered lists stay <ul> (must not regress to <ol>)
+{
+  const ulOut = mdToHtml('- a\n- b');
+  ok(/<ul><li>a<\/li>/.test(ulOut), 'unordered list still wrapped in <ul>');
+  ok(!/<ol>/.test(ulOut), 'unordered list does NOT use <ol>');
+}
+// a bulleted list and a numbered list in the same doc become two separate lists
+{
+  const mixed = mdToHtml('- bullet\n\n1. number');
+  ok(/<ul><li>bullet<\/li>/.test(mixed), 'mixed doc: bullet run -> <ul>');
+  ok(/<ol><li>number<\/li>/.test(mixed), 'mixed doc: number run -> <ol>');
+}
+
 // ── esc still covers the raw-tag boundary ──
 eq(esc('<script>'), '&lt;script&gt;', 'esc neutralizes a tag');
 eq(esc('a & b'), 'a &amp; b', 'esc ampersand');
@@ -96,12 +124,12 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
 
 // ── NO-REGRESSION: normal markdown is byte-identical to the old renderer ──
 // (old===new on every input WITHOUT a dangerous scheme or breakout quote, since
-//  the only change is the link transform and a safe URL round-trips identically)
+//  the only changes are the link transform and the ordered-list <ol> wrap — so
+//  ordered-list inputs are EXCLUDED here and locked explicitly above instead)
 const normalDocs = [
   '# Heading one\n\nsome **bold** and *italic* text.',
   '## Findings\n\n- first point\n- second point\n\nmore prose.',
   'inline `code` and a block:\n\n```\nconst x = 1;\n```',
-  'a paragraph\nwith a soft break.\n\n1. ordered\n2. list',
   'a safe [citation](https://example.com/article) mid-sentence.',
   'mixed [link](https://a.com) and **bold** and `code` together.',
   '###### deep heading\n\n> not transformed but present',

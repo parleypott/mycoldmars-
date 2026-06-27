@@ -53,8 +53,13 @@ export function mdToHtml(md) {
   });
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
+  // Ordered items get a distinct <oli> marker so the wrap pass below can emit a
+  // numbered <ol> rather than a bulleted <ul> — and, critically, so they get
+  // wrapped AT ALL. They were converted *after* the <ul> wrap before, leaving
+  // every numbered list as orphan <li> with no list container (no <ol>/<ul>).
+  html = html.replace(/^\d+\. (.*)$/gm, '<oli>$1</oli>');
   html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
-  html = html.replace(/^(\d+)\. (.*)$/gm, '<li>$2</li>');
+  html = html.replace(/(<oli>[\s\S]*?<\/oli>\n?)+/g, (m) => `<ol>${m.replace(/<(\/?)oli>/g, '<$1li>')}</ol>`);
   html = html
     .split(/\n{2,}/)
     .map((block) => {
