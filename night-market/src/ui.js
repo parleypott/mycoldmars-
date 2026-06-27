@@ -162,11 +162,7 @@ export function initUI() {
   }
 
   function buildChoices(correctFood) {
-    const others = foods.filter((f) => f.id !== correctFood.id);
-    shuffle(others);
-    const all = [correctFood, ...others.slice(0, 3)];
-    shuffle(all);
-    return all;
+    return buildNameChoices(foods, correctFood);
   }
 
   function handleNameAnswer(btn, selected, correct) {
@@ -205,8 +201,7 @@ export function initUI() {
     const t = currentFood.trivia;
     els.triviaQuestion.textContent = t.question;
 
-    const answers = [t.answer, ...t.decoys];
-    shuffle(answers);
+    const answers = buildTriviaAnswers(t);
 
     els.triviaChoices.innerHTML = '';
     answers.forEach((a) => {
@@ -287,4 +282,22 @@ export function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// Build the four name-quiz buttons: the correct dish plus three random decoys,
+// all in random order. shuffle() is NON-MUTATING — it returns a new array and
+// leaves its input untouched — so its RESULT must be used. The earlier in-place
+// shuffle was swapped for this copy-first one, but the old call sites still
+// relied on the side effect, which silently pinned the correct answer to the
+// first button and froze the decoys to the first three dishes in data order.
+// shuffleFn is injectable so tests can drive it deterministically.
+export function buildNameChoices(allFoods, correctFood, shuffleFn = shuffle) {
+  const others = shuffleFn(allFoods.filter((f) => f.id !== correctFood.id));
+  return shuffleFn([correctFood, ...others.slice(0, 3)]);
+}
+
+// Build the trivia answer buttons: the correct answer plus its decoys, shuffled.
+// Same non-mutating-shuffle contract as buildNameChoices — use the return value.
+export function buildTriviaAnswers(trivia, shuffleFn = shuffle) {
+  return shuffleFn([trivia.answer, ...trivia.decoys]);
 }
