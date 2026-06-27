@@ -1,6 +1,6 @@
 // Coverage for the Burma Essays narrator text helpers (the markdown the TTS reads aloud).
 // Run: node api/_lib/burma-essays-text.test.mjs   (also auto-discovered by `bun run test`)
-import { stripMarkdown, firstLine, slug, clampNum, chunkText, CHUNK_LIMIT } from './burma-essays-text.js';
+import { stripMarkdown, decodeEntities, firstLine, slug, clampNum, chunkText, CHUNK_LIMIT } from './burma-essays-text.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, msg) => {
@@ -320,6 +320,37 @@ eq(dense(chunkText(wsGap).join('')), dense(wsGap), 'FIX: wsGap content (ab/cd) p
 const wsGapSmall = 'xy' + ' '.repeat(40) + 'zw';
 eq(blankIn(chunkText(wsGapSmall, 10)), 0, 'FIX: custom-max interior whitespace yields no blank chunk');
 eq(dense(chunkText(wsGapSmall, 10).join('')), 'xyzw', 'FIX: custom-max whitespace-gap content preserved');
+
+// ---- HTML ENTITIES: a present-but-encoded glyph used to be read ALOUD as its raw
+// escape ("ampersand a m p semicolon"). RED PROOF reuses stripMarkdownOLD (no entity
+// decode at all) to show the leak; the live stripMarkdown decodes to the real char.
+eq(stripMarkdownOLD('Britain &amp; Burma'), 'Britain &amp; Burma', 'RED: old code reads "&amp;" aloud as the raw escape');
+eq(stripMarkdown('Britain &amp; Burma'), 'Britain & Burma', 'FIX: &amp; -> &');
+eq(stripMarkdownOLD('the coup&mdash;a turn'), 'the coup&mdash;a turn', 'RED: old code leaks &mdash;');
+eq(stripMarkdown('the coup&mdash;a turn'), 'the coup—a turn', 'FIX: &mdash; -> em dash');
+eq(stripMarkdown('it&rsquo;s over &hellip; now'), 'it’s over … now', 'FIX: &rsquo; + &hellip; decoded');
+eq(stripMarkdown('said &ldquo;enough&rdquo;'), 'said “enough”', 'FIX: curly quotes decoded');
+eq(stripMarkdown('30&deg;C in &amp; out'), '30°C in & out', 'FIX: &deg; + second &amp; both decoded');
+eq(stripMarkdown('a&nbsp;hard space'), 'a hard space', 'FIX: &nbsp; -> normal space');
+// numeric entities (decimal + hex), the form a generator/Docs-export emits for the em dash
+eq(stripMarkdown('use &#8212; here'), 'use — here', 'FIX: decimal numeric entity &#8212; -> em dash');
+eq(stripMarkdown('use &#x2014; here'), 'use — here', 'FIX: hex numeric entity &#x2014; -> em dash');
+eq(stripMarkdown('&#39;quoted&#39;'), "'quoted'", 'FIX: &#39; -> apostrophe');
+// entity-encoded HTML tag: decode then the tag rule drops it (no "<br>" spoken)
+eq(stripMarkdown('line&lt;br&gt;break'), 'linebreak', 'FIX: &lt;br&gt; decoded then dropped as a tag');
+// prose comparisons survive: "3 < 5" is NOT a tag, so it stays after decoding
+eq(stripMarkdown('3 &lt; 5 and 5 &gt; 3'), '3 < 5 and 5 > 3', 'FIX: decoded < / > in prose preserved (not a tag)');
+// unknown / malformed entities are LEFT INTACT, never guessed or crashed on
+eq(stripMarkdown('an &foobar; word'), 'an &foobar; word', 'unknown named entity left intact');
+eq(stripMarkdown('bad &#999999999999; num'), 'bad &#999999999999; num', 'out-of-range numeric entity left intact (no crash)');
+eq(stripMarkdown('lone &#xD800; surrogate'), 'lone &#xD800; surrogate', 'lone-surrogate numeric entity left intact');
+// REGRESSION GUARD: a bare ampersand in prose (the common case) is untouched —
+// only well-formed &name;/&#n; sequences decode.
+eq(stripMarkdown('R&D and AT&T survive'), 'R&D and AT&T survive', 'bare & in prose untouched');
+eq(stripMarkdown('Tom & Jerry & co.'), 'Tom & Jerry & co.', 'spaced bare & untouched');
+// decodeEntities is exported and null-safe on its own
+eq(decodeEntities('&amp;'), '&', 'decodeEntities standalone');
+eq(decodeEntities(null), '', 'decodeEntities null-safe');
 
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

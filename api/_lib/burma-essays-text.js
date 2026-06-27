@@ -3,8 +3,49 @@
 // ElevenLabs TTS, so any markdown symbol it misses gets read ALOUD to the
 // listener ("underscore", "tilde"), which is the whole reason it exists.
 
+// HTML entities → their real characters. An essay paragraph pasted from a web
+// source / Google-Docs HTML export / a generator often carries entities in
+// place of punctuation: "Britain &amp; Burma", "the coup&mdash;a turning point",
+// "it&rsquo;s over &hellip;", "30&deg;C", numeric "&#8212;" / "&#x2014;". The
+// stripper used to pass them through RAW, so ElevenLabs read the literal escape
+// aloud — "ampersand a m p semicolon", "ampersand m dash semicolon" — the exact
+// read-it-aloud failure mode this whole module exists to kill. Decode runs FIRST
+// so a decoded char is then handled like any other (e.g. an entity-encoded
+// "&lt;br&gt;" becomes "<br>" and is dropped by the HTML-tag rule below).
+const NAMED_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  mdash: '—', ndash: '–', minus: '−', hellip: '…',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+  sbquo: '‚', bdquo: '„', laquo: '«', raquo: '»',
+  deg: '°', copy: '©', reg: '®', trade: '™',
+  times: '×', divide: '÷', middot: '·', bull: '•',
+  dagger: '†', Dagger: '‡', sect: '§', para: '¶',
+  euro: '€', pound: '£', cent: '¢', yen: '¥',
+  frac12: '½', frac14: '¼', frac34: '¾',
+  eacute: 'é', egrave: 'è', ecirc: 'ê', agrave: 'à',
+  acirc: 'â', ccedil: 'ç', ntilde: 'ñ', uuml: 'ü',
+  ouml: 'ö', auml: 'ä', szlig: 'ß', oslash: 'ø', aring: 'å',
+};
+
+export function decodeEntities(s) {
+  return String(s ?? '').replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*);/g, (m, body) => {
+    if (body[0] === '#') {
+      const cp = (body[1] === 'x' || body[1] === 'X')
+        ? parseInt(body.slice(2), 16)
+        : parseInt(body.slice(1), 10);
+      // Drop only well-formed, representable code points; leave anything weird
+      // (out of range, a lone surrogate, NUL) as the literal text rather than
+      // guessing — a malformed numeric entity is better spoken than crashed on.
+      if (!Number.isFinite(cp) || cp <= 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return m;
+      try { return String.fromCodePoint(cp); } catch { return m; }
+    }
+    // Named entities are case-sensitive; an unknown name is left intact.
+    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, body) ? NAMED_ENTITIES[body] : m;
+  });
+}
+
 export function stripMarkdown(md) {
-  return md
+  return decodeEntities(String(md ?? ''))
     .replace(/```[\s\S]*?```/g, '')        // fenced code blocks
     // HTML comments (<!-- editor note -->) — invisible on the page, but read ALOUD
     // by the TTS as the raw note. Strip before anything else.
