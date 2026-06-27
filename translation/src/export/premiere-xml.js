@@ -545,7 +545,16 @@ ${clipItems.map((clip, i) => `          <clipitem id="nest-audio-${i + 1}">
 
 function escapeXml(str) {
   if (!str) return '';
-  return str
+  return String(str)
+    // Drop XML-1.0-FORBIDDEN control chars FIRST. Per XML 1.0 §2.2 the only
+    // control chars a document may contain are tab (0x09), LF (0x0A) and CR
+    // (0x0D); 0x00-0x08, 0x0B, 0x0C and 0x0E-0x1F are illegal even as numeric
+    // references, so passing one through raw makes Premiere/FCP REJECT THE
+    // WHOLE XML at import (cryptic parse error, nothing lands). These slip in
+    // when a transcript / marker comment / clip name is pasted from a PDF or
+    // web page (vertical-tab 0x0B, form-feed 0x0C). Strip them so one bad glyph
+    // can't kill the entire export. Well-formed text is byte-identical.
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

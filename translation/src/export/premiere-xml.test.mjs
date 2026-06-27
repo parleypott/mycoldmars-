@@ -73,8 +73,39 @@ for (const [name, build] of builders) {
   }
 }
 
+// ── escapeXml: XML-1.0-forbidden control chars must be stripped ─────────────
+// A vertical-tab (0x0B) or form-feed (0x0C) pasted into a transcript / marker
+// comment / clip name is ILLEGAL in XML 1.0 even as a numeric reference, so a
+// raw one makes Premiere reject the ENTIRE import. escapeXml must drop them
+// (tab/LF/CR preserved) so one bad glyph can't kill the whole export.
+// Mutation proof: deleting the control-char .replace() makes the first two
+// assertions RED (a raw 0x0B/0x0C/0x00 then survives into the emitted XML).
+const FORBIDDEN = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
+function assertX(cond, msg) {
+  if (!cond) { failures++; console.error(`FAIL ${msg}`); }
+}
+{
+  // Forbidden control chars in the sequence name -> must NOT survive.
+  const dirty = buildPremiereXML([], segments, 'Clip\x0BName\x0Cv2\x00', { fps: 24 });
+  assertX(!FORBIDDEN.test(dirty),
+    'escapeXml strips XML-forbidden control chars (no raw 0x00-0x1F in output)');
+  assertX(dirty.includes('<name>ClipNamev2</name>'),
+    'visible characters around a stripped control char survive intact');
+
+  // Legal whitespace (tab/LF) and entity escaping are untouched (byte-identical).
+  const kept = buildPremiereXML([], segments, 'A\tB\nC&<>"\'', { fps: 24 });
+  assertX(kept.includes('A\tB\nC&amp;&lt;&gt;&quot;&apos;'),
+    'tab/newline preserved and &<>"\' still entity-escaped');
+
+  // Marker comment path (h.textPreview -> <comment>) is guarded end-to-end too.
+  const hl = [{ segmentNumbers: [1], tagName: 'T\x0C', textPreview: 'pre\x0Bview', color: '#DD2C1E' }];
+  const withMarker = buildPremiereXML(hl, segments, 'Seq', { fps: 24 });
+  assertX(!FORBIDDEN.test(withMarker), 'marker name + comment path also strips control chars');
+  assertX(withMarker.includes('<comment>preview</comment>'), 'comment text survives minus the control char');
+}
+
 if (failures === 0) {
-  console.log(`PASS — all ${builders.length * CASES.length} rate cases correct across 3 builders`);
+  console.log(`PASS — all rate cases + control-char guard correct across 3 builders`);
   process.exit(0);
 } else {
   console.error(`\n${failures} FAILURE(S)`);

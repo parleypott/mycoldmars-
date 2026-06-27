@@ -198,6 +198,22 @@ ok(named.includes('<name>My &lt;Selects&gt; &amp; More</name>'), 'custom sequenc
 const defName = buildHunterSequenceXML({ units: oneUnit, fps: 24 });
 ok(defName.includes('<name>Hunter Export</name>'), 'default sequence name is "Hunter Export"');
 
+// ── escapeXml: XML-1.0-forbidden control chars must be stripped ──────────────
+// A vertical-tab (0x0B) / form-feed (0x0C) / NUL pasted into a clip name,
+// Gemini analysis, or sequence label is ILLEGAL in XML 1.0 even as a numeric
+// reference, so a raw one makes Premiere reject the ENTIRE import. escapeXml
+// must drop them (tab/LF/CR preserved). Mutation proof: deleting the
+// control-char .replace() makes the first assertion RED.
+const FORBIDDEN = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
+const dirtySeq = buildHunterSequenceXML({ units: oneUnit, fps: 24, sequenceName: 'My\x0BSel\x0Cects\x00' });
+ok(!FORBIDDEN.test(dirtySeq), 'escapeXml strips XML-forbidden control chars (no raw 0x00-0x1F in output)');
+ok(dirtySeq.includes('<name>MySelects</name>'), 'visible characters around a stripped control char survive');
+const dirtyAnalysis = buildHunterSequenceXML({
+  units: [{ sourceClipName: 'c', startSeconds: 0, endSeconds: 1, analysisText: 'see\x0Bnote' }], fps: 24 });
+ok(!FORBIDDEN.test(dirtyAnalysis), 'Gemini-analysis comment path also strips control chars');
+const keptWs = buildHunterSequenceXML({ units: oneUnit, fps: 24, sequenceName: 'A\tB & <C>' });
+ok(keptWs.includes('A\tB &amp; &lt;C&gt;'), 'tab preserved and &<> still entity-escaped (byte-identical)');
+
 // ── report ──────────────────────────────────────────────────────────────────
 if (fail) {
   console.error(`\n✗ xml-writer: ${fail} FAILED / ${pass} passed`);
