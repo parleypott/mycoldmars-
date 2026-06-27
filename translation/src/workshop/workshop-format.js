@@ -15,7 +15,7 @@
 //                    to the same palette entry so reordering themes never
 //                    reshuffles the colors.
 
-import { formatPreciseTimecode } from '../timecode-utils.js';
+import { formatPreciseTimecode, parseTimecodeToSeconds } from '../timecode-utils.js';
 
 export function countByTheme(soundbites) {
   const c = {};
@@ -23,6 +23,23 @@ export function countByTheme(soundbites) {
     for (const t of b.themes || []) c[t] = (c[t] || 0) + 1;
   }
   return c;
+}
+
+// Resolve each soundbite to its transcript segment and order by start time.
+// A bite whose `segmentNumber` has no matching segment (deleted/merged/renumbered
+// after the soundbites were generated) is DROPPED — the workshop can't render a
+// bite without its segment (renderBite needs seg). The crucial consequence: a
+// section's header count must derive from THIS resolved list, NOT the raw
+// per-theme tagged total (countByTheme), or the badge over-reports vs. the rows
+// actually shown ("Theme · 5" while only 3 render). Both the theme sections and
+// the unclassified section build their list — and therefore their count — here,
+// so the two can never diverge.
+export function resolveAndSortBites(soundbites, segByNum) {
+  const map = segByNum || {};
+  return (soundbites || [])
+    .map(b => ({ bite: b, seg: map[b && b.segmentNumber] }))
+    .filter(x => x.seg)
+    .sort((a, b) => parseTimecodeToSeconds(a.seg.start) - parseTimecodeToSeconds(b.seg.start));
 }
 
 export function formatTcShort(tc) {

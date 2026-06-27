@@ -1,7 +1,6 @@
 import { detectThemes, extractSoundbites, polishSoundbite } from '../api-client.js';
-import { parseTimecodeToSeconds } from '../timecode-utils.js';
 import { chattyStart, chattyUpdate, chattyEnd, THEME_DETECT_PHRASES, WORKSHOP_PROCESS_PHRASES } from '../chatty-loader.js';
-import { countByTheme, formatTcShort, themeColor } from './workshop-format.js';
+import { countByTheme, formatTcShort, themeColor, resolveAndSortBites } from './workshop-format.js';
 
 /**
  * Mount the Soundbite Workshop into a container.
@@ -248,11 +247,9 @@ export function mountWorkshop(container, opts) {
     const segByNum = {};
     for (const s of opts.segments) segByNum[s.number] = s;
 
-    const counts = countByTheme(state.soundbites);
-    const groups = state.themes.map(t => ({
-      theme: t,
-      count: counts[t.name] || 0,
-    }));
+    // Each section computes its own count from the RESOLVED bite list
+    // (see renderThemeSection), so groups carries only the theme here.
+    const groups = state.themes.map(t => ({ theme: t }));
 
     // Soundbites that don't match any theme (or don't match a theme that still exists)
     const themeNames = new Set(state.themes.map(t => t.name));
@@ -282,20 +279,20 @@ export function mountWorkshop(container, opts) {
     bindViewer();
   }
 
-  function renderThemeSection({ theme, count }, segByNum) {
+  function renderThemeSection({ theme }, segByNum) {
     const isOpen = !!state.openThemes[theme.name];
-    const bitesForTheme = state.soundbites
-      .filter(b => (b.themes || []).indexOf(theme.name) !== -1)
-      .map(b => ({ bite: b, seg: segByNum[b.segmentNumber] }))
-      .filter(x => x.seg)
-      .sort((a, b) => parseTimecodeToSeconds(a.seg.start) - parseTimecodeToSeconds(b.seg.start));
+    const taggedBites = state.soundbites.filter(b => (b.themes || []).indexOf(theme.name) !== -1);
+    // Count from the RESOLVED list (not the raw tagged total) so the header
+    // badge always matches the rows actually rendered below — a bite whose
+    // segment was deleted/renumbered drops out of both together.
+    const bitesForTheme = resolveAndSortBites(taggedBites, segByNum);
 
     return `
       <div class="ws-section ${isOpen ? 'open' : ''}" data-theme="${escapeAttr(theme.name)}">
         <button class="ws-section-header" data-act="toggle">
           <span class="ws-section-chevron">${isOpen ? '▾' : '▸'}</span>
           <span class="ws-section-name">${escapeHtml(theme.name) || '(unnamed)'}</span>
-          <span class="ws-section-count">${count}</span>
+          <span class="ws-section-count">${bitesForTheme.length}</span>
         </button>
         ${isOpen ? `
           <div class="ws-section-body" data-tc-copy>
@@ -311,10 +308,7 @@ export function mountWorkshop(container, opts) {
 
   function renderUnclassifiedSection(unclassified, segByNum) {
     const isOpen = !!state.openThemes['__unclassified'];
-    const bites = unclassified
-      .map(b => ({ bite: b, seg: segByNum[b.segmentNumber] }))
-      .filter(x => x.seg)
-      .sort((a, b) => parseTimecodeToSeconds(a.seg.start) - parseTimecodeToSeconds(b.seg.start));
+    const bites = resolveAndSortBites(unclassified, segByNum);
 
     return `
       <div class="ws-section ws-section--unclassified ${isOpen ? 'open' : ''}" data-theme="__unclassified">

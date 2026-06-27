@@ -67,3 +67,4 @@ norm	IGNORE	50	collision: page.goto opts vs regex match vs trippy audio-band smo
 elapsed	IGNORE	83	collision: generic timing local across 8 anim/worker files — not a shared helper
 tick	IGNORE	76	collision: per-app rAF loop closures (8 files) — each its own animation engine, intentionally distinct
 raw	IGNORE	66	collision: generic local for raw input/response across 26 unrelated files
+parseEmbedding	SAFE	75	three byte-identical hardened copies (semantic-search/scene-detection-core/cross-tier-core) — NaN/Infinity reject already in place; not divergent

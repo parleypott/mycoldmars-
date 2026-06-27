@@ -13,7 +13,7 @@
 // Mutation-proven a real verifier: see the NOTE at the bottom for the source
 // edits that turn this RED.
 
-import { countByTheme, formatTcShort, themeColor, THEME_PALETTE } from './workshop-format.js';
+import { countByTheme, formatTcShort, themeColor, THEME_PALETTE, resolveAndSortBites } from './workshop-format.js';
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -110,6 +110,45 @@ ok(themeColor('power') !== themeColor('zzzzzzzz'), 'distinct seeds can produce d
 // Always returns a non-empty 7-char hex.
 ok(/^#[0-9A-F]{6}$/i.test(themeColor('anything')), 'returns a #RRGGBB hex');
 
+// ── resolveAndSortBites (count-vs-render alignment + start-time order) ────────
+//
+// Each section header badge derives from THIS resolved list, so the count can
+// never over-report vs. the rows actually rendered. A bite whose segmentNumber
+// has no matching segment (deleted/merged/renumbered) MUST drop out — and that
+// drop is exactly what makes the count honest.
+const segByNum = {
+  1: { number: 1, start: '00:00:10' },
+  2: { number: 2, start: '00:00:05' },
+  3: { number: 3, start: '00:01:00' },
+};
+
+// THE BUG THIS LOCKS: a bite tagged with a theme but pointing at a missing
+// segment (99) is dropped, so the resolved length (=header count) is 2, not 3.
+const tagged = [
+  { segmentNumber: 1, themes: ['power'] },
+  { segmentNumber: 99, themes: ['power'] }, // segment gone — must NOT count or render
+  { segmentNumber: 3, themes: ['power'] },
+];
+const resolved = resolveAndSortBites(tagged, segByNum);
+eq(resolved.length, 2, 'unresolvable bite (missing segment) is dropped — count matches rendered rows');
+// And it must NOT equal the raw tagged total — that equality WAS the bug.
+ok(resolved.length !== tagged.length, 'resolved count is NOT the inflated raw tagged total (the over-report bug)');
+// Survivors are ordered by segment start time, not input order.
+eq(resolved.map(x => x.bite.segmentNumber), [1, 3], 'survivors ordered by start time, missing one excluded');
+
+// Start-time sort: seg 2 (00:00:05) precedes seg 1 (00:00:10) even though 1 is first in input.
+const ordered = resolveAndSortBites(
+  [{ segmentNumber: 1 }, { segmentNumber: 2 }],
+  segByNum
+);
+eq(ordered.map(x => x.bite.segmentNumber), [2, 1], 'sorted by segment start time, not input order');
+
+// Degrades safely: empty / nullish inputs never throw.
+eq(resolveAndSortBites([], segByNum).length, 0, 'empty bites -> empty');
+eq(resolveAndSortBites(null, segByNum).length, 0, 'null bites -> empty (no throw)');
+eq(resolveAndSortBites([{ segmentNumber: 1 }], null).length, 0, 'null segByNum -> empty (no throw)');
+eq(resolveAndSortBites([null, { segmentNumber: 1 }], segByNum).length, 1, 'null bite entry skipped, valid kept');
+
 // ── report ──────────────────────────────────────────────────────────────────
 console.log(`workshop-format: ${pass} passed, ${fail} failed`);
 if (fail) { console.error(fails.map(f => '  ✗ ' + f).join('\n')); process.exit(1); }
@@ -120,3 +159,7 @@ if (fail) { console.error(fails.map(f => '  ✗ ' + f).join('\n')); process.exit
 //   2. themeColor: `return THEME_PALETTE[0]` (constant) -> the distinct-seeds
 //      and determinism-vs-constant asserts fail.
 //   3. countByTheme: `c[t] = 1` (no accumulate) -> the count asserts fail.
+//   4. resolveAndSortBites: drop the `.filter(x => x.seg)` -> the missing-segment
+//      bite survives, length becomes 3, and the count-vs-render asserts fail
+//      (this is precisely the over-report bug). Remove the `.sort(...)` -> the
+//      start-time order asserts fail.
