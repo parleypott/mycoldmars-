@@ -15,6 +15,7 @@
 // returns: { scenes: [...rows...], detected: number }
 
 import { checkAccess } from './_lib/access.js';
+import { parseModelObject } from './_lib/model-json.js';
 
 // Edge runtime — Node functions FUNCTION_INVOCATION_FAILED at 90ms on
 // this project (Hobby plan). Edge handles Claude Haiku in 5-15s well
@@ -166,10 +167,11 @@ Return ~${Math.max(1, Math.min(10, Math.ceil(blocks.length / 4)))} scenes coveri
     }
     const payload = await r.json();
     const raw = payload?.content?.[0]?.text || '';
-    let cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-    const firstBrace = cleaned.indexOf('{');
-    if (firstBrace > 0) cleaned = cleaned.slice(firstBrace);
-    const parsed = JSON.parse(cleaned);
+    // Shared model-json parser: fence-strip + bare-null guard + prose-tolerant
+    // balanced-bracket fallback (handles a leading preamble OR a trailing aside
+    // around the JSON that a bare JSON.parse would throw on, dropping the reply).
+    const { ok, value: parsed } = parseModelObject(raw);
+    if (!ok) return j(502, { error: 'detect_failed', detail: 'model reply was not valid JSON' });
     detected = Array.isArray(parsed?.scenes) ? parsed.scenes : [];
   } catch (e) {
     return j(502, { error: 'detect_failed', detail: (e?.message || String(e)).slice(0, 300) });

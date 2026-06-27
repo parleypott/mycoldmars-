@@ -7,7 +7,7 @@
 // Haiku-backed (can't drive headless), so a deterministic test importing the REAL
 // shipped helper is the strongest verification. Mutation-proven: see the RED proofs.
 
-import { parseModelObject, stripCodeFence } from './model-json.js';
+import { parseModelObject, stripCodeFence, extractBalancedJSON } from './model-json.js';
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -101,6 +101,59 @@ function oldShippedDance(rawText) {
   eq(parseModelObject('   ').ok, false, 'whitespace only → ok:false');
   eq(parseModelObject(null).ok, false, 'null arg → ok:false');
   eq(parseModelObject(undefined).ok, false, 'undefined arg → ok:false');
+}
+
+// ── prose-tolerant fallback (leading preamble OR trailing aside) ──────────────
+// The qss-scene-detect / qss-explorer endpoints used to slice from the first `{`
+// then JSON.parse the REST — which throws on a TRAILING aside ("{…} hope it
+// helps!"), dropping Henry's whole scene/explorer batch. parseModelObject now
+// falls back to a string-aware balanced matcher that ignores surrounding prose.
+{
+  // RED proof: the exact old slicer dance THROWS on trailing prose.
+  function oldSlicer(rawText) {
+    let cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+    const fb = cleaned.indexOf('{');
+    if (fb > 0) cleaned = cleaned.slice(fb);
+    return JSON.parse(cleaned); // throws on trailing non-whitespace
+  }
+  let threw = false;
+  try { oldSlicer('{"scenes":[{"scene_index":0}]}\n\nHope that helps!'); }
+  catch { threw = true; }
+  ok(threw, 'RED proof: old slicer THROWS on a trailing aside after the JSON');
+
+  // The shipped parser recovers it.
+  const tail = parseModelObject('{"scenes":[{"scene_index":0}]}\n\nHope that helps!');
+  ok(tail.ok === true && Array.isArray(tail.value.scenes) && tail.value.scenes.length === 1,
+    'trailing aside → recovered scenes array');
+
+  const lead = parseModelObject('Sure! Here you go:\n{"items":[{"id":1},{"id":2}]}');
+  ok(lead.ok === true && Array.isArray(lead.value.items) && lead.value.items.length === 2,
+    'leading preamble → recovered items array');
+
+  const both = parseModelObject('Here:\n```json\n{"items":[{"id":1}]}\n```\nlet me know!');
+  ok(both.ok === true && Array.isArray(both.value.items) && both.value.items.length === 1,
+    'fence + prose on both sides → recovered');
+
+  // A literal brace INSIDE a string value must not close the object early.
+  const innerBrace = parseModelObject('{"items":[{"caption":"the cost was high }"}]} trailing words');
+  ok(innerBrace.ok === true && innerBrace.value.items[0].caption === 'the cost was high }',
+    'string-internal `}` does not miscount depth (string-aware)');
+
+  // Top-level array with surrounding prose, too.
+  const arrProse = parseModelObject('Items:\n[{"id":1}]\ndone');
+  ok(arrProse.ok === true && typeof arrProse.value === 'object',
+    'array-with-prose → ok:true (object-typed value)');
+}
+
+// ── extractBalancedJSON direct contract ───────────────────────────────────────
+{
+  ok(extractBalancedJSON('no json here') === undefined, 'no bracket → undefined');
+  ok(extractBalancedJSON('{unterminated') === undefined, 'unbalanced → undefined');
+  const v = extractBalancedJSON('prefix {"a":1} suffix');
+  ok(v && v.a === 1, 'balanced object extracted, prose ignored');
+  // first balanced object wins when two are present
+  const first = extractBalancedJSON('{"a":1} {"b":2}');
+  ok(first && first.a === 1 && first.b === undefined, 'first balanced object wins');
 }
 
 console.log(`model-json: ${pass} passed, ${fail} failed`);

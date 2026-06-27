@@ -25,6 +25,7 @@ import { checkAccess } from './_lib/access.js';
 import { BURGUNDY_NOVEL_ACT1 } from './_lib/burgundy-novel-act1.js';
 import { loadWorldStyle, sanitizeSlug } from './_lib/qss-worlds.js';
 import { imageStorageMeta } from './_lib/image-storage.js';
+import { parseModelObject, stripCodeFence } from './_lib/model-json.js';
 
 // Edge runtime. We surfaced the underlying Anthropic error so we can see
 // why the call is failing fast. The list endpoint no longer pulls
@@ -381,15 +382,13 @@ Plain JSON only. No art_prompt — that's built server-side.`;
   if (!raw) {
     throw new Error(`empty_response stop=${stopReason || 'none'}`);
   }
-  // Strip fences, also handle a leading prose preamble before the JSON.
-  let cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  // Find first { and trim everything before.
-  const firstBrace = cleaned.indexOf('{');
-  if (firstBrace > 0) cleaned = cleaned.slice(firstBrace);
-  let parsed;
-  try { parsed = JSON.parse(cleaned); }
-  catch (e) {
-    throw new Error(`parse_failed stop=${stopReason} preview=${cleaned.slice(0, 120).replace(/\n/g, ' ')}`);
+  // Shared model-json parser: fence-strip + bare-null guard + prose-tolerant
+  // balanced-bracket fallback. Tolerates a leading preamble AND a trailing aside
+  // around the JSON — the old inline slicer only trimmed leading junk, so a
+  // model reply ending in "...} Hope that helps!" threw away the whole batch.
+  const { ok, value: parsed } = parseModelObject(raw);
+  if (!ok) {
+    throw new Error(`parse_failed stop=${stopReason} preview=${stripCodeFence(raw).slice(0, 120).replace(/\n/g, ' ')}`);
   }
   return Array.isArray(parsed?.items) ? parsed.items : [];
 }
