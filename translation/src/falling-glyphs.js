@@ -54,6 +54,31 @@ const PALETTE = [
   'rgba(65, 44, 39, 0.7)',     // np-sepia (subtle base)
 ];
 
+// How far past a button's left/right edge a resting glyph may sit before it
+// slides off, and how far the support's top may jump in one frame before we
+// treat it as a different surface and detach.
+const SUPPORT_X_PAD = 2;
+const SUPPORT_Y_TOL = 6;
+
+// Resolve which button rect a resting glyph sits on — by GEOMETRY, not by a
+// stored array index. getButtonRects() is rebuilt every frame and can change
+// length or order (panels toggle, the toolbar reflows, layout shifts); a glyph
+// that stored `rects[index]` would silently re-bind to whatever button now
+// occupies that slot and teleport onto its top. Instead, match the rect whose
+// horizontal span still contains the glyph AND whose top is within a small band
+// of where the glyph last rested. Returns the matching rect, or null when the
+// surface is gone (so the glyph falls away cleanly).
+export function findSupportRect(rects, x, restY, xPad = SUPPORT_X_PAD, yTol = SUPPORT_Y_TOL) {
+  if (!Array.isArray(rects)) return null;
+  for (const r of rects) {
+    if (!r) continue;
+    if (x < r.left - xPad || x > r.right + xPad) continue;
+    if (Math.abs(r.top - restY) > yTol) continue;
+    return r;
+  }
+  return null;
+}
+
 let canvas, ctx, raf, glyphs = [];
 let getButtonRects = () => [];
 let visible = false;
@@ -152,8 +177,8 @@ function spawnGlyph(i, total) {
     angVel,
     size: FONT_PX + (Math.random() * 6 - 3),
     age: 0,
-    restingOn: null,   // index into rects array, or null
-    restingY: 0,       // the y coord we sit at while resting
+    resting: false,    // true while sitting on a button surface
+    restingY: 0,       // the support's top (the line we sit at) while resting
   });
 }
 
@@ -181,11 +206,14 @@ function step(dt) {
     // Resting state: glyph sits on a button surface. Apply only ground
     // friction to vx, no gravity, no vy. When it slides off the edge
     // of its support, gravity takes over.
-    if (g.restingOn !== null) {
-      const support = rects[g.restingOn];
-      // Check the support still exists and we're still on top of it.
-      if (!support || g.x < support.left - 2 || g.x > support.right + 2) {
-        g.restingOn = null;
+    if (g.resting) {
+      // Re-resolve the support by geometry each frame (the rects array is rebuilt
+      // every frame and may have reordered), so a resting glyph stays bound to the
+      // same physical surface instead of teleporting onto whatever button now sits
+      // at a stale index.
+      const support = findSupportRect(rects, g.x, g.restingY);
+      if (!support) {
+        g.resting = false;
         // Fall away cleanly.
       } else {
         // Slide with friction. Decay vx exponentially toward zero.
@@ -193,6 +221,7 @@ function step(dt) {
         g.vx *= decay;
         g.angVel *= decay;
         g.x += g.vx * dt;
+        g.restingY = support.top;   // follow the surface if it drifts
         g.y = support.top - 1;
         g.rot += g.angVel * dt;
         g.age += dt;
@@ -230,7 +259,8 @@ function step(dt) {
           g.y = r.top - 1;
           g.vy = 0;
           g.angVel *= 0.5;
-          g.restingOn = ri;
+          g.resting = true;
+          g.restingY = r.top;
           break;
         }
         g.y = r.top - 1;
