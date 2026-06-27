@@ -26,6 +26,12 @@ export function stripMarkdown(md) {
     // -> drop. Requires a letter or "/" right after "<" AND a closing ">", so prose
     // comparisons ("a < b", "3 < 5", "x<y" with no close) are left untouched.
     .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    // Bare URLs (https://… or www.…) on their own, NOT wrapped in [text](url)
+    // or <autolink> (both already handled above). ElevenLabs reads a raw link
+    // aloud character-by-character ("h t t p s colon slash slash…"), so a source
+    // URL pasted into essay prose gets spoken. Drop the URL but KEEP any trailing
+    // sentence punctuation, so "…reported at https://reuters.com." still stops.
+    .replace(/\b(?:https?:\/\/|www\.)[^\s<>()]+/gi, (m) => (m.match(/[.,;:!?]+$/) || [''])[0])
     // Table separator rows (|---|:--:|) — strip BEFORE the row→comma pass below,
     // else the dashes read as "dash dash dash" or leak in as a bogus cell.
     .replace(/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/gm, '')

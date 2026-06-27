@@ -139,6 +139,30 @@ eq(stripMarkdown('He wrote [sic] in the margin.'), 'He wrote [sic] in the margin
 eq(stripMarkdown('see item [3] in the list'), 'see item [3] in the list', 'inline bracket-number preserved');
 eq(stripMarkdown('[Newpress](https://newpress.co) link'), 'Newpress link', 'inline link still -> text (no regression)');
 
+// ---- RED PROOF + FIX: bare URLs (not wrapped in a markdown link) get read aloud by ElevenLabs
+// character-by-character. stripMarkdownOLD never stripped them; the new rule does, while keeping
+// any trailing sentence punctuation so the spoken sentence still stops.
+eq(stripMarkdownOLD('Reported at https://reuters.com/world/asia today.'),
+   'Reported at https://reuters.com/world/asia today.', 'RED: old code leaves a bare URL (read aloud char-by-char)');
+eq(stripMarkdown('Reported at https://reuters.com/world/asia today.'),
+   'Reported at  today.', 'FIX: bare https URL dropped from the spoken text');
+eq(stripMarkdown('See www.bbc.com/news for more.'),
+   'See  for more.', 'FIX: bare www. URL dropped');
+eq(stripMarkdown('The source was https://example.com/path/to/article.'),
+   'The source was .', 'FIX: trailing sentence period kept after a URL drop');
+eq(stripMarkdown('Two links http://a.org and https://b.org here.'),
+   'Two links  and  here.', 'FIX: multiple bare URLs each dropped');
+eq(stripMarkdown('Visit (https://example.com) for details.'),
+   'Visit () for details.', 'FIX: paren-wrapped URL dropped, parens stay');
+// No regression: prose that merely contains a dotted token but no scheme/www is untouched,
+// and a markdown-linked URL still collapses to its visible text (not double-processed).
+eq(stripMarkdown('Email me at john@example.com please.'),
+   'Email me at john@example.com please.', 'no scheme/www -> email-like token preserved');
+eq(stripMarkdown('the file report_2021.pdf is attached'),
+   'the file report_2021.pdf is attached', 'bare filename (no scheme) preserved');
+eq(stripMarkdown('[BBC](https://www.bbc.com/news) covered it.'),
+   'BBC covered it.', 'inline-linked URL still -> text, not stripped twice');
+
 // ---- firstLine
 eq(firstLine('\n\n  Hello there  \nsecond'), 'Hello there', 'firstLine trims + finds first non-empty');
 eq(firstLine(''), undefined, 'firstLine empty -> undefined');
