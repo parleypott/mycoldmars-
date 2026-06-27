@@ -4759,17 +4759,24 @@ const fmtUSDshort = n => {
 };
 const fmtPct = v => v + '%';
 
-// Smart money parser: accepts "$255,000", "255000", "250k", "1.5m", "1.5M"
+// Smart money parser: accepts "$255,000", "255000", "250k", "1.5m", "1.5M",
+// and spelled-out suffixes "2.5 million" / "2.5 mil" / "950 thousand".
+// The old version only tested str.endsWith('m'/'k'); once spaces were stripped,
+// "2.5 million" became "2.5million" — which ends in 'n', not 'm' — so it parsed
+// as $2.50: a silent 1,000,000x error on a multimillion-dollar asking price
+// (this feeds pin.askingPrice → the whole money panel). It now mirrors the
+// importer's parseListingPrice suffix set so manual entry and paste-import
+// agree. Documented/plain numeric forms stay byte-identical.
 const parseMoney = s => {
   if (s == null) return 0;
   const str = String(s).toLowerCase().trim().replace(/[\$,\s]/g, '');
   if (!str) return 0;
-  let mult = 1;
-  let core = str;
-  if (str.endsWith('m')) { mult = 1000000; core = str.slice(0, -1); }
-  else if (str.endsWith('k')) { mult = 1000; core = str.slice(0, -1); }
-  const n = parseFloat(core);
-  return isNaN(n) ? 0 : n * mult;
+  const m = str.match(/^(-?\d*\.?\d+)(million|mil|thousand|m|k)?$/);
+  if (!m) { const n0 = parseFloat(str); return isNaN(n0) ? 0 : n0; }
+  let n = parseFloat(m[1]);
+  if (isNaN(n)) return 0;
+  if (m[2]) n *= (m[2][0] === 'm') ? 1000000 : 1000;
+  return n;
 };
 const parseNum = parseMoney;
 const parsePct = s => {
