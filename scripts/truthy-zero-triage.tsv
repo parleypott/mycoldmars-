@@ -1,0 +1,36 @@
+# truthy-zero-triage.tsv — the loop's memory of which `<numeric> || <nonzero>`
+# sites have already been JUDGED, so future iterations don't re-eyeball the same
+# safe defaults. Consumed by find-truthy-zero.mjs: a scanned site NOT listed here
+# reads as NEW and trips `--check` (exit 1), forcing a human to judge it.
+#
+# A site is a BUG when 0 is a LEGITIMATE value for that field (a gap, a start
+# timecode, an offset, a level, a count-from-zero) — then `|| N` silently eats it.
+# A site is SAFE when 0 is not a meaningful input (it's clamped away by a
+# Math.max/clamp with a positive lower bound, or 0 makes no sense for the field),
+# OR the `||` is applied to a STRING (an input `.value`), where only the EMPTY
+# string triggers the default and a typed "0" is truthy and survives.
+#
+# Format (TAB-separated):  FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   SNIPPET-KEY = the whitespace-stripped snippet the scanner emits (stable across
+#     line moves; run `find-truthy-zero.mjs --emit-ledger` to regenerate keys).
+#   STATUS = SAFE (judged a non-bug) | BUG (open — fix it, then flip to SAFE).
+#
+# Add a row the moment you finish judging a site. Keep reasons short.
+#
+# FILE	SNIPPET-KEY	STATUS	REASON
+animatedcrazy/src/main.js	.value=s.strokeWidth||6	SAFE	UI slider populate on shape-select; strokeWidth never 0 (created positive, slider min ≥1) — cosmetic read, not data
+animatedcrazy/src/main.js	.value=s.points||5	SAFE	UI slider populate; star points never 0 (min ≥2) — cosmetic read
+animatedcrazy/src/main.js	.value)||2	SAFE	Math.max(2, parseFloat(e.target.value)||2) — width/height clamped ≥2, 0 invalid
+api/_lib/qss-story-report-normalize.js	Number(s.score)||1	SAFE	clamp(Number(s.score)||1,1,5) — score range 1-5, 0 not a valid score
+api/qss-explore-generate.js	Number(body.count)||4	SAFE	Math.max(1,Math.min(6,Number(body.count)||4)) — count 1-6, 0 invalid
+api/qss-explorer.js	Number(body?.pass)||2	SAFE	Math.max(1,Math.min(4,Number(body?.pass)||2)) — pass 1-4, 0 invalid
+mapkeys/src/main.js	.value,10)||8	SAFE	Math.max(3,Math.min(24,parseInt||8)) — polygon sides 3-24, 0 invalid
+queen-scarlet-school/index.html	.value,10)||8	SAFE	Math.max(3,parseInt(rule-min)||8) — min blockCount ≥3, 0 invalid
+queen-scarlet-school/index.html	.value,10)||12	SAFE	maxRaw=parseInt(rule-max)||12; max=Math.max(min,maxRaw)≥3 — 0 blocks meaningless
+queen-scarlet-school/index.html	.value,10)||1	SAFE	Math.max(1,parseInt(rule-smin)||1) — min sentences ≥1, 0 invalid
+queen-scarlet-school/index.html	.value,10)||3	SAFE	smaxRaw=parseInt(rule-smax)||3; smax=Math.max(smin,smaxRaw)≥1 — 0 sentences meaningless
+todo/index.html	.value,10)||24	SAFE	clamp(parseInt(hEnd)||24,1,24) — day-end hour clamped 1-24, 0 invalid
+translation/src/main.js	parseInt(seqEl.querySelector('rate>timebase')?.textContent)||24	SAFE	timebase is the fps rate denominator; 0 is invalid XML
+translation/src/main.js	.value)||23.976	SAFE	parseFloat(#seq-fps.value)||23.976 — sequence fps; 0 fps invalid (3 call sites)
+translation/src/main.js	.value||16	SAFE	parseInt(#max-words?.value||16) — `||` on the STRING value; typed "0" is truthy and survives, only empty→16; SRT word-cap, 0 invalid anyway
+translation/src/main.js	.value||5	SAFE	parseInt(#max-duration?.value||5) — `||` on the STRING value; typed "0" survives; SRT duration cap, 0 invalid anyway

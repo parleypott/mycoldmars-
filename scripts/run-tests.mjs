@@ -105,7 +105,11 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // Same dual-mode contract as SHELL_GATES, but these gates are bun scripts (cleaner
 // paren-balanced parsing than awk for AST-shaped checks). find-bool-sort-comparator
 // flags sort comparators that return a boolean instead of a number (silent wrong order).
-const BUN_GATES = ['find-bool-sort-comparator.mjs'].flatMap((s) =>
+// find-truthy-zero flags `<numeric-coercion> || <nonzero-default>` sites where the
+// `|| N` could silently eat a legitimate ZERO (the loop's #1 recurring bug class).
+// Ledger-backed (scripts/truthy-zero-triage.tsv): --check fails only on an
+// UNTRIAGED site, so a newly introduced `parseFloat(x) || 5` trips it on landing.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
