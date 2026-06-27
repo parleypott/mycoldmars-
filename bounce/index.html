@@ -167,11 +167,11 @@ const LEVELS = {
 
 const LEVEL_META = [
   { title: 'The Obvious Ones', desc: 'Countries your grandma could name on a map.', bounces: 13, baseInterval: 1100 },
-  { title: 'Dinner Party Tier', desc: 'Countries you confidently mention at dinner parties.\n(Even if you'd struggle to spell them.)', bounces: 13, baseInterval: 950 },
-  { title: 'Actually Interesting', desc: 'Countries that don't make the news\nbut have incredible food.', bounces: 12, baseInterval: 800 },
+  { title: 'Dinner Party Tier', desc: 'Countries you confidently mention at dinner parties.\n(Even if you\'d struggle to spell them.)', bounces: 13, baseInterval: 950 },
+  { title: 'Actually Interesting', desc: 'Countries that don\'t make the news\nbut have incredible food.', bounces: 12, baseInterval: 800 },
   { title: 'Teacher Mentioned Once', desc: 'Your geography teacher brought these up.\nYou were on your phone.', bounces: 12, baseInterval: 680 },
   { title: 'Technically Countries', desc: 'These exist. They have flags and everything.\nWe checked.', bounces: 11, baseInterval: 540 },
-  { title: 'We're Sorry', desc: 'We had to look some of these up.\nYou're on your own.', bounces: 10, baseInterval: 400 },
+  { title: 'We\'re Sorry', desc: 'We had to look some of these up.\nYou\'re on your own.', bounces: 10, baseInterval: 400 },
 ];
 
 const TOTAL_LEVELS = 6;
@@ -194,6 +194,7 @@ let lastTime = null;
 let targetCountry, currentCountry, levelCountries, countryIndex;
 let parsedPaths = {};
 let flashTimeout = null;
+let timeTimeout = null;
 
 // Canvas
 const canvas = document.getElementById('c');
@@ -253,6 +254,13 @@ function startLevel(lvl) {
   shapeInterval = meta.baseInterval;
   shapeTimer = 0;
   lastTime = null;
+  // Cancel any pending final-bounce 'time' timer from the previous level. Without
+  // this, a buzzer-win on level N (which ends the level via tap before the timer
+  // fires) leaves that timer armed; if the player advances to level N+1 within
+  // ~350ms, the stale timer fires while gameActive is true again and flips the
+  // brand-new level to a false 'MISSED'. The !gameActive guard in endLevel can't
+  // catch it once a fresh level is active — the timer must be cleared at the source.
+  clearTimeout(timeTimeout);
 
   platformY = H * 0.66;
   ballY = platformY - H * 0.38;
@@ -296,7 +304,7 @@ function loop(ts) {
       left > 0 ? `${left} bounce${left !== 1 ? 's' : ''} left` : '';
 
     if (bounceCount >= totalBounces) {
-      setTimeout(() => endLevel(false, 'time'), 350);
+      timeTimeout = setTimeout(() => endLevel(false, 'time'), 350);
       return;
     }
   }
@@ -354,6 +362,7 @@ function draw() {
 function endLevel(won, reason) {
   if (!gameActive) return; // idempotent: a final-bounce tap already ended the level; ignore the stale 'time' timer
   gameActive = false;
+  clearTimeout(timeTimeout); // a tap-win/wrong ended the level — disarm the pending final-bounce 'time' timer
   sessionResults.push(won);
   buildScoreRow();
   doFlash(won ? 'green' : 'red');
