@@ -23,7 +23,8 @@
 # stops a NEW chart Johnny adds next month from shipping yet another naive copy,
 # and no name-based tool will ever surface it. This codifies the by-hand audit the
 # loop keeps re-doing: find every abbreviation formatter by its SHAPE (a magnitude
-# divide feeding .toFixed() with a unit suffix), and classify each GUARDED vs NAIVE.
+# divide feeding a rounding op — .toFixed() OR Math.round/floor/ceil/trunc — with a
+# unit suffix), and classify each GUARDED vs NAIVE.
 #
 # WHAT IT FLAGS
 #   GUARDED — the formatter has a rollover-band guard near the divide: a threshold
@@ -58,12 +59,21 @@ cd "$(dirname "$0")/.."
 
 # ── The shape of an abbreviation formatter, and the shape of its rollover guard ──
 # A candidate FORMATTER (not just any divide) needs all three, within one window:
-#   1. `.toFixed(`                         — the rounded display
+#   1. a ROUNDED display — `.toFixed(` OR a `Math.round|floor|ceil|trunc(` call
 #   2. a magnitude divide by 1e3/1e6/1e9   — 1000 / 1_000_000 / 1000000000 etc.
 #   3. a quoted magnitude UNIT suffix 'K'/'M'/'B'/'T'
 # Requirement 3 is what separates a count/money abbreviator (the rollover class)
 # from a `/1000` ms->seconds conversion ending in 's'/'min' — those divide and
-# .toFixed too, but never roll a unit, so they are NOT this bug class.
+# round too, but never roll a unit, so they are NOT this bug class.
+#
+# Requirement 1 accepts TWO rounding shapes because the loop has shipped the same
+# "1000K flash" both ways: `(v/1e6).toFixed(1)+'M'` AND `Math.round(v/1000)+'K'`
+# (the views-growth y-axis tick that flashed "1000K" mid-animation, obs 4381, used
+# the round form with NO toFixed). A toFixed-only detector is structurally blind to
+# every round/floor/ceil abbreviator — exactly the gap a NEW chart could regress
+# through unseen. Both shapes share the magnitude divide + unit suffix, so the
+# guard logic below is identical for either.
+CAND_ROUND='[.]toFixed[(]|Math[.](round|floor|ceil|trunc)[(]'
 CAND_DIVIDE='/[[:space:]]*(1e[369]|1_?000(_?000)?(_?000)?)'
 SUFFIX='["'"'"'`][KMBT]["'"'"'`]'
 # A guard token in the window that routes the 999.5->1000 rollover band up a tier.
@@ -75,13 +85,20 @@ IGNORE='rollover-audit:ignore'
 
 # Classify every formatter site in one file. Emits: STATUS\tfile:line
 classify_file() {
-  awk -v F="$1" -v CAND="$CAND_DIVIDE" -v SUFFIX="$SUFFIX" -v GUARD="$GUARD" -v IGN="$IGNORE" '
+  awk -v F="$1" -v ROUND="$CAND_ROUND" -v CAND="$CAND_DIVIDE" -v SUFFIX="$SUFFIX" -v GUARD="$GUARD" -v IGN="$IGNORE" '
     { L[NR]=$0 }
     END {
       sline=0; gflag=0; last=-100
       for (i=1; i<=NR; i++) {
         line=L[i]
-        if (line !~ /\.toFixed\(/) continue
+        # A formatter site is real CODE, never a comment. Skip lines that are a pure
+        # comment (slash-slash, JSDoc star, hash, or HTML open) so a passage that
+        # DESCRIBES the rollover pattern in prose (e.g. a changelog comment that
+        # literally spells out a Math.round abbreviator) is not mistaken for a live
+        # formatter. Adjacent comment lines still count as context for the
+        # suffix/guard windows below — only the candidate line itself is gated.
+        if (line ~ /^[[:space:]]*(\/\/|\*|#|<!--)/) continue
+        if (line !~ ROUND) continue          # a rounded display: toFixed OR Math.round/floor/ceil/trunc
         if (line !~ CAND) continue
         # Require a magnitude unit suffix in the ±4 window (else it is a unit
         # CONVERSION like ms->s, not a count/money abbreviation that rolls over).
@@ -103,10 +120,12 @@ classify_file() {
     }' "$1"
 }
 
-# Repo scan: every non-test, non-vendor source file that even mentions .toFixed.
+# Repo scan: every non-test, non-vendor source file that mentions a rounding op
+# (.toFixed OR Math.round/floor/ceil/trunc) — the pre-filter must match BOTH
+# candidate shapes or a round-only formatter file is never classified.
 scan_repo() {
   local files
-  files=$(grep -rlE '\.toFixed\(' \
+  files=$(grep -rlE '\.toFixed\(|Math\.(round|floor|ceil|trunc)\(' \
             --include='*.js' --include='*.html' --include='*.ts' --include='*.mjs' . 2>/dev/null \
           | grep -v node_modules | grep -v '/dist/' \
           | grep -vE '\.(test|spec)\.' || true)
@@ -155,13 +174,41 @@ JS
 // rollover-audit:ignore (line items never reach $1M)
 const s = (x / 1000).toFixed(1) + 'K';
 JS
+  # Fixture 7: NAIVE round-based abbreviator — Math.round, NO toFixed, no guard. This
+  # is the shape a toFixed-only detector was BLIND to (the views-growth tick class).
+  cat >"$tmp/naive-round.js" <<'JS'
+function tick(v) { return Math.round(v / 1000) + 'K'; }
+JS
+  # Fixture 8: GUARDED round-based (the westchester shape: a `>= 1000` guard on the
+  # line above routes the rollover band up a tier). MUST be GUARDED.
+  cat >"$tmp/guarded-round.js" <<'JS'
+function fmtUSD(a) {
+  if (a >= 1e6 || Math.round(a / 1000) >= 1000) return (a / 1e6).toFixed(1) + 'M';
+  return Math.round(a / 1000) + 'K';
+}
+JS
+  # Fixture 9: a Math.round /1000 ms->seconds CONVERSION (suffix 's', not K/M/B).
+  # MUST NOT appear — the round shape must not widen the net past the unit class.
+  cat >"$tmp/round-conversion.js" <<'JS'
+const secs = Math.round((Date.now() - t0) / 1000) + 's';
+JS
+  # Fixture 10: the rollover pattern spelled out inside a COMMENT (the views-growth
+  # tick-changelog shape). MUST NOT appear — prose is not a live formatter.
+  cat >"$tmp/in-comment.js" <<'JS'
+function tick(v) {
+  // old copy used Math.round(v / 1000) + 'K', which flashed "1000K" mid-climb
+  return fmtViews(v);
+}
+JS
 
   local out
   out=$(classify_file "$tmp/naive.js")
   assert "$out" "NAIVE	$tmp/naive.js:2" "naive bare divide flagged NAIVE" || rc=1
 
+  # Site reports at line 2 (the `Math.round(v/1000)` intermediate is now a candidate
+  # too); same cluster, still GUARDED by the `>= 1e6`/`k >= 1000` on line 3.
   out=$(classify_file "$tmp/guarded.js")
-  assert "$out" "GUARDED	$tmp/guarded.js:3" "same-line threshold flagged GUARDED" || rc=1
+  assert "$out" "GUARDED	$tmp/guarded.js:2" "same-cluster threshold flagged GUARDED" || rc=1
 
   out=$(classify_file "$tmp/guarded-window.js")
   assert "$out" "GUARDED	$tmp/guarded-window.js:2" "following-line string-check flagged GUARDED" || rc=1
@@ -174,6 +221,18 @@ JS
 
   out=$(classify_file "$tmp/ignored.js")
   assert "$out" "GUARDED	$tmp/ignored.js:2" "inspected ignore-marker site reads GUARDED" || rc=1
+
+  out=$(classify_file "$tmp/naive-round.js")
+  assert "$out" "NAIVE	$tmp/naive-round.js:1" "naive Math.round (no toFixed) flagged NAIVE" || rc=1
+
+  out=$(classify_file "$tmp/guarded-round.js")
+  assert "$out" "GUARDED	$tmp/guarded-round.js:2" "round-based with >=1000 guard flagged GUARDED" || rc=1
+
+  out=$(classify_file "$tmp/round-conversion.js")
+  assert "$out" "" "Math.round ms->seconds conversion (suffix 's') produces no site" || rc=1
+
+  out=$(classify_file "$tmp/in-comment.js")
+  assert "$out" "" "rollover pattern inside a comment produces no site" || rc=1
 
   # Load-bearing: the LIVE repo must currently be clean (0 NAIVE). If this fails,
   # a real un-hardened formatter shipped — the whole reason the tool exists.
