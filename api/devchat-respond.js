@@ -19,6 +19,7 @@
 import { checkRateLimit } from './_lib/rate-limit.js';
 import { pgrValue } from './_lib/pgrest.js';
 import { readJsonBody } from './_lib/read-json-body.js';
+import { normalizeAnthropicMessages } from './_lib/anthropic-messages.js';
 
 export const config = { runtime: 'edge' };
 
@@ -271,7 +272,16 @@ async function handleInner(req) {
       return { role, content: m.body || '(empty)' };
     });
 
-  if (historyMessages.length === 0) {
+  // Anthropic requires the messages array to OPEN on a `user` turn (and is
+  // strict about same-role runs). On a long thread, the slice(-20) window above
+  // can land its HEAD on an assistant turn — the truncation boundary falls
+  // mid-exchange — which makes the API 400 ("first message must use the 'user'
+  // role") and Johnny silently gets no reply. Route through the shared
+  // normalizer (drops leading assistant turns, merges same-role runs, preserves
+  // multimodal image blocks) — the same guard qss-freestyle and the tutor use.
+  const safeMessages = normalizeAnthropicMessages(historyMessages);
+
+  if (safeMessages.length === 0) {
     return json({ error: 'No user messages to reply to.' }, 400);
   }
 
@@ -285,7 +295,7 @@ async function handleInner(req) {
     model: MODEL,
     max_tokens: MAX_TOKENS,
     system: `${SYSTEM_PROMPT}\n\n--- Live page context ---\n${contextHeader}`,
-    messages: historyMessages,
+    messages: safeMessages,
   };
 
   let replyText = '';

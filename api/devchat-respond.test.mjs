@@ -13,6 +13,7 @@
 import assert from 'node:assert/strict';
 import { pgrValue } from './_lib/pgrest.js';
 import { buildThreadQueryUrls, default as handler } from './devchat-respond.js';
+import { normalizeAnthropicMessages } from './_lib/anthropic-messages.js';
 
 let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.error(`✗ ${name}\n  ${e.message}`); } };
@@ -199,6 +200,112 @@ await at('valid object, empty threadId -> 400 threadId required', async () => {
 await at('GET -> 405 (POST only)', async () => {
   const res = await handler(new Request('https://x/api/devchat-respond', { method: 'GET' }));
   assert.equal(res.status, 405);
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// ANTHROPIC FIRST-TURN-MUST-BE-USER FIX (wiring devchat through the shared
+// normalizeAnthropicMessages — the same guard qss-freestyle / tutor-claude use).
+//
+// devchat builds its Anthropic `messages` by windowing the thread to the last
+// 20 user/assistant rows: `recent = userOrAssistant.slice(-20)`, then maps each
+// row to a turn. On a long, alternating thread, slice(-20) can land the window's
+// HEAD on an ASSISTANT turn — and Anthropic rejects any request whose first
+// message isn't `user` ("messages: first message must use the 'user' role"), so
+// devchat 400s and Johnny silently gets no reply. The handler now routes
+// historyMessages through normalizeAnthropicMessages before forwarding.
+//
+// These reconstruct the EXACT devchat assembly (filter → slice(-20) → map) and
+// prove two things: (a) that assembly genuinely produces a leading-assistant
+// head on a long thread — the bug's trigger (the RED assertion) — and (b) the
+// shared normalizer the handler now calls turns that into a user-first array
+// (the FIX/multimodal assertions). Mutation proof of the load-bearing piece:
+// delete the leading-drop loop in anthropic-messages.js and the FIX/multimodal
+// assertions go RED. The handler wiring itself (messages: safeMessages, not
+// historyMessages) is the one-line code change this regression guards against
+// silently rotting back.
+
+// Faithful mirror of devchat-respond.js's assembly (the filter → slice → map).
+function devchatAssemble(rows) {
+  const userOrAssistant = rows.filter((m) => m.sender === 'user' || m.sender === 'assistant');
+  const recent = userOrAssistant.slice(-20);
+  return recent.map((m) => {
+    const role = m.sender === 'assistant' ? 'assistant' : 'user';
+    const images = m.metadata && Array.isArray(m.metadata.images) ? m.metadata.images : [];
+    if (role === 'user' && images.length) {
+      const content = [];
+      for (const img of images) {
+        if (!img?.url) continue;
+        content.push({ type: 'image', source: { type: 'url', url: img.url } });
+      }
+      if (m.body) content.push({ type: 'text', text: m.body });
+      else if (content.length) content.push({ type: 'text', text: '(image)' });
+      return { role, content };
+    }
+    return { role, content: m.body || '(empty)' };
+  });
+}
+
+// user, assistant, user, assistant, ... — so slice(-20) opens on an assistant.
+function alternatingThread(n) {
+  const rows = [];
+  for (let i = 0; i < n; i++) rows.push({ sender: i % 2 === 0 ? 'user' : 'assistant', body: `msg ${i}` });
+  return rows;
+}
+
+t('RED: long thread makes the raw window lead with an assistant turn', () => {
+  // 25 rows (0..24, even=user / odd=assistant). slice(-20) keeps 5..24; index 5
+  // is odd → assistant. The raw array the OLD code forwarded → Anthropic 400.
+  const raw = devchatAssemble(alternatingThread(25));
+  assert.equal(raw[0].role, 'assistant', 'raw window leads with assistant (the bug)');
+});
+
+t('FIX: normalizer makes the long-thread window lead with a user turn', () => {
+  const raw = devchatAssemble(alternatingThread(25));
+  const safe = normalizeAnthropicMessages(raw);
+  assert.ok(safe.length > 0, 'window is non-empty');
+  assert.equal(safe[0].role, 'user', 'normalized window leads with user');
+  // devchat is called right after the user row is inserted → tail stays a user turn.
+  assert.equal(safe[safe.length - 1].role, 'user');
+  assert.equal(safe[safe.length - 1].content, 'msg 24');
+});
+
+t('all-assistant degenerate window collapses to [] (graceful 400, not Anthropic 400)', () => {
+  const raw = devchatAssemble([
+    { sender: 'assistant', body: 'a' },
+    { sender: 'assistant', body: 'b' },
+  ]);
+  assert.deepEqual(normalizeAnthropicMessages(raw), []);
+});
+
+t('user-turn multimodal image blocks survive normalization untouched', () => {
+  const rows = alternatingThread(24); // ends on assistant at idx 23
+  rows.push({
+    sender: 'user',
+    body: 'why is this red?',
+    metadata: { images: [{ url: 'https://mycoldmars.com/shot.png' }] },
+  });
+  const safe = normalizeAnthropicMessages(devchatAssemble(rows));
+  assert.equal(safe[0].role, 'user', 'leads with user after dropping the assistant head');
+  const last = safe[safe.length - 1];
+  assert.equal(last.role, 'user');
+  assert.ok(Array.isArray(last.content), 'image turn keeps its block-array content');
+  assert.equal(last.content[0].type, 'image');
+  assert.equal(last.content[0].source.url, 'https://mycoldmars.com/shot.png');
+  assert.equal(last.content[1].type, 'text');
+  assert.equal(last.content[1].text, 'why is this red?');
+});
+
+t('short, already-valid thread is forwarded unchanged (behavior-preserving)', () => {
+  const safe = normalizeAnthropicMessages(devchatAssemble([
+    { sender: 'user', body: 'hi' },
+    { sender: 'assistant', body: 'hello' },
+    { sender: 'user', body: 'help me' },
+  ]));
+  assert.deepEqual(safe, [
+    { role: 'user', content: 'hi' },
+    { role: 'assistant', content: 'hello' },
+    { role: 'user', content: 'help me' },
+  ]);
 });
 
 console.log(`\ndevchat-respond pgrest: ${pass} passed, ${fail} failed`);
