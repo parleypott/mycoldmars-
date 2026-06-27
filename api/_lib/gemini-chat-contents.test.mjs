@@ -195,5 +195,36 @@ ok('nano-banana has no inline Gemini contents map (only the shared builder)',
 ok('walden-design has no inline Gemini contents map',
   !inlineGeminiCopy.test(walden));
 
+// ════════════════════════════════════════════════════════════════════════════
+// APPENDED-MESSAGE COERCION — the new user turn is the one part present in EVERY
+// Gemini chat call. History content is coerced (above); the appended message
+// must be too. A truthy NON-string message (number/array/object from a malformed
+// body — callers only guard `!message`) must NOT be pushed raw, or Gemini 400s
+// the whole chat ("Invalid value at 'contents.parts.text'").
+// ════════════════════════════════════════════════════════════════════════════
+// RED proof: the old raw push (`text: message`) leaves a non-string text part.
+function oldRawAppend(history, message) {
+  const c = buildGeminiHistoryContents(history, { window: 12 });
+  c.push({ role: 'user', parts: [{ text: message }] }); // raw — the pre-fix bug
+  return c;
+}
+ok('RED proof: old raw append leaves a NON-string text for a numeric message',
+  typeof oldRawAppend([], 42).at(-1).parts[0].text === 'number');
+ok('RED proof: old raw append leaves a NON-string text for an object message',
+  typeof oldRawAppend([], { text: 'x' }).at(-1).parts[0].text === 'object');
+// FIX: every message shape yields a STRING text part (never a 500-triggering raw value).
+for (const m of [42, 0, true, null, undefined, ['a', 'b'], { t: 'x' }]) {
+  const last = buildGeminiChatContents([], m).at(-1);
+  ok('appended message ' + JSON.stringify(m) + ' → string text part',
+    typeof last.parts[0].text === 'string');
+}
+ok('numeric message 42 coerces to "42"',
+  buildGeminiChatContents([], 42).at(-1).parts[0].text === '42');
+ok('null/undefined message coerces to "" (not "null"/"undefined")',
+  buildGeminiChatContents([], null).at(-1).parts[0].text === '' &&
+  buildGeminiChatContents([], undefined).at(-1).parts[0].text === '');
+ok('string message is preserved verbatim (no behavior change for the common case)',
+  buildGeminiChatContents([], 'hello there').at(-1).parts[0].text === 'hello there');
+
 console.log(`\ngemini-chat-contents: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

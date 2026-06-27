@@ -42,6 +42,13 @@ export function buildGeminiHistoryContents(history, { window = 12 } = {}) {
 
 export function buildGeminiChatContents(history, message, { window = 12 } = {}) {
   const contents = buildGeminiHistoryContents(history, { window });
-  contents.push({ role: 'user', parts: [{ text: message }] });
+  // Coerce the appended message the SAME way history content is coerced above
+  // (line ~35). The new user turn is the one part present in EVERY Gemini chat
+  // call across the app, yet callers only guard `!message` (truthy) — a truthy
+  // NON-string (a number, array, or object from a malformed/structured body)
+  // would otherwise be pushed raw as `text: <non-string>`, which Gemini rejects
+  // ("Invalid value at 'contents.parts.text'") → a 500 on the whole chat. String
+  // coercion at this chokepoint never crashes and never sends a malformed part.
+  contents.push({ role: 'user', parts: [{ text: String(message != null ? message : '') }] });
   return contents;
 }
