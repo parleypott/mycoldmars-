@@ -40,6 +40,9 @@ function parseBibleCharacters(bible) {
     'And','But','Now','Why','How','For','Nor','Yet','Out','Off','All',
     'One','Two','Not','Yes','Per','Via','Into','Onto','From','With','Some',
     'Any','Each','Every','Here','There','Where','Just','Very','Even','Still',
+    // bible heading SHOUTS (uppercase forms — match the server copy so an
+    // all-caps heading never leaks as a fake character into the tutor)
+    'BIBLE','RULES','GOAL','STYLE','OFFLIMITS','STRUCTURE',
   ]);
   const out = new Set();
   const re = /\b([A-Z][a-zA-Z]{2,29}(?:\s+[A-Z][a-zA-Z]{2,29})?)\b/g;
@@ -92,6 +95,19 @@ ok('"Now Max ran" does NOT yield Now', !has(parseBibleCharacters('Now Max ran.')
 ok('"And Leo waited" yields Leo',     has(parseBibleCharacters('And Leo waited.'), 'Leo'));
 ok('"Today Maxwell woke" yields Maxwell', has(parseBibleCharacters('Today Maxwell woke up.'), 'Maxwell'));
 ok('"Today Maxwell" drops Today',     !has(parseBibleCharacters('Today Maxwell woke up.'), 'Today'));
+
+// ---------- THE GUARD: all-caps bible heading SHOUTS must NEVER leak --------
+// (the danger direction — a bible written with uppercase headings would
+//  otherwise surface BIBLE/RULES/GOAL/STYLE/STRUCTURE as fake characters and
+//  fire bogus fixation hints. Must match the server copy in api/_lib.)
+const shouts = parseBibleCharacters(
+  'BIBLE rules go here. RULES are simple. The GOAL is fun. ' +
+  'STYLE matters. STRUCTURE helps. Max is the hero.'
+);
+for (const w of ['BIBLE','RULES','GOAL','STYLE','STRUCTURE']) {
+  ok(`heading shout "${w}" excluded`, !has(shouts, w));
+}
+ok('real name survives among shouts (Max)', has(shouts, 'Max'));
 
 // ---------- ordinary nouns are kept (kids name characters anything) ----------
 ok('Sky kept (could be a name)',  has(parseBibleCharacters('Sky is a robot.'), 'Sky'));
