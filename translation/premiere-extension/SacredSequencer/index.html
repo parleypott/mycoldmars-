@@ -873,7 +873,15 @@ document.getElementById('build-btn').addEventListener('click', function() {
   var outputName = (buildMode === 'original')
     ? outputBase.replace(/Sacred Selects$/, 'Original Media Selects')
     : outputBase;
-  var gapSeconds = (!Array.isArray(soundbiteData) && soundbiteData.gapSeconds) || 0.5;
+  // Honor an explicit numeric gap — including 0 (soundbites butted directly
+  // together, a legitimate tight-assembly choice). The old `(...) || 0.5` was the
+  // truthy-zero trap: gapSeconds:0 silently became 0.5s. Only fall back to the
+  // 0.5 default when the value is missing/non-numeric. Mirrors translation/src/
+  // seq-gap.js parseGapFrames; locked by gap-seconds.test.mjs (resolveGapSeconds).
+  var gapSeconds = 0.5;
+  if (!Array.isArray(soundbiteData) && typeof soundbiteData.gapSeconds === 'number' && isFinite(soundbiteData.gapSeconds)) {
+    gapSeconds = soundbiteData.gapSeconds;
+  }
 
   // Preflight check — every referenced sequence must resolve (directly or via mapping).
   var rows = referencedSequences();
@@ -988,7 +996,7 @@ document.getElementById('build-btn').addEventListener('click', function() {
       'var blocks=payload.split("||");' +
       'var hdr=blocks[0].split("~");' +
       'var outputName=hdr[0];' +
-      'var gapSeconds=parseFloat(hdr[1])||0.5;' +
+      'var gapSeconds=parseFloat(hdr[1]);if(isNaN(gapSeconds)){gapSeconds=0.5;}' +
       'if(!app||!app.project){return "ERR|No project open.";}' +
       // Collect every sequence name referenced
       'var needed={};' +
