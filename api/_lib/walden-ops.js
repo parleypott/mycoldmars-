@@ -164,7 +164,15 @@ export function sanitizePlan(plan) {
 // Fallback parser: pull a fenced ```ops / ```json array of operations out of
 // the model's text when it didn't use real function calls.
 export function extractOpsFromText(reply) {
-  const fenceRe = /```(?:ops|json)?\s*\n([\s\S]*?)\n```/gi;
+  // Tolerant fence match: the old form REQUIRED a newline both right after the
+  // opening tag (`\s*\n`) and right before the closing fence (`\n```). Real LLM
+  // fallback text (this path only fires when the model emits ops as prose, not
+  // function calls) often hugs the closing ``` directly onto the JSON's last
+  // char with no preceding newline — that silently dropped EVERY op AND leaked
+  // the raw ```ops…``` block into the visible reply. `\s*` on both sides accepts
+  // the hugged form while staying byte-identical for the newline-delimited one
+  // (tryParseOpsArray trims + JSON.parse ignores the surrounding whitespace).
+  const fenceRe = /```(?:ops|json)?\s*([\s\S]*?)\s*```/gi;
   const out = [];
   let cleanReply = reply;
   const ranges = [];

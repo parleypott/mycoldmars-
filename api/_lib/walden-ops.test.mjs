@@ -172,6 +172,19 @@ const wallCall = {
   ok(!cleanReply.includes('```'), 'the fence is stripped from the visible reply');
   ok(cleanReply.includes('holds the slope'), 'surrounding prose is preserved');
 
+  // Load-bearing: the closing ``` HUGS the JSON (no newline before it) — a real
+  // LLM fallback shape. The old `\n```` form dropped the op AND leaked the raw
+  // fence into the reply. Goes RED if extractOpsFromText reverts to requiring a
+  // newline on either side of the fence.
+  const hugged = 'Here:\n```ops\n[{"op":"delete","id":"x"}]```\nDone.';
+  const hug = extractOpsFromText(hugged);
+  eq(hug.parsedOps, [{ op: 'delete', id: 'x' }], 'hugged closing fence still parses the op');
+  ok(!hug.cleanReply.includes('```'), 'hugged fence is stripped from the visible reply (no raw-fence leak)');
+  ok(hug.cleanReply.includes('Done.'), 'prose after a hugged fence is preserved');
+  // Opening tag with no newline before content, closing fence at end-of-string
+  const tight = '```ops [{"op":"rotate","id":"a","rot":90}]```';
+  eq(extractOpsFromText(tight).parsedOps, [{ op: 'rotate', id: 'a', rot: 90 }], 'single-line fence (no newlines) parses');
+
   // direct op-shape array + trailing-comma tolerance
   eq(tryParseOpsArray('[{"op":"delete","id":"x"},]'), [{ op: 'delete', id: 'x' }], 'trailing comma tolerated');
   eq(tryParseOpsArray('not json'), [], 'unparseable → empty');
