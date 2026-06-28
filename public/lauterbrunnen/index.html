@@ -2220,8 +2220,28 @@ document.getElementById('resetview').onclick=resetView;
 const fmt=n=>{ if(n==null)return'–'; return (Math.round(n*10)/10).toLocaleString(); };
 function diffOrder(d){return {easy:0,moderate:1,hard:2}[d]??3;}
 
+// Canonical "most iconic first" ordering. The intro promises this order and the
+// live data is swapped wholesale via __loadData, so enforce meta.hikeOrder in code
+// rather than trusting the injected array to already be sorted. Stable: ids not in
+// the order list keep their original relative position at the end.
+function orderByHikeOrder(hikes, order){
+  if(!Array.isArray(hikes)) return [];
+  if(!Array.isArray(order) || !order.length) return hikes.slice();
+  const rank=new Map(order.map((id,i)=>[id,i]));
+  const BIG=order.length;
+  return hikes
+    .map((h,i)=>[h,i])
+    .sort((a,b)=>{
+      const ra=rank.has(a[0].id)?rank.get(a[0].id):BIG;
+      const rb=rank.has(b[0].id)?rank.get(b[0].id):BIG;
+      return ra!==rb ? ra-rb : a[1]-b[1];
+    })
+    .map(x=>x[0]);
+}
+
 function render(){
-  const m=DATA.meta;
+  const m=DATA.meta||{};
+  DATA.hikes=orderByHikeOrder(DATA.hikes||[], m.hikeOrder);
   if(m.title) document.getElementById('h-title').innerHTML=m.title;
   if(m.subtitle) document.getElementById('h-sub').textContent=m.subtitle.replace(/<[^>]+>/g,'');
   document.getElementById('intro-text').innerHTML=m.intro||'';
