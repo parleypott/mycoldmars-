@@ -36,6 +36,7 @@ import {
 } from './_lib/walden-ops.js';
 import { parseImageInput } from './_lib/walden-image-input.js';
 import { buildGeminiHistoryContents } from './_lib/gemini-chat-contents.js';
+import { coerceObjectBody } from './_lib/read-json-body.js';
 
 const TEXT_MODEL = 'gemini-2.5-flash';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -426,6 +427,9 @@ async function innerHandler(req) {
   let body;
   try { body = await req.json(); }
   catch { return jsonError(400, 'Invalid JSON body'); }
+  // A JSON literal `null`/non-object body parses fine but would crash the raw
+  // `body.mode` dispatch below into a 500 — coerce to {} so it returns the 400.
+  body = coerceObjectBody(body);
 
   const mode = body.mode === 'render' ? 'render' : body.mode === 'chat' ? 'chat' : null;
   if (!mode) return jsonError(400, "Missing or invalid `mode` — expected 'chat' or 'render'");

@@ -112,7 +112,12 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // find-nan-sort-comparator flags `new Date(x) - new Date(y)` parsed INLINE in a
 // sort comparator — the NaN-poison shape the bool gate marks OK (it's a valid
 // subtraction) but that scrambles the whole list when one timestamp won't parse.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs'].flatMap((s) =>
+// find-naive-body-read flags serverless handlers that read a JSON request body
+// and access it RAW (no readJsonBody/coerceObjectBody, no inline guard) — the
+// null-body→500 crash class the loop fixed ~20+ times. Ledger-backed
+// (scripts/naive-body-read-triage.tsv): --check fails only on a NEW unguarded
+// handler, so a freshly-added (or missed) one trips the suite immediately.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

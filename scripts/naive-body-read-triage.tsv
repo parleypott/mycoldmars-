@@ -1,0 +1,13 @@
+# naive-body-read-triage.tsv — accepted exceptions for find-naive-body-read.mjs
+#
+# Columns: FILE <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE  → the handler reads a body and accesses it raw, but is in fact
+#                    guarded in a shape the regex classifier can't see (typically a
+#                    guard inside an IMPORTED validator). --check ignores these.
+#
+# A handler listed here is one a human has CONFIRMED safe. A genuinely-unguarded
+# handler must NOT be added here — fix it (route through readJsonBody /
+# coerceObjectBody, or guard the parsed body) so the gate passes legitimately.
+#
+api/commentbank-ask.js	SAFE	body routed through validateCommentbankInput(body) which does `const {question,comments}=body||{}` and returns a 400 before the raw destructure (api/_lib/commentbank-validate.js)
+api/winchester-state.js	SAFE	body routed through validateStatePayload(body) which guards `!body||typeof!=='object'` and returns a 400 before any raw body.expectedUpdatedAt access (api/_lib/winchester-validate.js)

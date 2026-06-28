@@ -19,6 +19,7 @@ import { checkAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { parseModelObject } from './_lib/model-json.js';
 import { selectSummarizableBlocks, zipSummaries } from './_lib/block-summaries.js';
+import { coerceObjectBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -77,6 +78,9 @@ export default async function handler(req) {
   let body;
   try { body = await req.json(); }
   catch { return json(400, { error: 'invalid JSON' }); }
+  // A JSON literal `null`/non-object body parses fine but would crash the raw
+  // `body.blocks` read below into a 500 — coerce to {} so it cleanly yields [].
+  body = coerceObjectBody(body);
 
   // Only summarize blocks with usable text; cap count + each block's text so
   // the prompt doesn't blow up. (Pure core in _lib/block-summaries.js.)

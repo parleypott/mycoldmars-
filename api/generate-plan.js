@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { parseImageInput } from './_lib/walden-image-input.js';
+import { coerceObjectBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
@@ -113,7 +114,10 @@ async function innerHandler(req) {
   if (!apiKey) return jsonError(500, 'GEMINI_API_KEY not configured');
   let body;
   try { body = await req.json(); } catch { return jsonError(400, 'Invalid JSON body'); }
-  return handleGenPlan(body, apiKey);
+  // A JSON literal `null` (or a number/string/array) parses fine, slips past the
+  // catch, then crashes handleGenPlan's raw `body.photo` access into a 500.
+  // Coerce any non-object to {} so the missing-field checks return their 400.
+  return handleGenPlan(coerceObjectBody(body), apiKey);
 }
 
 async function buildWebRequest(req) {
