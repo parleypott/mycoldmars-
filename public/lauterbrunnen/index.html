@@ -2157,7 +2157,7 @@ function renderMarkers(){
     const dot=document.createElement('div');
     dot.className='mk mk-hike'+(adv?' adv':'')+(h.id===activeHikeId?' active':'');
     dot.dataset.hike=h.id;
-    dot.textContent=(i+1);
+    dot.textContent=hikeNumber(DATA.hikes,h);
     dot.onclick=(e)=>{e.stopPropagation();selectHike(h.id,true);};
     markers.push(new mapboxgl.Marker({element:dot,anchor:'center'}).setLngLat(h.startCoord).addTo(map));
   });
@@ -2238,6 +2238,11 @@ function orderByHikeOrder(hikes, order){
     })
     .map(x=>x[0]);
 }
+// The card placard number and the map-dot number are the SAME promise ("most
+// iconic first", 01..N). Compute both from this one helper — the 1-based position
+// in the canonical (post-orderByHikeOrder) array — so a filter view never renumbers
+// a card out of sync with its map dot. Must stay equal to the marker forEach index.
+function hikeNumber(ordered, h){ return Array.isArray(ordered) ? ordered.indexOf(h)+1 : 0; }
 
 function render(){
   const m=DATA.meta||{};
@@ -2301,7 +2306,7 @@ function renderHikes(filter){
   else if(['easy','moderate','hard'].includes(filter)) list=list.filter(h=>h.difficulty===filter);
   document.getElementById('h-count').textContent=list.length+' of '+DATA.hikes.length;
   list.forEach((h)=>{
-    const gi=DATA.hikes.indexOf(h)+1;
+    const gi=hikeNumber(DATA.hikes,h);
     const adv=h.type!=='hike';
     const card=document.createElement('div');
     card.className='hcard'+(adv?' htype-adv':'')+(h.id===activeHikeId?' active open':'');

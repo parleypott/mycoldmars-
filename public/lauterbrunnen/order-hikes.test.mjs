@@ -20,6 +20,7 @@ function orderByHikeOrder(hikes, order){
     })
     .map(x=>x[0]);
 }
+function hikeNumber(ordered, h){ return Array.isArray(ordered) ? ordered.indexOf(h)+1 : 0; }
 // ---- COPY END ----
 
 const ids = a => a.map(h => h.id);
@@ -76,6 +77,36 @@ const eq = (a, b, m) => { assert.deepStrictEqual(a, b, m); n++; };
   eq(orderByHikeOrder(null, ['a']), [], 'null hikes -> []');
   eq(orderByHikeOrder(undefined, ['a']), [], 'undefined hikes -> []');
   eq(orderByHikeOrder({}, ['a']), [], 'non-array hikes -> []');
+}
+
+// 7. hikeNumber: card placard number AND map-dot number both come from this helper.
+//    It is the 1-based position in the CANONICAL ordered array — never the filtered
+//    sublist's position. This is the load-bearing contract: the number a user sees on
+//    a card must equal the number on its map dot, even inside a filtered view.
+{
+  const order = ['a','b','c','d','e'];
+  const hikes = [{id:'a'},{id:'b'},{id:'c'},{id:'d'},{id:'e'}];
+  const ordered = orderByHikeOrder(hikes, order);
+  // each hike numbered by its global rank
+  eq(ordered.map(h => hikeNumber(ordered, h)), [1,2,3,4,5],
+     'hikeNumber = 1-based position in the canonical ordered array');
+
+  // Filter view: drop a,b,d — c and e remain. Their numbers MUST stay 3 and 5,
+  // matching their map dots — NOT 1 and 2 (which a filtered-index impl would give).
+  const filtered = ordered.filter(h => h.id === 'c' || h.id === 'e');
+  eq(filtered.map(h => hikeNumber(ordered, h)), [3,5],
+     'filtered cards keep their canonical number (filtered-index regression goes RED here)');
+
+  // Sanity: the buggy "number by filtered position" would have produced [1,2].
+  ok(filtered.map((h,i)=>i+1).join() === '1,2',
+     'guard: the regression we forbid (filtered-index) yields the wrong [1,2]');
+
+  // marker parity: the marker's forEach index+1 equals hikeNumber over the same array.
+  ordered.forEach((h,i) => ok(i+1 === hikeNumber(ordered, h),
+     'map-dot forEach index must equal hikeNumber (no divergence between the two render paths)'));
+
+  // defensive: non-array ordered -> 0 (never throws, never NaN)
+  ok(hikeNumber(null, hikes[0]) === 0, 'non-array ordered -> 0');
 }
 
 console.log(`order-hikes.test.mjs: ${n} assertions passed`);
