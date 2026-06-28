@@ -2,6 +2,7 @@ import { checkAccess } from './_lib/access.js';
 import { sanitizeSlug } from './_lib/qss-worlds.js';
 import { pruneVariations } from './_lib/prune-variations.js';
 import { capLovedAware } from './_lib/cap-loved.js';
+import { coerceObjectBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -87,7 +88,7 @@ export default async function handler(req) {
       return jsonError(400, 'BAD_ACTION', `Unknown GET action: ${action}`);
     }
     if (req.method === 'POST') {
-      const body = await req.json().catch(() => ({}));
+      const body = coerceObjectBody(await req.json().catch(() => ({})));
       switch (action) {
         case 'save':        return await handleSave(body);
         case 'rename':      return await handleRename(body);

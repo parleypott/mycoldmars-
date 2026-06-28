@@ -13,6 +13,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { sanitizeSlug, invalidateWorldStyleCache } from './_lib/qss-worlds.js';
+import { coerceObjectBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -86,7 +87,7 @@ export default async function handler(req) {
     }
 
     if (req.method === 'PUT') {
-      const body = await req.json().catch(() => ({}));
+      const body = coerceObjectBody(await req.json().catch(() => ({})));
       const patch = {};
       // Only accept the editable fields. Reject everything else so a
       // typo doesn't accidentally rewrite a column we didn't intend.

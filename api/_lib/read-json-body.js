@@ -27,3 +27,20 @@ export async function readJsonBody(req) {
   }
   return { ok: true, body };
 }
+
+// Coerce an already-parsed body to a guaranteed plain object.
+//
+// For handlers that read the body inline with the weaker
+// `await req.json().catch(() => ({}))` idiom and then access `body.x` RAW
+// (no optional chaining). That idiom only guards a MALFORMED body — a
+// structurally-valid JSON literal `null` (or a number/string/array) sails
+// through `.catch` and lands as a non-object, so the first `body.x` throws a
+// TypeError that surfaces as an opaque HTTP 500 instead of the handler's own
+// 400 validation. Wrapping the parse result in coerceObjectBody turns every
+// non-object body into `{}`, so each handler's existing field validation
+// returns its intended 400 ("name is required", "no_editable_fields", …)
+// rather than a server error. Plain objects pass through by reference
+// unchanged, so there is zero behavior change for any valid request.
+export function coerceObjectBody(raw) {
+  return (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+}
