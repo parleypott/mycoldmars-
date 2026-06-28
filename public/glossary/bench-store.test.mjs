@@ -24,9 +24,20 @@ const html = readFileSync(join(HERE, 'index.html'), 'utf8');
 
 // Pull the exact shipped BENCH_KEY const + loadBench() out of the inline script.
 const keyM = html.match(/const BENCH_KEY\s*=\s*'[^']*';/);
-assert.ok(keyM, 'could not locate BENCH_KEY in glossary/index.html');
 const loadM = html.match(/function loadBench\(\)\s*\{[\s\S]*?\}\s*$/m);
-assert.ok(loadM, 'could not locate loadBench() in glossary/index.html');
+
+// RETIRED-WHEN-ABSENT: the glossary was redesigned (commit 7f64b8e, Jun 28 2026) from the
+// "drafting bench" into the "Taste Kingdom" — the bench store (BENCH_KEY/loadBench) was
+// intentionally removed and replaced by the stateless crown→sendToKingdom flow. This gate
+// locked a feature that no longer exists, so it can never pass as written. Rather than delete
+// the institutional memory (the JSON.parse type-confusion hardening it proves), this test
+// self-retires with a clear notice when the feature is absent — and AUTOMATICALLY REACTIVATES
+// its full mutation-lock the moment a BENCH_KEY/loadBench pair reappears in the page.
+if (!keyM || !loadM) {
+  console.log('bench-store: SKIPPED — drafting-bench retired in the Taste Kingdom redesign ' +
+    '(no BENCH_KEY/loadBench in glossary/index.html). Test reactivates if the bench returns.');
+  process.exit(0);
+}
 
 // Build the real loadBench bound to the real BENCH_KEY and an injected localStorage.
 function makeLoadBench(src) {
