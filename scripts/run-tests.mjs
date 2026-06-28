@@ -109,7 +109,10 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // `|| N` could silently eat a legitimate ZERO (the loop's #1 recurring bug class).
 // Ledger-backed (scripts/truthy-zero-triage.tsv): --check fails only on an
 // UNTRIAGED site, so a newly introduced `parseFloat(x) || 5` trips it on landing.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs'].flatMap((s) =>
+// find-nan-sort-comparator flags `new Date(x) - new Date(y)` parsed INLINE in a
+// sort comparator — the NaN-poison shape the bool gate marks OK (it's a valid
+// subtraction) but that scrambles the whole list when one timestamp won't parse.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
