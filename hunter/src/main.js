@@ -7,6 +7,7 @@ import { filterAndSortCorpus } from './corpus-filter.js';
 import { buildCorpusCsv } from './csv-export.js';
 import { classifySequence } from './sequence-classify.js';
 import { formatTimeAgo, formatDate, fmtLocaleDate } from './time-format.js';
+import { escHtml } from './html-escape.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -3475,12 +3476,6 @@ function showToast(message, isError = false) {
     toast.classList.remove('visible');
     setTimeout(() => toast.remove(), 300);
   }, 3500);
-}
-
-function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
 }
 
 function simpleMarkdown(str) {
