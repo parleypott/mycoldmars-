@@ -68,3 +68,5 @@ elapsed	IGNORE	83	collision: generic timing local across 8 anim/worker files —
 tick	IGNORE	76	collision: per-app rAF loop closures (8 files) — each its own animation engine, intentionally distinct
 raw	IGNORE	66	collision: generic local for raw input/response across 26 unrelated files
 parseEmbedding	SAFE	75	three byte-identical hardened copies (semantic-search/scene-detection-core/cross-tier-core) — NaN/Infinity reject already in place; not divergent
+walk	IGNORE	84	collision: generic recursive-walker name — sort-comparators.mjs + find-truthy-zero.mjs walk DIRECTORIES, while burma-script recovery/document-builder + translation walk a ProseMirror DOC tree; unrelated fns sharing a generic name
+sourceFiles	SAFE	80	sort-comparators.mjs holds the ONE real repo file-collector (find-bool + find-nan now import it as thin aliases); find-truthy-zero.mjs keeps its own copy for its distinct scan config — a legit separate scanner, not a drifting copy
