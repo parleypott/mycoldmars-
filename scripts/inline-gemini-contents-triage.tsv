@@ -1,0 +1,7 @@
+# inline-gemini-contents triage ledger — judged exceptions for find-inline-gemini-contents.mjs
+# Format: FILE <TAB> STATUS <TAB> REASON   (STATUS=SAFE downgrades a NAIVE the regex flags but a
+# human has confirmed cannot ship a leading model turn — e.g. a hand-rolled for-loop builder that
+# already drops leading model turns). A real inline builder should instead be routed through
+# api/_lib/gemini-chat-contents.js. Blank lines and #-comments are ignored.
+#
+# (none yet — the repo is clean: every Gemini chat caller routes history through the shared helper.)

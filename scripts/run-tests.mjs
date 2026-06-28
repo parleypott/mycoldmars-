@@ -117,7 +117,13 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // null-body→500 crash class the loop fixed ~20+ times. Ledger-backed
 // (scripts/naive-body-read-triage.tsv): --check fails only on a NEW unguarded
 // handler, so a freshly-added (or missed) one trips the suite immediately.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs'].flatMap((s) =>
+// find-inline-gemini-contents flags any Gemini caller that builds its chat
+// `contents` from an INLINE `history.map(m => ({role, parts}))` instead of the
+// shared api/_lib/gemini-chat-contents.js helper — the leading-model-turn→500
+// class the loop fixed 5+ times. Ledger-backed
+// (scripts/inline-gemini-contents-triage.tsv): --check fails only on a NEW inline
+// builder, so the next handler that reintroduces one trips the suite on landing.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
