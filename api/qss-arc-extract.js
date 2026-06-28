@@ -2,6 +2,7 @@ import { checkAccess } from './_lib/access.js';
 import { findCanonCharactersInText, canonContextBlock } from './_lib/qss-canon.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { readJsonBody } from './_lib/read-json-body.js';
+import { extractBalancedJSON } from './_lib/model-json.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -187,7 +188,20 @@ export function extractArc(text) {
     const parsed = JSON.parse(raw);
     return normalizeArc(parsed);
   } catch {
-    // Tolerate a missing closing brace
+    // Direct parse failed. Two distinct salvage paths, tried in order:
+    //   1) The reply is a COMPLETE object wrapped in prose — a trailing aside
+    //      ("{…} — let me know :}") or a literal brace/emoticon after the JSON.
+    //      The naive firstBrace→lastBrace slice above over-grabs into that prose
+    //      and `JSON.parse` throws, dropping a perfectly good arc. The shared
+    //      string-aware balanced matcher walks from the first `{`, tracks string
+    //      state, and returns the first BALANCED object — ignoring the trailing
+    //      junk. This kills the last naive-brace-matcher copy in the JSON family
+    //      (same class already fixed in api-client/sot-hunter/model-json).
+    const balanced = extractBalancedJSON(raw);
+    if (balanced !== undefined) return normalizeArc(balanced);
+    //   2) The reply was TRUNCATED mid-object (model hit the token cap), so there
+    //      is no balanced close at all — extractBalancedJSON returns undefined.
+    //      Repair the open delimiters in nesting order and parse the salvage.
     try {
       const repaired = balanceJson(raw);
       const parsed = JSON.parse(repaired);

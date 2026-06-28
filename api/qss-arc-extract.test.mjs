@@ -141,6 +141,41 @@ eq('extractArc(null) → null', extractArc(null), null);
 eq('extractArc("") → null', extractArc(''), null);
 ok('extractArc(garbage) → null', extractArc('no json here at all') === null);
 
+// ---- extractArc: COMPLETE object wrapped in brace-bearing prose ----
+// The naive firstBrace→lastBrace slice over-grabs a trailing `}` (a smiley `:}`,
+// an emoticon, or a literal brace in the model's aside) and JSON.parse throws,
+// dropping a perfectly good arc. The string-aware balanced matcher recovers it.
+// Mutation guard: neuter the extractBalancedJSON fallback and these go RED.
+{
+  const reply = 'Here is the arc: {"synopsis":"Kevin accepts the helmet.","characters":[{"name":"Kevin","intro_block":1,"current_state":"resigned"}],"confidence":0.5} — let me know if you want tweaks :}';
+  const arc = extractArc(reply);
+  ok('extractArc recovers a COMPLETE arc with a trailing brace-aside (was null)', !!arc);
+  if (arc) {
+    eq('  synopsis recovered past the smiley', arc.synopsis, 'Kevin accepts the helmet.');
+    eq('  character recovered', arc.characters[0]?.name, 'Kevin');
+    eq('  confidence recovered', arc.confidence, 0.5);
+  }
+}
+{
+  // A `}` inside a string value AND a trailing aside — the slice can't tell
+  // structural braces from textual ones; the string-aware matcher can.
+  const reply = '{"synopsis":"the rule is } here","themes":["beans"]}\n\nHope that helps!';
+  const arc = extractArc(reply);
+  ok('extractArc recovers across an inner-string brace + trailing prose', !!arc);
+  if (arc) {
+    eq('  inner-brace synopsis intact', arc.synopsis, 'the rule is } here');
+    eq('  themes intact', arc.themes, ['beans']);
+  }
+}
+{
+  // The <arc> wrapper carries a trailing brace right after the close tag's
+  // sibling text — still recovered (the wrapper path also benefits).
+  const reply = '<arc>{"synopsis":"ok","confidence":0.3} :}</arc>';
+  const arc = extractArc(reply);
+  ok('extractArc recovers an <arc> body with a trailing brace', !!arc);
+  if (arc) eq('  wrapped synopsis intact', arc.synopsis, 'ok');
+}
+
 // ---- normalizeArc: coercion + clamping (locks the consumer of the parsed obj) ----
 {
   const n = normalizeArc({
