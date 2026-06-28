@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Lauterbrunnen — an adventure menu from Wengen</title>
+<meta name="description" content="A clean menu of hikes and adventures in the Lauterbrunnen valley, with a 3D mountain map. Home base: Wengen." />
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz@0,6..72;1,6..72&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FFFFFF; --paper-2:#F5F3EF; --paper-3:#ECE9E3; --surface:#fff;
+    --ink:#16140F; --ink-2:#4A453D; --ink-3:#7C766B; --ink-faint:#A8A296;
+    --line:#E6E2D9; --line-2:#D7D2C7;
+    --red:#D42A1C; --red-ink:#B01E12; --red-bg:#FBEDEB;
+    --easy:#3F8A4A; --mod:#C2872A; --hard:#C0392B;
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --serif:"Newsreader",Georgia,serif;
+    --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,monospace;
+    --r-sm:5px; --r-md:9px; --r-lg:14px; --r-pill:999px;
+    --panelw:clamp(380px, 38vw, 540px);
+    --sh-1:0 1px 2px rgba(22,20,15,.05);
+    --sh-2:0 4px 16px rgba(22,20,15,.08),0 1px 3px rgba(22,20,15,.05);
+    --sh-3:0 14px 44px rgba(22,20,15,.16),0 3px 10px rgba(22,20,15,.07);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font-family:inherit;cursor:pointer}
+  ::selection{background:var(--red);color:#fff}
+
+  /* ---------------- shell ---------------- */
+  #app{display:grid;grid-template-columns:var(--panelw) 1fr;height:100vh;width:100vw;position:relative}
+  #panel{position:relative;background:var(--paper);border-right:1px solid var(--line-2);overflow-y:auto;overflow-x:hidden;height:100vh;scroll-behavior:smooth}
+  #panel::-webkit-scrollbar{width:10px}
+  #panel::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:10px;border:3px solid var(--paper)}
+  #map{position:relative;height:100vh;width:100%;background:#dfe6ea}
+
+  /* ---------------- header ---------------- */
+  header{padding:26px 28px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:linear-gradient(var(--paper) 72%,rgba(255,255,255,0));z-index:20}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--red-ink);font-weight:600;display:flex;align-items:center;gap:8px}
+  .kicker::before{content:"";width:18px;height:2px;background:var(--red);display:inline-block}
+  h1{font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.02;letter-spacing:-.015em;margin:10px 0 6px}
+  h1 em{font-style:italic}
+  .sub{font-size:14.5px;color:var(--ink-2);line-height:1.5;max-width:42ch;margin:0}
+  .homebase{margin-top:14px;display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--line);padding:6px 11px;border-radius:var(--r-pill)}
+  .homebase b{color:var(--ink);font-weight:600}
+  .homebase .dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px var(--red-bg)}
+
+  /* ---------------- body sections ---------------- */
+  section{padding:22px 28px;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+  .sec-title{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  .sec-count{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  .intro{font-size:15px;line-height:1.62;color:var(--ink-2)}
+  .intro .lead{color:var(--ink);font-weight:500}
+
+  /* ---------------- villages ---------------- */
+  .villages{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+  .vrow{background:var(--surface);padding:13px 15px;display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center;cursor:pointer;transition:background .15s}
+  .vrow:hover{background:var(--paper-2)}
+  .vrow.active{background:var(--red-bg)}
+  .vnum{font-family:var(--mono);font-size:11px;color:var(--ink-faint);width:18px}
+  .vmain .vname{font-size:14.5px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .vmain .vone{font-size:12.5px;color:var(--ink-3);margin-top:2px;line-height:1.4}
+  .vmeta{text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);line-height:1.5;white-space:nowrap}
+  .vmeta .elev{color:var(--ink);font-weight:500}
+  .carfree{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--easy);border:1px solid color-mix(in srgb,var(--easy) 35%,transparent);padding:1px 5px;border-radius:var(--r-pill)}
+  .vexpand{grid-column:1/-1;display:none;padding-top:2px}
+  .vrow.open .vexpand{display:block}
+  .vexpand .vnarr{font-size:13.5px;line-height:1.55;color:var(--ink-2);margin:6px 0 10px}
+  .vexpand ul{margin:0 0 10px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+  .vexpand li{font-size:12.5px;color:var(--ink-2);line-height:1.45;padding-left:16px;position:relative}
+  .vexpand li::before{content:"";position:absolute;left:2px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+  .vexpand .vhow{font-family:var(--mono);font-size:11px;color:var(--ink-3);background:var(--paper-2);border-radius:var(--r-sm);padding:8px 10px;line-height:1.5}
+  .vexpand .vhow b{color:var(--ink-2)}
+
+  /* ---------------- filters ---------------- */
+  .filters{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+  .chip{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2);padding:6px 12px;border-radius:var(--r-pill);transition:all .14s}
+  .chip:hover{border-color:var(--ink-3)}
+  .chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* ---------------- hike cards ---------------- */
+  .hikes{display:flex;flex-direction:column;gap:10px}
+  .hcard{border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--surface);overflow:hidden;transition:box-shadow .18s,border-color .18s;scroll-margin-top:96px}
+  .hcard:hover{box-shadow:var(--sh-2);border-color:var(--line-2)}
+  .hcard.active{border-color:var(--red);box-shadow:0 0 0 1px var(--red),var(--sh-2)}
+  .hhead{display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:flex-start;padding:14px 15px;cursor:pointer}
+  .hidx{font-family:var(--mono);font-size:11px;font-weight:600;color:#fff;background:var(--ink);width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .hcard.active .hidx{background:var(--red)}
+  .htype-adv .hidx{background:var(--red)}
+  .htitle{min-width:0}
+  .hname{font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+  .hone{font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.4}
+  .hdiff{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-top:2px}
+  .difdot{width:8px;height:8px;border-radius:50%}
+  .dif-easy{background:var(--easy)} .dif-moderate{background:var(--mod)} .dif-hard{background:var(--hard)}
+  .diflabel{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .hstats{display:flex;gap:0;padding:0 15px 13px;flex-wrap:wrap}
+  .stat{font-family:var(--mono);font-size:11px;color:var(--ink-2);padding-right:16px;display:flex;flex-direction:column;gap:1px}
+  .stat .sl{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+  .stat .sv{font-size:12.5px;color:var(--ink);font-weight:500}
+  .stat .sv .u{color:var(--ink-3);font-weight:400;font-size:10px}
+
+  .hbody{display:none;border-top:1px solid var(--line);padding:14px 15px;background:var(--paper-2)}
+  .hcard.open .hbody{display:block}
+  .hbody .hdesc{font-size:13.5px;line-height:1.6;color:var(--ink-2);margin:0 0 12px}
+  .infogrid{display:flex;flex-direction:column;gap:8px}
+  .inforow{display:grid;grid-template-columns:74px 1fr;gap:10px;font-size:12.5px;line-height:1.5}
+  .inforow .il{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);padding-top:2px}
+  .inforow .iv{color:var(--ink-2)}
+  .hactions{display:flex;gap:8px;margin-top:13px}
+  .btn{font-family:var(--mono);font-size:11px;font-weight:500;padding:8px 13px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);display:inline-flex;align-items:center;gap:7px;transition:all .14s}
+  .btn:hover{border-color:var(--ink-3);color:var(--ink)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.primary:hover{background:var(--red);border-color:var(--red)}
+
+  /* ---------------- tips ---------------- */
+  .tips{display:flex;flex-direction:column;gap:9px}
+  .tip{display:grid;grid-template-columns:auto 1fr;gap:11px;font-size:13px;line-height:1.5;color:var(--ink-2)}
+  .tip .tn{font-family:var(--mono);font-size:11px;color:var(--red-ink);font-weight:600;padding-top:1px}
+  footer{padding:18px 28px 40px;color:var(--ink-faint);font-family:var(--mono);font-size:10.5px;line-height:1.6}
+
+  /* ---------------- map overlays ---------------- */
+  .map-ui{position:absolute;z-index:5;pointer-events:none}
+  .map-legend{top:16px;right:16px;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--sh-2);pointer-events:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-2)}
+  .map-legend .lg-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .map-legend .lg-row:first-of-type{margin-top:8px}
+  .lg-title{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+  .lg-sw{width:11px;height:11px;border-radius:50%;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+  .stylepick{bottom:30px;right:16px;display:flex;gap:0;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-pill);padding:3px;box-shadow:var(--sh-2);pointer-events:auto}
+  .stylepick button{border:none;background:none;font-family:var(--mono);font-size:11px;color:var(--ink-3);padding:6px 13px;border-radius:var(--r-pill);transition:all .15s}
+  .stylepick button.active{background:var(--ink);color:#fff}
+  .resetview{top:16px;left:16px;pointer-events:auto;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-pill);padding:8px 14px;font-family:var(--mono);font-size:11px;color:var(--ink-2);box-shadow:var(--sh-2);display:none;align-items:center;gap:7px}
+  .resetview.show{display:inline-flex}
+
+  /* ---------------- markers ---------------- */
+  .mk{cursor:pointer;transition:transform .15s;will-change:transform}
+  .mk:hover{transform:scale(1.12)}
+  .mk-hike{width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;border:2px solid #fff;box-shadow:var(--sh-2)}
+  .mk-hike.adv{background:var(--red)}
+  .mk-hike.active{transform:scale(1.25);box-shadow:0 0 0 4px var(--red-bg),var(--sh-2);z-index:3}
+  .mk-village{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.96);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:3px 10px 3px 7px;box-shadow:var(--sh-2);font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+  .mk-village .vd{width:9px;height:9px;border-radius:50%;background:var(--red)}
+  .mk-village.home{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .mk-village.home .vd{background:#fff}
+  .mapboxgl-popup-content{font-family:var(--font);border-radius:var(--r-md);padding:12px 14px;box-shadow:var(--sh-3);border:1px solid var(--line)}
+  .pop-name{font-size:14px;font-weight:600;letter-spacing:-.01em}
+  .pop-one{font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4}
+  .pop-link{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--red-ink);font-weight:600;cursor:pointer}
+
+  /* ---------------- mobile toggle ---------------- */
+  .vtoggle{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:40;display:none;background:var(--ink);border-radius:var(--r-pill);padding:4px;box-shadow:var(--sh-3)}
+  .vtoggle button{border:none;background:none;font-family:var(--mono);font-size:12px;font-weight:500;color:rgba(255,255,255,.6);padding:8px 22px;border-radius:var(--r-pill);transition:all .18s}
+  .vtoggle button.active{background:#fff;color:var(--ink)}
+
+  @media (max-width:880px){
+    #app{grid-template-columns:1fr}
+    #panel{height:100vh;width:100vw}
+    #map{position:fixed;inset:0;height:100vh;width:100vw}
+    #app.show-map #panel{display:none}
+    #app:not(.show-map) #map{display:none}
+    .vtoggle{display:flex}
+    .stylepick{bottom:84px}
+  }
+  .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--paper-2);z-index:6;font-family:var(--mono);font-size:12px;color:var(--ink-3);flex-direction:column;gap:12px}
+  .spin{width:26px;height:26px;border:2px solid var(--line-2);border-top-color:var(--red);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <header>
+      <div class="kicker">Lauterbrunnen Valley · Bernese Oberland</div>
+      <h1 id="h-title">A valley of <em>waterfalls</em><br>and high ridges</h1>
+      <p class="sub" id="h-sub">Loading the menu…</p>
+      <div class="homebase"><span class="dot"></span>Home base · <b>Wengen</b> — car-free, 1274 m</div>
+    </header>
+
+    <section id="sec-intro">
+      <div class="intro" id="intro-text"></div>
+    </section>
+
+    <section id="sec-villages">
+      <div class="sec-head"><span class="sec-title">The villages &amp; the high places</span><span class="sec-count" id="v-count"></span></div>
+      <div class="villages" id="villages"></div>
+    </section>
+
+    <section id="sec-hikes">
+      <div class="sec-head"><span class="sec-title">Hikes &amp; adventures</span><span class="sec-count" id="h-count"></span></div>
+      <div class="filters" id="filters"></div>
+      <div class="hikes" id="hikes"></div>
+    </section>
+
+    <section id="sec-tips">
+      <div class="sec-head"><span class="sec-title">Before you go</span></div>
+      <div class="tips" id="tips"></div>
+    </section>
+
+    <footer>
+      Built for a friend · 3D terrain © Mapbox · routes &amp; logistics researched, verify times &amp; openings on jungfrau.ch before heading up.
+    </footer>
+  </div>
+
+  <div id="map">
+    <div class="loading" id="map-loading"><div class="spin"></div>loading 3D terrain…</div>
+    <div class="map-ui resetview" id="resetview">↺ whole valley</div>
+    <div class="map-ui map-legend">
+      <div class="lg-title">Map</div>
+      <div class="lg-row"><span class="lg-sw" style="background:#16140F"></span> hike start</div>
+      <div class="lg-row"><span class="lg-sw" style="background:#D42A1C"></span> adventure / village</div>
+      <div class="lg-row"><span class="lg-sw" style="background:#16140F;border-color:#16140F"></span> Wengen (base)</div>
+    </div>
+    <div class="map-ui stylepick" id="stylepick">
+      <button data-style="satellite" class="active">satellite</button>
+      <button data-style="outdoors">terrain</button>
+    </div>
+  </div>
+</div>
+
+<div class="vtoggle" id="vtoggle">
+  <button data-v="list" class="active">List</button>
+  <button data-v="map">Map</button>
+</div>
+
+<script>
+const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
+
+// ===== DATA (placeholder; replaced wholesale by the research workflow output) =====
+let DATA = {
+  meta: {
+    title: "A valley of <em>waterfalls</em><br>and high ridges",
+    subtitle: "A menu of hikes and adventures around Wengen — pick a line, the map flies you there.",
+    intro: "<span class='lead'>The Lauterbrunnen valley is a glacier-cut trench with seventy-two waterfalls pouring off the walls, and you're staying on the sunny shelf at Wengen, halfway up.</span> Everything below is reachable on the cog trains and cable cars without a car. Tap any village or hike — the map flies to it and traces the route over the real terrain.",
+    tips: [
+      "Get a Jungfrau Travel Pass — it covers nearly every train, cable car and gondola in the region for the days you're here.",
+      "Check the live mountain webcams (jungfrau.ch) the morning of a big ridge hike — clear peaks or don't bother.",
+      "Save the long ridge traverses (First → Schynige Platte) for the clearest day you get.",
+      "Go up early; the cable cars and the famous viewpoints fill by late morning in summer.",
+    ],
+  },
+  villages: [
+    { id:'wengen', name:'Wengen', coord:[7.9220,46.6055], elevationM:1274, oneLiner:"Car-free balcony over the valley — home base", carFree:true, narrative:"Your base. A car-free village on a sunlit terrace facing the Jungfrau, reached only by the cog railway up from Lauterbrunnen.", bullets:["Reached only by cog railway from Lauterbrunnen (~15 min)","Sun all day, full-on Jungfrau view","Quiet evenings once the day-trippers leave"], howToGetThere:"You live here." },
+    { id:'lauterbrunnen', name:'Lauterbrunnen', coord:[7.9092,46.5938], elevationM:802, oneLiner:"The valley floor of 72 waterfalls", carFree:false, narrative:"The town everyone arrives into, on the valley floor under the Staubbach Falls.", bullets:["Staubbach Falls drops 300m over the church","Trümmelbach Falls — glacier water inside the cliff","The transit hub for everything"], howToGetThere:"Cog railway down from Wengen, ~15 min." },
+  ],
+  hikes: [
+    { id:'maennlichen-scheidegg', name:'Männlichen → Kleine Scheidegg', type:'hike', oneLiner:"The classic near-flat ridge under the Eiger", difficulty:'easy', distanceKm:4.5, ascentM:80, descentM:240, durationText:"1h30", startName:'Männlichen', startCoord:[7.9447,46.6147], endName:'Kleine Scheidegg', endCoord:[7.9614,46.5853], highElevationM:2343, waypoints:[{name:'Männlichen',coord:[7.9447,46.6147]},{name:'Kleine Scheidegg',coord:[7.9614,46.5853]}], routeLine:[[7.9447,46.6147],[7.9500,46.6010],[7.9560,46.5920],[7.9614,46.5853]], logisticsFromWengen:"Männlichen cable car from Wengen (~6 min) to the top, walk the panorama trail, train back from Kleine Scheidegg.", bestFor:"First day, all abilities, the iconic view", season:"June–October", description:"The signature walk of the region: an almost-flat balcony path with the Eiger, Mönch and Jungfrau filling the sky in front of you the whole way. Easy enough for anyone, unforgettable on a clear morning." },
+    { id:'first-bachalpsee', name:'First → Bachalpsee', type:'hike', oneLiner:"The mirror lake that reflects the peaks", difficulty:'easy', distanceKm:6, ascentM:160, descentM:160, durationText:"1h00", startName:'Grindelwald First', startCoord:[8.0540,46.6589], endName:'Bachalpsee', endCoord:[8.0287,46.6669], highElevationM:2265, waypoints:[{name:'First',coord:[8.0540,46.6589]},{name:'Bachalpsee',coord:[8.0287,46.6669]}], routeLine:[[8.0540,46.6589],[8.0440,46.6630],[8.0360,46.6655],[8.0287,46.6669]], logisticsFromWengen:"Train to Grindelwald, First gondola to the top, then the easy trail to the lake.", bestFor:"The postcard reflection, sunrise crowd", season:"Late June–October", description:"An easy gravel path from the top of the First gondola to a still alpine lake that mirrors the Schreckhorn and Wetterhorn. The 'sick lake up there' — go early for glass-calm water." },
+  ],
+};
+
+// ===== map setup =====
+mapboxgl.accessToken = MAPBOX_TOKEN;
+const STYLES = {
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  outdoors: 'mapbox://styles/mapbox/outdoors-v12',
+};
+const VALLEY_VIEW = { center:[7.95,46.61], zoom:11.4, pitch:62, bearing:18 };
+let currentStyle = 'satellite';
+let map, markers = [], activeHikeId = null;
+
+map = new mapboxgl.Map({
+  container:'map',
+  style:STYLES.satellite,
+  center:VALLEY_VIEW.center, zoom:VALLEY_VIEW.zoom, pitch:VALLEY_VIEW.pitch, bearing:VALLEY_VIEW.bearing,
+  antialias:true, attributionControl:false,
+});
+map.addControl(new mapboxgl.AttributionControl({compact:true}),'bottom-left');
+map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}),'bottom-right');
+
+function addTerrain(){
+  if(!map.getSource('dem')){
+    map.addSource('dem',{type:'raster-dem',url:'mapbox://mapbox.mapbox-terrain-dem-v1',tileSize:512,maxzoom:14});
+  }
+  map.setTerrain({source:'dem',exaggeration:1.45});
+  if(!map.getLayer('sky')){
+    map.addLayer({id:'sky',type:'sky',paint:{'sky-type':'atmosphere','sky-atmosphere-sun':[0,0],'sky-atmosphere-sun-intensity':14}});
+  }
+  // route line source
+  if(!map.getSource('route')){
+    map.addSource('route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    map.addLayer({id:'route-casing',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#fff','line-width':7,'line-opacity':.9}});
+    map.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#D42A1C','line-width':3.5}});
+  }
+}
+
+map.on('style.load', ()=>{ addTerrain(); renderMarkers(); if(activeHikeId) drawRoute(activeHikeId); });
+map.on('load', ()=>{ document.getElementById('map-loading').style.opacity=0; setTimeout(()=>document.getElementById('map-loading').remove(),400); });
+
+// ===== markers =====
+function clearMarkers(){ markers.forEach(m=>m.remove()); markers=[]; }
+function renderMarkers(){
+  clearMarkers();
+  // villages
+  DATA.villages.forEach(v=>{
+    const el=document.createElement('div');
+    el.className='mk mk-village'+(v.id==='wengen'?' home':'');
+    el.innerHTML=`<span class="vd"></span>${v.name}`;
+    el.onclick=(e)=>{e.stopPropagation();selectVillage(v.id,true);};
+    markers.push(new mapboxgl.Marker({element:el,anchor:'left'}).setLngLat(v.coord).addTo(map));
+  });
+  // hikes
+  DATA.hikes.forEach((h,i)=>{
+    const el=document.createElement('div');
+    const adv = (h.type!=='hike');
+    el.className='mk-wrap';
+    const dot=document.createElement('div');
+    dot.className='mk mk-hike'+(adv?' adv':'')+(h.id===activeHikeId?' active':'');
+    dot.dataset.hike=h.id;
+    dot.textContent=(i+1);
+    dot.onclick=(e)=>{e.stopPropagation();selectHike(h.id,true);};
+    markers.push(new mapboxgl.Marker({element:dot,anchor:'center'}).setLngLat(h.startCoord).addTo(map));
+  });
+}
+function refreshMarkerActive(){
+  document.querySelectorAll('.mk-hike').forEach(d=>{
+    d.classList.toggle('active', d.dataset.hike===activeHikeId);
+  });
+}
+
+// ===== route drawing =====
+function drawRoute(id){
+  const h=DATA.hikes.find(x=>x.id===id); if(!h||!map.getSource('route'))return;
+  const line = (h.routeLine&&h.routeLine.length>1)?h.routeLine:[h.startCoord,h.endCoord];
+  map.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:line}});
+}
+function clearRoute(){ if(map.getSource('route')) map.getSource('route').setData({type:'FeatureCollection',features:[]}); }
+
+// ===== selection =====
+function selectHike(id, fromMap){
+  const h=DATA.hikes.find(x=>x.id===id); if(!h)return;
+  activeHikeId=id;
+  refreshMarkerActive();
+  drawRoute(id);
+  document.getElementById('resetview').classList.add('show');
+  // fit the route
+  const pts=(h.routeLine&&h.routeLine.length>1)?h.routeLine:[h.startCoord,h.endCoord];
+  const b=pts.reduce((bb,p)=>bb.extend(p),new mapboxgl.LngLatBounds(pts[0],pts[0]));
+  map.fitBounds(b,{padding:{top:90,bottom:90,left:90,right:90},pitch:60,bearing:map.getBearing(),duration:1400,maxZoom:14.5});
+  // card state
+  document.querySelectorAll('.hcard').forEach(c=>c.classList.toggle('active',c.dataset.hike===id));
+  const card=document.querySelector(`.hcard[data-hike="${id}"]`);
+  if(card){
+    document.querySelectorAll('.hcard.open').forEach(c=>{if(c!==card)c.classList.remove('open');});
+    card.classList.add('open');
+    if(!fromMap) {} else { card.scrollIntoView({behavior:'smooth',block:'center'}); switchView('list'); }
+  }
+}
+function selectVillage(id, fromMap){
+  const v=DATA.villages.find(x=>x.id===id); if(!v)return;
+  map.flyTo({center:v.coord,zoom:13.4,pitch:60,bearing:map.getBearing(),duration:1400});
+  document.getElementById('resetview').classList.add('show');
+  document.querySelectorAll('.vrow').forEach(r=>r.classList.toggle('active',r.dataset.village===id));
+  const row=document.querySelector(`.vrow[data-village="${id}"]`);
+  if(row){
+    document.querySelectorAll('.vrow.open').forEach(r=>{if(r!==row)r.classList.remove('open');});
+    row.classList.add('open');
+    if(fromMap){ row.scrollIntoView({behavior:'smooth',block:'center'}); switchView('list'); }
+  }
+}
+function resetView(){
+  activeHikeId=null; clearRoute(); refreshMarkerActive();
+  document.querySelectorAll('.hcard.active').forEach(c=>c.classList.remove('active'));
+  document.getElementById('resetview').classList.remove('show');
+  map.flyTo({...VALLEY_VIEW,duration:1600});
+}
+document.getElementById('resetview').onclick=resetView;
+
+// ===== render panel =====
+const fmt=n=>{ if(n==null)return'–'; return (Math.round(n*10)/10).toLocaleString(); };
+function diffOrder(d){return {easy:0,moderate:1,hard:2}[d]??3;}
+
+function render(){
+  const m=DATA.meta;
+  if(m.title) document.getElementById('h-title').innerHTML=m.title;
+  if(m.subtitle) document.getElementById('h-sub').textContent=m.subtitle.replace(/<[^>]+>/g,'');
+  document.getElementById('intro-text').innerHTML=m.intro||'';
+
+  // villages
+  const vc=document.getElementById('villages'); vc.innerHTML='';
+  document.getElementById('v-count').textContent=DATA.villages.length+' places';
+  DATA.villages.forEach((v,i)=>{
+    const row=document.createElement('div');
+    row.className='vrow'; row.dataset.village=v.id;
+    row.innerHTML=`
+      <div class="vnum">${String(i+1).padStart(2,'0')}</div>
+      <div class="vmain">
+        <div class="vname">${v.name} ${v.carFree?'<span class="carfree">car-free</span>':''}</div>
+        <div class="vone">${v.oneLiner||''}</div>
+        <div class="vexpand">
+          <div class="vnarr">${v.narrative||''}</div>
+          ${v.bullets&&v.bullets.length?`<ul>${v.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`:''}
+          ${v.howToGetThere?`<div class="vhow"><b>Getting there:</b> ${v.howToGetThere}</div>`:''}
+        </div>
+      </div>
+      <div class="vmeta"><span class="elev">${v.elevationM?fmt(v.elevationM)+' m':''}</span></div>`;
+    row.querySelector('.vnum').addEventListener('click',e=>{e.stopPropagation();row.classList.toggle('open');});
+    row.addEventListener('click',()=>{ row.classList.toggle('open'); selectVillage(v.id,false); });
+    vc.appendChild(row);
+  });
+
+  // filters
+  buildFilters();
+  renderHikes('all');
+
+  // tips
+  const tc=document.getElementById('tips'); tc.innerHTML='';
+  (DATA.meta.tips||[]).forEach((t,i)=>{
+    const d=document.createElement('div'); d.className='tip';
+    d.innerHTML=`<span class="tn">${String(i+1).padStart(2,'0')}</span><span>${t}</span>`;
+    tc.appendChild(d);
+  });
+}
+
+let activeFilter='all';
+function buildFilters(){
+  const fc=document.getElementById('filters'); fc.innerHTML='';
+  const defs=[['all','All'],['easy','Easy'],['moderate','Moderate'],['hard','Hard'],['adventure','Adventures']];
+  defs.forEach(([key,label])=>{
+    const b=document.createElement('button');
+    b.className='chip'+(key===activeFilter?' active':'');
+    b.textContent=label; b.dataset.f=key;
+    b.onclick=()=>{activeFilter=key;buildFilters();renderHikes(key);};
+    fc.appendChild(b);
+  });
+}
+function renderHikes(filter){
+  const hc=document.getElementById('hikes'); hc.innerHTML='';
+  let list=[...DATA.hikes];
+  if(filter==='adventure') list=list.filter(h=>h.type!=='hike');
+  else if(['easy','moderate','hard'].includes(filter)) list=list.filter(h=>h.difficulty===filter);
+  document.getElementById('h-count').textContent=list.length+' of '+DATA.hikes.length;
+  list.forEach((h)=>{
+    const gi=DATA.hikes.indexOf(h)+1;
+    const adv=h.type!=='hike';
+    const card=document.createElement('div');
+    card.className='hcard'+(adv?' htype-adv':'')+(h.id===activeHikeId?' active open':'');
+    card.dataset.hike=h.id;
+    card.innerHTML=`
+      <div class="hhead">
+        <div class="hidx">${gi}</div>
+        <div class="htitle">
+          <div class="hname">${h.name}</div>
+          <div class="hone">${h.oneLiner||''}</div>
+        </div>
+        <div class="hdiff"><span class="difdot dif-${h.difficulty}"></span><span class="diflabel">${h.difficulty}</span></div>
+      </div>
+      <div class="hstats">
+        ${h.distanceKm?statBlock('dist',fmt(h.distanceKm),'km'):''}
+        ${h.ascentM?statBlock('ascent','+'+fmt(h.ascentM),'m'):''}
+        ${h.descentM?statBlock('descent','−'+fmt(h.descentM),'m'):''}
+        ${h.durationText?statBlock('time',h.durationText,''):''}
+        ${h.highElevationM?statBlock('high',fmt(h.highElevationM),'m'):''}
+      </div>
+      <div class="hbody">
+        <p class="hdesc">${h.description||''}</p>
+        <div class="infogrid">
+          ${h.startName?infoRow('Route',`${h.startName} → ${h.endName||h.startName}`):''}
+          ${h.logisticsFromWengen?infoRow('From Wengen',h.logisticsFromWengen):''}
+          ${h.bestFor?infoRow('Best for',h.bestFor):''}
+          ${h.season?infoRow('Season',h.season):''}
+        </div>
+        <div class="hactions">
+          <button class="btn primary" data-fly="${h.id}">▸ show on map</button>
+        </div>
+      </div>`;
+    // interactions
+    card.querySelector('.hhead').addEventListener('click',()=>{
+      const wasOpen=card.classList.contains('open');
+      if(wasOpen){ card.classList.remove('open'); }
+      else { selectHike(h.id,false); }
+    });
+    card.querySelector('[data-fly]').addEventListener('click',e=>{e.stopPropagation();selectHike(h.id,false);switchView('map');});
+    hc.appendChild(card);
+  });
+}
+function statBlock(label,val,unit){return `<div class="stat"><span class="sl">${label}</span><span class="sv">${val}<span class="u"> ${unit}</span></span></div>`;}
+function infoRow(l,v){return `<div class="inforow"><span class="il">${l}</span><span class="iv">${v}</span></div>`;}
+
+// ===== style switch =====
+document.getElementById('stylepick').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  const s=b.dataset.style; if(s===currentStyle)return;
+  currentStyle=s;
+  document.querySelectorAll('#stylepick button').forEach(x=>x.classList.toggle('active',x===b));
+  map.setStyle(STYLES[s]);
+});
+
+// ===== mobile view toggle =====
+function switchView(v){
+  if(window.innerWidth>880)return;
+  document.getElementById('app').classList.toggle('show-map',v==='map');
+  document.querySelectorAll('#vtoggle button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  if(v==='map')setTimeout(()=>map.resize(),60);
+}
+document.getElementById('vtoggle').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchView(b.dataset.v);});
+
+// ===== boot =====
+render();
+
+// hook for live data injection
+window.__loadData=function(d){ DATA=d; render(); if(map.isStyleLoaded()){renderMarkers();} else {map.once('idle',renderMarkers);} };
+</script>
+</body>
+</html>
