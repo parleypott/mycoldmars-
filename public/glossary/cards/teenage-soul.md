@@ -1,80 +1,84 @@
 # Teenage Soul — Taste Card
 
-> **Invocation:** "build this in Teenage Soul" — or hand this file to any agent.
-> **Profile:** #001 · The Human Element / Burma script · locked 2026-06-16
-> **One line:** 70s soul-sleeve warmth, the rawness of a teenage diary, shot on grainy New Hollywood film.
+> **Invocation:** "build this in Teenage Soul" — or hand this file (+ `teenage-soul.tokens.css`) to any agent.
+> **Profile:** #001 · The Human Element / Burma script · captured from the live WP-01 instrument · 2026-06-17
+> **One line:** A warm tactile hardware instrument for documentary writing — Teenage Engineering / fig.01 soul applied to editorial.
 
 ---
 
 ## The feeling
 
-It's a sun-faded 45 sleeve found in a teenager's bedroom. Big, unguarded emotion with no irony — the way you feel things at fifteen — carried on the warmth of soul music: analog tape, gospel roots, a needle dropping on vinyl. It yearns. It's handmade and a little worn. It is the exact opposite of clean, cold, corporate minimalism. For a Myanmar human-element story it does the load-bearing work: it makes you *feel your way into understanding* before you're explained anything.
+It's the soul of a Teenage Engineering box and a `fig.01` technical drawing, in service of human storytelling. Warm cream paper, thin ink hairlines, registration-screw corner marks, monospace micro-labels, color-coded by *function* — every script block is a tactile hardware **cartridge** you could pop out of a rack. It's flat on purpose: no shadows, no bevels, no gloss. The warmth comes from the cream, the hand of the knurled grips, and a single hot orange that means "live." It feels like a beloved instrument, not an app. For *The Human Element* it makes the act of writing feel like operating a precise, warm machine built for one person.
 
-Mood words: yearning · warm · sincere · worn · intimate · soulful · unguarded · handmade · nostalgic-but-alive.
+Mood words: warm · tactile · precise · flat · instrument-like · analog · understated · function-coded · built-for-one.
 
 ---
 
-## Palette
+## Palette (the real tokens)
 
-| swatch | name | hex | use |
-|--------|------|-----|-----|
-| ■ | Warm Ink | `#1C1611` | text, the near-black ground |
-| ■ | Newsprint Cream | `#EFE3CC` | paper, light fields |
-| ■ | Oxblood | `#6E241C` | the worn sleeve — deep grounds, headers |
-| ■ | Soul Orange | `#C9532D` | the primary heat, one hit per view |
-| ■ | Aged Gold | `#D6A23E` | mustard warmth, highlights |
-| ■ | Pressed Teal | `#3C645C` | the cool counter-note, sparingly |
-| ■ | Faded Rose | `#C25C72` | the *teenage* pop — emotional accent only |
+| name | hex | role |
+|------|-----|------|
+| Ink | `#1f1d18` | the only near-black — lines & text |
+| Frame | `#efeadd` | warm cream device body |
+| Face | `#fbfaf5` | cartridge face (hover → `#f1ece0`) |
+| Page | `#e7e1d3` | the surface behind the device |
+| Ivory | `#efe9da` | LCD digits / chapter caps |
+| LCD ground | `#23211b` | recessed readout window |
+| **Orange** | `#ff5b1f` | **SOT / brand / "live" — the hero accent** |
+| Blue | `#2f6fb0` | VO / narration |
+| Yellow | `#f5c518` | NOTE |
+| Burgundy | `#6e1f1a` | B-ROLL |
 
-**Discipline:** everything is warm and slightly desaturated, like Kodachrome aged forty years. One hot accent per composition (Soul Orange or Faded Rose) — never two competing.
+**Discipline:** the kind-colors are *function codes*, not theme — they stay put while neutral surfaces can re-skin (cream / cool / sepia / slate / graphite). One hot orange = "active." Never decorate with the accents.
 
 ---
 
 ## Type
 
-- **Display:** Fraunces (soft + slight wonk axes on). A soulful serif with ink-trap character — warmth and weight, never sterile.
-- **Body:** Newsreader / warm book serif. Diaristic, like album liner notes you actually read.
-- **Hand:** Caveat (felt-tip). For marginalia, annotations, the teenage diary voice in the margins.
-
-Pairing rule: soulful serif headline + warm serif body + a felt-tip hand for the human marks. Never a clean geometric sans as the lead voice — it kills the warmth.
+- **Chrome / labels / timecode:** JetBrains Mono — micro-labels at 7–8px, letter-spacing .12–.16em, uppercase.
+- **Prose:** Helvetica Neue / Arial — 15px, line-height 1.62, `#23211d`. The reading layer offers 9 swappable serif/sans faces (Newsreader, Source Serif 4, Literata, Lora, Spectral, Crimson Pro, IBM Plex Sans, Inter, system).
+- Mono is the *instrument's voice*; the serif/sans is the *writer's voice*.
 
 ---
 
-## Texture & treatment
+## Components (the ecosystem)
 
-Film grain (35mm). Halftone dots. Paper grain. Tape edges and hand-torn paper. Photocopier degradation. Vinyl-crackle as a metaphor for everything. Light leaks and sun-fade gradients. Mixtape track-listing layouts. Photography: warm, grainy, available-light, 35mm — faces and hands, dignity and intimacy.
+- **Device frame** — cream, `2px` ink border, `16px` radius, four registration-screw corner marks (slotted-screw glyph).
+- **Cartridge** — flat outlined module, `1.5px` ink border, `11px` radius, **no shadow**; a `30px` knurled left spine with a numbered cap (in the kind-color) + `⠿` drag grip.
+- **CHAPTER** inverts dark with an ivory cap. **VO** carries a 3-position REC pill (OFF→ARM→REC). **SOT** is the hero: a recessed `HH:MM:SS:FF` readout (ivory-on-charcoal, copy-on-click) + speaker quote + done toggle. **B-ROLL** shows a copyable timecode string. **NOTE** tints yellow.
+- Inline markers: `{tk}` research cue (gold chip) and `[visual]` direction (burgundy chip).
 
 ---
 
-## Motion
+## Texture & motion
 
-Slow. Analog weight. A needle-drop, a tape-start wobble, a slow warm fade-up. Nothing snappy, nothing springy, nothing that bounces. Every transition has a touch of imperfection, like hand-cranked film. (Pacing language: ~1.4s draws, slow bias.)
+Flat hairline ink. Knurled repeating-linear grips are the only "gradient." No glow on the LCD — flat ivory like a vintage tape-deck meter. Motion is editorial and understated: 120–220ms, `cubic-bezier(0.2,0.6,0.2,1)`, settles rather than springs. **No bounce, ever.**
 
 ---
 
 ## Do / Don't
 
-**DO:** warmth · grain · sincerity · handmade marks · faded saturation · intimacy · analog imperfection · one hot accent.
+**DO:** warm cream + ink hairlines · one hot orange for "live" · monospace micro-labels · registration marks · knurled grips · flat everything · function-coded color · understated settle-motion.
 
-**DON'T:** cold minimalism · slick gradients · corporate cleanliness · irony · neon · glassmorphism · perfect geometry · drop shadows pretending to be paper.
+**DON'T:** drop shadows · bevels · gloss/gradients-as-depth · garish theme colors · decorative use of the accents · springy/bouncy motion · cold pure-white minimalism.
 
 ---
 
 ## Lineage (blended from the Glossary)
 
-- **70s Soul / Funk sleeve art** (Stax, Hi, Motown, Curtis Mayfield's *Curtis*, Marvin Gaye's *What's Going On*) — the warmth, the analog, the gold.
-- **Teenage zine / cut-and-paste** — the rawness, the felt-tip, the unguarded maximalism.
-- **New Hollywood / Criterion warmth** (70s film grain) — the texture and the light.
-- **Soul cinema** (Spike Lee *Crooklyn*, Barry Jenkins *Moonlight* / *Beale Street*; Gordon Parks photography; Khalil Joseph, Arthur Jafa) — intimacy, dignity, color warmth.
+- **Teenage Engineering / Braun / Dieter Rams** — the tactile instrument, the restraint, "less but better."
+- **`fig.01` technical drawing / Swiss** — hairlines, registration marks, monospace labels, the grid.
+- **Vintage tape-deck & synth hardware** — the recessed LCD readout, the knurled grips, the function-coded caps.
 
 ---
 
 ## For the agent — when invoked
 
-When Johnny says "in Teenage Soul" or hands you this card:
-1. Load this palette exactly; pick ONE hot accent for the piece and hold the line.
-2. Use the Fraunces / Newsreader / Caveat stack (with web-safe warm-serif fallbacks).
-3. Add real grain and a sun-fade — the vibe must be *felt* in texture, not just stated in color.
-4. Keep motion slow and analog. No springs.
-5. Sincerity over slick. If it looks like a startup landing page, you've failed it. If it looks like a beloved record you've played a hundred times, you've got it.
-6. Never edit Johnny's copy; the design serves the words.
+1. Load `teenage-soul.tokens.css` — use those exact hexes and the `--mono`/`--sans` stacks.
+2. Everything is FLAT. If you reach for a `box-shadow`, stop — use a `1.5px` ink hairline instead.
+3. One hot orange (`#ff5b1f`) means "active/live" — never decoration.
+4. Monospace for chrome/labels/numbers; Helvetica/serif for prose. Micro-labels are tiny + tracked-out + uppercase.
+5. Add registration-screw corner marks to the main frame; knurled spines to modules.
+6. Motion settles, never springs. 120–220ms.
+7. If it looks like a slick SaaS app, you've failed it. If it looks like a warm precise instrument built for one person, you've got it.
+8. Never edit Johnny's copy; the design serves the words.

@@ -3,201 +3,187 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Glossary — a taste library</title>
-<meta name="description" content="A tour through design history that doubles as a menu for defining taste profiles — and the kingdom where the chosen ones get locked in.">
-<link rel="canonical" href="https://mycoldmars.com/glossary/">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#1d1916">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="mycoldmars">
-<meta property="og:title" content="The Glossary — a taste library">
-<meta property="og:description" content="A walk through design history that doubles as a menu — browse the traditions, then crown the ones we love into locked, invokable taste profiles.">
-<meta property="og:url" content="https://mycoldmars.com/glossary/">
-<meta property="og:image" content="https://mycoldmars.com/glossary/og.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Glossary — a taste library, over a strip of design-history palette swatches.">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="The Glossary — a taste library">
-<meta name="twitter:description" content="A walk through design history that doubles as a menu — browse the traditions, then crown the ones we love into locked, invokable taste profiles.">
-<meta name="twitter:image" content="https://mycoldmars.com/glossary/og.png">
+<title>The Glossary — a living taste library</title>
+<meta name="description" content="A tour through design history rendered as living specimens — a menu for defining taste profiles — and the Taste Kingdom where the chosen ones are captured as real, deployable design ecosystems.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..800,0..100,0..1;1,9..144,300..800,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Caveat:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..80,0..1;1,9..144,300..600,0..80,0..1&family=JetBrains+Mono:wght@400;500;700;800&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..400&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#161310; --paper:#f3ece0; --wall:#1d1916; --wall2:#241f1a;
-  --cream:#efe3cc; --mut:#9a8f7e; --line:#3a322a; --accent:#c9532d;
-  --gold:#d6a23e;
-  /* teenage soul */
-  --ts-ink:#1c1611; --ts-cream:#efe3cc; --ts-oxblood:#6e241c; --ts-orange:#c9532d;
-  --ts-gold:#d6a23e; --ts-teal:#3c645c; --ts-rose:#c25c72;
+  --wall:#171513; --wall2:#201d1a; --cream:#ece2d0; --mut:#8e8474;
+  --line:#332e28; --accent:#ff5b1f;
+  /* teenage soul tokens (real, from burma-script) */
+  --ts-page:#e7e1d3; --ts-frame:#efeadd; --ts-face:#fbfaf5; --ts-faceh:#f1ece0; --ts-panel:#f1ede2;
+  --ts-ink:#1f1d18; --ts-body:#23211d; --ts-monobody:#4a463d; --ts-ivory:#efe9da; --ts-lcd:#23211b;
+  --ts-orange:#ff5b1f; --ts-blue:#2f6fb0; --ts-yellow:#f5c518; --ts-burgundy:#6e1f1a;
+  --ts-red:#e8412b; --ts-arm:#c2491a; --ts-note:#fff8e0; --ts-notetx:#5a4a00; --ts-notelab:#8a6d00;
+  --ts-tkbg:#fff2cf; --ts-tktx:#8a6d00; --ts-visbg:#f1e3e1; --ts-vistx:#6e1f1a;
+  --ts-grip:repeating-linear-gradient(0deg,#ddd7c8,#ddd7c8 2px,#ece7da 2px,#ece7da 4px);
+  --ts-gripn:repeating-linear-gradient(0deg,#f0e2a8,#f0e2a8 2px,#f6ecbf 2px,#f6ecbf 4px);
+  --ts-gripd:repeating-linear-gradient(0deg,#2a2a26,#2a2a26 2px,#36352f 2px,#36352f 4px);
+  --ts-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,monospace;
+  --ts-sans:"Helvetica Neue",Arial,system-ui,sans-serif;
+  --ts-ease:cubic-bezier(.2,.6,.2,1);
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--wall); color:var(--cream);
-  font-family:"Newsreader",Georgia,serif; font-size:18px; line-height:1.6;
-  -webkit-font-smoothing:antialiased;
-}
-.mono{font-family:"Space Mono",ui-monospace,monospace}
-.wrap{max-width:1180px; margin:0 auto; padding:0 26px}
+body{margin:0;background:var(--wall);color:var(--cream);font-family:"Newsreader",Georgia,serif;font-size:18px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono{font-family:"JetBrains Mono",monospace}
+.wrap{max-width:1200px;margin:0 auto;padding:0 26px}
 
-/* ---- top ---- */
-header.top{padding:54px 0 0; border-bottom:1px solid var(--line)}
-.eyebrow{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.28em; text-transform:uppercase; color:var(--mut); margin:0 0 18px}
-h1.title{font-family:"Fraunces",serif; font-weight:300; font-size:clamp(44px,8vw,92px); line-height:.96; letter-spacing:-.02em; margin:0 0 10px; font-variation-settings:"SOFT" 40,"WONK" 1}
-h1.title em{font-style:italic; color:var(--gold)}
-.lede{font-family:"Newsreader",serif; font-size:clamp(18px,2.2vw,22px); color:#d8cdb9; max-width:680px; margin:0 0 34px; font-weight:300}
-/* tabs */
-.tabs{display:flex; gap:0; margin:0}
-.tab{
-  font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.12em; text-transform:uppercase;
-  background:none; border:0; color:var(--mut); cursor:pointer; padding:16px 22px 18px;
-  border-bottom:2px solid transparent; transition:color .2s, border-color .2s; position:relative;
-}
-.tab .n{font-size:10px; vertical-align:super; opacity:.6; margin-left:5px}
+/* ---- chrome ---- */
+header.top{padding:50px 0 0;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--mut);margin:0 0 16px}
+h1.title{font-family:"Fraunces",serif;font-weight:300;font-size:clamp(42px,7.5vw,86px);line-height:.96;letter-spacing:-.02em;margin:0 0 12px;font-variation-settings:"SOFT" 30,"WONK" 1}
+h1.title em{font-style:italic;color:var(--accent)}
+.lede{font-size:clamp(17px,2vw,21px);color:#ccc0ac;max-width:660px;margin:0 0 30px;font-weight:300}
+.tabs{display:flex;gap:0}
+.tab{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;background:none;border:0;color:var(--mut);cursor:pointer;padding:15px 22px 17px;border-bottom:2px solid transparent;transition:.2s}
+.tab .n{font-size:9px;vertical-align:super;opacity:.6;margin-left:5px}
 .tab:hover{color:var(--cream)}
-.tab.on{color:var(--cream); border-color:var(--accent)}
-.tab.kingdom.on{border-color:var(--ts-rose)}
+.tab.on{color:var(--cream);border-color:var(--accent)}
 
-/* ---- panels ---- */
-.panel{display:none; padding:44px 0 90px}
-.panel.on{display:block; animation:fade .5s ease}
-@keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
-.panel-intro{display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:18px; margin:0 0 30px}
-.panel-intro p{max-width:560px; margin:0; color:#cabfac; font-size:17px}
-h2.sec{font-family:"Fraunces",serif; font-weight:300; font-size:30px; margin:0; letter-spacing:-.01em}
+.panel{display:none;padding:42px 0 90px}
+.panel.on{display:block;animation:fade .5s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.panel-intro{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin:0 0 30px}
+.panel-intro p{max-width:540px;margin:0;color:#c2b6a2;font-size:16px}
+h2.sec{font-family:"Fraunces",serif;font-weight:300;font-size:30px;margin:0;letter-spacing:-.01em}
 
-/* filter chips */
-.filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
-.fchip{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
-  background:var(--wall2); color:var(--mut); border:1px solid var(--line); border-radius:30px; padding:6px 13px; cursor:pointer}
-.fchip.on{background:var(--accent); color:#1a1410; border-color:var(--accent)}
+/* ---- specimen gallery ---- */
+.cases{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.case{display:flex;flex-direction:column;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#000;transition:transform .25s,border-color .25s;position:relative}
+.case:hover{transform:translateY(-4px);border-color:#5a4f42}
+.case .spec{display:block;height:360px;overflow:hidden;position:relative}
+.case .spec>article,.case article.spec{height:100%}
+.placard{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--wall2);border-top:1px solid var(--line)}
+.placard .pl-name{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#bcb09c}
+.placard .pl-name .idx{color:var(--mut);margin-right:8px}
+.crown{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:none;color:var(--accent);border:1px solid var(--line);border-radius:6px;padding:7px 10px;cursor:pointer;transition:.2s;white-space:nowrap}
+.crown:hover{background:var(--accent);color:#1a1410;border-color:var(--accent)}
 
-/* tradition grid */
-.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(285px,1fr)); gap:18px}
-.trad{
-  background:var(--wall2); border:1px solid var(--line); border-radius:12px; padding:22px 22px 18px;
-  display:flex; flex-direction:column; transition:transform .25s, border-color .25s; position:relative; overflow:hidden;
-}
-.trad:hover{transform:translateY(-3px); border-color:#5a4f42}
-.trad .era{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--mut); margin:0 0 8px}
-.trad h3{font-family:"Fraunces",serif; font-weight:400; font-size:25px; line-height:1.05; margin:0 0 8px; letter-spacing:-.01em; font-variation-settings:"SOFT" 30}
-.trad .ess{font-size:15.5px; color:#cdc2af; margin:0 0 14px; flex:1; line-height:1.5}
-.dots{display:flex; gap:6px; margin:0 0 13px}
-.dots span{width:17px; height:17px; border-radius:4px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.trad .meta{font-size:13px; color:var(--mut); line-height:1.5; margin:0 0 4px}
-.trad .meta b{color:#cabfac; font-weight:400}
-.trad .feels{font-family:"Caveat",cursive; font-size:21px; color:var(--gold); margin:10px 0 14px; line-height:1.15}
-.usebtn{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
-  background:none; color:var(--accent); border:1px solid var(--line); border-radius:7px; padding:9px 12px; cursor:pointer; transition:.2s; text-align:left}
-.usebtn:hover{background:var(--accent); color:#1a1410; border-color:var(--accent)}
+/* ---- KINGDOM / teenage soul room ---- */
+.ts-room{border-radius:18px;overflow:hidden;border:1px solid #d8cdb6;background:var(--ts-page);color:var(--ts-ink);font-family:var(--ts-sans);margin:0 0 26px}
+.ts-inner{padding:34px 34px 8px}
+.ts-tophead{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;margin:0 0 4px}
+.ts-num{font-family:var(--ts-mono);font-size:11px;letter-spacing:.2em;color:var(--ts-burgundy)}
+.ts-sys{font-family:var(--ts-mono);font-size:10px;letter-spacing:.14em;color:#8a857a;text-transform:uppercase}
+.ts-name{font-family:"Fraunces",serif;font-weight:300;font-style:italic;font-size:clamp(44px,7vw,76px);line-height:.95;margin:4px 0 4px;color:#241f17;letter-spacing:-.02em;font-variation-settings:"SOFT" 20}
+.ts-invoke{font-family:var(--ts-mono);font-size:12px;letter-spacing:.04em;color:var(--ts-orange);margin:0 0 16px}
+.ts-feeling{font-size:18px;line-height:1.6;color:#2c2820;max-width:680px;margin:0 0 6px}
+.ts-feeling em{font-style:italic;color:var(--ts-burgundy)}
+.ts-mood{font-family:var(--ts-mono);font-size:11px;letter-spacing:.05em;color:#8a6d00;margin:12px 0 4px}
 
-/* ---- KINGDOM ---- */
-.kingdom-head p{color:#cabfac}
-.room{
-  position:relative; border-radius:18px; overflow:hidden; margin:0 0 30px;
-  border:1px solid #5a3a30;
-  background:
-    radial-gradient(120% 90% at 12% 0%, rgba(214,162,62,.20), transparent 55%),
-    radial-gradient(130% 100% at 100% 100%, rgba(110,36,28,.55), transparent 60%),
-    linear-gradient(160deg,#2a1c15 0%, #3a241c 55%, #45271d 100%);
-}
-.room .grain{position:absolute; inset:0; opacity:.5; mix-blend-mode:overlay; pointer-events:none}
-.room .inner{position:relative; padding:38px 38px 40px}
-.room .invoke-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:0 0 6px}
-.room .num{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.2em; color:#e9b97a}
-.room .lock{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#e0c39b; border:1px solid #6e4a3a; border-radius:30px; padding:4px 12px}
-.room h2.ts-name{font-family:"Fraunces",serif; font-weight:300; font-style:italic; font-size:clamp(46px,8vw,82px); line-height:.95; margin:6px 0 6px; color:#f6ead3; letter-spacing:-.02em; font-variation-settings:"SOFT" 60,"WONK" 1}
-.room .invoke{font-family:"Caveat",cursive; font-size:25px; color:#f0c97c; margin:0 0 18px}
-.room .feeling{font-family:"Newsreader",serif; font-size:19px; line-height:1.6; color:#f1e6d2; max-width:660px; margin:0 0 8px; font-weight:300}
-.room .moodwords{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.06em; color:#e7b98a; margin:14px 0 30px}
+.ts-cols{display:grid;grid-template-columns:1.25fr .75fr;gap:28px;margin:26px 0 6px}
+@media(max-width:860px){.ts-cols{grid-template-columns:1fr}}
+.ts-blocklab{font-family:var(--ts-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#8a857a;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid #ddd5c2}
 
-.ts-grid{display:grid; grid-template-columns:1.15fr .85fr; gap:30px}
-@media(max-width:820px){.ts-grid{grid-template-columns:1fr}}
-.block-label{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:#e0b07e; margin:0 0 12px; padding-bottom:7px; border-bottom:1px solid rgba(240,200,140,.25)}
+/* the real device + cartridges */
+.ts-device{background:var(--ts-frame);border:2px solid var(--ts-ink);border-radius:16px;padding:20px;position:relative}
+.ts-screw{position:absolute;width:14px;height:14px;border:1.5px solid var(--ts-ink);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ts-screw::after{content:"";width:8px;height:1.5px;background:var(--ts-ink);transform:rotate(-45deg)}
+.ts-dhead{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 14px}
+.ts-wm{font-family:var(--ts-mono);font-size:17px;font-weight:800;color:var(--ts-ink);letter-spacing:.02em}
+.ts-wm b{color:var(--ts-orange)}
+.ts-cap-fig{font-family:var(--ts-mono);font-size:7px;letter-spacing:.14em;color:#7d7768;display:block;margin-top:3px}
+.ts-tele{font-family:var(--ts-mono);font-size:8px;letter-spacing:.16em;color:#6b6658;text-align:right}
+.ts-tele b{color:var(--ts-burgundy);font-weight:400}
 
-/* swatches */
-.swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin:0 0 26px}
-.sw{border-radius:10px; overflow:hidden; cursor:pointer; border:1px solid rgba(0,0,0,.25); transition:transform .18s}
-.sw:hover{transform:translateY(-2px)}
-.sw .chip{height:62px}
-.sw .lab{background:rgba(20,12,8,.55); padding:7px 9px}
-.sw .lab .nm{font-family:"Newsreader",serif; font-size:13.5px; color:#f3e6d0; display:block; line-height:1.2}
-.sw .lab .hx{font-family:"Space Mono",monospace; font-size:10.5px; color:#cda; letter-spacing:.04em}
-.copied{color:#7fdca0 !important}
+.ts-cart{display:flex;border:1.5px solid var(--ts-ink);border-radius:11px;overflow:hidden;background:var(--ts-face);transition:background .16s var(--ts-ease);margin:0 0 11px;position:relative}
+.ts-cart:hover{background:var(--ts-faceh)}
+.ts-cart.chapter{margin-top:4px}
+.ts-spine{width:30px;flex:none;background:var(--ts-grip);border-right:1.5px solid var(--ts-ink);display:flex;flex-direction:column;align-items:center}
+.ts-cap{width:100%;padding:3px 0;text-align:center;font-family:var(--ts-mono);font-weight:700;font-size:8px;letter-spacing:.04em;color:#fff;border-bottom:1.5px solid var(--ts-ink)}
+.ts-grip{font-size:12px;color:#9a958a;margin-top:6px;cursor:grab}
+.ts-cbody{flex:1;padding:11px 14px;min-width:0}
+.ts-kind{font-family:var(--ts-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:#5c584e}
 
-/* type previews */
-.typrow{margin:0 0 16px; padding-bottom:14px; border-bottom:1px dashed rgba(240,200,140,.2)}
-.typrow .k{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:#cfa; opacity:.7; margin:0 0 4px}
-.t-disp{font-family:"Fraunces",serif; font-weight:300; font-size:34px; color:#f6ead3; line-height:1; font-variation-settings:"SOFT" 50,"WONK" 1}
-.t-body{font-family:"Newsreader",serif; font-size:17px; color:#ece0cb; line-height:1.45}
-.t-hand{font-family:"Caveat",cursive; font-size:28px; color:#f0c97c}
+/* chapter inverted */
+.ts-cart.chapter{background:#1a1a18}
+.ts-cart.chapter .ts-spine{background:var(--ts-gripd)}
+.ts-cart.chapter .ts-cap{background:var(--ts-ivory);color:#231f1b}
+.ts-cart.chapter .ts-cbody{color:#f3f1ea}
+.ts-ch-top{display:flex;justify-content:space-between;margin-bottom:5px}
+.ts-ch-kind{font-family:var(--ts-mono);font-size:8px;letter-spacing:.16em;color:rgba(243,241,234,.53)}
+.ts-ch-tag{font-family:var(--ts-mono);font-size:8px;letter-spacing:.16em;color:var(--ts-ivory)}
+.ts-ch-title{font-family:var(--ts-mono);font-size:17px;font-weight:800;letter-spacing:.02em;line-height:1.18}
 
-/* chips */
-.tag-wrap{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 26px}
-.tag{font-family:"Space Mono",monospace; font-size:11.5px; letter-spacing:.04em; background:rgba(240,200,140,.1); border:1px solid rgba(240,200,140,.28); color:#f0d9b4; border-radius:7px; padding:6px 11px}
-.dodont{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:0 0 26px}
-@media(max-width:560px){.dodont{grid-template-columns:1fr}}
-.dodont .col h4{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; margin:0 0 8px}
-.dodont .do h4{color:#9ad6a8} .dodont .dont h4{color:#e29}
-.dodont ul{margin:0; padding-left:18px} .dodont li{font-size:15px; color:#ece0cb; margin:0 0 4px}
-.lineage{font-size:15px; color:#e9dcc6; line-height:1.6; margin:0 0 8px}
-.lineage b{color:#f0c97c; font-weight:400; font-style:italic; font-family:"Newsreader",serif}
+/* VO + REC */
+.ts-vo-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ts-rec{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.ts-rec .rl{font-family:var(--ts-mono);font-size:8px;letter-spacing:.1em;color:#6b6658}
+.ts-pill{display:flex;gap:2px;background:#e7e1d3;border:1.5px solid var(--ts-ink);border-radius:20px;padding:2px}
+.ts-pip{width:15px;height:12px;border-radius:9px;background:#e7e1d3}
+.ts-state{font-family:var(--ts-mono);font-size:8px;font-weight:700;min-width:24px;letter-spacing:.06em}
+.ts-prose{font-family:var(--ts-sans);font-size:15px;line-height:1.62;color:var(--ts-body)}
+.ts-tk{font-family:var(--ts-mono);font-size:.8em;background:var(--ts-tkbg);border:1.5px solid var(--ts-ink);border-radius:5px;padding:1px 6px;color:var(--ts-tktx);white-space:nowrap}
+.ts-vis{font-family:var(--ts-mono);font-size:.8em;background:var(--ts-visbg);border:1.5px solid var(--ts-ink);border-radius:5px;padding:1px 6px;color:var(--ts-vistx);white-space:nowrap}
 
-/* product / download */
-.product{
-  margin:30px 38px 38px; position:relative; z-index:2;
-  background:rgba(20,13,9,.5); border:1px solid #6e4a3a; border-radius:14px; padding:26px 28px;
-  display:flex; justify-content:space-between; align-items:center; gap:24px; flex-wrap:wrap;
-}
-.product .copy{max-width:560px}
-.product h3{font-family:"Fraunces",serif; font-weight:400; font-size:23px; margin:0 0 8px; color:#f6ead3}
-.product p{margin:0; font-size:15px; color:#d9ccb6; line-height:1.55}
-.product p code{font-family:"Space Mono",monospace; font-size:13px; background:rgba(201,83,45,.22); color:#f3c39e; padding:2px 7px; border-radius:5px}
-.dl{font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.06em; text-transform:uppercase; text-decoration:none;
-  background:var(--ts-orange); color:#1a0f08; font-weight:700; border-radius:10px; padding:16px 22px; white-space:nowrap;
-  display:inline-flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; box-shadow:0 6px 0 #7a2f17}
-.dl:hover{transform:translateY(-2px); box-shadow:0 8px 0 #7a2f17}
-.dl:active{transform:translateY(4px); box-shadow:0 2px 0 #7a2f17}
+/* SOT */
+.ts-sot-grid{display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center}
+.ts-readout{background:var(--ts-lcd);border:1.5px solid var(--ts-ink);border-radius:6px;padding:6px 10px;cursor:pointer;text-align:center}
+.ts-readout .day{font-family:var(--ts-mono);font-size:6px;letter-spacing:.14em;color:#9a917e;display:block}
+.ts-readout .tc{font-family:var(--ts-mono);font-size:15px;color:var(--ts-ivory);letter-spacing:.06em}
+.ts-spk{font-family:var(--ts-mono);font-size:8px;letter-spacing:.12em;color:var(--ts-orange);display:block;margin-bottom:2px}
+.ts-quote{font-family:var(--ts-sans);font-size:15px;line-height:1.5;color:var(--ts-body)}
+.ts-done{width:34px;height:30px;border:1.5px solid var(--ts-ink);border-radius:7px;background:#f1ede2;color:var(--ts-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.ts-done.on{background:var(--ts-ink);color:#fff}
 
-.empty{border:1px dashed var(--line); border-radius:14px; padding:34px; text-align:center; color:var(--mut); font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.05em}
-.empty .big{font-family:"Fraunces",serif; font-size:24px; color:#cabfac; letter-spacing:0; text-transform:none; margin:0 0 8px; display:block}
+/* B-ROLL */
+.ts-broll-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ts-broll-tc{font-family:var(--ts-mono);font-size:8px;letter-spacing:.1em;color:var(--ts-burgundy);cursor:pointer}
+.ts-broll-tc:hover{color:var(--ts-orange)}
+.ts-broll-body{font-family:var(--ts-mono);font-size:12px;color:var(--ts-monobody);line-height:1.5}
 
-/* ---- drafting bench ---- */
-.bench{border:1px solid #5a4f42; border-radius:14px; padding:24px 26px 22px; margin:0 0 30px; background:var(--wall2)}
-.bench.empty-state{display:none}
-.bench-head{display:flex; justify-content:space-between; align-items:baseline; gap:14px; flex-wrap:wrap; margin:0 0 4px}
-.bench-head h3{font-family:"Fraunces",serif; font-weight:400; font-size:22px; margin:0; color:#f3e6d0}
-.bench-head .count{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold)}
-.bench-sub{font-size:14.5px; color:#cabfac; margin:0 0 18px; max-width:620px}
-.bench-chips{display:flex; flex-direction:column; gap:10px; margin:0 0 20px}
-.bchip{display:flex; align-items:center; gap:14px; background:rgba(20,13,9,.42); border:1px solid var(--line); border-radius:10px; padding:11px 13px}
-.bchip .strip{display:flex; gap:0; flex:0 0 auto; border-radius:4px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.bchip .strip i{width:15px; height:24px; display:block}
-.bchip .info{flex:1; min-width:0}
-.bchip .info .nm{font-family:"Fraunces",serif; font-size:17px; color:#f3e6d0; line-height:1.1}
-.bchip .info .er{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--mut)}
-.bchip .rm{font-family:"Space Mono",monospace; font-size:16px; line-height:1; color:var(--mut); background:none; border:0; cursor:pointer; padding:6px 8px; border-radius:6px; transition:.15s}
-.bchip .rm:hover{color:#e29; background:rgba(226,153,153,.08)}
-.bench-merged{margin:0 0 20px}
-.bench-merged .ml{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--mut); margin:0 0 8px}
-.bench-merged .row{display:flex; gap:5px; flex-wrap:wrap}
-.bench-merged .row span{width:24px; height:24px; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.bench-actions{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
-.bench-actions .go{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.06em; text-transform:uppercase; font-weight:700;
-  background:var(--gold); color:#1a1208; border:0; border-radius:9px; padding:13px 18px; cursor:pointer; transition:transform .15s, box-shadow .15s; box-shadow:0 5px 0 #8a6420}
-.bench-actions .go:hover{transform:translateY(-2px); box-shadow:0 7px 0 #8a6420}
-.bench-actions .go:active{transform:translateY(3px); box-shadow:0 2px 0 #8a6420}
-.bench-actions .clr{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
-  background:none; color:var(--mut); border:1px solid var(--line); border-radius:9px; padding:12px 15px; cursor:pointer; transition:.15s}
-.bench-actions .clr:hover{color:#e29; border-color:#5a4f42}
+/* NOTE */
+.ts-cart.note{background:var(--ts-note)}
+.ts-cart.note .ts-spine{background:var(--ts-gripn)}
+.ts-note-body{font-style:italic;font-family:var(--ts-sans);font-size:14px;line-height:1.5;color:var(--ts-notetx)}
 
-footer{border-top:1px solid var(--line); padding:30px 0 60px; color:var(--mut); font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.04em; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+.ts-insert{display:flex;align-items:center;gap:9px;margin-top:3px}
+.ts-plus{width:26px;height:26px;border:1.5px dashed #b8b0a0;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#8a857a}
+.ts-insert .il{font-family:var(--ts-mono);font-size:8px;letter-spacing:.16em;color:#8a857a}
 
-/* toast */
-#toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--ts-ink); color:var(--ts-cream); border:1px solid var(--ts-orange); border-radius:9px; padding:12px 20px; font-family:"Space Mono",monospace; font-size:13px; transition:transform .3s; z-index:99}
+/* right column: palette by function, type, rules */
+.ts-funcs{display:flex;flex-direction:column;gap:7px;margin:0 0 22px}
+.ts-func{display:flex;align-items:center;gap:11px;cursor:pointer}
+.ts-func .sw{width:30px;height:24px;border-radius:5px;border:1.5px solid var(--ts-ink);flex:none}
+.ts-func .fn{font-family:var(--ts-mono);font-size:11px;color:#3a352b}
+.ts-func .fn b{color:var(--ts-ink)}
+.ts-func .hx{font-family:var(--ts-mono);font-size:10px;color:#8a857a;margin-left:auto}
+.ts-typ{margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #ddd5c2}
+.ts-typ .k{font-family:var(--ts-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#8a857a;margin:0 0 3px}
+.ts-typ .mono-demo{font-family:var(--ts-mono);font-size:13px;color:var(--ts-ink);letter-spacing:.04em}
+.ts-typ .sans-demo{font-family:var(--ts-sans);font-size:16px;color:var(--ts-body)}
+.ts-rules{list-style:none;padding:0;margin:0}
+.ts-rules li{font-family:var(--ts-sans);font-size:13px;color:#3a352b;padding:5px 0;border-bottom:1px dashed #ddd5c2;display:flex;gap:8px}
+.ts-rules li::before{content:"▪";color:var(--ts-orange)}
+
+/* live embed */
+.ts-embed-wrap{margin:24px 0 6px}
+.ts-embed{border:2px solid var(--ts-ink);border-radius:14px;overflow:hidden;background:#e7e1d3;position:relative;height:420px}
+.ts-embed iframe{width:200%;height:200%;border:0;transform:scale(.5);transform-origin:0 0}
+.ts-embed-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--ts-frame);border-bottom:1.5px solid var(--ts-ink)}
+.ts-embed-bar .dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ts-ink)}
+.ts-embed-bar .u{font-family:var(--ts-mono);font-size:10px;color:#6b6658;margin-left:6px}
+
+/* deploy footer of the room */
+.ts-deploy{background:var(--ts-panel);border-top:1.5px solid var(--ts-ink);padding:22px 34px;display:flex;justify-content:space-between;align-items:center;gap:22px;flex-wrap:wrap}
+.ts-deploy .dl-copy h3{font-family:"Fraunces",serif;font-weight:400;font-size:21px;margin:0 0 6px;color:var(--ts-ink)}
+.ts-deploy .dl-copy p{margin:0;font-size:14px;color:#4a463d;max-width:520px;line-height:1.5}
+.ts-deploy .dl-copy code{font-family:var(--ts-mono);font-size:12px;background:rgba(255,91,31,.16);color:#9c3a16;padding:2px 6px;border-radius:4px}
+.ts-btns{display:flex;gap:10px;flex-wrap:wrap}
+.tbtn{font-family:var(--ts-mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;border-radius:9px;padding:13px 16px;border:1.5px solid var(--ts-ink);display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:transform .15s}
+.tbtn.primary{background:var(--ts-orange);color:#1a0f08;font-weight:700;box-shadow:0 4px 0 #7a2f17}
+.tbtn.primary:active{transform:translateY(4px);box-shadow:0 0 0 #7a2f17}
+.tbtn.ghost{background:transparent;color:var(--ts-ink)}
+.tbtn.ghost:hover{background:#e7dcc7}
+
+.empty{border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--mut);font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.04em}
+.empty .big{font-family:"Fraunces",serif;font-size:23px;color:#c2b6a2;letter-spacing:0;text-transform:none;margin:0 0 7px;display:block}
+footer{border-top:1px solid var(--line);padding:28px 0 60px;color:var(--mut);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.04em;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ts-lcd);color:var(--ts-ivory);border:1.5px solid var(--ts-orange);border-radius:8px;padding:11px 18px;font-family:var(--ts-mono);font-size:13px;letter-spacing:.06em;transition:transform .3s;z-index:99}
 #toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
@@ -205,254 +191,2119 @@ footer{border-top:1px solid var(--line); padding:30px 0 60px; color:var(--mut); 
 
 <header class="top">
   <div class="wrap">
-    <p class="eyebrow">mycoldmars · taste library · v1</p>
+    <p class="eyebrow">mycoldmars · taste library · v2 — living specimens</p>
     <h1 class="title">The <em>Glossary</em></h1>
-    <p class="lede">A walk through design history that doubles as a menu — browse the traditions, then crown the ones we love into a kingdom of locked, invokable taste profiles.</p>
+    <p class="lede">A walk through design history where every entry is rendered <em>in its own tradition</em> — a menu of real, living looks. Find a feeling, crown it, and capture it in the Kingdom as a deployable design ecosystem.</p>
     <div class="tabs" role="tablist">
-      <button class="tab on" id="tab-glossary" role="tab" aria-selected="true">The Glossary<span class="n">menu</span></button>
-      <button class="tab kingdom" id="tab-kingdom" role="tab" aria-selected="false">Taste Kingdom<span class="n">001</span></button>
+      <button class="tab on" id="tab-glossary" role="tab">The Glossary<span class="n">menu</span></button>
+      <button class="tab" id="tab-kingdom" role="tab">Taste Kingdom<span class="n">001</span></button>
     </div>
   </div>
 </header>
 
-<!-- ============ TAB 1 ============ -->
+<!-- ===== TAB 1 ===== -->
 <section class="panel on" id="panel-glossary" role="tabpanel">
   <div class="wrap">
     <div class="panel-intro">
-      <div>
-        <h2 class="sec">The menu of traditions</h2>
-      </div>
-      <p>Each card is a real movement with real masters. Find a feeling you want, then send it to the Kingdom to start defining a profile.</p>
+      <h2 class="sec">The menu — twelve living traditions</h2>
+      <p>Each card is a real composition in its own style, not a description of it. Hover any one and crown it to begin a taste profile.</p>
     </div>
-    <div class="filters" id="filters"></div>
-    <div style="height:22px"></div>
-    <div class="grid" id="tradGrid"></div>
+    <div class="cases" id="cases">
+<article class="spec" data-slug="nouveau">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Pinyon+Script&display=swap');
+
+    [data-slug="nouveau"] {
+      position: relative;
+      width: 320px;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 12px;
+      box-sizing: border-box;
+      background:
+        radial-gradient(ellipse 120% 80% at 50% -10%, #6f8260 0%, #5b6e4f 45%, #4a5b40 100%);
+      font-family: 'Cormorant Garamond', serif;
+      color: #e9ddc3;
+      isolation: isolate;
+      box-shadow: inset 0 0 0 1px rgba(202,160,90,0.25);
+    }
+
+    [data-slug="nouveau"] * { box-sizing: border-box; }
+
+    /* full-bleed ornamental linework */
+    [data-slug="nouveau"] .frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* the central halo / arch panel */
+    [data-slug="nouveau"] .panel {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 232px;
+      text-align: center;
+    }
+
+    [data-slug="nouveau"] .era {
+      font-size: 11px;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: #caa05a;
+      margin: 0 0 6px;
+      padding-left: 0.42em;
+      font-weight: 600;
+    }
+
+    [data-slug="nouveau"] .name {
+      font-size: 47px;
+      line-height: 0.92;
+      font-weight: 600;
+      color: #e9ddc3;
+      margin: 0;
+      text-shadow: 0 1px 0 rgba(46,42,34,0.55);
+    }
+
+    [data-slug="nouveau"] .name em {
+      display: block;
+      font-style: italic;
+      font-weight: 500;
+      color: #caa05a;
+    }
+
+    [data-slug="nouveau"] .rule {
+      width: 120px;
+      height: 14px;
+      margin: 12px auto 10px;
+    }
+    [data-slug="nouveau"] .rule path,
+    [data-slug="nouveau"] .rule circle { stroke: #caa05a; fill: none; stroke-width: 1.2; }
+    [data-slug="nouveau"] .rule .bud { fill: #7a3b2e; stroke: none; }
+
+    [data-slug="nouveau"] .feels {
+      font-family: 'Pinyon Script', cursive;
+      font-size: 27px;
+      line-height: 1.05;
+      color: #e9ddc3;
+      margin: 0;
+      text-shadow: 0 1px 1px rgba(46,42,34,0.5);
+    }
+
+    [data-slug="nouveau"] .vignette {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background: radial-gradient(ellipse 80% 70% at 50% 48%, transparent 55%, rgba(46,42,34,0.34) 100%);
+    }
+  </style>
+
+  <!-- whiplash organic frame: arched halo, corner tendrils, climbing vines -->
+  <svg class="frame" viewBox="0 0 320 360" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="nv-gold" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#dab978"/>
+        <stop offset="1" stop-color="#a87f3f"/>
+      </linearGradient>
+    </defs>
+
+    <!-- inner ornamental border, inset rounded -->
+    <rect x="11" y="11" width="298" height="338" rx="9" fill="none"
+          stroke="url(#nv-gold)" stroke-width="1.4" opacity="0.85"/>
+    <rect x="16" y="16" width="288" height="328" rx="6" fill="none"
+          stroke="#caa05a" stroke-width="0.6" opacity="0.5"/>
+
+    <!-- arched halo over the title -->
+    <path d="M70 150 C 70 78, 250 78, 250 150" fill="none"
+          stroke="url(#nv-gold)" stroke-width="1.6" opacity="0.9"/>
+    <path d="M84 150 C 84 92, 236 92, 236 150" fill="none"
+          stroke="#caa05a" stroke-width="0.7" opacity="0.55"/>
+
+    <!-- TOP-LEFT whiplash tendril -->
+    <g fill="none" stroke="url(#nv-gold)" stroke-width="1.5" stroke-linecap="round">
+      <path d="M16 16 C 70 18, 96 44, 92 86 C 90 116, 62 120, 58 96
+               C 55 78, 74 74, 80 90"/>
+      <path d="M16 38 C 44 40, 56 58, 50 82" opacity="0.7"/>
+    </g>
+    <!-- leaves TL -->
+    <path d="M92 86 C 110 80, 120 92, 108 104 C 100 96, 96 92, 92 86 Z"
+          fill="#7a3b2e" opacity="0.92"/>
+    <path d="M58 96 C 42 90, 34 100, 46 112 C 52 104, 55 100, 58 96 Z"
+          fill="#caa05a" opacity="0.85"/>
+
+    <!-- TOP-RIGHT whiplash tendril (mirror) -->
+    <g fill="none" stroke="url(#nv-gold)" stroke-width="1.5" stroke-linecap="round">
+      <path d="M304 16 C 250 18, 224 44, 228 86 C 230 116, 258 120, 262 96
+               C 265 78, 246 74, 240 90"/>
+      <path d="M304 38 C 276 40, 264 58, 270 82" opacity="0.7"/>
+    </g>
+    <path d="M228 86 C 210 80, 200 92, 212 104 C 220 96, 224 92, 228 86 Z"
+          fill="#7a3b2e" opacity="0.92"/>
+    <path d="M262 96 C 278 90, 286 100, 274 112 C 268 104, 265 100, 262 96 Z"
+          fill="#caa05a" opacity="0.85"/>
+
+    <!-- crown bud at apex of arch -->
+    <g>
+      <path d="M160 86 C 152 70, 168 70, 160 86 Z" fill="#caa05a"/>
+      <circle cx="160" cy="78" r="5" fill="#7a3b2e"/>
+      <circle cx="160" cy="78" r="9" fill="none" stroke="url(#nv-gold)" stroke-width="1.2"/>
+      <path d="M148 86 C 138 80, 138 92, 150 92" fill="none" stroke="#caa05a" stroke-width="1.1"/>
+      <path d="M172 86 C 182 80, 182 92, 170 92" fill="none" stroke="#caa05a" stroke-width="1.1"/>
+    </g>
+
+    <!-- BOTTOM climbing vines, symmetric whiplash -->
+    <g fill="none" stroke="url(#nv-gold)" stroke-width="1.5" stroke-linecap="round">
+      <path d="M160 344 C 160 318, 132 312, 120 330 C 110 344, 128 352, 138 338
+               C 144 330, 134 326, 130 334"/>
+      <path d="M160 344 C 160 318, 188 312, 200 330 C 210 344, 192 352, 182 338
+               C 176 330, 186 326, 190 334"/>
+      <path d="M160 330 C 160 300, 160 296, 160 290"/>
+    </g>
+    <!-- bottom leaves -->
+    <path d="M120 330 C 102 326, 94 338, 108 348 C 114 340, 117 334, 120 330 Z"
+          fill="#7a3b2e" opacity="0.9"/>
+    <path d="M200 330 C 218 326, 226 338, 212 348 C 206 340, 203 334, 200 330 Z"
+          fill="#7a3b2e" opacity="0.9"/>
+    <circle cx="160" cy="288" r="4.5" fill="#caa05a"/>
+    <path d="M160 288 C 150 280, 150 296, 160 288 Z" fill="#caa05a" opacity="0.8"/>
+    <path d="M160 288 C 170 280, 170 296, 160 288 Z" fill="#caa05a" opacity="0.8"/>
+
+    <!-- side trailing tendrils -->
+    <path d="M16 200 C 40 210, 44 240, 30 262" fill="none" stroke="#caa05a"
+          stroke-width="1" opacity="0.6" stroke-linecap="round"/>
+    <path d="M304 200 C 280 210, 276 240, 290 262" fill="none" stroke="#caa05a"
+          stroke-width="1" opacity="0.6" stroke-linecap="round"/>
+  </svg>
+
+  <div class="panel">
+    <p class="era">1890s &middot; France</p>
+    <h2 class="name">Art<em>Nouveau</em></h2>
+    <svg class="rule" viewBox="0 0 120 14" aria-hidden="true">
+      <path d="M2 7 C 30 7, 36 2, 44 7 C 52 12, 58 12, 60 7 C 62 2, 68 2, 76 7 C 84 12, 90 7, 118 7"/>
+      <circle class="bud" cx="60" cy="7" r="2.6"/>
+    </svg>
+    <p class="feels">vines that breathe in gold</p>
+  </div>
+
+  <div class="vignette"></div>
+</article>
+<article class="spec" data-slug="bauhaus">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@600;700&display=swap');
+
+    [data-slug="bauhaus"]{
+      position:relative;
+      width:320px;
+      height:360px;
+      overflow:hidden;
+      border-radius:12px;
+      margin:0;
+      background:#f4f1e8;
+      font-family:"Archivo","Archivo Black",system-ui,sans-serif;
+      color:#000;
+      -webkit-font-smoothing:antialiased;
+    }
+    [data-slug="bauhaus"] *{box-sizing:border-box;margin:0;padding:0;}
+
+    /* ---- big blue square, top-right anchor ---- */
+    [data-slug="bauhaus"] .sq{
+      position:absolute;
+      top:-40px;right:-40px;
+      width:170px;height:170px;
+      background:#005bbb;
+    }
+
+    /* ---- the large circle, half red / half black ---- */
+    [data-slug="bauhaus"] .circle{
+      position:absolute;
+      left:-46px;bottom:-46px;
+      width:210px;height:210px;
+      border-radius:50%;
+      background:linear-gradient(90deg,#e4002b 0 50%,#000 50% 100%);
+    }
+
+    /* ---- yellow triangle, mid-right ---- */
+    [data-slug="bauhaus"] .tri{
+      position:absolute;
+      right:14px;bottom:120px;
+      width:0;height:0;
+      border-left:62px solid transparent;
+      border-right:62px solid transparent;
+      border-bottom:108px solid #ffd400;
+      transform:rotate(18deg);
+    }
+
+    /* ---- black diagonal bar slicing the field ---- */
+    [data-slug="bauhaus"] .bar{
+      position:absolute;
+      top:172px;left:-30px;
+      width:300px;height:14px;
+      background:#000;
+      transform:rotate(-24deg);
+      transform-origin:left center;
+    }
+
+    /* ---- small red dot, off-grid tension ---- */
+    [data-slug="bauhaus"] .dot{
+      position:absolute;
+      top:150px;left:150px;
+      width:30px;height:30px;
+      border-radius:50%;
+      background:#e4002b;
+    }
+
+    /* ---- type stack ---- */
+    [data-slug="bauhaus"] .type{
+      position:absolute;
+      top:22px;left:22px;
+      z-index:5;
+      max-width:230px;
+    }
+    [data-slug="bauhaus"] .era{
+      font-family:"Archivo",sans-serif;
+      font-weight:700;
+      font-size:9.5px;
+      letter-spacing:.22em;
+      text-transform:uppercase;
+      color:#000;
+      margin-bottom:8px;
+    }
+    [data-slug="bauhaus"] .name{
+      font-family:"Archivo Black","Archivo",sans-serif;
+      font-weight:900;
+      text-transform:uppercase;
+      font-size:58px;
+      line-height:.82;
+      letter-spacing:-.03em;
+      color:#000;
+    }
+    [data-slug="bauhaus"] .name .hau{color:#e4002b;}
+
+    [data-slug="bauhaus"] .feels{
+      position:absolute;
+      left:22px;bottom:20px;
+      z-index:5;
+      font-family:"Archivo",sans-serif;
+      font-weight:700;
+      font-size:12.5px;
+      line-height:1.15;
+      letter-spacing:-.01em;
+      text-transform:uppercase;
+      color:#f4f1e8;
+      mix-blend-mode:normal;
+      max-width:150px;
+    }
+
+    /* vertical blue tick on the era line for grid feel */
+    [data-slug="bauhaus"] .stamp{
+      position:absolute;
+      top:300px;right:18px;
+      z-index:5;
+      width:36px;height:36px;
+      background:#ffd400;
+      border:3px solid #000;
+    }
+  </style>
+
+  <div class="sq"></div>
+  <div class="circle"></div>
+  <div class="tri"></div>
+  <div class="bar"></div>
+  <div class="dot"></div>
+
+  <div class="type">
+    <div class="era">1919&ndash;33 &middot; Germany</div>
+    <div class="name">BAU<span class="hau">HAUS</span></div>
+  </div>
+
+  <div class="feels">FORM<br>FOLLOWS<br>FUNCTION</div>
+  <div class="stamp"></div>
+</article>
+<article class="spec" data-slug="constructivism">
+  <style>
+    [data-slug="constructivism"] { @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Archivo+Narrow:wght@700&display=swap'); }
+    @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Archivo+Narrow:wght@700&display=swap');
+
+    [data-slug="constructivism"] {
+      position: relative;
+      width: 320px;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 12px;
+      margin: 0;
+      background: #f2e9d8;
+      font-family: 'Oswald', 'Archivo Narrow', sans-serif;
+      color: #111;
+      -webkit-font-smoothing: antialiased;
+      isolation: isolate;
+    }
+
+    /* halftone dot field */
+    [data-slug="constructivism"] .ct-halftone {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(#111 1.1px, transparent 1.3px);
+      background-size: 9px 9px;
+      opacity: 0.16;
+      z-index: 1;
+    }
+
+    /* the black wedge — beat the whites */
+    [data-slug="constructivism"] .ct-wedge {
+      position: absolute;
+      left: -40px;
+      top: 60px;
+      width: 0;
+      height: 0;
+      border-top: 150px solid transparent;
+      border-bottom: 150px solid transparent;
+      border-left: 280px solid #111;
+      transform: rotate(-15deg);
+      z-index: 2;
+    }
+
+    /* red circle punching into the wedge */
+    [data-slug="constructivism"] .ct-circle {
+      position: absolute;
+      right: 26px;
+      top: 30px;
+      width: 130px;
+      height: 130px;
+      background: #c1121f;
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    /* thin rules shooting across */
+    [data-slug="constructivism"] .ct-rule {
+      position: absolute;
+      height: 3px;
+      background: #111;
+      transform-origin: left center;
+      z-index: 3;
+    }
+    [data-slug="constructivism"] .ct-rule.r1 { left: -20px; top: 92px;  width: 380px; transform: rotate(22deg); }
+    [data-slug="constructivism"] .ct-rule.r2 { left: -20px; top: 250px; width: 400px; transform: rotate(-12deg); background:#c1121f; height:6px; }
+    [data-slug="constructivism"] .ct-rule.r3 { left: 120px; top: -10px; width: 320px; transform: rotate(64deg); }
+
+    /* red bar block */
+    [data-slug="constructivism"] .ct-bar {
+      position: absolute;
+      left: 30px;
+      bottom: 38px;
+      width: 230px;
+      height: 30px;
+      background: #c1121f;
+      transform: rotate(-7deg);
+      z-index: 3;
+    }
+
+    /* black slab behind title */
+    [data-slug="constructivism"] .ct-slab {
+      position: absolute;
+      left: -10px;
+      bottom: 70px;
+      width: 260px;
+      background: #111;
+      padding: 6px 16px 10px;
+      transform: rotate(-7deg);
+      z-index: 4;
+    }
+
+    /* stacked title */
+    [data-slug="constructivism"] .ct-title {
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #f2e9d8;
+      line-height: 0.82;
+      letter-spacing: 0.02em;
+      transform: scaleX(1.18);
+      transform-origin: left;
+    }
+    [data-slug="constructivism"] .ct-title .l1 { display:block; font-size: 30px; }
+    [data-slug="constructivism"] .ct-title .l2 { display:block; font-size: 30px; color:#c1121f; }
+
+    /* era tag — diagonal up the side */
+    [data-slug="constructivism"] .ct-era {
+      position: absolute;
+      right: 6px;
+      top: 150px;
+      font-family: 'Archivo Narrow', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #f2e9d8;
+      background: #111;
+      padding: 3px 8px;
+      transform: rotate(90deg);
+      transform-origin: right center;
+      z-index: 5;
+      white-space: nowrap;
+    }
+
+    /* feels-like slogan slashing across the top */
+    [data-slug="constructivism"] .ct-feels {
+      position: absolute;
+      left: 14px;
+      top: 18px;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 19px;
+      line-height: 0.92;
+      text-transform: uppercase;
+      color: #111;
+      transform: rotate(-15deg);
+      z-index: 6;
+      max-width: 200px;
+      letter-spacing: 0.01em;
+    }
+    [data-slug="constructivism"] .ct-feels b { color: #c1121f; }
+
+    /* small registration block bottom-left */
+    [data-slug="constructivism"] .ct-mark {
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      font-family: 'Archivo Narrow', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      color: #f2e9d8;
+      z-index: 6;
+    }
+  </style>
+
+  <span class="ct-halftone"></span>
+  <span class="ct-wedge"></span>
+  <span class="ct-circle"></span>
+  <span class="ct-rule r1"></span>
+  <span class="ct-rule r3"></span>
+
+  <p class="ct-feels">BEAT THE<br><b>WHITES</b> WITH<br>THE <b>RED</b><br>WEDGE</p>
+
+  <span class="ct-era">1920s · USSR</span>
+
+  <span class="ct-rule r2"></span>
+  <span class="ct-bar"></span>
+  <div class="ct-slab">
+    <span class="ct-title">
+      <span class="l1">CONSTRUC-</span>
+      <span class="l2">TIVISM</span>
+    </span>
+  </div>
+  <span class="ct-mark">FORWARD / MARCH</span>
+</article>
+<article class="spec" data-slug="swiss">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+    [data-slug="swiss"] {
+      position: relative;
+      box-sizing: border-box;
+      width: 320px;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #000000;
+      font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: auto 1fr auto;
+      column-gap: 8px;
+      padding: 24px 22px;
+      line-height: 1;
+    }
+    [data-slug="swiss"] *,
+    [data-slug="swiss"] *::before,
+    [data-slug="swiss"] *::after { box-sizing: border-box; }
+
+    /* hairline baseline grid hints */
+    [data-slug="swiss"] .grid-lines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.07) 0px,
+        rgba(0,0,0,0.07) 1px,
+        transparent 1px,
+        transparent 30px
+      );
+    }
+
+    [data-slug="swiss"] .meta {
+      grid-column: 1 / 7;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      z-index: 1;
+    }
+    [data-slug="swiss"] .meta .red { color: #d50032; }
+
+    [data-slug="swiss"] .stage {
+      grid-column: 1 / 7;
+      align-self: end;
+      z-index: 1;
+    }
+
+    [data-slug="swiss"] .num {
+      display: block;
+      font-size: 56px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      margin-bottom: 14px;
+    }
+    [data-slug="swiss"] .num b { color: #d50032; font-weight: 900; }
+
+    [data-slug="swiss"] .head {
+      font-size: 46px;
+      font-weight: 700;
+      letter-spacing: -0.045em;
+      line-height: 0.92;
+      text-transform: lowercase;
+      margin: 0;
+    }
+    [data-slug="swiss"] .head .rule {
+      display: block;
+      width: 38%;
+      height: 6px;
+      background: #d50032;
+      margin: 16px 0 0 0;
+    }
+
+    [data-slug="swiss"] .foot {
+      grid-column: 1 / 7;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      z-index: 1;
+      border-top: 1.5px solid #000;
+      padding-top: 8px;
+    }
+    [data-slug="swiss"] .feels {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: lowercase;
+    }
+    [data-slug="swiss"] .seq {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #d50032;
+    }
+  </style>
+
+  <div class="grid-lines"></div>
+
+  <div class="meta">
+    <span>Swiss / International Typographic</span>
+    <span class="red">●</span>
+  </div>
+
+  <div class="stage">
+    <span class="num">04<b>.</b></span>
+    <h1 class="head">order<br>is<br>form
+      <span class="rule"></span>
+    </h1>
+  </div>
+
+  <div class="foot">
+    <span class="feels">silent, aligned, unmistakably objective</span>
+    <span class="seq">1950s · CH</span>
+  </div>
+</article>
+<article class="spec" data-slug="japanese">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Noto+Serif+JP:wght@400;600&family=Space+Mono:wght@400&display=swap');
+
+    [data-slug="japanese"] {
+      position: relative;
+      box-sizing: border-box;
+      width: 320px;
+      height: 360px;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #1a1a1a;
+      font-family: 'Shippori Mincho', 'Noto Serif JP', serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    [data-slug="japanese"] * { box-sizing: border-box; }
+
+    /* top hairline meta row */
+    [data-slug="japanese"] .jp-top {
+      position: absolute;
+      top: 22px;
+      left: 28px;
+      right: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: 'Space Mono', monospace;
+      font-size: 8.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8c8c86;
+    }
+
+    [data-slug="japanese"] .jp-top .rule {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -10px;
+      height: 1px;
+      background: #1a1a1a;
+    }
+
+    /* the single confident gesture — one perfect red circle */
+    [data-slug="japanese"] .jp-mark {
+      position: absolute;
+      top: 96px;
+      right: 34px;
+      width: 96px;
+      height: 96px;
+    }
+
+    /* vertical line of kana/kanji */
+    [data-slug="japanese"] .jp-vertical {
+      position: absolute;
+      top: 88px;
+      left: 30px;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      font-family: 'Noto Serif JP', 'Shippori Mincho', serif;
+      font-weight: 600;
+      font-size: 21px;
+      letter-spacing: 0.12em;
+      color: #1a1a1a;
+      line-height: 1;
+    }
+
+    [data-slug="japanese"] .jp-vertical .accent { color: #bc002d; }
+
+    /* the title block, lower-left, asymmetric */
+    [data-slug="japanese"] .jp-title {
+      position: absolute;
+      left: 74px;
+      bottom: 92px;
+      max-width: 200px;
+    }
+
+    [data-slug="japanese"] .jp-title h1 {
+      margin: 0;
+      font-family: 'Shippori Mincho', serif;
+      font-weight: 700;
+      font-size: 30px;
+      line-height: 1.04;
+      letter-spacing: -0.005em;
+      color: #1a1a1a;
+    }
+
+    [data-slug="japanese"] .jp-title .era {
+      margin-top: 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #8c8c86;
+    }
+
+    /* feels-like line, bottom, against a short red tick */
+    [data-slug="japanese"] .jp-feels {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 26px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    [data-slug="japanese"] .jp-feels .tick {
+      width: 22px;
+      height: 2px;
+      background: #bc002d;
+      flex: none;
+    }
+
+    [data-slug="japanese"] .jp-feels span {
+      font-family: 'Shippori Mincho', serif;
+      font-weight: 400;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      color: #4a4a46;
+    }
+  </style>
+
+  <div class="jp-top">
+    <span class="rule"></span>
+    <span>Nippon Design</span>
+    <span>№ 04</span>
+  </div>
+
+  <svg class="jp-mark" viewBox="0 0 96 96" aria-hidden="true">
+    <circle cx="48" cy="48" r="47" fill="#bc002d"/>
+  </svg>
+
+  <div class="jp-vertical"><span class="accent">日</span>本意匠</div>
+
+  <div class="jp-title">
+    <h1>Japanese<br>Editorial</h1>
+    <div class="era">1960s · Japan</div>
+  </div>
+
+  <div class="jp-feels">
+    <span class="tick"></span>
+    <span>one perfect red against white</span>
+  </div>
+</article>
+<article class="spec" data-slug="psychedelic">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Rye&display=swap');
+
+[data-slug="psychedelic"]{
+  position:relative;
+  width:320px;
+  height:360px;
+  overflow:hidden;
+  border-radius:12px;
+  margin:0;
+  background:
+    radial-gradient(circle at 50% 42%, #2a0052 0%, #1a0033 70%);
+  font-family:"Bungee",sans-serif;
+  color:#ff2e88;
+  isolation:isolate;
+  line-height:1;
+}
+
+/* op-art vibrating stripe field behind everything */
+[data-slug="psychedelic"] .field{
+  position:absolute;
+  inset:-30%;
+  background:repeating-conic-gradient(from 0deg at 50% 42%,
+    #ff2e88 0deg 4deg,
+    #1a0033 4deg 8deg,
+    #ff8a00 8deg 12deg,
+    #1a0033 12deg 16deg);
+  opacity:.28;
+  filter:blur(.3px);
+  animation:psy-spin 26s linear infinite;
+}
+@keyframes psy-spin{to{transform:rotate(360deg);}}
+
+/* concentric warped rings */
+[data-slug="psychedelic"] .rings{
+  position:absolute;
+  left:50%;top:42%;
+  width:430px;height:430px;
+  transform:translate(-50%,-50%);
+  background:
+    radial-gradient(circle,
+      transparent 0 26px,
+      #00b3a4 26px 38px,
+      transparent 38px 56px,
+      #ff8a00 56px 70px,
+      transparent 70px 92px,
+      #ff2e88 92px 108px,
+      transparent 108px 134px,
+      #00b3a4 134px 150px,
+      transparent 150px 182px,
+      #ff8a00 182px 200px,
+      transparent 200px);
+  border-radius:48% 52% 60% 40% / 55% 45% 55% 45%;
+  animation:psy-morph 9s ease-in-out infinite alternate;
+  mix-blend-mode:screen;
+}
+@keyframes psy-morph{
+  0%{border-radius:48% 52% 60% 40% / 55% 45% 55% 45%;transform:translate(-50%,-50%) rotate(0deg) scale(1);}
+  100%{border-radius:62% 38% 44% 56% / 42% 58% 42% 58%;transform:translate(-50%,-50%) rotate(14deg) scale(1.06);}
+}
+
+/* liquid blobs filling gaps */
+[data-slug="psychedelic"] .blob{
+  position:absolute;
+  filter:blur(1px);
+  mix-blend-mode:screen;
+  animation:psy-ooze 11s ease-in-out infinite alternate;
+}
+[data-slug="psychedelic"] .blob.b1{
+  width:130px;height:120px;left:-26px;top:-22px;
+  background:radial-gradient(circle at 40% 40%,#ff8a00,#ff2e88);
+  border-radius:60% 40% 55% 45% / 50% 60% 40% 50%;
+}
+[data-slug="psychedelic"] .blob.b2{
+  width:140px;height:130px;right:-30px;bottom:-24px;
+  background:radial-gradient(circle at 60% 40%,#00b3a4,#1a0033);
+  border-radius:45% 55% 40% 60% / 60% 45% 55% 40%;
+  animation-delay:-4s;
+}
+
+@keyframes psy-ooze{
+  0%{transform:scale(1) rotate(0deg);border-radius:60% 40% 55% 45% / 50% 60% 40% 50%;}
+  100%{transform:scale(1.12) rotate(-10deg);border-radius:40% 60% 45% 55% / 60% 40% 60% 40%;}
+}
+
+[data-slug="psychedelic"] .stage{
+  position:absolute;
+  inset:0;
+  z-index:3;
+}
+[data-slug="psychedelic"] svg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+
+/* melting top word */
+[data-slug="psychedelic"] .name{
+  position:absolute;
+  top:6px;left:0;right:0;
+  text-align:center;
+  font-size:48px;
+  letter-spacing:-3px;
+  color:#ffe600;
+  text-shadow:2px 2px 0 #ff2e88, -2px 0 0 #00b3a4, 0 0 14px #ff8a00;
+  transform:scaleY(1.5) skewX(-4deg);
+  transform-origin:top center;
+  z-index:5;
+  -webkit-text-stroke:1px #1a0033;
+}
+
+/* swollen center word stack */
+[data-slug="psychedelic"] .stack{
+  position:absolute;
+  top:46%;left:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+  z-index:6;
+  width:300px;
+}
+[data-slug="psychedelic"] .stack .l1{
+  font-size:62px;
+  letter-spacing:-5px;
+  color:#ff8a00;
+  text-shadow:3px 0 0 #ff2e88, -3px 0 0 #00b3a4;
+  transform:scaleX(1.18) scaleY(1.35);
+  display:block;
+}
+[data-slug="psychedelic"] .stack .l2{
+  font-family:"Rye",serif;
+  font-size:30px;
+  letter-spacing:1px;
+  color:#00ffe0;
+  text-shadow:2px 2px 0 #ff2e88;
+  transform:skewX(-9deg) scaleY(1.2);
+  display:block;
+  margin-top:-2px;
+}
+
+/* curved era text along a wavy path */
+[data-slug="psychedelic"] .era text{
+  font-family:"Bungee",sans-serif;
+  font-size:13.5px;
+  fill:#ffe600;
+  letter-spacing:1px;
+}
+
+/* curved feels-like along bottom arc */
+[data-slug="psychedelic"] .feels text{
+  font-family:"Rye",serif;
+  font-size:15px;
+  fill:#ff2e88;
+  letter-spacing:.5px;
+}
+
+[data-slug="psychedelic"] .grain{
+  position:absolute;inset:0;z-index:9;pointer-events:none;
+  mix-blend-mode:overlay;opacity:.35;
+  background:repeating-linear-gradient(115deg,#00b3a4 0 2px,transparent 2px 5px,#ff8a00 5px 7px,transparent 7px 11px);
+}
+</style>
+
+  <div class="field"></div>
+  <div class="rings"></div>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+
+  <div class="stage">
+    <div class="name">PSYCHE&#8203;DELIC</div>
+
+    <div class="stack">
+      <span class="l1">FAR</span>
+      <span class="l2">~ out ~</span>
+    </div>
+
+    <svg class="era" viewBox="0 0 320 360" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <path id="psy-era-path" d="M 14,232 Q 80,212 160,234 T 306,230" fill="none"/>
+      </defs>
+      <text>
+        <textPath href="#psy-era-path" startOffset="50%" text-anchor="middle">
+          1966&#8211;71 &#183; SAN FRANCISCO
+        </textPath>
+      </text>
+    </svg>
+
+    <svg class="feels" viewBox="0 0 320 360" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <path id="psy-feels-path" d="M 8,300 Q 90,338 160,308 T 312,302" fill="none"/>
+      </defs>
+      <text>
+        <textPath href="#psy-feels-path" startOffset="50%" text-anchor="middle">
+          melting sound made visible
+        </textPath>
+      </text>
+    </svg>
+  </div>
+
+  <div class="grain"></div>
+</article>
+<article class="spec" data-slug="punk">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Special+Elite&family=Oswald:wght@700&display=swap');
+
+    [data-slug="punk"]{
+      position:relative;
+      width:320px;
+      height:360px;
+      overflow:hidden;
+      border-radius:12px;
+      margin:0;
+      background:#f2f0ec;
+      font-family:'Special Elite',monospace;
+      color:#0a0a0a;
+      box-shadow:inset 0 0 0 2px #000;
+      filter:contrast(1.18) grayscale(0);
+      isolation:isolate;
+    }
+    /* photocopier grit overlay */
+    [data-slug="punk"] .grit{
+      position:absolute; inset:0; z-index:9; pointer-events:none;
+      opacity:.16; mix-blend-mode:multiply;
+    }
+    /* smeared toner background streaks */
+    [data-slug="punk"] .toner{
+      position:absolute; inset:0; z-index:0; pointer-events:none;
+      background:
+        repeating-linear-gradient(91deg, rgba(0,0,0,.05) 0 2px, transparent 2px 9px),
+        radial-gradient(circle at 78% 14%, rgba(0,0,0,.22), transparent 30%),
+        radial-gradient(circle at 12% 88%, rgba(0,0,0,.18), transparent 26%);
+    }
+
+    /* torn paper blocks */
+    [data-slug="punk"] .tear{
+      position:absolute; background:#fff; z-index:1;
+      box-shadow:0 1px 0 rgba(0,0,0,.5), 2px 3px 0 rgba(0,0,0,.25);
+      clip-path:polygon(2% 6%,18% 0,33% 5%,52% 1%,70% 7%,88% 2%,100% 9%,97% 30%,100% 55%,96% 78%,99% 96%,80% 100%,60% 95%,40% 100%,21% 96%,4% 100%,1% 72%,4% 44%,0 22%);
+    }
+    [data-slug="punk"] .blackbox{
+      position:absolute; background:#000; color:#fff; z-index:3;
+    }
+
+    /* tape strips */
+    [data-slug="punk"] .tape{
+      position:absolute; z-index:6;
+      background:rgba(228,222,200,.72);
+      box-shadow:0 0 0 1px rgba(0,0,0,.12);
+      backdrop-filter:saturate(.7);
+    }
+
+    /* type pieces — each its own clipping */
+    [data-slug="punk"] span{ display:block; line-height:.9; }
+
+    [data-slug="punk"] .t1{
+      position:absolute; left:10px; top:16px; z-index:4;
+      font-family:'Anton',sans-serif; font-size:62px; letter-spacing:-2px;
+      transform:rotate(-4deg); text-transform:uppercase; color:#000;
+    }
+    [data-slug="punk"] .t2{
+      position:absolute; left:150px; top:30px; z-index:5;
+      font-family:'Archivo Black',sans-serif; font-size:46px;
+      transform:rotate(3deg); background:#000; color:#fff; padding:2px 6px;
+      text-transform:uppercase; letter-spacing:-1px;
+    }
+    [data-slug="punk"] .era{
+      position:absolute; left:18px; top:96px; z-index:5;
+      font-family:'Special Elite',monospace; font-size:13px;
+      transform:rotate(-1.5deg); letter-spacing:2px;
+      background:#ff0090; color:#000; padding:1px 5px; font-weight:bold;
+    }
+
+    [data-slug="punk"] .anar{
+      position:absolute; right:8px; top:120px; z-index:5;
+      font-family:'Oswald',sans-serif; font-weight:700; font-size:30px;
+      transform:rotate(6deg); color:#000; text-transform:uppercase;
+    }
+    [data-slug="punk"] .anar em{
+      font-style:normal; color:#ff0090; -webkit-text-stroke:1px #000;
+    }
+
+    /* mid ransom strip */
+    [data-slug="punk"] .strip{
+      position:absolute; left:0; right:0; top:150px; height:84px; z-index:3;
+    }
+    [data-slug="punk"] .r{
+      position:absolute; display:inline-block; text-transform:uppercase;
+    }
+    [data-slug="punk"] .r1{left:8px;  top:8px;  font-family:'Anton',sans-serif;       font-size:40px; transform:rotate(-7deg); background:#000;color:#fff; padding:0 4px;}
+    [data-slug="punk"] .r2{left:80px; top:24px; font-family:'Archivo Black',sans-serif;font-size:28px; transform:rotate(5deg);}
+    [data-slug="punk"] .r3{left:148px;top:2px;  font-family:'Special Elite',monospace; font-size:34px; transform:rotate(-3deg); font-weight:bold;}
+    [data-slug="punk"] .r4{left:206px;top:30px; font-family:'Oswald',sans-serif;       font-size:42px; font-weight:700; transform:rotate(8deg); color:#ff0090; -webkit-text-stroke:1.5px #000;}
+    [data-slug="punk"] .r5{left:18px; top:46px; font-family:'Archivo Black',sans-serif;font-size:30px; transform:rotate(2deg); background:#ff0090; color:#000; padding:0 3px;}
+    [data-slug="punk"] .r6{left:120px;top:46px; font-family:'Anton',sans-serif;       font-size:36px; transform:rotate(-5deg);}
+    [data-slug="punk"] .r7{left:236px;top:0;    font-family:'Special Elite',monospace; font-size:24px; transform:rotate(-9deg); background:#000; color:#fff; padding:1px 3px;}
+
+    /* feels-like footer — typed caption on tape */
+    [data-slug="punk"] .feels{
+      position:absolute; left:14px; bottom:30px; z-index:7;
+      font-family:'Special Elite',monospace; font-size:13px;
+      transform:rotate(-1deg); color:#0a0a0a; letter-spacing:.5px;
+    }
+    [data-slug="punk"] .name{
+      position:absolute; right:10px; bottom:10px; z-index:7;
+      font-family:'Oswald',sans-serif; font-weight:700; font-size:15px;
+      transform:rotate(1deg); text-transform:uppercase; letter-spacing:1px;
+      background:#000; color:#fff; padding:2px 6px;
+    }
+    [data-slug="punk"] .pin{
+      position:absolute; z-index:8; width:34px; height:34px;
+      left:122px; top:6px; transform:rotate(28deg);
+    }
+    [data-slug="punk"] .scrawl{
+      position:absolute; z-index:8; left:6px; bottom:54px;
+      width:130px; height:40px; transform:rotate(-3deg);
+    }
+  </style>
+
+  <!-- torn-paper canvas -->
+  <span class="toner"></span>
+  <span class="tear" style="left:6px;top:8px;width:308px;height:120px;transform:rotate(-1deg);"></span>
+  <span class="tear" style="left:10px;top:236px;width:300px;height:118px;transform:rotate(1.5deg);"></span>
+  <span class="blackbox" style="left:0;top:148px;width:320px;height:88px;transform:rotate(.4deg);"></span>
+
+  <!-- tape strips -->
+  <span class="tape" style="left:-12px;top:18px;width:70px;height:20px;transform:rotate(-32deg);"></span>
+  <span class="tape" style="right:-14px;top:200px;width:80px;height:22px;transform:rotate(40deg);"></span>
+  <span class="tape" style="left:4px;bottom:24px;width:150px;height:22px;transform:rotate(-2deg);"></span>
+
+  <!-- headline ransom -->
+  <span class="t1">THIS</span>
+  <span class="t2">IS</span>
+  <span class="era">1976 · UK</span>
+  <span class="anar">NO <em>FUTURE</em></span>
+
+  <!-- safety pin -->
+  <svg class="pin" viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="6">
+    <path d="M20 70 C 5 55, 10 25, 35 28 L 80 55"/>
+    <circle cx="20" cy="70" r="9" fill="#ff0090" stroke="#000"/>
+    <path d="M80 55 l 8 5 -2 12" stroke-width="6"/>
+  </svg>
+
+  <!-- mid ransom strip (on black) -->
+  <span class="strip">
+    <span class="r r1">PUNK</span>
+    <span class="r r2" style="color:#fff;">cut</span>
+    <span class="r r3" style="color:#fff;">&amp;</span>
+    <span class="r r4">PASTE</span>
+    <span class="r r5">XEROX</span>
+    <span class="r r6" style="color:#fff;">RIOT</span>
+    <span class="r r7">'77</span>
+  </span>
+
+  <!-- scrawl -->
+  <svg class="scrawl" viewBox="0 0 130 40" fill="none" stroke="#ff0090" stroke-width="3">
+    <path d="M4 30 q 10 -22 18 -2 q 6 16 14 -4 M44 8 l 6 24 M40 30 l 14 0 M64 30 q 8 -24 16 -2 M88 6 l 0 26 M88 6 l 16 0 M88 18 l 12 0"/>
+  </svg>
+
+  <!-- feels-like -->
+  <span class="feels">feels like → a torn flyer stapled at 3am</span>
+  <span class="name">PUNK / XEROX</span>
+
+  <!-- photocopier grit (feTurbulence) -->
+  <svg class="grit" xmlns="http://www.w3.org/2000/svg" width="320" height="360" preserveAspectRatio="none">
+    <filter id="punkgrit">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.4 1"/>
+    </filter>
+    <rect width="320" height="360" filter="url(#punkgrit)"/>
+  </svg>
+</article>
+<article class="spec" data-slug="memphis">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap');
+
+    [data-slug="memphis"]{
+      position:relative;
+      width:320px;
+      height:360px;
+      overflow:hidden;
+      border-radius:12px;
+      margin:0;
+      background:#faf6ef;
+      font-family:'Fredoka','Poppins',sans-serif;
+      color:#1a1a1a;
+      box-sizing:border-box;
+    }
+    [data-slug="memphis"] *{box-sizing:border-box;}
+
+    /* ---- background confetti field ---- */
+    [data-slug="memphis"] .bg{position:absolute;inset:0;z-index:0;}
+
+    /* black dot grid (top-left block) */
+    [data-slug="memphis"] .dotgrid{
+      position:absolute;top:14px;left:14px;width:78px;height:78px;
+      background-image:radial-gradient(#1a1a1a 2.1px, transparent 2.4px);
+      background-size:13px 13px;
+      transform:rotate(-4deg);
+    }
+
+    /* big yellow half-circle, bottom-right */
+    [data-slug="memphis"] .half{
+      position:absolute;right:-26px;bottom:-30px;width:120px;height:60px;
+      background:#ffd23f;
+      border-radius:120px 120px 0 0;
+      transform:rotate(18deg);
+    }
+    /* cyan quarter pie top-right */
+    [data-slug="memphis"] .pie{
+      position:absolute;right:-18px;top:-18px;width:84px;height:84px;
+      background:#27c4c4;border-radius:0 0 0 84px;
+    }
+
+    /* squiggle / bacterio line */
+    [data-slug="memphis"] .squiggle{
+      position:absolute;left:8px;bottom:96px;width:150px;height:34px;
+      fill:none;stroke:#ff5d8f;stroke-width:7;stroke-linecap:round;
+      transform:rotate(-3deg);
+    }
+    /* zigzag */
+    [data-slug="memphis"] .zig{
+      position:absolute;right:18px;top:120px;width:96px;height:26px;
+      fill:none;stroke:#1a1a1a;stroke-width:5;stroke-linejoin:round;
+      transform:rotate(6deg);
+    }
+
+    /* scattered confetti shapes */
+    [data-slug="memphis"] .c{position:absolute;}
+    [data-slug="memphis"] .c1{top:62px;right:104px;width:18px;height:18px;background:#ff5d8f;border-radius:50%;}
+    [data-slug="memphis"] .c2{top:150px;left:30px;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:20px solid #27c4c4;transform:rotate(14deg);}
+    [data-slug="memphis"] .c3{bottom:54px;right:44px;width:16px;height:16px;background:#ffd23f;transform:rotate(45deg);}
+    [data-slug="memphis"] .c4{top:30px;right:46px;width:14px;height:14px;border:3.5px solid #1a1a1a;border-radius:50%;}
+    [data-slug="memphis"] .c5{bottom:120px;right:14px;width:22px;height:9px;background:#ff5d8f;border-radius:9px;transform:rotate(-22deg);}
+    [data-slug="memphis"] .c6{top:104px;left:120px;width:13px;height:13px;background:#27c4c4;border-radius:50%;}
+
+    /* ---- foreground text ---- */
+    [data-slug="memphis"] .stack{position:relative;z-index:3;padding:104px 18px 0;}
+
+    [data-slug="memphis"] .era{
+      display:inline-block;
+      background:#1a1a1a;color:#faf6ef;
+      font-weight:600;font-size:11px;letter-spacing:1px;text-transform:uppercase;
+      padding:4px 10px;border-radius:20px;transform:rotate(-2deg);
+    }
+    [data-slug="memphis"] .name{
+      margin:14px 0 0;
+      font-weight:700;font-size:38px;line-height:.96;
+      color:#1a1a1a;
+    }
+    [data-slug="memphis"] .name b{color:#ff5d8f;}
+    [data-slug="memphis"] .name i{color:#27c4c4;font-style:normal;}
+
+    [data-slug="memphis"] .feels{
+      position:absolute;z-index:3;left:18px;bottom:20px;
+      max-width:200px;
+      font-weight:600;font-size:14px;line-height:1.25;
+      color:#1a1a1a;
+      transform:rotate(-1.5deg);
+    }
+    [data-slug="memphis"] .feels span{
+      background:#ffd23f;padding:2px 5px;border-radius:4px;
+      box-decoration-break:clone;-webkit-box-decoration-break:clone;
+    }
+  </style>
+
+  <div class="bg" aria-hidden="true">
+    <div class="dotgrid"></div>
+    <div class="pie"></div>
+    <div class="half"></div>
+
+    <svg class="squiggle" viewBox="0 0 150 34" preserveAspectRatio="none">
+      <path d="M3 17 C 18 0, 33 0, 45 17 S 75 34, 90 17 S 122 0, 147 17"/>
+    </svg>
+    <svg class="zig" viewBox="0 0 96 26" preserveAspectRatio="none">
+      <polyline points="2,24 14,4 26,24 38,4 50,24 62,4 74,24 86,4 94,24"/>
+    </svg>
+
+    <div class="c c1"></div>
+    <div class="c c2"></div>
+    <div class="c c3"></div>
+    <div class="c c4"></div>
+    <div class="c c5"></div>
+    <div class="c c6"></div>
+  </div>
+
+  <div class="stack">
+    <span class="era">1980s · Italy</span>
+    <h2 class="name"><b>Memphis</b><br><i>Postmodern</i></h2>
+  </div>
+
+  <p class="feels"><span>feels like a party that clashes on purpose</span></p>
+</article>
+<article class="spec" data-slug="y2k">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Orbitron:wght@500;700;900&display=swap');
+
+    [data-slug="y2k"] {
+      position: relative;
+      width: 320px;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 12px;
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      color: #dCEcFb;
+      background:
+        radial-gradient(120% 80% at 50% 118%, #7fdfff 0%, rgba(127,223,255,0) 42%),
+        radial-gradient(90% 60% at 50% 100%, #ff5ed2 0%, rgba(255,94,210,0) 38%),
+        linear-gradient(180deg, #07152a 0%, #0a1a2f 46%, #102c4d 70%, #0a1a2f 100%);
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.18);
+      isolation: isolate;
+    }
+
+    /* starfield + lens-flare sparkles */
+    [data-slug="y2k"] .sky {
+      position: absolute; inset: 0; z-index: 0;
+      background-image:
+        radial-gradient(1.5px 1.5px at 28px 40px, #ffffff, transparent),
+        radial-gradient(1px 1px at 200px 30px, #cfeeff, transparent),
+        radial-gradient(1.5px 1.5px at 120px 64px, #ffffff, transparent),
+        radial-gradient(1px 1px at 270px 78px, #bfe6ff, transparent),
+        radial-gradient(1px 1px at 60px 96px, #ffffff, transparent),
+        radial-gradient(1.5px 1.5px at 240px 110px, #ffffff, transparent);
+      opacity: 0.9;
+    }
+    [data-slug="y2k"] .spark {
+      position: absolute; z-index: 3;
+      color: #fff;
+      text-shadow: 0 0 6px #7fdfff, 0 0 14px #7fdfff;
+      font-size: 16px; line-height: 1;
+      filter: drop-shadow(0 0 4px #ffffff);
+    }
+    [data-slug="y2k"] .s1 { top: 22px; left: 30px; font-size: 22px; color:#ff5ed2; text-shadow:0 0 8px #ff5ed2,0 0 18px #ff5ed2; }
+    [data-slug="y2k"] .s2 { top: 54px; right: 36px; font-size: 14px; }
+    [data-slug="y2k"] .s3 { top: 130px; left: 246px; font-size: 12px; color:#fff; }
+    [data-slug="y2k"] .s4 { top: 96px; left: 18px; font-size: 11px; }
+
+    /* horizon glow line */
+    [data-slug="y2k"] .horizon {
+      position: absolute; left: -10%; right: -10%; bottom: 86px; height: 3px; z-index: 2;
+      background: linear-gradient(90deg, transparent, #7fdfff 30%, #ffffff 50%, #7fdfff 70%, transparent);
+      box-shadow: 0 0 18px 4px rgba(127,223,255,0.7), 0 0 40px 8px rgba(127,223,255,0.35);
+      border-radius: 50%;
+    }
+
+    /* chrome logotype */
+    [data-slug="y2k"] .wrap {
+      position: absolute; inset: 0; z-index: 4;
+      display: flex; flex-direction: column;
+      align-items: center; padding-top: 46px;
+    }
+    [data-slug="y2k"] .kicker {
+      font-family: 'Audiowide', sans-serif;
+      font-size: 8px; letter-spacing: 4px; text-transform: uppercase;
+      color: #7fdfff; margin-bottom: 14px;
+      text-shadow: 0 0 8px rgba(127,223,255,0.8);
+      padding: 4px 12px; border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(127,223,255,0.05));
+      border: 1px solid rgba(127,223,255,0.4);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 4px rgba(0,0,0,0.4);
+    }
+    [data-slug="y2k"] .chrome {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900; font-style: italic;
+      font-size: 40px; line-height: 0.92; text-align: center;
+      letter-spacing: 1px; text-transform: uppercase;
+      background: linear-gradient(180deg,
+        #ffffff 0%, #cfe3f5 18%, #7f96ad 42%,
+        #3a4b60 50%, #93aec6 58%, #eaf4ff 80%, #b9c6d6 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      filter: drop-shadow(0 1px 0 #fff) drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+    [data-slug="y2k"] .chrome .cyan {
+      background: linear-gradient(180deg, #eafcff 0%, #7fdfff 45%, #1c6f8f 55%, #bff0ff 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Aqua button */
+    [data-slug="y2k"] .aqua {
+      margin-top: 22px;
+      font-family: 'Audiowide', sans-serif;
+      font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+      color: #06314a;
+      padding: 11px 30px; border-radius: 22px;
+      position: relative;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(190,235,255,0.55) 46%, rgba(127,223,255,0.85) 52%, rgba(60,170,220,0.95) 100%);
+      box-shadow:
+        inset 0 1px 1px rgba(255,255,255,0.95),
+        inset 0 -6px 10px rgba(20,90,130,0.5),
+        0 4px 14px rgba(0,0,0,0.45),
+        0 0 22px rgba(127,223,255,0.5);
+      border: 1px solid rgba(255,255,255,0.6);
+      text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+    }
+    [data-slug="y2k"] .aqua::before {
+      content: ""; position: absolute; left: 8px; right: 8px; top: 4px; height: 38%;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0));
+    }
+
+    /* feels-like + meta strip */
+    [data-slug="y2k"] .feels {
+      position: absolute; bottom: 30px; left: 0; right: 0; z-index: 5;
+      text-align: center;
+      font-family: 'Orbitron', sans-serif; font-weight: 500;
+      font-size: 9px; letter-spacing: 1.5px; color: #cfeeff;
+      text-shadow: 0 0 8px rgba(127,223,255,0.6);
+    }
+    [data-slug="y2k"] .meta {
+      position: absolute; bottom: 10px; left: 14px; right: 14px; z-index: 5;
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: 'Audiowide', sans-serif;
+      font-size: 7px; letter-spacing: 2px; text-transform: uppercase;
+      color: #7fa9c9;
+    }
+    [data-slug="y2k"] .meta b { color:#ff5ed2; text-shadow:0 0 6px rgba(255,94,210,0.7); }
+
+    /* floor reflection of the logotype */
+    [data-slug="y2k"] .reflect {
+      position: absolute; top: 168px; left: 0; right: 0; z-index: 3;
+      text-align: center;
+      font-family: 'Orbitron', sans-serif; font-weight: 900; font-style: italic;
+      font-size: 40px; line-height: 0.92; letter-spacing: 1px; text-transform: uppercase;
+      transform: scaleY(-1);
+      background: linear-gradient(180deg, rgba(127,223,255,0.35), rgba(127,223,255,0));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 70%);
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 70%);
+      opacity: 0.6; filter: blur(0.4px);
+    }
+  </style>
+
+  <div class="sky"></div>
+  <span class="spark s1">✦</span>
+  <span class="spark s2">✧</span>
+  <span class="spark s3">✦</span>
+  <span class="spark s4">✧</span>
+
+  <div class="reflect">Y2K<br>CHROME</div>
+  <div class="horizon"></div>
+
+  <div class="wrap">
+    <span class="kicker">◄ Insert Disc 1 ►</span>
+    <div class="chrome">Y2K<br><span class="cyan">CHROME</span></div>
+    <span class="aqua">▶ Enter</span>
+  </div>
+
+  <div class="feels">a future imagined in 1999</div>
+  <div class="meta"><span>1999&ndash;2003 · digital</span><span><b>●</b> AQUA · OS</span></div>
+</article>
+<article class="spec" data-slug="riso">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+    [data-slug="riso"] {
+      position: relative;
+      width: 320px;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 12px;
+      margin: 0;
+      background-color: #f4eede;
+      font-family: "Space Grotesk", "Archivo", sans-serif;
+      color: #1a1a1a;
+      isolation: isolate;
+      box-sizing: border-box;
+    }
+    [data-slug="riso"] *,
+    [data-slug="riso"] *::before,
+    [data-slug="riso"] *::after { box-sizing: border-box; }
+
+    /* paper grain + halftone dot texture over everything */
+    [data-slug="riso"] .riso-grain {
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+      mix-blend-mode: multiply;
+      opacity: 0.55;
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(0,0,0,0.22) 0.8px, transparent 1.2px),
+        radial-gradient(circle at 4px 4px, rgba(0,0,0,0.12) 0.6px, transparent 1px);
+      background-size: 6px 6px, 6px 6px;
+      background-position: 0 0, 3px 3px;
+    }
+    [data-slug="riso"] .riso-paper {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+      mix-blend-mode: multiply;
+      opacity: 0.5;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    }
+
+    /* the two spot-ink layers — they overprint via multiply */
+    [data-slug="riso"] .ink {
+      position: absolute;
+      inset: 0;
+      mix-blend-mode: multiply;
+    }
+
+    /* ---- ORANGE LAYER ---- */
+    [data-slug="riso"] .ink-orange { color: #ff4f00; z-index: 2; }
+    /* ---- BLUE LAYER ---- */
+    [data-slug="riso"] .ink-blue   { color: #0077ff; z-index: 3; }
+
+    /* big sun blob — overlaps headline so multiply makes muddy 3rd color */
+    [data-slug="riso"] .sun {
+      position: absolute;
+      top: 28px;
+      right: -34px;
+      width: 178px;
+      height: 178px;
+      border-radius: 50%;
+      background: #ff4f00;
+      mix-blend-mode: multiply;
+      z-index: 2;
+    }
+    [data-slug="riso"] .wave {
+      position: absolute;
+      left: -20px;
+      bottom: -30px;
+      width: 360px;
+      height: 150px;
+      background: #0077ff;
+      mix-blend-mode: multiply;
+      z-index: 3;
+      border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+      transform: scaleX(1.4);
+    }
+    [data-slug="riso"] .wave2 {
+      position: absolute;
+      left: 30px;
+      bottom: -52px;
+      width: 320px;
+      height: 130px;
+      background: #ff4f00;
+      mix-blend-mode: multiply;
+      z-index: 2;
+      border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+      transform: scaleX(1.4);
+    }
+
+    /* MISREGISTRATION headline: two offset color copies */
+    [data-slug="riso"] .head {
+      position: absolute;
+      top: 84px;
+      left: 18px;
+      z-index: 5;
+      line-height: 0.82;
+      font-weight: 700;
+      font-size: 56px;
+      letter-spacing: -2px;
+      text-transform: uppercase;
+    }
+    [data-slug="riso"] .head span {
+      display: block;
+      position: relative;
+    }
+    /* blue copy sits under, orange copy offset on top → printing slip */
+    [data-slug="riso"] .head .h-blue {
+      color: #0077ff;
+      mix-blend-mode: multiply;
+    }
+    [data-slug="riso"] .head .h-orange {
+      position: absolute;
+      top: -3px;
+      left: 3px;
+      color: #ff4f00;
+      mix-blend-mode: multiply;
+      width: 100%;
+    }
+
+    /* top meta strip */
+    [data-slug="riso"] .meta-top {
+      position: absolute;
+      top: 16px;
+      left: 18px;
+      z-index: 6;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ff4f00;
+      mix-blend-mode: multiply;
+    }
+    [data-slug="riso"] .issue {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 6;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #0077ff;
+      mix-blend-mode: multiply;
+      text-align: right;
+    }
+
+    /* feels-like + era footer block */
+    [data-slug="riso"] .footer {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      z-index: 7;
+      max-width: 230px;
+    }
+    [data-slug="riso"] .feels {
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1.1;
+      color: #0a1a2a;
+      mix-blend-mode: multiply;
+      margin: 0 0 6px 0;
+    }
+    [data-slug="riso"] .era {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #ff4f00;
+      mix-blend-mode: multiply;
+    }
+
+    /* halftone gradient swatch — classic riso tonal ramp */
+    [data-slug="riso"] .swatch {
+      position: absolute;
+      right: 16px;
+      bottom: 18px;
+      z-index: 7;
+      width: 60px;
+      height: 60px;
+      border-radius: 4px;
+      mix-blend-mode: multiply;
+      background:
+        radial-gradient(circle at center, #0077ff 0.5px, transparent 1.6px) 0 0 / 5px 5px,
+        #ff4f00;
+    }
+  </style>
+
+  <div class="meta-top">RISOGRAPH · ZINE</div>
+  <div class="issue">No. 02<br>2-COLOR</div>
+
+  <div class="sun"></div>
+
+  <h1 class="head">
+    <span class="h-blue">Smudge<br>Press</span>
+    <span class="h-orange">Smudge<br>Press</span>
+  </h1>
+
+  <div class="wave"></div>
+  <div class="wave2"></div>
+
+  <div class="footer">
+    <p class="feels">feels like ink still drying</p>
+    <div class="era">2010s · indie press</div>
+  </div>
+
+  <div class="swatch"></div>
+
+  <div class="riso-paper"></div>
+  <div class="riso-grain"></div>
+</article>
+<article class="spec" data-slug="brutalist">
+  <style>
+    [data-slug="brutalist"] {
+      width: 320px;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 2px solid #000;
+      background: #fff;
+      color: #000;
+      font-family: "Times New Roman", Times, serif;
+      box-sizing: border-box;
+      position: relative;
+      line-height: 1.15;
+    }
+    [data-slug="brutalist"] * { box-sizing: border-box; }
+    [data-slug="brutalist"] .tag {
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      text-transform: lowercase;
+      border-bottom: 2px solid #000;
+      padding: 3px 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    [data-slug="brutalist"] .tag .red { color: #ff0000; }
+    [data-slug="brutalist"] h1 {
+      margin: 0;
+      padding: 6px 8px 8px;
+      font-size: 46px;
+      font-weight: 700;
+      line-height: 0.86;
+      letter-spacing: -0.02em;
+      border-bottom: 2px solid #000;
+    }
+    [data-slug="brutalist"] .meta {
+      display: flex;
+      border-bottom: 2px solid #000;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+    }
+    [data-slug="brutalist"] .meta div {
+      padding: 5px 8px;
+      flex: 1;
+    }
+    [data-slug="brutalist"] .meta div:first-child {
+      border-right: 2px solid #000;
+    }
+    [data-slug="brutalist"] dl {
+      margin: 0;
+      border-bottom: 2px solid #000;
+    }
+    [data-slug="brutalist"] dl div {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    [data-slug="brutalist"] dl div:last-child { border-bottom: 0; }
+    [data-slug="brutalist"] dt {
+      width: 92px;
+      padding: 4px 8px;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      border-right: 1px solid #000;
+      background: #fff;
+    }
+    [data-slug="brutalist"] dd {
+      margin: 0;
+      padding: 4px 8px;
+      font-size: 13px;
+      flex: 1;
+    }
+    [data-slug="brutalist"] a {
+      color: #0000ff;
+      text-decoration: underline;
+    }
+    [data-slug="brutalist"] ul {
+      margin: 0;
+      padding: 6px 8px 6px 26px;
+      font-size: 13px;
+      list-style: square;
+    }
+    [data-slug="brutalist"] ul li { margin: 0; }
+    [data-slug="brutalist"] .feels {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-top: 2px solid #000;
+      padding: 5px 8px;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      background: #fff;
+    }
+  </style>
+
+  <div class="tag">&lt;article&nbsp;class=&quot;brutalist&quot;&gt;<span class="red">● REC</span></div>
+  <h1>BRUTALIST<br>WEB</h1>
+  <div class="meta">
+    <div>NAME: Brutalist Web</div>
+    <div>ERA: 2010s · web</div>
+  </div>
+  <dl>
+    <div><dt>Border</dt><dd>#000, 2px, hard</dd></div>
+    <div><dt>Type</dt><dd>system / Times / mono</dd></div>
+    <div><dt>Link</dt><dd><a href="#">underlined blue</a></dd></div>
+  </dl>
+  <ul>
+    <li>no shadows, no rounding</li>
+    <li>raw structure on display</li>
+  </ul>
+  <div class="feels">feels like: undecorated honesty, slightly hostile.</div>
+</article>
+<article class="spec" data-slug="soulcinema">
+<style>
+[data-slug="soulcinema"] { @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400&display=swap'); }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400&display=swap');
+
+[data-slug="soulcinema"] {
+  position: relative;
+  width: 320px;
+  height: 360px;
+  overflow: hidden;
+  border-radius: 12px;
+  margin: 0;
+  box-sizing: border-box;
+  background:
+    radial-gradient(120% 90% at 28% 64%, rgba(196,98,46,0.55) 0%, rgba(196,98,46,0.18) 26%, rgba(122,39,64,0.22) 46%, rgba(14,59,58,0.0) 64%),
+    radial-gradient(90% 70% at 74% 30%, rgba(217,154,60,0.20) 0%, rgba(217,154,60,0.0) 42%),
+    radial-gradient(140% 120% at 50% 120%, rgba(122,39,64,0.30) 0%, rgba(14,59,58,0) 55%),
+    linear-gradient(165deg, #0b302f 0%, #0e3b3a 44%, #0a2b2a 100%);
+  font-family: 'Playfair Display', serif;
+  color: #ead9bf;
+  isolation: isolate;
+}
+
+/* warm streetlight pool on the "face" */
+[data-slug="soulcinema"] .glow {
+  position: absolute;
+  left: 6%;
+  bottom: 16%;
+  width: 64%;
+  height: 58%;
+  background: radial-gradient(closest-side, rgba(217,154,60,0.42) 0%, rgba(196,98,46,0.30) 38%, rgba(122,39,64,0.10) 70%, rgba(14,59,58,0) 100%);
+  filter: blur(6px);
+  z-index: 0;
+}
+
+/* letterbox bars */
+[data-slug="soulcinema"] .bar {
+  position: absolute;
+  left: 0; right: 0;
+  height: 30px;
+  background: #050d0d;
+  z-index: 4;
+}
+[data-slug="soulcinema"] .bar.top { top: 0; box-shadow: 0 1px 0 rgba(234,217,191,0.06); }
+[data-slug="soulcinema"] .bar.bot { bottom: 0; box-shadow: 0 -1px 0 rgba(234,217,191,0.06); }
+
+/* 35mm grain */
+[data-slug="soulcinema"] .grain {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.10;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+}
+
+/* vignette for depth */
+[data-slug="soulcinema"] .vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 36% 58%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.42) 100%);
+}
+
+[data-slug="soulcinema"] .content {
+  position: absolute;
+  inset: 30px 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  padding: 26px 26px 22px;
+  box-sizing: border-box;
+}
+
+[data-slug="soulcinema"] .era {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.30em;
+  text-transform: uppercase;
+  color: #d99a3c;
+  opacity: 0.92;
+}
+
+[data-slug="soulcinema"] .spacer { flex: 1; }
+
+[data-slug="soulcinema"] .title {
+  font-weight: 600;
+  font-size: 49px;
+  line-height: 0.92;
+  letter-spacing: -0.5px;
+  color: #f3e6cf;
+  text-shadow: 0 1px 18px rgba(196,98,46,0.45), 0 0 2px rgba(0,0,0,0.4);
+}
+[data-slug="soulcinema"] .title em {
+  font-style: italic;
+  font-weight: 500;
+  color: #d99a3c;
+}
+
+[data-slug="soulcinema"] .rule {
+  width: 46px;
+  height: 1px;
+  margin: 16px 0 12px;
+  background: linear-gradient(90deg, #c4622e, rgba(196,98,46,0));
+}
+
+[data-slug="soulcinema"] .feels {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 14.5px;
+  line-height: 1.32;
+  color: #ead9bf;
+  opacity: 0.88;
+  max-width: 230px;
+}
+
+[data-slug="soulcinema"] .credit {
+  margin-top: 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c4622e;
+  opacity: 0.78;
+}
+</style>
+
+<div class="glow"></div>
+<div class="vignette"></div>
+
+<div class="content">
+  <div class="era">2010s &middot; Film</div>
+  <div class="spacer"></div>
+  <h1 class="title">Soul<br><em>Cinema</em></h1>
+  <div class="rule"></div>
+  <p class="feels">tender light on dark skin</p>
+  <div class="credit">Shot on 35mm &middot; Available Light</div>
+</div>
+
+<div class="bar top"></div>
+<div class="bar bot"></div>
+<div class="grain"></div>
+</article>
+    </div>
   </div>
 </section>
 
-<!-- ============ TAB 2 ============ -->
+<!-- ===== TAB 2 ===== -->
 <section class="panel" id="panel-kingdom" role="tabpanel">
   <div class="wrap">
-    <div class="panel-intro kingdom-head">
-      <div><h2 class="sec">Taste Kingdom</h2></div>
-      <p>The chosen profiles, locked. Each one is a real swatch of the vibe and a downloadable card you hand any agent to invoke it.</p>
+    <div class="panel-intro">
+      <h2 class="sec">Taste Kingdom</h2>
+      <p>Crowned profiles, captured as the real thing — live components you can see and a card + tokens you can deploy.</p>
     </div>
 
-    <!-- DRAFTING BENCH -->
-    <div class="bench empty-state" id="bench">
-      <div class="bench-head">
-        <h3>On the drafting bench</h3>
-        <span class="count" id="benchCount"></span>
-      </div>
-      <p class="bench-sub">The traditions you've sent over from the Glossary — the raw lineage for the next profile. Blend them, then copy a starter prompt you can hand any agent to draft the card.</p>
-      <div class="bench-chips" id="benchChips"></div>
-      <div class="bench-merged" id="benchMerged"></div>
-      <div class="bench-actions">
-        <button class="go" id="benchCopy">⧉ copy starter prompt</button>
-        <button class="clr" id="benchClear">clear bench</button>
-      </div>
-    </div>
-
-    <!-- TEENAGE SOUL ROOM -->
-    <article class="room">
-      <svg class="grain" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
-      <div class="inner">
-        <div class="invoke-row">
-          <span class="num">PROFILE 001</span>
-          <span class="lock">◆ locked · burma script</span>
+    <article class="ts-room">
+      <div class="ts-inner">
+        <div class="ts-tophead">
+          <span class="ts-num">PROFILE 001 · LOCKED</span>
+          <span class="ts-sys">SYSTEM: TEENAGE ENGINEERING × fig.01 · captured from WP-01</span>
         </div>
         <h2 class="ts-name">Teenage Soul</h2>
-        <p class="invoke">say "build this in teenage soul" — or hand over the card ↓</p>
-        <p class="feeling">It's a sun-faded 45 sleeve found in a teenager's bedroom. Big, unguarded emotion with no irony — the way you feel things at fifteen — carried on the warmth of soul music: analog tape, gospel roots, a needle dropping on vinyl. The exact opposite of clean, cold, corporate. For a Myanmar human story it makes you <em>feel</em> your way in before you're explained a thing.</p>
-        <p class="moodwords">yearning · warm · sincere · worn · intimate · soulful · unguarded · handmade · nostalgic-but-alive</p>
+        <p class="ts-invoke">say "build this in teenage soul" — or hand over the card + tokens ↓</p>
+        <p class="ts-feeling">The soul of a Teenage Engineering box and a <em>fig.01</em> technical drawing, in service of human storytelling. Warm cream paper, thin ink hairlines, registration-screw corners, monospace micro-labels, color-coded by <em>function</em>. Every block is a tactile hardware cartridge. Flat on purpose — no shadows, no gloss. It feels like a beloved instrument built for one person, not an app.</p>
+        <p class="ts-mood">warm · tactile · precise · flat · instrument-like · analog · understated · function-coded · built-for-one</p>
 
-        <div class="ts-grid">
+        <div class="ts-cols">
+          <!-- LEFT: the real living instrument -->
           <div>
-            <p class="block-label">Palette — tap a swatch to copy</p>
-            <div class="swatches" id="tsSwatches"></div>
+            <p class="ts-blocklab">The living ecosystem — real cartridges, interactive</p>
+            <div class="ts-device">
+              <span class="ts-screw" style="top:9px;left:9px"></span><span class="ts-screw" style="top:9px;right:9px"></span>
+              <span class="ts-screw" style="bottom:9px;left:9px"></span><span class="ts-screw" style="bottom:9px;right:9px"></span>
+              <div class="ts-dhead">
+                <div class="ts-wm">WP·<b>01</b><span class="ts-cap-fig">fig.03 — CARTRIDGE RACK</span></div>
+                <div class="ts-tele">2,305 WORDS · 225 BLOCKS · <b>07/79 SOT</b> · DRAFT</div>
+              </div>
 
-            <p class="block-label">Lineage — blended from the menu</p>
-            <p class="lineage"><b>70s Soul sleeve art</b> (Stax, Hi, Motown, Curtis Mayfield) for the warmth and gold · <b>Teenage zine cut-and-paste</b> for the raw felt-tip honesty · <b>New Hollywood grain</b> for the film texture · <b>Soul cinema</b> (Spike Lee, Barry Jenkins, Gordon Parks) for intimacy and dignity.</p>
+              <!-- CHAPTER -->
+              <div class="ts-cart chapter">
+                <div class="ts-spine"><div class="ts-cap">07</div><div class="ts-grip">⠿</div></div>
+                <div class="ts-cbody">
+                  <div class="ts-ch-top"><span class="ts-ch-kind">CH · ACT</span><span class="ts-ch-tag">GROUND</span></div>
+                  <div class="ts-ch-title">COLD OPEN — THE EMPTY CAPITAL</div>
+                </div>
+              </div>
+
+              <!-- VO -->
+              <div class="ts-cart vo">
+                <div class="ts-spine" style="background:var(--ts-grip)"><div class="ts-cap" style="background:var(--ts-blue)">08</div><div class="ts-grip">⠿</div></div>
+                <div class="ts-cbody">
+                  <div class="ts-vo-top">
+                    <span class="ts-kind">VO · NARRATION</span>
+                    <span class="ts-rec" data-pos="0"><span class="rl">REC</span><span class="ts-pill"><span class="ts-pip p0"></span><span class="ts-pip p1"></span><span class="ts-pip p2"></span></span><span class="ts-state">OFF</span></span>
+                  </div>
+                  <div class="ts-prose">They built a capital for a country that never came. <span class="ts-tk">tk fractured-shape</span> — wide, swept, empty. <span class="ts-vis">[map: river basin vs British shape]</span></div>
+                </div>
+              </div>
+
+              <!-- SOT -->
+              <div class="ts-cart sot">
+                <div class="ts-spine" style="background:var(--ts-grip)"><div class="ts-cap" style="background:var(--ts-orange)">09</div><div class="ts-grip">⠿</div></div>
+                <div class="ts-cbody">
+                  <div class="ts-sot-grid">
+                    <div class="ts-readout" data-tc="02:32:21:22"><span class="day">DAY 3</span><span class="tc">02:32:21:22</span></div>
+                    <div><span class="ts-spk">JH · ON CAM</span><span class="ts-quote">"You can feel the silence here. It's engineered."</span></div>
+                    <div class="ts-done">✓</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- B-ROLL -->
+              <div class="ts-cart broll">
+                <div class="ts-spine" style="background:var(--ts-grip)"><div class="ts-cap" style="background:var(--ts-burgundy)">10</div><div class="ts-grip">⠿</div></div>
+                <div class="ts-cbody">
+                  <div class="ts-broll-top"><span class="ts-kind">B-ROLL</span><span class="ts-broll-tc" data-tc="04:45:48:08">DAY 2 · 04:45:48:08 ⧉</span></div>
+                  <div class="ts-broll-body">empty eight-lane boulevard, single motorbike crossing frame <span class="ts-vis">[hero shot]</span></div>
+                </div>
+              </div>
+
+              <!-- NOTE -->
+              <div class="ts-cart note">
+                <div class="ts-spine"><div class="ts-cap" style="background:var(--ts-yellow);color:#5a4a00">11</div><div class="ts-grip">⠿</div></div>
+                <div class="ts-cbody">
+                  <span class="ts-kind" style="color:var(--ts-notelab)">EDITOR NOTE</span>
+                  <div class="ts-note-body">hold this wide a beat longer — let the emptiness land before the VO comes in.</div>
+                </div>
+              </div>
+
+              <div class="ts-insert"><div class="ts-plus">+</div><span class="il">INSERT BLOCK — CHAPTER · VO · SOT · B-ROLL · NOTE</span></div>
+            </div>
           </div>
 
+          <!-- RIGHT: tokens, type, rules -->
           <div>
-            <p class="block-label">Type</p>
-            <div class="typrow"><p class="k">Display · Fraunces</p><div class="t-disp">A soulful serif.</div></div>
-            <div class="typrow"><p class="k">Body · Newsreader</p><div class="t-body">Warm and book-like, the way you'd actually read liner notes on the floor of your room.</div></div>
-            <div class="typrow" style="border:0"><p class="k">Hand · Caveat</p><div class="t-hand">notes in the margin, in felt-tip</div></div>
-
-            <p class="block-label">Texture &amp; motion</p>
-            <div class="tag-wrap">
-              <span class="tag">35mm grain</span><span class="tag">halftone</span><span class="tag">tape edges</span>
-              <span class="tag">sun-fade</span><span class="tag">vinyl crackle</span><span class="tag">light leaks</span>
-              <span class="tag">slow fades</span><span class="tag">needle-drop</span><span class="tag">no springs</span>
+            <p class="ts-blocklab">Color = function (tap to copy)</p>
+            <div class="ts-funcs">
+              <div class="ts-func" data-hx="#ff5b1f"><span class="sw" style="background:#ff5b1f"></span><span class="fn"><b>Orange</b> · SOT / live</span><span class="hx">#ff5b1f</span></div>
+              <div class="ts-func" data-hx="#2f6fb0"><span class="sw" style="background:#2f6fb0"></span><span class="fn"><b>Blue</b> · VO / narration</span><span class="hx">#2f6fb0</span></div>
+              <div class="ts-func" data-hx="#f5c518"><span class="sw" style="background:#f5c518"></span><span class="fn"><b>Yellow</b> · editor note</span><span class="hx">#f5c518</span></div>
+              <div class="ts-func" data-hx="#6e1f1a"><span class="sw" style="background:#6e1f1a"></span><span class="fn"><b>Burgundy</b> · B-roll</span><span class="hx">#6e1f1a</span></div>
+              <div class="ts-func" data-hx="#1f1d18"><span class="sw" style="background:#1f1d18"></span><span class="fn"><b>Ink</b> · lines &amp; text</span><span class="hx">#1f1d18</span></div>
+              <div class="ts-func" data-hx="#efeadd"><span class="sw" style="background:#efeadd"></span><span class="fn"><b>Frame</b> · cream body</span><span class="hx">#efeadd</span></div>
             </div>
+
+            <p class="ts-blocklab">Type</p>
+            <div class="ts-typ"><p class="k">Chrome · JetBrains Mono</p><div class="mono-demo">02:32:21:22 · 07/79 SOT</div></div>
+            <div class="ts-typ" style="border:0"><p class="k">Prose · Helvetica Neue</p><div class="sans-demo">The writer's voice, set warm.</div></div>
+
+            <p class="ts-blocklab">The rules</p>
+            <ul class="ts-rules">
+              <li>Flat. A hairline, never a shadow.</li>
+              <li>One hot orange = "live."</li>
+              <li>Registration screws + knurled grips.</li>
+              <li>Mono labels, tiny + tracked-out.</li>
+              <li>Motion settles, never springs.</li>
+            </ul>
           </div>
         </div>
 
-        <div class="dodont">
-          <div class="col do"><h4>✓ do</h4><ul><li>warmth &amp; grain</li><li>one hot accent, held</li><li>handmade marks</li><li>faded saturation</li><li>sincerity over slick</li></ul></div>
-          <div class="col dont"><h4>✕ don't</h4><ul><li>cold minimalism</li><li>slick gradients</li><li>irony · neon · glass</li><li>perfect geometry</li><li>startup-landing-page energy</li></ul></div>
+        <!-- live embed -->
+        <div class="ts-embed-wrap">
+          <p class="ts-blocklab">The real instrument, running live</p>
+          <div class="ts-embed">
+            <div class="ts-embed-bar"><span class="dot" style="background:#ff5b1f"></span><span class="dot" style="background:#f5c518"></span><span class="dot" style="background:#2f6fb0"></span><span class="u">mycoldmars.com/burma-script</span></div>
+            <iframe src="/burma-script/" loading="lazy" title="burma-script live"></iframe>
+          </div>
         </div>
       </div>
 
-      <div class="product">
-        <div class="copy">
-          <h3>The product → a Taste Card</h3>
-          <p>One self-contained <code>.md</code> style contract: palette, type, texture, motion, do/don'ts, lineage, and instructions for the agent. To invoke a taste, you either say <code>"in Teenage Soul"</code> or drop this file on any agent. That's the whole handoff — no re-explaining the vibe ever again.</p>
+      <!-- deploy -->
+      <div class="ts-deploy">
+        <div class="dl-copy">
+          <h3>Deploy this taste</h3>
+          <p>Two files. <code>tokens.css</code> is the real variables + component recipes, lifted from the live tool. <code>card.md</code> is the human + agent brief. To invoke: say <code>"in Teenage Soul"</code> or drop these on any agent.</p>
         </div>
-        <a class="dl" href="/glossary/cards/teenage-soul.md" download="teenage-soul.taste.md">⬇ download taste card</a>
+        <div class="ts-btns">
+          <a class="tbtn primary" href="/glossary/cards/teenage-soul.tokens.css" download="teenage-soul.tokens.css">⬇ tokens.css</a>
+          <a class="tbtn ghost" href="/glossary/cards/teenage-soul.md" download="teenage-soul.taste.md">⬇ card.md</a>
+          <a class="tbtn ghost" href="/burma-script/" target="_blank" rel="noopener">↗ see it live</a>
+        </div>
       </div>
     </article>
 
     <div class="empty">
       <span class="big">More thrones, empty for now.</span>
-      Browse The Glossary, find a feeling, and send it here to crown the next profile.
+      Find a feeling in The Glossary, crown it, and capture the next profile here.
     </div>
   </div>
 </section>
 
 <footer>
-  <div class="wrap" style="display:flex; justify-content:space-between; width:100%; gap:16px; flex-wrap:wrap">
+  <div class="wrap" style="display:flex;justify-content:space-between;width:100%;gap:16px;flex-wrap:wrap">
     <span>the glossary · a living taste library</span>
-    <span>profile 001 — teenage soul · locked 2026·06·16</span>
+    <span>profile 001 — teenage soul · captured 2026·06·17</span>
   </div>
 </footer>
 
 <div id="toast"></div>
 
 <script>
-/* ---------- data: the menu ---------- */
-const TRADITIONS = [
-  {era:"1919–33 · Germany", name:"Bauhaus", warmth:"cool", ess:"Form follows function, joy in the grid. Primary colors, circles, type as system.", pal:["#e4002b","#ffd400","#005bbb","#111","#f4f1e8"], masters:"Moholy-Nagy · Herbert Bayer · Albers", feels:"a red circle that means business"},
-  {era:"1950s · Switzerland", name:"Swiss / International", warmth:"cool", ess:"Helvetica, the grid, mathematical order. Objectivity as a moral position.", pal:["#d50032","#000","#fff","#888","#e8e8e8"], masters:"Müller-Brockmann · Hofmann", feels:"silence, perfectly aligned"},
-  {era:"1920s · USSR", name:"Constructivism", warmth:"warm", ess:"Diagonal energy, photomontage, red and black shouting from a wall.", pal:["#c1121f","#0b0b0b","#f2e9d8","#444"], masters:"Rodchenko · El Lissitzky", feels:"a poster that wants a revolution"},
-  {era:"1890s · France", name:"Art Nouveau", warmth:"warm", ess:"Whiplash curves, botanical ornament, the woman as goddess.", pal:["#5b6e4f","#caa05a","#7a3b2e","#e9ddc3","#2e2a22"], masters:"Mucha · Toulouse-Lautrec", feels:"a vine that became a letterform"},
-  {era:"1950s–60s · USA", name:"Mid-Century American", warmth:"warm", ess:"Optimism with wit. Cut-paper, flat color, the smart simple mark.", pal:["#e8552d","#f3b61f","#2a9d8f","#1d1d1b","#efe7d6"], masters:"Saul Bass · Paul Rand · Charley Harper", feels:"a title sequence with a cocktail"},
-  {era:"1966–71 · S.F.", name:"Psychedelic", warmth:"warm", ess:"Melting type, vibrating complementary color, the gig poster as trip.", pal:["#ff2e88","#ff8a00","#00b3a4","#7b2ff7","#1a0033"], masters:"Wes Wilson · Victor Moscoso", feels:"a font on the verge of a feeling"},
-  {era:"1970s · USA", name:"70s Soul & Funk Sleeve", warmth:"warm", ess:"Album-art warmth: gold, brown, analog photography, gospel-rooted heat.", pal:["#6e241c","#c9532d","#d6a23e","#3c645c","#efe3cc"], masters:"Stax · Hi · Motown · Curtis Mayfield", feels:"a record you've played a hundred times", key:true},
-  {era:"1976 · UK", name:"Punk / Xerox", warmth:"warm", ess:"Ransom-note type, photocopied degradation, cut-and-paste rage. No rules.", pal:["#ff2a00","#ff0090","#000","#fff","#bdb7a4"], masters:"Jamie Reid · Linder", feels:"a threat made of newspaper"},
-  {era:"1972–82 · USA", name:"New Hollywood Grain", warmth:"warm", ess:"35mm warmth, available light, faces in soft amber. Cinema that breathes.", pal:["#3a241c","#c4622e","#caa14e","#7a5236","#ecd9b8"], masters:"Gordon Willis · Vilmos Zsigmond", feels:"dust in a sunbeam", key:true},
-  {era:"1980s · Italy", name:"Memphis / Postmodern", warmth:"warm", ess:"Squiggles, terrazzo, clashing pastels. Anti-good-taste as a stance.", pal:["#ff5d8f","#27c4c4","#ffd23f","#1b1b1b","#f5f0e6"], masters:"Sottsass · Memphis Group", feels:"a fax machine on vacation"},
-  {era:"1970s–80s · Switz.", name:"New Wave / Weingart", warmth:"cool", ess:"The grid, broken on purpose. Letterspacing, layers, controlled chaos.", pal:["#111","#00e0ff","#ff0058","#f0f0f0"], masters:"Wolfgang Weingart · April Greiman", feels:"Swiss order having a nightmare"},
-  {era:"1990s · USA", name:"Grunge / Carson", warmth:"cool", ess:"Type as texture, legibility optional, emotion over the grid. Ray Gun.", pal:["#2b2b2b","#b5a642","#7d4a2e","#d8d2c4"], masters:"David Carson", feels:"a magazine that fell in a puddle"},
-  {era:"1960s · Japan", name:"Japanese Editorial", warmth:"cool", ess:"Negative space as luxury, geometric crests, restraint with one bold mark.", pal:["#bc002d","#1a1a1a","#f7f4ee","#9a9a9a"], masters:"Ikko Tanaka · Yusaku Kamekura", feels:"one perfect red against white"},
-  {era:"1980s · Tokyo/NY", name:"City Pop / Neon", warmth:"warm", ess:"Sunset gradients, chrome, palm-tree melancholy, late-night glow.", pal:["#ff7eb0","#7b5cff","#ffb24d","#16123a","#21d4d4"], masters:"Hiroshi Nagai", feels:"a drive home at 2am"},
-  {era:"2010s · web", name:"Brutalist Web", warmth:"cool", ess:"Raw HTML honesty, system fonts, hard borders, no decoration as decoration.", pal:["#0000ff","#ff0000","#000","#fff","#c0c0c0"], masters:"Bloomberg · Balenciaga sites", feels:"a spreadsheet that's proud of itself"},
-  {era:"2010s · risograph", name:"Riso / Zine", warmth:"warm", ess:"Two-spot-color overprint, misregistration, the handmade DIY page.", pal:["#ff4f00","#0077ff","#ffd400","#1a1a1a","#f4eede"], masters:"indie presses · art-school zines", feels:"ink that didn't quite line up"},
-  {era:"2000s · digital", name:"Y2K Chrome", warmth:"cool", ess:"Liquid metal, lens flare, frosted blue, the future as imagined in 1999.", pal:["#b9c6d6","#7fdfff","#c0c0c0","#ff5ed2","#0a1a2f"], masters:"The Matrix DVD menus", feels:"a screensaver with ambitions"},
-  {era:"2010s · film", name:"Soul Cinema", warmth:"warm", ess:"Black life in saturated tenderness — teal night, amber skin, dignity.", pal:["#0e3b3a","#c4622e","#d99a3c","#7a2740","#ead9bf"], masters:"Barry Jenkins · Spike Lee · Bradford Young", feels:"moonlight on a face", key:true},
-];
+const PRETTY={bauhaus:"Bauhaus",swiss:"Swiss / International",constructivism:"Constructivism",psychedelic:"Psychedelic",punk:"Punk / Xerox",memphis:"Memphis",brutalist:"Brutalist Web",y2k:"Y2K Chrome",riso:"Risograph",soulcinema:"Soul Cinema",nouveau:"Art Nouveau",japanese:"Japanese Editorial"};
 
-/* ---------- data: teenage soul palette ---------- */
-const TS_PAL = [
-  {nm:"Warm Ink", hx:"#1C1611"},
-  {nm:"Newsprint Cream", hx:"#EFE3CC"},
-  {nm:"Oxblood", hx:"#6E241C"},
-  {nm:"Soul Orange", hx:"#C9532D"},
-  {nm:"Aged Gold", hx:"#D6A23E"},
-  {nm:"Pressed Teal", hx:"#3C645C"},
-  {nm:"Faded Rose", hx:"#C25C72"},
-];
-
-/* ---------- render menu ---------- */
-const grid = document.getElementById('tradGrid');
-function renderGrid(filter){
-  grid.innerHTML = '';
-  TRADITIONS.filter(t => !filter || filter==='all' || t.warmth===filter || (filter==='key' && t.key)).forEach(t=>{
-    const dots = t.pal.map(c=>`<span style="background:${c}"></span>`).join('');
-    const el = document.createElement('div');
-    el.className = 'trad';
-    el.innerHTML = `
-      <p class="era">${t.era}${t.key?' · <span style="color:#d6a23e">in teenage soul</span>':''}</p>
-      <h3>${t.name}</h3>
-      <p class="ess">${t.ess}</p>
-      <div class="dots">${dots}</div>
-      <p class="meta"><b>${t.masters}</b></p>
-      <p class="feels">“${t.feels}”</p>
-      <button class="usebtn" data-name="${t.name}">↳ Use as a base for a profile</button>`;
-    grid.appendChild(el);
+/* wrap each specimen in a case frame + placard with a crown button */
+(function(){
+  const grid=document.getElementById('cases');
+  const specs=[...grid.querySelectorAll('article.spec')];
+  specs.forEach((spec,i)=>{
+    const slug=spec.getAttribute('data-slug')||('t'+i);
+    const cse=document.createElement('div'); cse.className='case';
+    const holder=document.createElement('div'); holder.className='spec';
+    spec.parentNode.insertBefore(cse,spec);
+    holder.appendChild(spec); cse.appendChild(holder);
+    const pl=document.createElement('div'); pl.className='placard';
+    pl.innerHTML=`<span class="pl-name"><span class="idx">${String(i+1).padStart(2,'0')}</span>${PRETTY[slug]||slug}</span><button class="crown" data-name="${PRETTY[slug]||slug}">⤷ crown for a profile</button>`;
+    cse.appendChild(pl);
   });
-  grid.querySelectorAll('.usebtn').forEach(b=> b.onclick=()=>sendToKingdom(b.dataset.name));
-}
+  grid.querySelectorAll('.crown').forEach(b=>b.onclick=()=>sendToKingdom(b.dataset.name));
+})();
 
-/* ---------- filters ---------- */
-const FILTERS = [["all","everything"],["warm","warm"],["cool","cool"],["key","◆ in teenage soul"]];
-const fwrap = document.getElementById('filters');
-FILTERS.forEach((f,i)=>{
-  const b=document.createElement('button'); b.className='fchip'+(i===0?' on':''); b.textContent=f[1]; b.dataset.f=f[0];
-  b.onclick=()=>{ fwrap.querySelectorAll('.fchip').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGrid(f[0]); };
-  fwrap.appendChild(b);
+/* tabs */
+const tabs={glossary:document.getElementById('tab-glossary'),kingdom:document.getElementById('tab-kingdom')};
+const panels={glossary:document.getElementById('panel-glossary'),kingdom:document.getElementById('panel-kingdom')};
+function show(w){Object.keys(tabs).forEach(k=>{tabs[k].classList.toggle('on',k===w);panels[k].classList.toggle('on',k===w)});history.replaceState(null,'',w==='kingdom'?'#kingdom':'#glossary')}
+tabs.glossary.onclick=()=>show('glossary');tabs.kingdom.onclick=()=>show('kingdom');
+if(location.hash==='#kingdom')show('kingdom');
+function sendToKingdom(name){show('kingdom');toast('"'+name+'" noted as a base — next profile');window.scrollTo({top:document.querySelector('.empty').offsetTop-220,behavior:'smooth'})}
+
+/* copy hex (palette functions) */
+document.querySelectorAll('.ts-func').forEach(f=>f.onclick=()=>{const hx=f.dataset.hx;navigator.clipboard?.writeText(hx);toast('copied '+hx)});
+
+/* cartridge interactions — real behavior */
+document.querySelectorAll('.ts-readout,.ts-broll-tc').forEach(el=>el.onclick=()=>{const tc=el.dataset.tc;navigator.clipboard?.writeText(tc);toast(tc+' → copied');});
+document.querySelectorAll('.ts-done').forEach(d=>{d.classList.add('on');d.onclick=()=>d.classList.toggle('on')});
+const REC=[['OFF','#9b968c',-1],['ARM','#c2491a',0],['REC','#e8412b',0]];
+document.querySelectorAll('.ts-rec').forEach(r=>{
+  const pips=[...r.querySelectorAll('.ts-pip')],state=r.querySelector('.ts-state');
+  function paint(p){pips.forEach((pp,i)=>pp.style.background=(p>0&&i===p-1)?'#ff5b1f':'#e7e1d3');const s=REC[p];state.textContent=s[0];state.style.color=s[1]}
+  let pos=0;paint(pos);r.onclick=()=>{pos=(pos+1)%3;r.dataset.pos=pos;paint(pos)}
 });
-renderGrid('all');
 
-/* ---------- swatches ---------- */
-const sw = document.getElementById('tsSwatches');
-TS_PAL.forEach(c=>{
-  const el=document.createElement('div'); el.className='sw';
-  el.innerHTML=`<div class="chip" style="background:${c.hx}"></div><div class="lab"><span class="nm">${c.nm}</span><span class="hx">${c.hx}</span></div>`;
-  el.onclick=()=>{ navigator.clipboard?.writeText(c.hx); const hx=el.querySelector('.hx'); const o=hx.textContent; hx.textContent='copied ✓'; hx.classList.add('copied'); toast('copied '+c.hx); setTimeout(()=>{hx.textContent=o; hx.classList.remove('copied')},1100); };
-  sw.appendChild(el);
-});
-
-/* ---------- tabs ---------- */
-const tabs={glossary:document.getElementById('tab-glossary'), kingdom:document.getElementById('tab-kingdom')};
-const panels={glossary:document.getElementById('panel-glossary'), kingdom:document.getElementById('panel-kingdom')};
-function show(which){
-  Object.keys(tabs).forEach(k=>{ tabs[k].classList.toggle('on', k===which); tabs[k].setAttribute('aria-selected', k===which); panels[k].classList.toggle('on', k===which); });
-  history.replaceState(null,'', which==='kingdom'?'#kingdom':'#glossary');
-}
-tabs.glossary.onclick=()=>show('glossary');
-tabs.kingdom.onclick=()=>show('kingdom');
-if(location.hash==='#kingdom') show('kingdom');
-
-/* ---------- drafting bench ---------- */
-const BENCH_KEY='glossary-bench:v1';
-const benchEl=document.getElementById('bench');
-const benchChips=document.getElementById('benchChips');
-const benchMerged=document.getElementById('benchMerged');
-const benchCount=document.getElementById('benchCount');
-function loadBench(){ try{ const v=JSON.parse(localStorage.getItem(BENCH_KEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
-function saveBench(list){ try{ localStorage.setItem(BENCH_KEY, JSON.stringify(list)); }catch(e){} }
-function benchTraditions(){ const names=loadBench(); return names.map(n=>TRADITIONS.find(t=>t.name===n)).filter(Boolean); }
-function renderBench(){
-  const chosen=benchTraditions();
-  benchEl.classList.toggle('empty-state', chosen.length===0);
-  benchCount.textContent = chosen.length ? chosen.length+(chosen.length===1?' base':' bases') : '';
-  benchChips.innerHTML = chosen.map(t=>`
-    <div class="bchip">
-      <div class="strip">${t.pal.map(c=>`<i style="background:${c}"></i>`).join('')}</div>
-      <div class="info"><div class="nm">${t.name}</div><div class="er">${t.era}</div></div>
-      <button class="rm" data-name="${t.name}" title="remove">✕</button>
-    </div>`).join('');
-  benchChips.querySelectorAll('.rm').forEach(b=> b.onclick=()=>removeFromBench(b.dataset.name));
-  const merged=[...new Set(chosen.flatMap(t=>t.pal))];
-  benchMerged.innerHTML = merged.length ? `<p class="ml">merged palette · ${merged.length} colors</p><div class="row">${merged.map(c=>`<span style="background:${c}" title="${c}"></span>`).join('')}</div>` : '';
-}
-function addToBench(name){ const list=loadBench(); if(!list.includes(name)) list.push(name); saveBench(list); renderBench(); }
-function removeFromBench(name){ saveBench(loadBench().filter(n=>n!==name)); renderBench(); }
-function clearBench(){ saveBench([]); renderBench(); toast('bench cleared'); }
-function starterPrompt(){
-  const chosen=benchTraditions();
-  if(!chosen.length) return '';
-  const lineage = chosen.map(t=>`- **${t.name}** (${t.era}) — ${t.ess} Masters: ${t.masters}. Palette: ${t.pal.join(', ')}. Feels like: "${t.feels}".`).join('\n');
-  const merged=[...new Set(chosen.flatMap(t=>t.pal))].join(', ');
-  return `Draft a new Taste Card for mycoldmars' Glossary by blending these design traditions into one coherent profile.\n\nLineage to blend:\n${lineage}\n\nCombined palette to draw from: ${merged}\n\nFollow the exact format of the existing card at /glossary/cards/teenage-soul.taste.md: an invocation line, "The feeling" (one evocative paragraph + mood words), a Palette table (swatch · name · hex · use, with a discipline note), Type (display/body/hand with a pairing rule), Texture & treatment, Motion, Do/Don't, Lineage, and a "For the agent — when invoked" checklist. Keep it warm and specific, never generic. Name the profile, give it one held accent color, and write it so any agent can build in this taste from the card alone.`;
-}
-function copyStarter(){
-  const p=starterPrompt();
-  if(!p){ toast('add a tradition first'); return; }
-  navigator.clipboard?.writeText(p).then(()=>toast('starter prompt copied — hand it to any agent'), ()=>toast('copy failed — select & copy manually'));
-}
-document.getElementById('benchClear').onclick=clearBench;
-document.getElementById('benchCopy').onclick=copyStarter;
-renderBench();
-
-function sendToKingdom(name){ addToBench(name); show('kingdom'); toast('“'+name+'” added to the bench'); benchEl.scrollIntoView({behavior:'smooth', block:'center'}); }
-
-/* ---------- toast ---------- */
-let tt; const toastEl=document.getElementById('toast');
-function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>toastEl.classList.remove('show'),1600); }
+let tt;const toastEl=document.getElementById('toast');
+function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toastEl.classList.remove('show'),1500)}
 </script>
 </body>
 </html>

@@ -231,25 +231,1872 @@ const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwH
 
 // ===== DATA (placeholder; replaced wholesale by the research workflow output) =====
 let DATA = {
-  meta: {
-    title: "A valley of <em>waterfalls</em><br>and high ridges",
-    subtitle: "A menu of hikes and adventures around Wengen — pick a line, the map flies you there.",
-    intro: "<span class='lead'>The Lauterbrunnen valley is a glacier-cut trench with seventy-two waterfalls pouring off the walls, and you're staying on the sunny shelf at Wengen, halfway up.</span> Everything below is reachable on the cog trains and cable cars without a car. Tap any village or hike — the map flies to it and traces the route over the real terrain.",
-    tips: [
-      "Get a Jungfrau Travel Pass — it covers nearly every train, cable car and gondola in the region for the days you're here.",
-      "Check the live mountain webcams (jungfrau.ch) the morning of a big ridge hike — clear peaks or don't bother.",
-      "Save the long ridge traverses (First → Schynige Platte) for the clearest day you get.",
-      "Go up early; the cable cars and the famous viewpoints fill by late morning in summer.",
+  "meta": {
+    "title": "Wengen &amp; the <em>Lauterbrunnen</em> valley",
+    "subtitle": "A hand-picked menu of hikes, cable-car adventures, and big-day trips above the cliffs",
+    "intro": "Wengen sits on a sunny shelf above the Lauterbrunnen valley, a car-free village staring straight across at the Eiger, Mönch, and Jungfrau. Everything here moves by cogwheel train and cable car, so most \"hikes\" actually start with a scenic ride up and a gentle walk down — you choose how much effort you want. This menu is ordered with the most iconic, can't-miss outings first; skim from the top, match a hike to the day's weather, and don't try to cram in more than one big thing per day.",
+    "hikeOrder": [
+      "mannlichen-kleine-scheidegg-panoramaweg",
+      "jungfraujoch-top-of-europe",
+      "schilthorn-piz-gloria-birg-skyline-walk",
+      "eiger-trail-eigergletscher-alpiglen",
+      "grindelwald-first-bachalpsee",
+      "first-faulhorn-schynige-platte",
+      "lauterbrunnen-waterfalls-walk",
+      "north-face-trail-murren",
+      "maennlichen-royal-walk",
+      "murren-gimmelwald-stechelberg",
+      "grindelwald-first-cliff-adventures",
+      "schynige-platte-oberberghorn",
+      "kleine-scheidegg-wengernalp-wengen",
+      "grutschalp-murren-panorama",
+      "tanzbodeli-viewpoint",
+      "allmendhubel-blumental-flower-trail"
     ],
+    "tips": [
+      "Get a travel pass before you ride. The Jungfrau Travel Pass covers most trains and cable cars in the region (Jungfraujoch is extra but discounted); if you have a Swiss/Berner Oberland pass, check what's included so you're not buying single tickets — the lifts here are pricey and add up fast.",
+      "Let the webcams decide your day. These peaks make their own weather and the valley can be socked in while the tops are clear (or the reverse). Check the live mountain webcams and forecast each morning, then pick a high ridge walk on the bluebird days and save waterfalls or village walks for cloudy ones.",
+      "Do the big ridge traverses only on clear days. The Männlichen Panoramaweg, the Eiger Trail, and especially the long Faulhorn-to-Schynige-Platte route live and die by visibility — in cloud you'll get the effort with none of the payoff. Hold them for a settled, sunny window.",
+      "Go up early to beat the crowds. The first trains and cable cars are the quietest, the light is best, and you'll reach viewpoints like Bachalpsee and Jungfraujoch before the tour groups. Aim for the first or second lift up and you'll have the trails mostly to yourself.",
+      "With kids, lean on the easy lift-and-stroll outings. The Männlichen Royal Walk, Grindelwald First cliff adventures (cliff walk, flyer, carts), the Lauterbrunnen waterfalls, and the Allmendhubel flower trail are short, mostly downhill or flat, and full of payoff for little legs. You can always ride back down if anyone tires out.",
+      "Carry layers and check the last-lift times. It can be sunny in Wengen and near-freezing on the Schilthorn or at Jungfraujoch, so pack a warm layer and rain shell even on hot days — and note the final downhill departure so a long traverse doesn't leave you stranded above the valley."
+    ]
   },
-  villages: [
-    { id:'wengen', name:'Wengen', coord:[7.9220,46.6055], elevationM:1274, oneLiner:"Car-free balcony over the valley — home base", carFree:true, narrative:"Your base. A car-free village on a sunlit terrace facing the Jungfrau, reached only by the cog railway up from Lauterbrunnen.", bullets:["Reached only by cog railway from Lauterbrunnen (~15 min)","Sun all day, full-on Jungfrau view","Quiet evenings once the day-trippers leave"], howToGetThere:"You live here." },
-    { id:'lauterbrunnen', name:'Lauterbrunnen', coord:[7.9092,46.5938], elevationM:802, oneLiner:"The valley floor of 72 waterfalls", carFree:false, narrative:"The town everyone arrives into, on the valley floor under the Staubbach Falls.", bullets:["Staubbach Falls drops 300m over the church","Trümmelbach Falls — glacier water inside the cliff","The transit hub for everything"], howToGetThere:"Cog railway down from Wengen, ~15 min." },
+  "villages": [
+    {
+      "id": "lauterbrunnen",
+      "name": "Lauterbrunnen",
+      "coord": [
+        7.9089,
+        46.5936
+      ],
+      "elevationM": 796,
+      "oneLiner": "Valley-floor town of 72 waterfalls below Wengen",
+      "narrative": "This is the floor of the great U-shaped trough everyone arrives into before going up — a single main street wedged between sheer thousand-meter walls, with the Staubbach Falls drifting down behind the village church like smoke. In spring the cliffs leak water everywhere and the whole valley roars; in any season it's the transit hub where you change trains, grab groceries, and crane your neck. It can get crowded with day-trippers and camera tripods, but step ten minutes up-valley and it goes quiet fast.",
+      "bullets": [
+        "Staubbach Falls — Switzerland's highest free-falling waterfall at 297m; a footpath behind the church climbs into a tunnel cut right behind the curtain of water (closed in winter)",
+        "Walk or bike the flat valley floor up to Trummelbach Falls, glacial meltwater thundering inside the mountain — reachable by the 141 postbus or a ~45-min level stroll",
+        "Main transit hub: the BLS station from Interlaken and the WAB cog railway up to Wengen and Kleine Scheidegg both leave from here",
+        "Park your car here (multi-story garages by the station) since Wengen is car-free — this is where the road ends and the rails take over",
+        "Best light is morning, when sun hits the west wall and the falls catch the glow before the day crowds arrive"
+      ],
+      "howToGetThere": "From Wengen, take the WAB cog railway downhill to Lauterbrunnen — about 14 minutes, departures roughly every 30 minutes all day.",
+      "carFree": false
+    },
+    {
+      "id": "wengen",
+      "name": "Wengen",
+      "coord": [
+        7.9219,
+        46.6061
+      ],
+      "elevationM": 1274,
+      "oneLiner": "Car-free village on a sunny shelf facing the Jungfrau",
+      "narrative": "Wengen sits on a grassy terrace about 400 metres above the Lauterbrunnen valley floor, with the Jungfrau, Mönch and the Eiger's flank filling the whole eastern sky. No cars make it up here — just the little blue-and-cream cog train, hand carts, and the hum of the village going about its day, so the loudest thing you usually hear is cowbells and the train horn. It's an old-school resort village with wooden chalets, a few hotels from the grand-tourism era, and that rare combination of being genuinely lived-in and dropped right onto a balcony over the Alps.",
+      "bullets": [
+        "No cars: reached only by the Wengernalpbahn cog railway from Lauterbrunnen — you arrive and leave on the train, and luggage rides in hand carts",
+        "Perfect launch pad: directly on the line to Kleine Scheidegg, the gateway up to Jungfraujoch and the start of dozens of hikes toward Mannlichen and the Eiger trail",
+        "Famous for the Lauberhorn downhill, the longest and one of the most storied races on the World Cup ski circuit each January",
+        "Sun and views: the shelf faces southeast, so it gets long light and an unobstructed wall of Eiger-Monch-Jungfrau straight from the village",
+        "Don't miss sunset from the terrace edge by the church — the peaks go pink while the valley below is already in shadow"
+      ],
+      "howToGetThere": "You're already here — Wengen is the home base. From Lauterbrunnen in the valley it's about 15 minutes up on the Wengernalpbahn cog railway; the same line runs the other way up to Kleine Scheidegg in roughly 20-25 minutes.",
+      "carFree": true
+    },
+    {
+      "id": "murren",
+      "name": "Mürren",
+      "coord": [
+        7.89222,
+        46.55944
+      ],
+      "elevationM": 1638,
+      "oneLiner": "Car-free cliff village, gateway to the Schilthorn",
+      "narrative": "Mürren is Wengen's quieter twin across the valley — a tiny car-free village glued to a shelf on the west wall, higher up and harder to reach, which keeps the crowds thin and the silence real. From its single street and chalet balconies you stare straight across the Lauterbrunnen trench at the full Eiger-Mönch-Jungfrau wall, close enough to feel it. It's the launch point for the cable car up to the Schilthorn and its revolving Piz Gloria restaurant, and the start of the famous Northface Trail.",
+      "bullets": [
+        "Catch the cable car up to the Schilthorn (2970m) for the 360-degree summit panorama and the revolving Piz Gloria restaurant of James Bond fame",
+        "Walk the Northface Trail, an easy loop above the village facing the Eiger, Mönch and Jungfrau wall",
+        "Soak at the Alpine Sports Centre pool, or just wander the one car-free street for the cliff-edge views straight down into Lauterbrunnen",
+        "The one thing not to miss: the view across the valley at dusk, when the big peaks go pink and the village goes dead quiet",
+        "Reached only by railway and cable car — no road climbs to it, so it stays calm and uncrowded even in peak season"
+      ],
+      "howToGetThere": "From Wengen, take the WAB cog train down to Lauterbrunnen (~11 min), cross to the cable car up to Grütschalp (~4 min), then the BLM mountain train along the cliff to Mürren (~11 min) — about 35-45 min total with connections. Note: the Lauterbrunnen-Grütschalp cable car is closed for rebuild 13 Apr-10 Jul 2026; during that window route via Stechelberg and the Schilthorn cableway instead.",
+      "carFree": true
+    },
+    {
+      "id": "kleine-scheidegg",
+      "name": "Kleine Scheidegg",
+      "coord": [
+        7.9613,
+        46.5852
+      ],
+      "elevationM": 2061,
+      "oneLiner": "Pass-top train junction beneath the Eiger North Face",
+      "narrative": "This is the saddle where the world tips up and the Eiger, Mönch, and Jungfrau stand right in your face, close enough that you can hear ice cracking off the north wall on a warm afternoon. It's not a village, just a cluster of railway buildings, a couple of hotels, and a tangle of platforms on a windy pass at 2061m where cog trains from Lauterbrunnen and Grindelwald meet and hand you off to the Jungfraujoch line. Most people blow through it as a transfer, but it's worth getting off the train: the terrace coffee, the hikers' trails fanning out in every direction, and that wall of rock are the whole point.",
+      "bullets": [
+        "Lower terminus of the Jungfrau Railway — change here for the tunnel ride up to Jungfraujoch, the highest station in Europe (3454m)",
+        "Trailhead for the classic Eiger Trail, which runs right along the base of the Eiger North Face down to Alpiglen",
+        "Sunny terrace tables at the historic Bahnhof Buffet and Hotel Bellevue des Alpes, staring straight at the big three peaks",
+        "Junction point: Wengernalp Railway lines from both Lauterbrunnen/Wengen and Grindelwald meet here on the pass",
+        "Don't miss the easy downhill walk back toward Wengernalp and Wengen — flower meadows, cowbells, the peaks at your back"
+      ],
+      "howToGetThere": "Direct from Wengen on the WAB cog railway (Wengernalpbahn) heading uphill — about 30-35 minutes, no changes; Wengen sits right on the line between Lauterbrunnen and Kleine Scheidegg.",
+      "carFree": true
+    },
+    {
+      "id": "grindelwald",
+      "name": "Grindelwald",
+      "coord": [
+        8.0344,
+        46.6242
+      ],
+      "elevationM": 1034,
+      "oneLiner": "Big glacier-village resort sprawled under the Eiger",
+      "narrative": "This is the other base — the one you can drive to, spread out along a sunny green shelf with the black north face of the Eiger and the toothy Wetterhorn standing right over the rooftops. Where Wengen is a quiet car-free balcony, Grindelwald is busier and more sprawling: hotels, chalets, a real high street, and a constant churn of cable cars hauling people up to First and the Eiger glacier. It feels less like a hideaway and more like a proper mountain town that happens to have two glaciers and the most famous wall in the Alps in its backyard.",
+      "bullets": [
+        "Two valley bases: the old village station (Grindelwald Grund) and the modern Grindelwald Terminal, where the Eiger Express gondola whisks you to Eigergletscher in about 15 minutes.",
+        "First is the playground side — ride the gondola up for the Cliff Walk, then the trio of Trotti (scooter), zipline (First Flyer), and Mountain Cart rides back down.",
+        "Classic walk: the easy path to the milky-blue Bachalpsee lake below the Schreckhorn, one of the most photographed spots in the Oberland.",
+        "It sits directly beneath the Eiger's notorious 1,800m north face — the wall mountaineers obsess over — plus the Wetterhorn and the receding Lower Grindelwald Glacier.",
+        "Don't miss the Grindelwald Terminal as a hub: it links the Eiger Express to Kleine Scheidegg/Jungfraujoch and the Männlichen gondola in one spot."
+      ],
+      "howToGetThere": "From Wengen, take the WAB cog train up to Kleine Scheidegg (~22 min), then change for the train down the far side to Grindelwald (~24 min) — roughly 50-60 min total with the connection. It's the scenic over-the-saddle route; no car needed.",
+      "carFree": false
+    },
+    {
+      "id": "grindelwald-first",
+      "name": "Grindelwald First",
+      "coord": [
+        8.054,
+        46.6589
+      ],
+      "elevationM": 2168,
+      "oneLiner": "Cliff-edge adventure peak and gateway to Bachalpsee",
+      "narrative": "First is the sunny shoulder above Grindelwald where the cable car spits you out onto a steel walkway that's been bolted right onto the cliff face, hanging you over a 50-meter drop with the Wetterhorn and Schreckhorn staring back. It's unapologetically a built-up adventure hub — ziplines, a hang-glider-style cart, mountain carts and trottibikes for the ride down — but it's also the trailhead for the easy, gorgeous walk out to Bachalpsee, so the crowds thin fast once you start walking. Come for the gimmicks, stay for the fact that this is one of the most generous viewpoints in the whole valley.",
+      "bullets": [
+        "First Cliff Walk by Tissot: a free metal catwalk that wraps the rock face out to a viewing platform jutting into thin air — the one thing not to miss, and it's included with your lift ticket",
+        "Four adventure rides down: First Flyer zipline (up to 84 km/h on an 800m cable), First Glider (fly headfirst like a bird), plus Mountain Cart and Trottibike scooters between the mid-stations",
+        "The classic walk to Bachalpsee: an easy ~1 hour, 3km path to a mirror-still lake that reflects the Schreckhorn and Finsteraarhorn — best in early morning before the wind",
+        "Gondola from Grindelwald climbs in 6-seater cabins via Bort and Schreckfeld; you can break the journey and ride part of it down by cart or scooter",
+        "Mountain restaurant and the big sun terrace at the top station — go for the panorama over the Grindelwald basin, not the food"
+      ],
+      "howToGetThere": "From Wengen, take the cog railway up to Kleine Scheidegg (~30 min), change to the Grindelwald-bound train down the far side of the pass (~35 min) into Grindelwald, then it's a short walk or a quick local bus to the Firstbahn valley station, where the gondola lifts you to First in about 25 min. Total roughly 2 to 2.5 hours each way — a long but spectacular day trip.",
+      "carFree": true
+    },
+    {
+      "id": "bachalpsee",
+      "name": "Bachalpsee",
+      "coord": [
+        8.02333,
+        46.66944
+      ],
+      "elevationM": 2265,
+      "oneLiner": "High mirror lake above First reflecting the Schreckhorn",
+      "narrative": "Bachalpsee is the postcard lake of the Bernese Oberland — a still tarn at 2,265m where, on a windless morning, the Schreckhorn and Wetterhorn lie upside down on the water. It's an easy hour's walk on a wide gravel path from the top of the First gondola, which is why it gets crowded by midday; go early or stay for the last lifts and you can have the reflection almost to yourself. There's nothing built up here, just two basins split by a low natural dam, alpine grass, and a lot of sky.",
+      "bullets": [
+        "Roughly 3km each way from First station, ~50-60 min, about 220m of gain on a wide, well-graded gravel path — moderate, fine for most fitness levels",
+        "The reflection is the whole point: dead-calm early mornings give the cleanest mirror of the Schreckhorn and Wetterhorn",
+        "Best season is mid-June through late September; before that the lake is frozen or snowbound and the path icy",
+        "Strong walkers continue up to the Faulhorn (2,681m) and on to Bachsee/Bussalp, one of the region's classic ridge hikes",
+        "Bring layers and water — it's exposed, there's no kiosk at the lake, and weather flips fast at this altitude"
+      ],
+      "howToGetThere": "From Wengen, take the WAB cog railway down to Lauterbrunnen (~14 min), change to the Grindelwald train (~35-40 min, usually via Zweilütschinen). From Grindelwald station it's a short walk or local bus to the First gondola valley station, then the First aerial cableway up (~25 min). From First, walk ~50-60 min to the lake. Total door-to-lake roughly 2.5-3 hours each way, so treat it as a full day.",
+      "carFree": true
+    }
   ],
-  hikes: [
-    { id:'maennlichen-scheidegg', name:'Männlichen → Kleine Scheidegg', type:'hike', oneLiner:"The classic near-flat ridge under the Eiger", difficulty:'easy', distanceKm:4.5, ascentM:80, descentM:240, durationText:"1h30", startName:'Männlichen', startCoord:[7.9447,46.6147], endName:'Kleine Scheidegg', endCoord:[7.9614,46.5853], highElevationM:2343, waypoints:[{name:'Männlichen',coord:[7.9447,46.6147]},{name:'Kleine Scheidegg',coord:[7.9614,46.5853]}], routeLine:[[7.9447,46.6147],[7.9500,46.6010],[7.9560,46.5920],[7.9614,46.5853]], logisticsFromWengen:"Männlichen cable car from Wengen (~6 min) to the top, walk the panorama trail, train back from Kleine Scheidegg.", bestFor:"First day, all abilities, the iconic view", season:"June–October", description:"The signature walk of the region: an almost-flat balcony path with the Eiger, Mönch and Jungfrau filling the sky in front of you the whole way. Easy enough for anyone, unforgettable on a clear morning." },
-    { id:'first-bachalpsee', name:'First → Bachalpsee', type:'hike', oneLiner:"The mirror lake that reflects the peaks", difficulty:'easy', distanceKm:6, ascentM:160, descentM:160, durationText:"1h00", startName:'Grindelwald First', startCoord:[8.0540,46.6589], endName:'Bachalpsee', endCoord:[8.0287,46.6669], highElevationM:2265, waypoints:[{name:'First',coord:[8.0540,46.6589]},{name:'Bachalpsee',coord:[8.0287,46.6669]}], routeLine:[[8.0540,46.6589],[8.0440,46.6630],[8.0360,46.6655],[8.0287,46.6669]], logisticsFromWengen:"Train to Grindelwald, First gondola to the top, then the easy trail to the lake.", bestFor:"The postcard reflection, sunrise crowd", season:"Late June–October", description:"An easy gravel path from the top of the First gondola to a still alpine lake that mirrors the Schreckhorn and Wetterhorn. The 'sick lake up there' — go early for glass-calm water." },
-  ],
+  "hikes": [
+    {
+      "id": "mannlichen-kleine-scheidegg-panoramaweg",
+      "name": "Männlichen → Kleine Scheidegg (Panoramaweg)",
+      "type": "hike",
+      "oneLiner": "The famous near-flat ridge walk facing the Eiger",
+      "difficulty": "easy",
+      "distanceKm": 4.9,
+      "ascentM": 50,
+      "descentM": 210,
+      "durationText": "1h30 one-way",
+      "startName": "Männlichen top station (cable car from Wengen)",
+      "startCoord": [
+        7.9405,
+        46.6108
+      ],
+      "endName": "Kleine Scheidegg railway station",
+      "endCoord": [
+        7.9594,
+        46.5844
+      ],
+      "highElevationM": 2222,
+      "waypoints": [
+        {
+          "name": "Männlichen top station (2222m)",
+          "coord": [
+            7.9405,
+            46.6108
+          ]
+        },
+        {
+          "name": "Männlichen summit / Royal Walk detour (2342m, optional)",
+          "coord": [
+            7.9378,
+            46.6136
+          ]
+        },
+        {
+          "name": "Panorama bench / Eiger viewpoint",
+          "coord": [
+            7.9475,
+            46.598
+          ]
+        },
+        {
+          "name": "Saddle approach above Kleine Scheidegg",
+          "coord": [
+            7.9545,
+            46.59
+          ]
+        },
+        {
+          "name": "Kleine Scheidegg (2061m)",
+          "coord": [
+            7.9594,
+            46.5844
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.9405,
+          46.6108
+        ],
+        [
+          7.9425,
+          46.6065
+        ],
+        [
+          7.9445,
+          46.6025
+        ],
+        [
+          7.947,
+          46.5985
+        ],
+        [
+          7.9495,
+          46.595
+        ],
+        [
+          7.952,
+          46.5915
+        ],
+        [
+          7.9545,
+          46.589
+        ],
+        [
+          7.9575,
+          46.5865
+        ],
+        [
+          7.9594,
+          46.5844
+        ]
+      ],
+      "logisticsFromWengen": "Walk to the Wengen–Männlichen aerial cable car station in the village (a few minutes from the train station). The cable car climbs to the Männlichen top station (2222m) in about 5 minutes; departures every 20 minutes, single fare roughly CHF 31 (half with a Half-Fare Card, free on the Jungfrau Travel Pass or Berner Oberland Pass). Optional: add the 25-minute \"Royal Walk\" detour up to the Männlichen summit (2342m) before starting. Follow the green-square \"Panoramaweg\" signs to Kleine Scheidegg in about 1h30. Return on the Wengernalp cog railway (WAB) from Kleine Scheidegg down to Wengen, about 22-24 minutes, roughly CHF 26, trains every 30 minutes. Total a half-day; start mid-morning to beat the crowds.",
+      "bestFor": "Families, first-day legs, anyone who wants enormous mountain views for almost no effort",
+      "season": "Mid-June to mid-October, once the ridge is snow-free",
+      "description": "A wide, well-graded gravel path that contours along the open western flank of the Männlichen ridge, dropping gently the whole way so it feels almost flat. The entire walk the Eiger, Mönch and Jungfrau stand directly across from you, growing larger as you approach Kleine Scheidegg, with the green trench of Grindelwald far below on your left. It is busy and exposed with no shade, but the payoff is constant: you are eye-level with the Eiger's north face the whole time. Cowbells, wildflowers in early summer, and benches placed exactly where you want to sit and stare."
+    },
+    {
+      "id": "jungfraujoch-top-of-europe",
+      "name": "Jungfraujoch — Top of Europe",
+      "type": "day-trip",
+      "oneLiner": "Cog train to Europe's highest station, 3454m",
+      "difficulty": "easy",
+      "distanceKm": 1.5,
+      "ascentM": 90,
+      "descentM": 90,
+      "durationText": "~5-6h round trip incl. 2-3h on top; ~1h15 each way by train",
+      "startName": "Wengen station",
+      "startCoord": [
+        7.9219,
+        46.6055
+      ],
+      "endName": "Jungfraujoch station (Top of Europe)",
+      "endCoord": [
+        7.9863,
+        46.5425
+      ],
+      "highElevationM": 3571,
+      "waypoints": [
+        {
+          "name": "Wengen station (1274m)",
+          "coord": [
+            7.9219,
+            46.6055
+          ]
+        },
+        {
+          "name": "Wengernalp (1874m)",
+          "coord": [
+            7.9436,
+            46.5935
+          ]
+        },
+        {
+          "name": "Kleine Scheidegg (2061m) — change trains",
+          "coord": [
+            7.9614,
+            46.5853
+          ]
+        },
+        {
+          "name": "Eigergletscher (2320m) — tunnel mouth",
+          "coord": [
+            7.9703,
+            46.5747
+          ]
+        },
+        {
+          "name": "Eismeer (3160m) — tunnel window stop",
+          "coord": [
+            8.0067,
+            46.5678
+          ]
+        },
+        {
+          "name": "Jungfraujoch station (3454m)",
+          "coord": [
+            7.9863,
+            46.5425
+          ]
+        },
+        {
+          "name": "Sphinx observatory (3571m)",
+          "coord": [
+            7.9839,
+            46.5481
+          ]
+        },
+        {
+          "name": "Aletsch Glacier / Plateau viewpoint",
+          "coord": [
+            7.981,
+            46.54
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.9219,
+          46.6055
+        ],
+        [
+          7.932,
+          46.5995
+        ],
+        [
+          7.9436,
+          46.5935
+        ],
+        [
+          7.953,
+          46.589
+        ],
+        [
+          7.9614,
+          46.5853
+        ],
+        [
+          7.9703,
+          46.5747
+        ],
+        [
+          7.985,
+          46.572
+        ],
+        [
+          8.0067,
+          46.5678
+        ],
+        [
+          7.999,
+          46.556
+        ],
+        [
+          7.9863,
+          46.5425
+        ]
+      ],
+      "logisticsFromWengen": "Straightforward and all on one ticket. From Wengen take the WAB cog train uphill toward Kleine Scheidegg (~22 min) — Wengen already sits on this line, so no backtracking to Lauterbrunnen. At Kleine Scheidegg (2061m) change onto the green Jungfrau Railway, which tunnels through the Eiger and Mönch to Jungfraujoch (~35-41 min, with a 5-min photo stop at the Eismeer ice-window). Total roughly 1h–1h25 each way. Return fare Wengen↔Jungfraujoch is about CHF 239 (May-Oct) / CHF 201 (winter); roughly half-price with a Jungfrau Travel Pass or Half Fare Card. A seat reservation for the final leg (CHF 10 per person) is strongly recommended in the May-Oct high season — book a morning slot before the clouds build. Note the Wengen–Kleine Scheidegg line closes for maintenance 9 Nov–4 Dec 2026. Bring sunglasses, a warm jacket and go slow; it's a 2180m altitude jump in an hour.",
+      "bestFor": "First-timers, families, and anyone wanting a no-effort high-alpine spectacle on a clear day",
+      "season": "Year-round (railway runs daily); go on a clear-sky morning — at 3454m a cloudy day means you pay a lot to stand in fog",
+      "description": "You climb from green hay meadows into bare rock and then into the mountain itself, the train grinding up a tunnel bored through the Eiger before it spits you out at 3454m. Up top it's a small indoor world of corridors, lifts and viewing decks: the Sphinx observatory deck where the wind bites and the Aletsch Glacier — the longest in the Alps — pours away south in a frozen white river, the Ice Palace carved into the glacier with sculptures lit blue, and a snow plateau where you can step out onto actual glacier. It is touristy, busy, and genuinely staggering at the same time; the air is thin enough that stairs leave you puffing. On a clear day the view down the glacier and across to the Mönch and Jungfrau is one of the great sights in Europe — on a grey day you've bought an expensive ticket to a cold hallway, so chase the weather window."
+    },
+    {
+      "id": "schilthorn-piz-gloria-birg-skyline-walk",
+      "name": "Schilthorn / Piz Gloria + Birg Skyline Walk",
+      "type": "cable-car-adventure",
+      "oneLiner": "Bond's revolving summit, then a cliff-edge descent to Birg",
+      "difficulty": "moderate",
+      "distanceKm": 2.6,
+      "ascentM": 15,
+      "descentM": 295,
+      "durationText": "1h30 walking (Schilthorn down to Birg); plan a half-day round trip with the cable cars",
+      "startName": "Schilthorn / Piz Gloria summit (top cable-car station)",
+      "startCoord": [
+        7.83528,
+        46.55722
+      ],
+      "endName": "Birg station (Thrill Walk & Skyline platform)",
+      "endCoord": [
+        7.8558,
+        46.5617
+      ],
+      "highElevationM": 2970,
+      "waypoints": [
+        {
+          "name": "Piz Gloria revolving restaurant & Skyline Walk platform (2970m)",
+          "coord": [
+            7.83528,
+            46.55722
+          ]
+        },
+        {
+          "name": "Schilthorn–Birg ridge trail (steep upper switchbacks, loose rock)",
+          "coord": [
+            7.841,
+            46.5592
+          ]
+        },
+        {
+          "name": "Mid-trail traverse past Grauseewli, open panorama north to the Lauterbrunnen wall",
+          "coord": [
+            7.849,
+            46.5608
+          ]
+        },
+        {
+          "name": "Birg station — Thrill Walk steel catwalk & glass-floor Skyline platform (2677m)",
+          "coord": [
+            7.8558,
+            46.5617
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.83528,
+          46.55722
+        ],
+        [
+          7.837,
+          46.558
+        ],
+        [
+          7.8395,
+          46.5587
+        ],
+        [
+          7.842,
+          46.5592
+        ],
+        [
+          7.845,
+          46.5598
+        ],
+        [
+          7.848,
+          46.5604
+        ],
+        [
+          7.8508,
+          46.5609
+        ],
+        [
+          7.8535,
+          46.5614
+        ],
+        [
+          7.8558,
+          46.5617
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen, take the WAB cog railway down to Lauterbrunnen (~12 min, ~CHF 6.80). From the Lauterbrunnen station forecourt catch PostBus line 141 to Stechelberg, Schilthornbahn base station (~20 min, ~CHF 4.60; roughly two departures an hour). At Stechelberg ride the Schilthornbahn cable car up in stages — Stechelberg → Gimmelwald → Mürren → Birg → Schilthorn, changing a few times (~30 min total). A return cable-car ticket Stechelberg–Schilthorn is about CHF 115 full fare / ~CHF 57.50 with a Swiss Half-Fare Card; it is covered by the Jungfrau Travel Pass and discounted on the Berner Oberland Pass. Realistically allow about 1h15–1h30 door-to-summit from Wengen once you factor in the bus and cable-car connections. To do the walk, ride all the way to the Schilthorn, hike down to Birg, and catch the cable car onward from there.",
+      "bestFor": "Panorama and James Bond fans, and anyone who wants a 2970m big-mountain summit without a long climb — plus an optional sure-footed cliff-edge descent for those who want to stretch their legs.",
+      "season": "Cable car runs year-round except a maintenance shutdown around late November/early December. The Schilthorn-to-Birg footpath is realistically snow-free and walkable from roughly mid-July to early October; outside that, do it as a pure cable-car ride.",
+      "description": "You step off the cable car onto a 2970m summit where the whole Bernese Oberland opens up — Eiger, Mönch and Jungfrau standing in a row across the valley, and on a clear day Mont Blanc far to the southwest. The Piz Gloria restaurant slowly revolves while you eat, leaning into its 1969 On Her Majesty's Secret Service fame without apology. The walk down to Birg starts steep and loose underfoot, switchbacking along an exposed ridge with big drops on both sides, then eases as you approach the station — sturdy shoes and a head for heights matter more than fitness. At Birg the Thrill Walk bolts you onto a steel catwalk and glass floor cantilevered straight off the cliff, the valley dropping away beneath your feet, which is either thrilling or stomach-turning depending on who you are."
+    },
+    {
+      "id": "eiger-trail-eigergletscher-alpiglen",
+      "name": "Eiger Trail (Eigergletscher to Alpiglen)",
+      "type": "hike",
+      "oneLiner": "Walk the foot of the Eiger north face",
+      "difficulty": "moderate",
+      "distanceKm": 6,
+      "ascentM": 120,
+      "descentM": 825,
+      "durationText": "2h15 walking time one-way",
+      "startName": "Eigergletscher station",
+      "startCoord": [
+        7.97028,
+        46.57472
+      ],
+      "endName": "Alpiglen station",
+      "endCoord": [
+        8.00195,
+        46.60007
+      ],
+      "highElevationM": 2348,
+      "waypoints": [
+        {
+          "name": "Eigergletscher station (start, 2320m)",
+          "coord": [
+            7.97028,
+            46.57472
+          ]
+        },
+        {
+          "name": "High point below the west flank (~2348m)",
+          "coord": [
+            7.98,
+            46.58
+          ]
+        },
+        {
+          "name": "Directly under the north face",
+          "coord": [
+            7.9865,
+            46.5868
+          ]
+        },
+        {
+          "name": "Stream and waterfall crossings",
+          "coord": [
+            7.9925,
+            46.5925
+          ]
+        },
+        {
+          "name": "Alpiglen station (end, 1616m)",
+          "coord": [
+            8.00195,
+            46.60007
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.97028,
+          46.57472
+        ],
+        [
+          7.9765,
+          46.577
+        ],
+        [
+          7.98,
+          46.58
+        ],
+        [
+          7.9835,
+          46.5835
+        ],
+        [
+          7.9865,
+          46.5868
+        ],
+        [
+          7.9895,
+          46.5898
+        ],
+        [
+          7.9925,
+          46.5925
+        ],
+        [
+          7.9955,
+          46.5955
+        ],
+        [
+          7.9985,
+          46.5982
+        ],
+        [
+          8.00195,
+          46.60007
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen take the WAB cog railway up to Kleine Scheidegg (about 22 min), then change to the Jungfraubahn for one stop down to Eigergletscher (about 5 min) where the trail starts. At the end, board the WAB train at Alpiglen (a request stop) and ride up to Kleine Scheidegg, then change for the train down to Wengen. Figure roughly 30 min of travel each way. Without a pass roughly CHF 60-80 round-trip; the Jungfrau Travel Pass or a Half-Fare card cuts that sharply.",
+      "bestFor": "Anyone who wants the raw scale of the Eiger up close without any climbing skill, on a mostly downhill, non-technical path. Good for fit families and photographers.",
+      "season": "Snow-free roughly late June through mid-October; the upper section near Eigergletscher can hold snow patches into early summer.",
+      "description": "You start at Eigergletscher with the glacier and the train tunnel mouth behind you, then the trail tips you straight under the Eiger's north face, a 1,800-metre wall of dark rock that leans over you the whole way. It is mostly downhill on a clear gravel and dirt path, dropping through steep alpine pasture with cowbells, wild streams, and small waterfalls feeding off the snowmelt. The exposure is in the height and the sound, not in the footing, so it feels dramatic without being scary. By Alpiglen the wall is behind you and you are back in green meadow with a small station and a place for a drink while you wait for the train."
+    },
+    {
+      "id": "grindelwald-first-bachalpsee",
+      "name": "Grindelwald First to Bachalpsee",
+      "type": "hike",
+      "oneLiner": "The mirror lake that reflects the Schreckhorn",
+      "difficulty": "easy",
+      "distanceKm": 3.1,
+      "ascentM": 220,
+      "descentM": 120,
+      "durationText": "1h00 one-way",
+      "startName": "First top station",
+      "startCoord": [
+        8.0544,
+        46.6589
+      ],
+      "endName": "Bachalpsee (north shore)",
+      "endCoord": [
+        8.0225,
+        46.6701
+      ],
+      "highElevationM": 2284,
+      "waypoints": [
+        {
+          "name": "First top station (2168m)",
+          "coord": [
+            8.0544,
+            46.6589
+          ]
+        },
+        {
+          "name": "Gummihütte (short steep climb)",
+          "coord": [
+            8.0445,
+            46.6601
+          ]
+        },
+        {
+          "name": "Grächenboden meadows",
+          "coord": [
+            8.0345,
+            46.6632
+          ]
+        },
+        {
+          "name": "Bachalpsee south shore (2265m)",
+          "coord": [
+            8.027,
+            46.6674
+          ]
+        },
+        {
+          "name": "Bachalpsee north shore / dam",
+          "coord": [
+            8.0225,
+            46.6701
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          8.0544,
+          46.6589
+        ],
+        [
+          8.05,
+          46.6595
+        ],
+        [
+          8.046,
+          46.66
+        ],
+        [
+          8.0445,
+          46.6601
+        ],
+        [
+          8.041,
+          46.6608
+        ],
+        [
+          8.037,
+          46.6618
+        ],
+        [
+          8.0345,
+          46.6632
+        ],
+        [
+          8.031,
+          46.6648
+        ],
+        [
+          8.029,
+          46.6662
+        ],
+        [
+          8.027,
+          46.6674
+        ],
+        [
+          8.0245,
+          46.6689
+        ],
+        [
+          8.0225,
+          46.6701
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen ride the WAB cog railway down to Lauterbrunnen (~14 min). Cross the platform to the BOB train toward Interlaken Ost, change at Zweilütschinen onto the Grindelwald branch, ride to Grindelwald (whole train leg ~40-50 min). From Grindelwald station it's a short walk or local bus to the First gondola base, then the First cable car up (25 min, three sections via Bort and Schreckfeld). Total door-to-trailhead roughly 1h30. Cost without a pass is roughly CHF 16-20 each way on the trains plus about CHF 34 one-way / CHF 68 return on the First gondola; the Jungfrau Travel Pass or a Half-Fare card cuts this substantially.",
+      "bestFor": "families, first-time visitors, photographers chasing the classic reflection shot; anyone wanting a short high-alpine payoff without a real climb",
+      "season": "Late June to mid-October, once the upper snow has cleared; the lake is often still half-frozen in early June and the trail can hold snow patches into the third week of June.",
+      "description": "A wide, well-graded gravel path that climbs gently west from the First station across open alpine meadow, with one short steep pull up to the Gummihütte near the start to get the legs working. The whole way the giants of the Bernese Oberland — Schreckhorn, Wetterhorn, the Fiescherhörner — stand across the valley to your left, growing as you walk. Then the path crests a low rise and the lake just appears below you: a still, dark-blue sheet held in a shallow basin, and on a calm morning the entire wall of peaks lands upside-down on its surface. It's busy and easy, not a wilderness experience, but the reflection on a windless day genuinely earns the hype."
+    },
+    {
+      "id": "first-faulhorn-schynige-platte",
+      "name": "First → Bachalpsee → Faulhorn → Schynige Platte",
+      "type": "hike",
+      "oneLiner": "The great high-ridge traverse over the Faulhorn",
+      "difficulty": "hard",
+      "distanceKm": 15.8,
+      "ascentM": 690,
+      "descentM": 890,
+      "durationText": "6h walking one-way",
+      "startName": "First (Grindelwald-First top station)",
+      "startCoord": [
+        8.0541,
+        46.6591
+      ],
+      "endName": "Schynige Platte station",
+      "endCoord": [
+        7.9112,
+        46.6523
+      ],
+      "highElevationM": 2681,
+      "waypoints": [
+        {
+          "name": "First top station (2168m)",
+          "coord": [
+            8.0541,
+            46.6591
+          ]
+        },
+        {
+          "name": "Bachalpsee (2265m)",
+          "coord": [
+            8.0298,
+            46.6656
+          ]
+        },
+        {
+          "name": "Faulhorn summit + Berghotel (2681m)",
+          "coord": [
+            8.026,
+            46.6712
+          ]
+        },
+        {
+          "name": "Gassenboden saddle",
+          "coord": [
+            7.995,
+            46.668
+          ]
+        },
+        {
+          "name": "Berghaus Männdlenen (2344m)",
+          "coord": [
+            7.974,
+            46.6655
+          ]
+        },
+        {
+          "name": "Schynige Platte (1967m)",
+          "coord": [
+            7.9112,
+            46.6523
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          8.0541,
+          46.6591
+        ],
+        [
+          8.042,
+          46.6628
+        ],
+        [
+          8.0298,
+          46.6656
+        ],
+        [
+          8.0272,
+          46.669
+        ],
+        [
+          8.026,
+          46.6712
+        ],
+        [
+          8.012,
+          46.6702
+        ],
+        [
+          7.995,
+          46.668
+        ],
+        [
+          7.974,
+          46.6655
+        ],
+        [
+          7.954,
+          46.6638
+        ],
+        [
+          7.934,
+          46.66
+        ],
+        [
+          7.92,
+          46.6565
+        ],
+        [
+          7.9112,
+          46.6523
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen take the WAB cog railway down to Lauterbrunnen (~15 min), then the BOB train via Zweilütschinen to Grindelwald (~35 min). From Grindelwald walk or take the short bus to the Firstbahn valley station, then ride the First gondola up (~25 min). Total roughly 2h door-to-trailhead. Without a pass figure ~CHF 30 for the trains plus ~CHF 34 for the First gondola one-way (~CHF 64); a Jungfrau Travel Pass or Berner Oberland Pass covers most of it. Coming back: ride the Schynige Platte cog railway down to Wilderswil (~50 min, ~CHF 32), then train Wilderswil → Lauterbrunnen → Wengen (~35 min, ~CHF 13). Plan the day around the last Schynige Platte train down (around 17:50 in summer) — miss it and there is no road off the top.",
+      "bestFor": "Fit hikers who want one big all-day ridge walk with nonstop panoramas and a hut lunch",
+      "season": "Late June/early July through mid-October, once the high ridge is snow-free; both railways and the First gondola run on the summer timetable in this window.",
+      "description": "You start easy, drifting up from First to the Bachalpsee, where on a still morning the Schreckhorn and Wetterhorn stand upside-down in the water and half the crowd turns around. Past the lake the people thin out and the real work begins: a long zig-zag pull up grass and scree to the Faulhorn, an old stone hotel perched right on the 2681m summit with the whole Eiger-Mönch-Jungfrau wall laid out across the valley. From there it is hours of true ridge walking — narrow paths along the spine, a dip to the little Männdlenen hut tucked in a notch, then an airy, rolling balcony high above the Lütschental with Thunersee and Brienzersee glinting far below. It is a committing, leg-tiring day with some exposed steps, and the reward is that you walk the skyline the whole way until the alpine garden and the cog railway at Schynige Platte appear under your feet."
+    },
+    {
+      "id": "lauterbrunnen-waterfalls-walk",
+      "name": "Lauterbrunnen Waterfalls Walk: Staubbach to Trümmelbach",
+      "type": "waterfall",
+      "oneLiner": "Flat valley stroll past two legendary falls",
+      "difficulty": "easy",
+      "distanceKm": 3.5,
+      "ascentM": 40,
+      "descentM": 15,
+      "durationText": "1h walking one-way",
+      "startName": "Lauterbrunnen station",
+      "startCoord": [
+        7.9094,
+        46.5936
+      ],
+      "endName": "Trümmelbach Falls entrance",
+      "endCoord": [
+        7.9121,
+        46.5726
+      ],
+      "highElevationM": 820,
+      "waypoints": [
+        {
+          "name": "Lauterbrunnen station (arrive from Wengen)",
+          "coord": [
+            7.9094,
+            46.5936
+          ]
+        },
+        {
+          "name": "Staubbach Falls base",
+          "coord": [
+            7.9065,
+            46.5908
+          ]
+        },
+        {
+          "name": "Lauterbrunnen village main street",
+          "coord": [
+            7.9078,
+            46.5878
+          ]
+        },
+        {
+          "name": "Valley floor path along the Weisse Lütschine",
+          "coord": [
+            7.91,
+            46.582
+          ]
+        },
+        {
+          "name": "Trümmelbach Falls entrance",
+          "coord": [
+            7.9121,
+            46.5726
+          ]
+        },
+        {
+          "name": "Glacier falls inside the mountain (lift to ~1140m)",
+          "coord": [
+            7.9132,
+            46.57
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.9094,
+          46.5936
+        ],
+        [
+          7.9082,
+          46.592
+        ],
+        [
+          7.9065,
+          46.5908
+        ],
+        [
+          7.9072,
+          46.5888
+        ],
+        [
+          7.908,
+          46.5862
+        ],
+        [
+          7.909,
+          46.5836
+        ],
+        [
+          7.9098,
+          46.5808
+        ],
+        [
+          7.9105,
+          46.578
+        ],
+        [
+          7.9112,
+          46.5752
+        ],
+        [
+          7.9121,
+          46.5726
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen take the WAB cog railway downhill to Lauterbrunnen (~14 min, about CHF 6.80 one-way; Half-Fare Card covers half, free with a valid Berner Oberland Pass). Walk out of the station and you're at the trailhead. Either walk the full ~1h valley path to Trümmelbach, or shortcut it: PostBus line 141 toward Stechelberg stops at \"Trümmelbachfälle\" (~7 min from Lauterbrunnen, ~CHF 4). Falls entry is CHF 18 adults / CHF 8 kids (6-15); under-4s and dogs not admitted.",
+      "bestFor": "Families with kids and anyone wanting a flat, low-effort walk with two showstopper waterfalls and zero exposure",
+      "season": "Valley walk is year-round; Trümmelbach Falls open early April to early November (closed in winter). Best flow May-July when glacier meltwater peaks.",
+      "description": "You step off the train and the valley wall is already throwing water at you — Staubbach drops nearly 300m straight off the cliff behind the village, so fine it half-dissolves into mist before it lands. From there it's a flat, easy amble down the valley floor on a paved path beside the milky Weisse Lütschine, sheer cliffs rising on both sides with thread-waterfalls everywhere you look. The payoff is Trümmelbach: ten glacier waterfalls carved inside the mountain, where a tunnel lift and slick stairways take you into the rock to stand next to water blasting through worn stone — loud, cold, and genuinely thrilling for kids. Bring a light rain layer; the spray finds you."
+    },
+    {
+      "id": "north-face-trail-murren",
+      "name": "North Face Trail (Mürren / Allmendhubel)",
+      "type": "hike",
+      "oneLiner": "Easy panorama loop facing the great north walls",
+      "difficulty": "easy",
+      "distanceKm": 6.6,
+      "ascentM": 150,
+      "descentM": 420,
+      "durationText": "2h15",
+      "startName": "Allmendhubel funicular top station",
+      "startCoord": [
+        7.8936,
+        46.5634
+      ],
+      "endName": "Mürren village",
+      "endCoord": [
+        7.8917,
+        46.5594
+      ],
+      "highElevationM": 1950,
+      "waypoints": [
+        {
+          "name": "Allmendhubel (1907m, funicular top)",
+          "coord": [
+            7.8936,
+            46.5634
+          ]
+        },
+        {
+          "name": "Suppenalp restaurant (1852m)",
+          "coord": [
+            7.8855,
+            46.566
+          ]
+        },
+        {
+          "name": "Schiltalp honesty cheese hut (1946m, high point)",
+          "coord": [
+            7.8775,
+            46.5685
+          ]
+        },
+        {
+          "name": "Sonnenberg restaurant",
+          "coord": [
+            7.8888,
+            46.5658
+          ]
+        },
+        {
+          "name": "Mürren (1638m)",
+          "coord": [
+            7.8917,
+            46.5594
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.8936,
+          46.5634
+        ],
+        [
+          7.8905,
+          46.5648
+        ],
+        [
+          7.887,
+          46.5658
+        ],
+        [
+          7.883,
+          46.5672
+        ],
+        [
+          7.8775,
+          46.5685
+        ],
+        [
+          7.88,
+          46.567
+        ],
+        [
+          7.8855,
+          46.566
+        ],
+        [
+          7.8888,
+          46.5658
+        ],
+        [
+          7.8902,
+          46.564
+        ],
+        [
+          7.8908,
+          46.5618
+        ],
+        [
+          7.8917,
+          46.5594
+        ]
+      ],
+      "logisticsFromWengen": "Wengen sits on the opposite shelf from Mürren, so you cross the valley. Take the WAB cog train down from Wengen to Lauterbrunnen (about 14 min). At Lauterbrunnen cross to the cableway and ride up to Grütschalp (about 4 min), then the little BLM mountain train along the cliff edge to Mürren (about 14 min). Walk 5 min through Mürren to the Allmendhubel funicular and ride it up (4 min). Total roughly 55-65 min door to trailhead. Cost is mostly covered if you hold a Jungfrau Travel Pass or Berner Oberland Pass; otherwise figure ~CHF 12 Lauterbrunnen-Mürren return plus ~CHF 11 for the Allmendhubel funicular one-way (about CHF 30-40 round). You finish back in Mürren on foot, so no return ticket needed for the funicular.",
+      "bestFor": "Families, kids, and anyone wanting huge Eiger-Mönch-Jungfrau views with almost no climbing",
+      "season": "Late June to mid-October (the Allmendhubel funicular runs mid-June to mid-October); the alp huts (Suppenalp, Schiltalp) open roughly late June to early October, with the path itself snow-free from May onward",
+      "description": "You ride the funicular up and step out onto open meadow with the entire Eiger-Mönch-Jungfrau wall standing across the valley, close enough to feel. Wooden info boards along the way tell the story of the first people who climbed those north faces, so the mountains in front of you come with their own history. The walking is gentle and rolling on gravel farm track and dirt path, past grazing cows, the cheese hut at Schiltalp, and the soup stop at Suppenalp, with the Lauterbrunnen valley dropping away below. It is more a slow afternoon stroll than a workout, ending with an easy descent through pasture and forest back into car-free Mürren."
+    },
+    {
+      "id": "maennlichen-royal-walk",
+      "name": "Männlichen Royal Walk + Summit Viewpoint",
+      "type": "cable-car-adventure",
+      "oneLiner": "Short crowned climb above two valleys",
+      "difficulty": "easy",
+      "distanceKm": 1.3,
+      "ascentM": 120,
+      "descentM": 120,
+      "durationText": "45min round trip",
+      "startName": "Männlichen cable-car top station (King's Gate)",
+      "startCoord": [
+        7.9389,
+        46.6135
+      ],
+      "endName": "Männlichen summit viewpoint (the crown)",
+      "endCoord": [
+        7.9381,
+        46.6182
+      ],
+      "highElevationM": 2343,
+      "waypoints": [
+        {
+          "name": "King's Gate (top station start)",
+          "coord": [
+            7.9389,
+            46.6135
+          ]
+        },
+        {
+          "name": "Ridge information boards",
+          "coord": [
+            7.9385,
+            46.6157
+          ]
+        },
+        {
+          "name": "Männlichen summit crown viewpoint",
+          "coord": [
+            7.9381,
+            46.6182
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.9389,
+          46.6135
+        ],
+        [
+          7.9389,
+          46.6143
+        ],
+        [
+          7.9387,
+          46.615
+        ],
+        [
+          7.9385,
+          46.6157
+        ],
+        [
+          7.9384,
+          46.6164
+        ],
+        [
+          7.9383,
+          46.6171
+        ],
+        [
+          7.9382,
+          46.6177
+        ],
+        [
+          7.9381,
+          46.6182
+        ]
+      ],
+      "logisticsFromWengen": "Easiest adventure from Wengen there is. Walk to the Wengen–Männlichen cable car station at the top edge of the village (the LWM aerial cableway). The cabin climbs 947m to the Männlichen top station (2229m) in about 5 minutes. From there the Royal Walk starts at the King's Gate right by the station — no other transport needed. Round-trip cable-car fare is about CHF 62 for an adult (one-way CHF 31), and it's free with the Jungfrau Travel Pass or Berner Oberland Pass. Total round trip from your door, walk included, is about 1.5–2 hours.",
+      "bestFor": "Families, kids, anyone wanting the biggest Eiger-Mönch-Jungfrau view for the least effort, and short-on-time days or recovery days between bigger hikes.",
+      "season": "Cable car and walk run roughly mid-June to late October once the ridge is snow-free; outside that the upper path can hold snow and the lift schedule shifts to ski season.",
+      "description": "A wide gravel path leaves the top station through a wooden gateway and climbs the open ridge north, gaining about 120m over a series of gentle, slightly steep ramps with information boards along the way. In maybe twenty minutes you reach a small platform topped with a metal crown, and the payoff is immediate: the Lauterbrunnen valley drops away as a green trench on one side while Grindelwald spreads out on the other, with the Eiger, Mönch and Jungfrau standing in a row straight ahead. It's exposed and breezy up top, with a clean 360-degree sweep out to the lower hills and the Swiss plateau haze beyond. No scrambling, no danger — just the most view per step you'll find in the region, which is exactly why it's usually busy."
+    },
+    {
+      "id": "murren-gimmelwald-stechelberg",
+      "name": "Mürren → Gimmelwald → Stechelberg",
+      "type": "hike",
+      "oneLiner": "Cliff-shelf villages down to the valley floor",
+      "difficulty": "moderate",
+      "distanceKm": 5.5,
+      "ascentM": 30,
+      "descentM": 771,
+      "durationText": "2h15 walking, one-way downhill",
+      "startName": "Mürren",
+      "startCoord": [
+        7.892,
+        46.559
+      ],
+      "endName": "Stechelberg (Schilthornbahn valley station)",
+      "endCoord": [
+        7.9017,
+        46.5552
+      ],
+      "highElevationM": 1639,
+      "waypoints": [
+        {
+          "name": "Mürren (1638m, car-free shelf)",
+          "coord": [
+            7.892,
+            46.559
+          ]
+        },
+        {
+          "name": "Gimmelwald (1364m, tiny farming hamlet)",
+          "coord": [
+            7.89361,
+            46.54694
+          ]
+        },
+        {
+          "name": "Stechelberg (867m, valley floor)",
+          "coord": [
+            7.9017,
+            46.5552
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.892,
+          46.559
+        ],
+        [
+          7.8925,
+          46.5555
+        ],
+        [
+          7.8935,
+          46.551
+        ],
+        [
+          7.894,
+          46.5485
+        ],
+        [
+          7.89361,
+          46.54694
+        ],
+        [
+          7.895,
+          46.5476
+        ],
+        [
+          7.8975,
+          46.5495
+        ],
+        [
+          7.8995,
+          46.5515
+        ],
+        [
+          7.901,
+          46.5535
+        ],
+        [
+          7.9017,
+          46.5552
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen, ride the WAB (Wengernalpbahn) cog train down to Lauterbrunnen (~14 min, ~CHF 6.60). Cross the street to the BLM Lauterbrunnen–Mürren line: aerial cable car up to Grütschalp, then the cliff-edge panorama train along the shelf into Mürren (~25 min, ~CHF 11). Walk the route. From Stechelberg, take PostBus line 141 back to Lauterbrunnen (~15 min, ~CHF 4.40), then the WAB train up to Wengen. Roughly 45 min each way; the whole chain is free with a Berner Oberland Pass or Jungfrau Travel Pass.",
+      "bestFor": "Casual walkers and families who want huge Eiger-Mönch-Jungfrau views and two genuinely car-free villages with minimal effort, since it runs almost entirely downhill.",
+      "season": "Late May to late October once the upper shelf is snow-free; the lower forest switchbacks are often walkable a few weeks earlier and later.",
+      "description": "You start on Mürren's grassy terrace with the Eiger, Mönch and Jungfrau standing straight across the valley, close enough to feel the cold off the glaciers. The first stretch to Gimmelwald is gentle and mostly paved, winding past wooden chalets, hay barns and grazing cows with the constant clank of bells. Gimmelwald itself is a near-frozen-in-time hamlet of about 130 people, woodpiles and steep little lanes clinging to the cliff. Below the village the trail tips over the edge and switchbacks hard down through shady forest to the valley floor, the roar of the Sefinen Lütschine and waterfalls rising as you drop nearly 500 metres to Stechelberg."
+    },
+    {
+      "id": "grindelwald-first-cliff-adventures",
+      "name": "Grindelwald First Cliff Adventures: Cliff Walk, Flyer, Cart & Trottibike",
+      "type": "cable-car-adventure",
+      "oneLiner": "A skywalk, a zipline, and two downhill rides off one cliff",
+      "difficulty": "easy",
+      "distanceKm": 9.5,
+      "ascentM": 0,
+      "descentM": 1134,
+      "durationText": "about 2h of activity, top to valley",
+      "startName": "First top station (Tissot Cliff Walk), 2168m",
+      "startCoord": [
+        8.0533,
+        46.6586
+      ],
+      "endName": "Grindelwald Firstbahn valley station, 1034m",
+      "endCoord": [
+        8.0378,
+        46.6253
+      ],
+      "highElevationM": 2168,
+      "waypoints": [
+        {
+          "name": "Tissot Cliff Walk skywalk (First, 2168m)",
+          "coord": [
+            8.0533,
+            46.6586
+          ]
+        },
+        {
+          "name": "First Flyer zipline launch",
+          "coord": [
+            8.0518,
+            46.656
+          ]
+        },
+        {
+          "name": "Schreckfeld station, 1955m (Flyer landing / Mountain Cart start)",
+          "coord": [
+            8.049,
+            46.65
+          ]
+        },
+        {
+          "name": "Bort station, 1570m (Cart finish / Trottibike start)",
+          "coord": [
+            8.044,
+            46.6378
+          ]
+        },
+        {
+          "name": "Grindelwald Firstbahn valley station, 1034m",
+          "coord": [
+            8.0378,
+            46.6253
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          8.0533,
+          46.6586
+        ],
+        [
+          8.0518,
+          46.656
+        ],
+        [
+          8.0503,
+          46.653
+        ],
+        [
+          8.049,
+          46.65
+        ],
+        [
+          8.0472,
+          46.6462
+        ],
+        [
+          8.0456,
+          46.642
+        ],
+        [
+          8.044,
+          46.6378
+        ],
+        [
+          8.0418,
+          46.6342
+        ],
+        [
+          8.0398,
+          46.6308
+        ],
+        [
+          8.0382,
+          46.6278
+        ],
+        [
+          8.0378,
+          46.6253
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen take the WAB cog train down to Lauterbrunnen (~14 min), change to the BOB train toward Grindelwald (~35 min, usually one change at Zweilütschinen). The Firstbahn base station is a 10-min walk (or short bus) east of Grindelwald rail station. Then ride the Firstbahn gondola up to First, ~25 min via Bort and Schreckfeld. Roughly 1h45 each way. Scenic alternative: Wengen up to Kleine Scheidegg, then down to Grindelwald. Rail Wengen-Grindelwald is covered by a Jungfrau Travel Pass / Berner Oberland Pass; the Firstbahn return runs about CHF 72, and the three-activity Adventure Package adds roughly CHF 50-60 on top.",
+      "bestFor": "families and thrill-seekers who want a big view and an adrenaline chain without any real hiking",
+      "season": "Firstbahn and Cliff Walk run year-round; the First Flyer, Mountain Cart and Trottibike run snow-free, roughly late May to October",
+      "description": "You step out of the gondola at 2168m and the first thing to do is walk into the air: the Tissot Cliff Walk is a steel catwalk bolted to the rock face that loops out 45m over nothing, with a glass-floored finger pointing straight at the Eiger, Schreckhorn and Wetterhorn. Then the descent turns into a gauntlet. The First Flyer drops you in a harness-seat on an 800m cable to Schreckfeld at up to 84 km/h, feet dangling over the meadow. At Schreckfeld you swap into a low go-kart-style Mountain Cart and rattle 3km down a gravel track to Bort, then trade that for a Trottibike kick-scooter and carve the paved switchback road the rest of the way into Grindelwald. It is engineered fun rather than wilderness, loud and grinning, but the backdrop the whole way down is the genuine north-face wall of the Eiger."
+    },
+    {
+      "id": "schynige-platte-oberberghorn",
+      "name": "Schynige Platte Alpine Garden + Oberberghorn Loop",
+      "type": "day-trip",
+      "oneLiner": "1893 cog railway to a flower garden in the sky",
+      "difficulty": "easy",
+      "distanceKm": 3.5,
+      "ascentM": 180,
+      "descentM": 180,
+      "durationText": "1h30 walking (plus ~1h45 each way on the trains, including changes)",
+      "startName": "Schynige Platte station (top of cog railway)",
+      "startCoord": [
+        7.9109,
+        46.652
+      ],
+      "endName": "Schynige Platte station (loop returns here)",
+      "endCoord": [
+        7.9109,
+        46.652
+      ],
+      "highElevationM": 2076,
+      "waypoints": [
+        {
+          "name": "Schynige Platte station & hotel (1967m)",
+          "coord": [
+            7.9109,
+            46.652
+          ]
+        },
+        {
+          "name": "Alpine botanical garden (650+ species)",
+          "coord": [
+            7.9122,
+            46.6529
+          ]
+        },
+        {
+          "name": "Daube viewpoint (2076m, highest point)",
+          "coord": [
+            7.9092,
+            46.6548
+          ]
+        },
+        {
+          "name": "Panorama ridge path",
+          "coord": [
+            7.9118,
+            46.6575
+          ]
+        },
+        {
+          "name": "Oberberghorn summit ladders (2069m)",
+          "coord": [
+            7.9138,
+            46.6592
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.9109,
+          46.652
+        ],
+        [
+          7.9122,
+          46.6529
+        ],
+        [
+          7.9105,
+          46.6536
+        ],
+        [
+          7.9092,
+          46.6548
+        ],
+        [
+          7.9103,
+          46.6561
+        ],
+        [
+          7.9118,
+          46.6575
+        ],
+        [
+          7.9131,
+          46.6586
+        ],
+        [
+          7.9138,
+          46.6592
+        ],
+        [
+          7.9126,
+          46.6579
+        ],
+        [
+          7.911,
+          46.6558
+        ],
+        [
+          7.9099,
+          46.6538
+        ],
+        [
+          7.9109,
+          46.652
+        ]
+      ],
+      "logisticsFromWengen": "Wengen to Lauterbrunnen on the WAB cog railway (~14 min), change to the BOB train toward Interlaken Ost and ride down to Wilderswil (~20 min), then board the historic Schynige Platte cog railway (SPB) for the slow climb to the top (~52 min). With connection waits, figure roughly 1h45 to 2h door to summit. The SPB leg is a separate, pricey ride (~64 CHF round trip, half-price with a Half Fare Card or Swiss Travel Pass); the valley trains are covered by regional passes. Runs only in summer season (roughly mid-June to late October).",
+      "bestFor": "Families, flower and view lovers, anyone wanting big Jungfrau scenery with minimal climbing",
+      "season": "Cog railway and garden open roughly mid-June to late October; fully snow-free June through September",
+      "description": "A wooden 1893 cog train hauls you up a wall of forest and meadow to a high grassy shoulder pinned between two lakes. Step off and one side drops to the turquoise sheets of Lake Thun and Lake Brienz with Interlaken wedged between them; the other side throws the whole Eiger-Monch-Jungfrau wall straight at you. The alpine garden is a gentle kilometre loop through 650-odd labelled mountain plants tucked into real rock, then the panorama path climbs easily to the Daube and out along a spine to the little Oberberghorn, where a set of fixed ladders gets you onto a needle of rock for a 360 that feels far harder-won than it was."
+    },
+    {
+      "id": "kleine-scheidegg-wengernalp-wengen",
+      "name": "Kleine Scheidegg to Wengen via Wengernalp",
+      "type": "hike",
+      "oneLiner": "The walk home under the giant north faces",
+      "difficulty": "easy",
+      "distanceKm": 7,
+      "ascentM": 30,
+      "descentM": 790,
+      "durationText": "2h30",
+      "startName": "Kleine Scheidegg station",
+      "startCoord": [
+        7.9614,
+        46.5853
+      ],
+      "endName": "Wengen village",
+      "endCoord": [
+        7.92104,
+        46.60483
+      ],
+      "highElevationM": 2061,
+      "waypoints": [
+        {
+          "name": "Kleine Scheidegg (2061m)",
+          "coord": [
+            7.9614,
+            46.5853
+          ]
+        },
+        {
+          "name": "Wengernalp (1874m)",
+          "coord": [
+            7.93667,
+            46.57611
+          ]
+        },
+        {
+          "name": "Mettlenalp",
+          "coord": [
+            7.929,
+            46.5905
+          ]
+        },
+        {
+          "name": "Allmend (1498m)",
+          "coord": [
+            7.9245,
+            46.5985
+          ]
+        },
+        {
+          "name": "Wengen (1274m)",
+          "coord": [
+            7.92104,
+            46.60483
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.9614,
+          46.5853
+        ],
+        [
+          7.956,
+          46.5835
+        ],
+        [
+          7.949,
+          46.5805
+        ],
+        [
+          7.942,
+          46.5775
+        ],
+        [
+          7.93667,
+          46.57611
+        ],
+        [
+          7.9335,
+          46.579
+        ],
+        [
+          7.9305,
+          46.585
+        ],
+        [
+          7.929,
+          46.5905
+        ],
+        [
+          7.9268,
+          46.5945
+        ],
+        [
+          7.9245,
+          46.5985
+        ],
+        [
+          7.9228,
+          46.6022
+        ],
+        [
+          7.92104,
+          46.60483
+        ]
+      ],
+      "logisticsFromWengen": "Trivial: this is your home line. Take the WAB cog railway UP from Wengen to Kleine Scheidegg (the trains run roughly every 30 min, about 20-25 min ride, around CHF 32 full fare one-way, ~CHF 16 with Half-Fare/guest card). Step off at Kleine Scheidegg and walk the whole thing back down to your front door in Wengen. No second ticket needed for the descent.",
+      "bestFor": "Anyone wanting a gentle, mostly-downhill walk with constant Eiger-Monch-Jungfrau views; good for families and tired legs, doable in trainers in dry conditions.",
+      "season": "Roughly June through October, snow-free. Upper section near Kleine Scheidegg can hold snow into early June and after autumn storms; the lower forest road clears earlier.",
+      "description": "You start at the windy saddle of Kleine Scheidegg with the Eiger north face filling the sky, then drop onto a tarmac-then-gravel track that swings down across the open Wengernalp meadows. For the first stretch the Jungfrau, Monch and that black Eiger wall stay pinned over your right shoulder the whole way, with cowbells and the cog train clanking past on the rails beside you. After Wengernalp the path tips into forest and the famous Lauberhorn ski slopes, switchbacking down the Mendelssohn path until the valley opens and Wengen's hotels appear on their sunny shelf above the Lauterbrunnen cliffs. It is almost all downhill, never steep, and feels exactly like what it is: the long, scenic walk home."
+    },
+    {
+      "id": "grutschalp-murren-panorama",
+      "name": "Grütschalp → Mürren Panorama Path",
+      "type": "hike",
+      "oneLiner": "Flat cliff-shelf walk straight at the Jungfrau",
+      "difficulty": "easy",
+      "distanceKm": 4.3,
+      "ascentM": 180,
+      "descentM": 30,
+      "durationText": "1h30 one-way",
+      "startName": "Grütschalp (top of cable car)",
+      "startCoord": [
+        7.8909,
+        46.5965
+      ],
+      "endName": "Mürren village",
+      "endCoord": [
+        7.8973,
+        46.5638
+      ],
+      "highElevationM": 1639,
+      "waypoints": [
+        {
+          "name": "Grütschalp station (1487m)",
+          "coord": [
+            7.8909,
+            46.5965
+          ]
+        },
+        {
+          "name": "Winteregg station + restaurant (1578m)",
+          "coord": [
+            7.8961,
+            46.5819
+          ]
+        },
+        {
+          "name": "Mürren station (1639m)",
+          "coord": [
+            7.8973,
+            46.5638
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.8909,
+          46.5965
+        ],
+        [
+          7.8924,
+          46.593
+        ],
+        [
+          7.8943,
+          46.5895
+        ],
+        [
+          7.8954,
+          46.586
+        ],
+        [
+          7.8961,
+          46.5819
+        ],
+        [
+          7.8965,
+          46.578
+        ],
+        [
+          7.8968,
+          46.5742
+        ],
+        [
+          7.897,
+          46.5705
+        ],
+        [
+          7.8972,
+          46.567
+        ],
+        [
+          7.8973,
+          46.5638
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen, ride the WAB cog railway down to Lauterbrunnen (~14 min). The Grütschalp cable car station sits directly across the street from the Lauterbrunnen train station; take it up to Grütschalp (~4 min). Total door-to-trailhead is roughly 30-40 min including the connection. Without a pass it's about CHF 7.60 for Wengen→Lauterbrunnen plus about CHF 11 for the cable car (half-fare and the Jungfrau Travel Pass both apply, and the Berner Oberland Pass covers it fully). Return from Mürren by reversing it: the little Mürren train back to Grütschalp, cable car down to Lauterbrunnen, then the WAB up to Wengen.",
+      "bestFor": "families, anyone wanting the big Jungfrau view with almost no effort; stroller- and beginner-friendly",
+      "season": "Snow-free and signposted May to October; the same shelf doubles as a prepared winter walking trail in season, so it's effectively walkable most of the year.",
+      "description": "You walk a near-level grass-and-gravel shelf cut into the western wall of the Lauterbrunnen valley, and the whole time the Eiger, Mönch and Jungfrau stand across the gap at eye level, close enough to read the glaciers. The valley floor drops a thousand metres away on your left, so the view is huge while your feet barely climb. The narrow red Mürren train trundles along beside the path and clanks past you now and then, cowbells drift up from the alp meadows, and Winteregg's terrace restaurant sits exactly halfway for a coffee. It's the easiest way in the whole region to feel like you're standing inside the mountains rather than looking at a postcard of them."
+    },
+    {
+      "id": "tanzbodeli-viewpoint",
+      "name": "Tanzbödeli Viewpoint",
+      "type": "hike",
+      "oneLiner": "a secret grassy balcony over the glacier valley",
+      "difficulty": "hard",
+      "distanceKm": 13.2,
+      "ascentM": 830,
+      "descentM": 1270,
+      "durationText": "5-6h total traverse (about 2h15 up to the viewpoint)",
+      "startName": "Gimmelwald",
+      "startCoord": [
+        7.8917,
+        46.546
+      ],
+      "endName": "Stechelberg",
+      "endCoord": [
+        7.9047,
+        46.5577
+      ],
+      "highElevationM": 2014,
+      "waypoints": [
+        {
+          "name": "Sefinental river crossing",
+          "coord": [
+            7.881,
+            46.5385
+          ]
+        },
+        {
+          "name": "Busenalp",
+          "coord": [
+            7.874,
+            46.53
+          ]
+        },
+        {
+          "name": "Tanzbödeli viewpoint (2014m)",
+          "coord": [
+            7.8655,
+            46.5235
+          ]
+        },
+        {
+          "name": "Berghotel Obersteinberg",
+          "coord": [
+            7.876,
+            46.517
+          ]
+        },
+        {
+          "name": "Trachsellauenen",
+          "coord": [
+            7.9015,
+            46.5345
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.8917,
+          46.546
+        ],
+        [
+          7.8855,
+          46.543
+        ],
+        [
+          7.881,
+          46.5385
+        ],
+        [
+          7.8775,
+          46.5345
+        ],
+        [
+          7.874,
+          46.53
+        ],
+        [
+          7.8695,
+          46.5263
+        ],
+        [
+          7.8655,
+          46.5235
+        ],
+        [
+          7.8715,
+          46.5198
+        ],
+        [
+          7.876,
+          46.517
+        ],
+        [
+          7.887,
+          46.5235
+        ],
+        [
+          7.9015,
+          46.5345
+        ],
+        [
+          7.903,
+          46.547
+        ],
+        [
+          7.9047,
+          46.5577
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen take the WAB cog train down to Lauterbrunnen (~14 min), then PostBus 141 to Stechelberg (~13 min), then the Schilthornbahn cable car one stop up to Gimmelwald (~5 min). Roughly 50-60 min total, about CHF 16-20 one-way. Come back from the Stechelberg end: PostBus 141 to Lauterbrunnen, then the cog train back up to Wengen.",
+      "bestFor": "Fit, sure-footed hikers who want a hard, crowd-free climb and a head-of-valley panorama instead of the busy Schilthorn-side trails.",
+      "season": "Snow-free roughly late June to early October; avoid in wet conditions as the steep grass and loose traverses get slippery.",
+      "description": "From Gimmelwald you drop into the wild Sefinental, cross the river, then grind straight up an unrelenting forest staircase of switchbacks that locals don't advertise. The trees finally release you onto open alp meadows at Busenalp, and a last narrow grassy traverse leads to the Tanzbödeli, a tilted green nose hanging in mid-air at the head of the valley. Up there it's just you, a few cowbells, and a 270-degree wall of rock and ice, Tschingelhorn, Breithorn and Gspaltenhorn dropping in glaciers right in front of your boots. The descent to Obersteinberg's lantern-lit hut and down the long valley to Stechelberg is quiet the whole way, which is the whole point."
+    },
+    {
+      "id": "allmendhubel-blumental-flower-trail",
+      "name": "Allmendhubel Blumental Flower Trail",
+      "type": "hike",
+      "oneLiner": "Easy wildflower loop with a giant-flower playground",
+      "difficulty": "easy",
+      "distanceKm": 1.8,
+      "ascentM": 55,
+      "descentM": 55,
+      "durationText": "35-45 min loop",
+      "startName": "Allmendhubel top station (funicular)",
+      "startCoord": [
+        7.8881,
+        46.5637
+      ],
+      "endName": "Allmendhubel top station (funicular)",
+      "endCoord": [
+        7.8881,
+        46.5637
+      ],
+      "highElevationM": 1912,
+      "waypoints": [
+        {
+          "name": "Allmendhubel top station + Flower Park playground",
+          "coord": [
+            7.8881,
+            46.5637
+          ]
+        },
+        {
+          "name": "Panorama Restaurant Allmendhubel",
+          "coord": [
+            7.8883,
+            46.5635
+          ]
+        },
+        {
+          "name": "Blumental meadow viewpoint",
+          "coord": [
+            7.8842,
+            46.5658
+          ]
+        },
+        {
+          "name": "Blumental flower basin (far point)",
+          "coord": [
+            7.8828,
+            46.5662
+          ]
+        }
+      ],
+      "routeLine": [
+        [
+          7.8881,
+          46.5637
+        ],
+        [
+          7.8873,
+          46.5645
+        ],
+        [
+          7.8859,
+          46.5652
+        ],
+        [
+          7.8843,
+          46.5658
+        ],
+        [
+          7.8828,
+          46.5662
+        ],
+        [
+          7.8835,
+          46.5651
+        ],
+        [
+          7.8849,
+          46.5644
+        ],
+        [
+          7.8865,
+          46.5637
+        ],
+        [
+          7.8881,
+          46.5637
+        ]
+      ],
+      "logisticsFromWengen": "From Wengen take the WAB cog train down to Lauterbrunnen (about 15 min, ~CHF 6.60). At Lauterbrunnen cross to the cable car station and ride the Lauterbrunnen-Grütschalp aerial cableway up (about 4 min), then the panorama mountain train Grütschalp-Mürren (about 11 min) - the cableway+train combo runs ~CHF 11.80 one way full fare (CHF 5.90 with Half-Fare card). Walk through Mürren village (about 10-12 min, flat) to the Allmendhubelbahn funicular at the north end, then ride up to Allmendhubel (about 4 min, ~CHF 14 round trip). Total door-to-trailhead roughly 1 hour. The Jungfrau Travel Pass or Berner Oberland Pass / Half-Fare card cut these fares significantly.",
+      "bestFor": "Families with young kids, flower lovers, anyone wanting big views with almost no effort",
+      "season": "Funicular and trail run roughly mid-June to mid-October; flowers peak mid-June to mid-July. Snow-free in summer.",
+      "description": "You step off the little funicular straight onto a broad, gently rolling gravel path that loops out into the Blumental meadows behind Allmendhubel. The walking is nearly flat and easy enough for small kids, and the grass is genuinely thick with alpine flowers in early summer - gentian, alpine roses, and over a hundred other species, each labelled here and there. The whole time the Eiger, Mönch and Jungfrau stand across the valley like a painted backdrop, and the silence is broken mostly by cowbells. Back at the top station there's a large Flower Park playground built around oversized flowers and insects, plus the Panorama Restaurant terrace, so the loop works as a 35-minute leg-stretch or a half-day with kids."
+    }
+  ]
 };
 
 // ===== map setup =====
