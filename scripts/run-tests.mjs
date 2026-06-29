@@ -123,7 +123,11 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // class the loop fixed 5+ times. Ledger-backed
 // (scripts/inline-gemini-contents-triage.tsv): --check fails only on a NEW inline
 // builder, so the next handler that reintroduces one trips the suite on landing.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs'].flatMap((s) =>
+// find-divide-by-length flags `<expr> / <arr>.length` sites — the NaN/Infinity
+// shape that bit MapKeys lineCentroid, route-geo, and the Hunter keep-rate math.
+// Ledger-backed (scripts/divide-by-length-triage.tsv): --check fails only on a
+// NEW unguarded divide, so the next one that lands trips the suite on landing.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

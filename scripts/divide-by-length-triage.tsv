@@ -1,0 +1,47 @@
+# divide-by-length-triage.tsv — human verdicts for scripts/find-divide-by-length.mjs
+#
+# One row per `<expr> / <arr>.length` site in the repo. The gate (--check) FAILS
+# only on a site NOT listed here (status NEW), so every divide-by-length must be
+# judged: can the divisor array be EMPTY at this site? If yes-and-unguarded → BUG
+# (NaN/Infinity poisons the result). If guarded (early return, `len ?` ternary,
+# loop-bound, or a constant non-empty literal) → SAFE with the reason.
+#
+# Format:  FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE | BUG     (# or blank lines ignored)
+#   key = the site's snippet with all whitespace removed (regenerate via
+#         `scripts/find-divide-by-length.mjs --dump-ledger`)
+#
+# Baseline triaged 2026-06-29 (loop iteration #6): all 32 live sites judged SAFE.
+# ─────────────────────────────────────────────────────────────────────────────
+api/_lib/qss-signals.js	constextremeDensity=recent.length?extremeBlocks/recent.length	SAFE	ternary-guarded: recent.length ? ... : 0
+api/gemini.js	ptScores.length>0?keptScores.reduce((a,b)=>a+b,0)/keptScores.length	SAFE	ternary-guarded: keptScores.length > 0 ? ... : null
+api/gemini.js	res.length>0?discardedScores.reduce((a,b)=>a+b,0)/discardedScores.length	SAFE	ternary-guarded: discardedScores.length > 0 ? ... : null
+api/gemini.js	lips.length>0?highScoreClips.filter(d=>d.kept).length/highScoreClips.length	SAFE	ternary-guarded: highScoreClips.length > 0 ? ... : null
+api/gemini.js	onstoverallKeptRate=decisions.filter(d=>d.kept).length/decisions.length	SAFE	early-return at :1635 `if (!decisions?.length)` — reached only when decisions non-empty
+burma-script/audit-integrity.mjs	if(hitsPage/tokens.length	SAFE	early-return at :86 `if (!tokens.length) return true`
+burma-script/audit-integrity.mjs	if(hits/tokens.length	SAFE	early-return at :86 `if (!tokens.length) return true` (same fn)
+hunter/src/main.js	(completed/newIds.length	SAFE	divide runs inside the loop over newIds — body never executes when empty
+hunter/src/sequence-classify.js	educe((sum,c)=>sum+(c.endSeconds-c.startSeconds),0)/allClips.length	SAFE	early-return at :35 `if (allClips.length === 0) return 'unknown'`
+hunter/worker/backfill-embeddings.mjs	(totalProcessed/missing.length	SAFE	reached only after totalProcessed hits 50 → missing.length ≥ 50 (loop-bound)
+hunter/worker/bulk-ingest-scripts.mjs	Math.round(totalBeats/results.length	SAFE	guarded by `if (results.length > 0)` at :122
+hunter/worker/bulk-ingest-scripts.mjs	Math.round(totalWords/results.length	SAFE	guarded by `if (results.length > 0)` at :122
+hunter/worker/cross-tier-matching.mjs	(kept.length/rawUnits.length	SAFE	worker diagnostic console.log; rawUnits is the script's input corpus (non-empty); NaN% would be cosmetic-only, not a crash
+hunter/worker/cross-tier-matching.mjs	(discarded.length/rawUnits.length	SAFE	worker diagnostic console.log; same as above
+hunter/worker/cross-tier-matching.mjs	(count/keptStructured.length	SAFE	inside `for...of Object.entries(keptShotTypes)` built from keptStructured — loop empty when empty
+hunter/worker/cross-tier-matching.mjs	(count/discardedStructured.length	SAFE	inside the discarded-shot-types loop built from discardedStructured — loop empty when empty
+hunter/worker/cross-tier-matching.mjs	constavgKept=keptScores.reduce((a,b)=>a+b,0)/keptScores.length	SAFE	guarded by `if (keptScores.length > 0 && discardedScores.length > 0)` at :285
+hunter/worker/cross-tier-matching.mjs	tavgDiscarded=discardedScores.reduce((a,b)=>a+b,0)/discardedScores.length	SAFE	guarded by the same `if (... > 0 && ... > 0)` at :285
+hunter/worker/taste-aggregate-core.js	ptScores.length>0?keptScores.reduce((a,b)=>a+b,0)/keptScores.length	SAFE	ternary-guarded: keptScores.length > 0 ? ... : null
+hunter/worker/taste-aggregate-core.js	res.length>0?discardedScores.reduce((a,b)=>a+b,0)/discardedScores.length	SAFE	ternary-guarded: discardedScores.length > 0 ? ... : null
+hunter/worker/taste-aggregate-core.js	lips.length>0?highScoreClips.filter(d=>d.kept).length/highScoreClips.length	SAFE	ternary-guarded: highScoreClips.length > 0 ? ... : null
+hunter/worker/taste-aggregate-core.js	keptUsage.length>0?keptUsage.reduce((a,b)=>a+b,0)/keptUsage.length	SAFE	ternary-guarded: keptUsage.length > 0 ? ... : 0
+hunter/worker/taste-aggregate-core.js	decisions.length>0?decisions.filter(d=>d.kept).length/decisions.length	SAFE	ternary-guarded: decisions.length > 0 ? ... : 0
+mapkeys/src/route-geo.js	return[sx/coords.length	SAFE	early-return at :49 `if (!coords || coords.length === 0) return [0,0]` (lineCentroid, fixed this week)
+mapkeys/src/route-geo.js	return[sx/coords.length,sy/coords.length	SAFE	same early-return guard at :49 (second of the x/y pair)
+public/walden-3d/scene3d.html	id=HOUSE.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]).map(v=>v/HOUSE.length	SAFE	HOUSE is a module-level constant non-empty polygon literal
+public/walden-3d/scene3d.html	tc=ring.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]).map(v=>v/ring.length	SAFE	hipRoof(ring) is only ever called with constant non-empty polygon rings
+public/walden/index.html	return[xs.reduce((a,b)=>a+b,0)/xs.length	SAFE	elemCentroidLocal: e.pts is the polygon vertex list, non-empty by construction
+public/walden/index.html	[xs.reduce((a,b)=>a+b,0)/xs.length,ys.reduce((a,b)=>a+b,0)/ys.length	SAFE	same — ys mirrors xs over the same non-empty e.pts
+queen-scarlet-school/universe/index.html	consta=alphas[i]!=null?alphas[i]:(1-i/stops.length	SAFE	makeRadialSprite is only ever called with 3-element constant stops arrays
+translation/src/editor/Editor.jsx	constdotAngle=(fontIndex/FONT_SETS.length	SAFE	FONT_SETS is a module-level constant non-empty array
+translation/src/manual-steps.js	returnMath.round((stepsCompletedCount(steps,done)/steps.length	SAFE	early-return at :405 `if (steps.length === 0) return 0`
