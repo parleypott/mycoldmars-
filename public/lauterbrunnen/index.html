@@ -273,7 +273,7 @@ let JOURNEYS = [{"entryId": 1, "entryName": "The Eiger Balcony", "legs": [{"mode
 // ===== RENDER MENU =====
 function entryHTML(e){
   const route = e.route ? `<div class="route">${e.route.join('<span class="sep">›</span>')}</div>` : '';
-  const meta = `<div class="emeta">${e.pick?'<span class="pick">★ my pick</span>':''}${e.dist?`<span class="dist">${e.dist}</span>`:''}<button class="mapit" data-mapit="${e.n}">${ICON_MAPIT}Map it</button></div>`;
+  const meta = `<div class="emeta">${e.dist?`<span class="dist">${e.dist}</span>`:''}<button class="mapit" data-mapit="${e.n}">${ICON_MAPIT}Map it</button></div>`;
   const steps = `<ol class="steps">${e.steps.map(s=>`<li>${s}</li>`).join('')}</ol>`;
   return `<article class="entry" id="entry-${e.n}">
     <div class="ehead">
