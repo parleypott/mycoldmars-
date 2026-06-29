@@ -28,8 +28,8 @@
     --ink:#16140F; --ink-2:#46413A; --ink-3:#7C766B; --ink-faint:#A8A296;
     --line:#E6E2D9; --line-2:#D7D2C7;
     --red:#D42A1C; --red-ink:#B01E12; --red-bg:#FBEDEB;
-    --trail:#2F7D4F; --trail-bg:#EEF5EF; --trail-line:#BFDCC8;
-    --map:#2563C9; --map-bg:#EDF2FC; --map-line:#C6D6F2;
+    --trail:#1F5938; --trail-line:#BFDCC8;
+    --map:#1B4894; --map-line:#C6D6F2;
     --gold:#B07A1E;
     --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --serif:"Newsreader",Georgia,serif;
@@ -41,7 +41,7 @@
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;line-height:1.5}
   ::selection{background:var(--red);color:#fff}
   a{color:inherit}
-  .wrap{max-width:720px;margin:0 auto;padding:0 22px}
+  .wrap{max-width:740px;margin:0 auto;padding:0 22px}
 
   /* header */
   header{padding:54px 0 30px;border-bottom:1px solid var(--line)}
@@ -49,8 +49,8 @@
   .kicker::before{content:"";width:22px;height:2px;background:var(--red)}
   h1{font-family:var(--serif);font-weight:500;font-size:clamp(36px,7vw,52px);line-height:1.0;letter-spacing:-.02em;margin:16px 0 0}
   h1 em{font-style:italic}
-  .lede{font-size:16px;color:var(--ink-2);line-height:1.6;margin:16px 0 0;max-width:52ch}
-  .basebar{margin-top:22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .lede{font-size:16px;color:var(--ink-2);line-height:1.6;margin:16px 0 0;max-width:54ch}
+  .basebar{margin-top:22px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
   .homebase{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);padding:7px 13px;border-radius:var(--r-pill)}
   .homebase b{color:var(--ink);font-weight:600}
   .homebase .dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px var(--red-bg)}
@@ -59,43 +59,44 @@
   .legend .sw{width:9px;height:9px;border-radius:50%}
 
   /* menu list */
-  .menu{padding:8px 0 60px}
-  .entry{padding:34px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:54px 1fr;gap:8px 20px}
+  .menu{padding:8px 0 50px}
+  .entry{padding:36px 0;border-bottom:1px solid var(--line)}
   .entry:last-child{border-bottom:none}
-  .num{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-faint);padding-top:7px}
-  .ehead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
-  .etitle{font-family:var(--serif);font-size:25px;font-weight:500;letter-spacing:-.01em;line-height:1.12}
-  .emeta{display:flex;gap:7px;align-items:center;flex-shrink:0;padding-top:5px}
+  .ehead{display:flex;align-items:baseline;gap:14px}
+  .num{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink-faint);flex-shrink:0;width:30px;padding-top:4px}
+  .etitle{flex:1;min-width:0}
+  .nameline{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .ename{font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:-.015em;line-height:1.08}
+  .emeta{display:flex;gap:7px;align-items:center;flex-shrink:0}
   .dist{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--line);padding:5px 10px;border-radius:var(--r-pill);white-space:nowrap}
-  .pick{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);background:#FBF3E2;border:1px solid #ECD9A8;padding:5px 9px;border-radius:var(--r-pill);white-space:nowrap;display:inline-flex;gap:5px;align-items:center}
-  .edesc{grid-column:2;font-size:15.5px;line-height:1.62;color:var(--ink-2);margin:11px 0 0}
-  .edesc strong{color:var(--ink);font-weight:600}
+  .pick{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);background:#FBF3E2;border:1px solid #ECD9A8;padding:5px 9px;border-radius:var(--r-pill);white-space:nowrap}
+  .route{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:9px;letter-spacing:.01em}
+  .route .sep{color:var(--ink-faint);margin:0 4px}
+  .overview{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.42;color:var(--ink-2);margin:14px 0 0}
 
-  /* chips */
-  .chips{grid-column:2;display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-  .chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:500;padding:8px 13px;border-radius:var(--r-pill);text-decoration:none;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);transition:transform .12s,box-shadow .15s,border-color .15s}
-  .chip:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(22,20,15,.1);border-color:var(--ink-3)}
-  .chip svg{width:14px;height:14px;flex-shrink:0}
-  .chip .tag{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
-  .chip.trail{background:var(--trail-bg);border-color:var(--trail-line);color:#1F5938}
-  .chip.trail svg{color:var(--trail)}
-  .chip.trail .tag{color:var(--trail)}
-  .chip.place{background:var(--map-bg);border-color:var(--map-line);color:#1B4894}
-  .chip.place svg{color:var(--map)}
-  .chip.place .tag{color:var(--map)}
-  .chip.rec{box-shadow:0 0 0 1.5px var(--gold)}
-  .chip .star{color:var(--gold);font-size:11px}
+  /* steps */
+  .steps{list-style:none;margin:18px 0 0;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:12px}
+  .steps li{position:relative;padding-left:34px;font-size:15.5px;line-height:1.62;color:var(--ink-2);counter-increment:s}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:0;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--red-ink);background:var(--red-bg);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+  /* inline links */
+  .ln{text-decoration:none;font-weight:600;white-space:nowrap}
+  .ln svg{width:.8em;height:.8em;vertical-align:-.04em;margin-right:.18em}
+  .ln.trail{color:var(--trail);border-bottom:1.5px solid var(--trail-line)}
+  .ln.place{color:var(--map);border-bottom:1.5px solid var(--map-line)}
+  .ln:hover{border-bottom-color:currentColor}
 
   footer{padding:0 0 60px}
   .foot{border-top:1px solid var(--line);padding-top:22px;font-family:var(--mono);font-size:11px;color:var(--ink-faint);line-height:1.7}
 
   @media(max-width:560px){
     header{padding:40px 0 24px}
-    .entry{grid-template-columns:1fr;gap:0}
-    .num{padding-top:0;margin-bottom:6px}
-    .etitle{font-size:22px}
-    .edesc,.chips{grid-column:1}
+    .ehead{gap:0;flex-direction:column}
+    .num{padding-top:0;margin-bottom:4px;width:auto}
+    .ename{font-size:25px}
+    .overview{font-size:17px}
     .legend{display:none}
+    .ln{white-space:normal}
   }
 </style>
 </head>
@@ -104,12 +105,12 @@
   <header>
     <div class="kicker">Lauterbrunnen Valley · Bernese Oberland</div>
     <h1>The <em>menu</em></h1>
-    <p class="lede" id="lede">Hikes and days out from Wengen. Each one is a little plan — tap a green chip for the trail on AllTrails, a blue chip for the spot on Google Maps.</p>
+    <p class="lede">Days out from Wengen — each one a named little adventure with a step-by-step plan. The links live inside the steps: <b style="color:var(--trail)">green</b> opens the trail on AllTrails, <b style="color:var(--map)">blue</b> opens the place on Google Maps.</p>
     <div class="basebar">
       <span class="homebase"><span class="dot"></span>Home base · <b>Wengen</b></span>
       <span class="legend">
-        <span><span class="sw" style="background:#2F7D4F"></span>AllTrails</span>
-        <span><span class="sw" style="background:#2563C9"></span>Google Maps</span>
+        <span><span class="sw" style="background:#1F5938"></span>AllTrails</span>
+        <span><span class="sw" style="background:#1B4894"></span>Google Maps</span>
       </span>
     </div>
   </header>
@@ -120,91 +121,90 @@
 </div>
 
 <script>
-// ===== ICONS =====
-const ICON_TRAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>';
-const ICON_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+// ===== inline link helpers =====
+const ICON_TRAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>';
+const ICON_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
 const gmaps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+// place(label, mapsQuery) → inline blue Google-Maps link
+const place = (label, q) => `<a class="ln place" href="${gmaps(q)}" target="_blank" rel="noopener">${ICON_PIN}${label}</a>`;
+// trail(label, allTrailsUrl) → inline green AllTrails link
+const trail = (label, url) => `<a class="ln trail" href="${url}" target="_blank" rel="noopener">${ICON_TRAIL}${label}</a>`;
 
-// ===== MENU DATA — edit/extend this array to add entries =====
+// ===== MENU DATA — edit/extend. Each step is a string; drop place()/trail() calls inline. =====
 const ENTRIES = [
   {
     n: 1,
-    title: "Cable car → 3-mile hike → train",
+    name: "The Eiger Balcony",
+    route: ["Wengen","Männlichen","Kleine Scheidegg"],
     dist: "≈3 mi",
-    desc: "Cable car from Wengen up to Männlichen, then this hike brings you along the ridge to Kleine Scheidegg. From there you can take the train down into Grindelwald, or back to Wengen.",
-    links: [
-      { kind:'trail', label:"Männlichen → Grindelwald route", url:"https://www.alltrails.com/explore/custom-routes/copy-mannlichen-to-grindelwald-d5ffa58" },
-      { kind:'place', label:"Männlichen", url: gmaps("Männlichen, Switzerland") },
-      { kind:'place', label:"Kleine Scheidegg", url: gmaps("Kleine Scheidegg, Switzerland") },
-      { kind:'place', label:"Grindelwald", url: gmaps("Grindelwald, Switzerland") },
+    overview: "An easy ridge walk with the Eiger, Mönch and Jungfrau standing right in front of you the whole way — the classic first day.",
+    steps: [
+      `Take the cable car from ${place("Wengen","Wengen, Switzerland")} up to ${place("Männlichen","Männlichen, Switzerland")}.`,
+      `Walk the ridge along the ${trail("Männlichen → Grindelwald route","https://www.alltrails.com/explore/custom-routes/copy-mannlichen-to-grindelwald-d5ffa58")} to ${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")}.`,
+      `From there, take the train down into ${place("Grindelwald","Grindelwald, Switzerland")}, or back home to ${place("Wengen","Wengen, Switzerland")}.`,
     ],
   },
   {
     n: 2,
-    title: "Head to Mürren",
+    name: "The Far Balcony",
+    route: ["Wengen","Lauterbrunnen","Grütschalp","Mürren"],
     dist: "≈2.5 mi walk",
-    desc: "You'll get a train from Wengen down to Lauterbrunnen. From there, there's a cable car that brings you up the other side of the valley to Grütschalp. Once you get up there you can either train or walk to Mürren — the walk is about 2.5 miles (≈4 km, ~1h15, mostly flat).",
-    links: [
-      { kind:'place', label:"Lauterbrunnen", url: gmaps("Lauterbrunnen, Switzerland") },
-      { kind:'place', label:"Grütschalp (cable car top)", url: gmaps("Grütschalp, Lauterbrunnen, Switzerland") },
-      { kind:'trail', label:"Grütschalp → Mürren walk", url:"https://www.alltrails.com/trail/switzerland/bern/murren-grutschalp" },
-      { kind:'place', label:"Mürren", url: gmaps("Mürren, Switzerland") },
+    overview: "Cross to the quiet car-free shelf on the far side of the valley, looking straight back at the wall of big peaks.",
+    steps: [
+      `Take the train from ${place("Wengen","Wengen, Switzerland")} down to ${place("Lauterbrunnen","Lauterbrunnen, Switzerland")}.`,
+      `From there, ride the cable car up the other side of the valley to ${place("Grütschalp","Grütschalp, Lauterbrunnen, Switzerland")}.`,
+      `Once you're up, either take the little train, or do the ${trail("walk to Mürren","https://www.alltrails.com/trail/switzerland/bern/murren-grutschalp")} — about 2.5 miles (≈4 km, ~1h15, mostly flat) into ${place("Mürren","Mürren, Switzerland")}.`,
     ],
   },
   {
     n: 3,
-    title: "North Face Trail",
+    name: "North Faces & a Hidden Village",
+    route: ["Mürren","Allmendhubel","Gimmelwald"],
     dist: "≈4 mi (can shorten)",
     pick: true,
-    desc: "The most spectacular of all the hikes. This one is 4 miles, but you can make it shorter. From Mürren you can take the funicular up to Allmendhubel and then hike around the North Face Trail back down to Mürren. Or — and this is what I recommend — follow the signs to Gimmelwald, a really beautiful tiny village. You can stop for a meal at this perfect little place, Pension Gimmelwald. If you do go to Gimmelwald there's a cable car that brings you back to Mürren, or takes you to the valley floor to head back toward Wengen.",
-    links: [
-      { kind:'trail', label:"North Face Trail (Mürren loop)", url:"https://www.alltrails.com/trail/switzerland/bern/northface-trail-murren" },
-      { kind:'trail', label:"Allmendhubel → Gimmelwald", rec:true, url:"https://www.alltrails.com/trail/switzerland/bern/allmendhubel-gimmelwald" },
-      { kind:'place', label:"Pension Gimmelwald (lunch)", url:"https://www.google.com/maps/place/Pension+Gimmelwald/@46.5466255,7.8925067,3a,75y,90t/data=!3m8!1e2!3m6!1sCIHM0ogKEICAgIDCt9XmyAE!2e10!3e12!6shttps:%2F%2Flh3.googleusercontent.com%2Fgps-cs-s%2FAPNQkAHFYZ_xfk5KvT28UxnIL9TUq3RB9Vnt1LSwwkRvCxwk5TMJjXCJYhWqNlWvuaXxYyZyThTBIEF6BXCfpCrPWvXwQkMxthov6l5h3zlZWdmhjmpLIBBQwe80NmihGj9YtJofQO4beA%3Dw114-h86-k-no!7i1600!8i1200!4m19!1m8!3m7!1s0x478f0aed3f1c9881:0xcdef1b5a011453a8!2sGimmelwald,+3826+Lauterbrunnen,+Switzerland!3b1!8m2!3d46.5459095!4d7.8916164!16zL20vMDMxMnpu!3m9!1s0x478f0a993ce1ab21:0xd42d86909edd1a62!5m2!4m1!1i2!8m2!3d46.5466754!4d7.8925744!10e5!16s%2Fg%2F1tf1mr1l" },
-      { kind:'place', label:"Allmendhubel", url: gmaps("Allmendhubel, Mürren, Switzerland") },
-      { kind:'place', label:"Gimmelwald", url: gmaps("Gimmelwald, Switzerland") },
+    overview: "The most spectacular walk of them all — north-face history under your feet, ending in a tiny cliff village for lunch.",
+    steps: [
+      `From ${place("Mürren","Mürren, Switzerland")}, take the funicular up to ${place("Allmendhubel","Allmendhubel, Mürren, Switzerland")}.`,
+      `Hike around the ${trail("North Face Trail","https://www.alltrails.com/trail/switzerland/bern/northface-trail-murren")} back down to Mürren — 4 miles, but you can make it shorter.`,
+      `Or — and this is what I recommend — follow the signs to ${place("Gimmelwald","Gimmelwald, Switzerland")}, a really beautiful tiny village (${trail("Allmendhubel → Gimmelwald","https://www.alltrails.com/trail/switzerland/bern/allmendhubel-gimmelwald")}).`,
+      `Stop for a meal at ${place("Pension Gimmelwald","https://www.google.com/maps/place/Pension+Gimmelwald/@46.5466255,7.8925067,3a,75y,90t/data=!3m8!1e2!3m6!1sCIHM0ogKEICAgIDCt9XmyAE!2e10!3e12!6shttps:%2F%2Flh3.googleusercontent.com%2Fgps-cs-s%2FAPNQkAHFYZ_xfk5KvT28UxnIL9TUq3RB9Vnt1LSwwkRvCxwk5TMJjXCJYhWqNlWvuaXxYyZyThTBIEF6BXCfpCrPWvXwQkMxthov6l5h3zlZWdmhjmpLIBBQwe80NmihGj9YtJofQO4beA%3Dw114-h86-k-no!7i1600!8i1200!4m19!1m8!3m7!1s0x478f0aed3f1c9881:0xcdef1b5a011453a8!2sGimmelwald,+3826+Lauterbrunnen,+Switzerland!3b1!8m2!3d46.5459095!4d7.8916164!16zL20vMDMxMnpu!3m9!1s0x478f0a993ce1ab21:0xd42d86909edd1a62!5m2!4m1!1i2!8m2!3d46.5466754!4d7.8925744!10e5!16s%2Fg%2F1tf1mr1l")}, a perfect little place.`,
+      `From Gimmelwald, take the cable car back up to Mürren, or down to the valley floor to head back toward ${place("Wengen","Wengen, Switzerland")}.`,
     ],
   },
   {
     n: 4,
-    title: "Grindelwald & the mountain lake",
+    name: "The Mirror Lake",
+    route: ["Wengen","Grindelwald","First","Bachalpsee"],
     dist: "≈3.5 mi at the lake",
-    desc: "Head to Grindelwald via cable car over the ridge from Wengen (Wengen up to Männlichen, then down to Grindelwald). Or take the train around via Kleine Scheidegg. From the Grindelwald gondola hub, walk to the station where the FIRST gondola takes off, ride it to the very top, and hike to Bachalpsee — the mountain lake.",
-    links: [
-      { kind:'place', label:"Männlichen", url: gmaps("Männlichen, Switzerland") },
-      { kind:'place', label:"Grindelwald", url: gmaps("Grindelwald, Switzerland") },
-      { kind:'place', label:"Kleine Scheidegg", url: gmaps("Kleine Scheidegg, Switzerland") },
-      { kind:'place', label:"Grindelwald-First (gondola top)", url: gmaps("Grindelwald First, Switzerland") },
-      { kind:'trail', label:"First → Bachalpsee", url:"https://www.alltrails.com/trail/switzerland/bern/first-bachalpsee" },
-      { kind:'place', label:"Bachalpsee", url: gmaps("Bachalpsee, Switzerland") },
+    overview: "Cross over to Grindelwald, ride to a cliff-top, and walk to an alpine lake that mirrors the peaks back at you.",
+    steps: [
+      `Get to ${place("Grindelwald","Grindelwald, Switzerland")} the scenic way: cable car over the ridge from ${place("Wengen","Wengen, Switzerland")} up to ${place("Männlichen","Männlichen, Switzerland")}, then down the far side. Or take the train around via ${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")}.`,
+      `From the Grindelwald gondola hub, walk over to the station where the ${place("First gondola","Grindelwald First, Switzerland")} takes off.`,
+      `Ride it to the very top.`,
+      `Hike to ${place("Bachalpsee","Bachalpsee, Switzerland")}, the mountain lake — ${trail("First → Bachalpsee","https://www.alltrails.com/trail/switzerland/bern/first-bachalpsee")}.`,
     ],
   },
 ];
 
 // ===== RENDER =====
-function chipHTML(l){
-  const icon = l.kind==='trail' ? ICON_TRAIL : ICON_PIN;
-  const tag = l.kind==='trail' ? 'AllTrails' : 'Maps';
-  const star = l.rec ? '<span class="star">★</span>' : '';
-  return `<a class="chip ${l.kind}${l.rec?' rec':''}" href="${l.url}" target="_blank" rel="noopener">
-    ${icon}${star}<span>${l.label}</span><span class="tag">${tag}</span></a>`;
-}
 function entryHTML(e){
+  const route = e.route ? `<div class="route">${e.route.join('<span class="sep">›</span>')}</div>` : '';
+  const meta = `<div class="emeta">${e.pick?'<span class="pick">★ my pick</span>':''}${e.dist?`<span class="dist">${e.dist}</span>`:''}</div>`;
+  const steps = `<ol class="steps">${e.steps.map(s=>`<li>${s}</li>`).join('')}</ol>`;
   return `<article class="entry">
-    <div class="num">${String(e.n).padStart(2,'0')}</div>
     <div class="ehead">
-      <div class="etitle">${e.title}</div>
-      <div class="emeta">
-        ${e.pick?'<span class="pick">★ my pick</span>':''}
-        ${e.dist?`<span class="dist">${e.dist}</span>`:''}
+      <div class="num">${String(e.n).padStart(2,'0')}</div>
+      <div class="etitle">
+        <div class="nameline"><div class="ename">${e.name}</div>${meta}</div>
+        ${route}
+        <p class="overview">${e.overview}</p>
+        ${steps}
       </div>
     </div>
-    <p class="edesc">${e.desc}</p>
-    <div class="chips">${e.links.map(chipHTML).join('')}</div>
   </article>`;
 }
 document.getElementById('menu').innerHTML = ENTRIES.map(entryHTML).join('');
-document.getElementById('foot').textContent = ENTRIES.length + ' entries · a menu in progress, more coming · built for a friend';
+document.getElementById('foot').textContent = ENTRIES.length + ' adventures · a menu in progress, more coming · built for a friend';
 </script>
 </body>
 </html>
