@@ -1,6 +1,7 @@
 import { detectThemes, extractSoundbites, polishSoundbite } from '../api-client.js';
 import { chattyStart, chattyUpdate, chattyEnd, THEME_DETECT_PHRASES, WORKSHOP_PROCESS_PHRASES } from '../chatty-loader.js';
 import { countByTheme, formatTcShort, themeColor, resolveAndSortBites } from './workshop-format.js';
+import { escapeHtml } from '../html-escape.js';
 
 /**
  * Mount the Soundbite Workshop into a container.
@@ -492,12 +493,10 @@ function rid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function escapeHtml(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-function escapeAttr(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
+// escapeAttr is the canonical 5-char escaper (safe for both text and quoted
+// attributes). The former local escapeHtml here escaped only & < > — missing "
+// and ' — a divergent-weaker XSS twin of the shared boundary; both now delegate.
+function escapeAttr(str) { return escapeHtml(str); }
 
 let toastTimer = null;
 function flashCopyToast(container) {

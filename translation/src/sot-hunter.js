@@ -4,6 +4,7 @@
 // guess quality over time.
 import { formatPreciseTimecode } from './timecode-utils.js';
 import { extractSequenceBase, getSequenceMetadata, cleanSpeakerName } from './csv-parser.js';
+import { escapeHtml } from './html-escape.js';
 
 const FEEDBACK_KEY = 'np_sot_hunter_feedback_v1';
 
@@ -876,11 +877,6 @@ export function initSotHunter({ getSegments, getTranslations }) {
   };
 }
 
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
 
 // Show/hide the toggle based on whether a transcript is loaded and we're on the editor view.
 export function setSotHunterVisible(visible) {

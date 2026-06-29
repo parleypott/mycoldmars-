@@ -8,6 +8,7 @@
 // that return live data each time the palette opens.
 
 import { fuzzyScore, parseRecent } from './command-palette-core.js';
+import { escapeHtml } from './html-escape.js';
 
 const RECENT_KEY = 'mcm_palette_recent';
 const RECENT_MAX = 5;
@@ -244,9 +245,6 @@ function render() {
   listEl.innerHTML = html;
 }
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
 
 const STEP_NAMES = { 1: 'Upload', 2: 'Analyze', 3: 'Clarify', 4: 'Translate', 5: 'Edit' };
 function stepLabel(step) { return step ? `Step ${step} · ${STEP_NAMES[step] || ''}` : ''; }

@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
+import { escapeHtml } from '../../html-escape.js';
 
 // In-app rename overlay — same Newpress editorial style as the rest of
 // the modals. Returns immediately; calls onConfirm(trimmedString) when
@@ -48,10 +49,6 @@ function openSpeakerRenameOverlay(currentName, onConfirm) {
   input.select();
 }
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
 function escapeAttr(s) { return escapeHtml(s); }
 
 export const SpeakerBlock = Node.create({

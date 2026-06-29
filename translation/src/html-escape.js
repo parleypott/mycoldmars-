@@ -4,6 +4,12 @@
 //   - manual-steps.js  esc()    — the setup-checklist modal innerHTML
 //   - devchat-render.js escDc()  — the public devchat message render
 //   - export/pdf-export.js esc() — the highlights→PDF export window
+//   - upload/dialogs.js          — the upload-flow modals
+//   - command-palette.js         — the ⌘K palette render
+//   - sot-hunter.js              — the soundbite-hunter result render
+//   - editor/extensions/SpeakerBlock.js — the rename-speaker prompt
+//   - workshop/index.js          — the Soundbite Workshop render (former local
+//     copy escaped only & < >, missing " and ' — a weaker twin)
 //
 // Escapes the five HTML-significant characters & < > " ' so a value can be
 // safely interpolated into BOTH element text AND a double- or single-quoted
