@@ -105,69 +105,7 @@ function lineOf(src, index) {
   return line;
 }
 
-// Blank out comments AND non-code string text by overwriting their characters
-// with spaces — preserves every byte offset so line numbers stay exact, but
-// stops a `/ x.length` inside a docstring or a string literal from polluting the
-// ledger. Single/double-quoted strings are blanked whole; TEMPLATE literals keep
-// their `${...}` expression contents (a real divide can live in a template, e.g.
-// `` `${(done / items.length) * 100}%` ``) and blank only the literal text.
-// Pragmatic, not a full lexer — a `/` inside a regex literal could be misread as
-// a divide, which can only INVENT a site (read as NEW → re-review, the safe way).
-function stripComments(src) {
-  const out = src.split('');
-  let i = 0;
-  const n = src.length;
-  const blank = (j) => { if (src[j] !== '\n') out[j] = ' '; };
-  // Blank a single/double-quoted string body starting at the opening quote `i`.
-  const eatQuote = (q) => {
-    blank(i); i++;
-    while (i < n) {
-      if (src[i] === '\\') { blank(i); blank(i + 1); i += 2; continue; }
-      if (src[i] === q) { blank(i); i++; return; }
-      blank(i); i++;
-    }
-  };
-  // Blank a template literal starting at the backtick `i`, but recurse into
-  // `${...}` so real code there is still scanned.
-  const eatTemplate = () => {
-    blank(i); i++;
-    while (i < n) {
-      if (src[i] === '\\') { blank(i); blank(i + 1); i += 2; continue; }
-      if (src[i] === '`') { blank(i); i++; return; }
-      if (src[i] === '$' && src[i + 1] === '{') {
-        i += 2; // step INTO the expression — leave its chars intact
-        let depth = 1;
-        while (i < n && depth > 0) {
-          const c = src[i], nx = src[i + 1];
-          if (c === '"' || c === "'") { eatQuote(c); continue; }
-          if (c === '`') { eatTemplate(); continue; }
-          if (c === '/' && nx === '/') { while (i < n && src[i] !== '\n') { blank(i); i++; } continue; }
-          if (c === '/' && nx === '*') { blank(i); blank(i + 1); i += 2; while (i < n && !(src[i] === '*' && src[i + 1] === '/')) { blank(i); i++; } if (i < n) { blank(i); blank(i + 1); i += 2; } continue; }
-          if (c === '{') depth++;
-          else if (c === '}') depth--;
-          if (depth > 0) i++;
-        }
-        if (i < n) i++; // consume the closing `}`
-        continue;
-      }
-      blank(i); i++;
-    }
-  };
-  while (i < n) {
-    const c = src[i], nx = src[i + 1];
-    if (c === '"' || c === "'") { eatQuote(c); continue; }
-    if (c === '`') { eatTemplate(); continue; }
-    if (c === '/' && nx === '/') { while (i < n && src[i] !== '\n') { blank(i); i++; } continue; }
-    if (c === '/' && nx === '*') {
-      blank(i); blank(i + 1); i += 2;
-      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) { blank(i); i++; }
-      if (i < n) { blank(i); blank(i + 1); i += 2; }
-      continue;
-    }
-    i++;
-  }
-  return out.join('');
-}
+import { stripComments } from './lib/strip-comments.mjs';
 
 // Normalize a snippet to a stable ledger key: collapse all whitespace away.
 function normalize(s) {

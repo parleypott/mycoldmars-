@@ -104,41 +104,7 @@ function sourceFiles() {
   return out.sort();
 }
 
-// ── Comment stripper ── overwrite ONLY comment chars with spaces, preserving every
-// byte offset so line numbers stay exact. String-aware solely to avoid treating a
-// `//` inside a string as a comment — it does NOT blank string BODIES. (An earlier
-// body-blanking version desynced on a stray apostrophe in prawn's HTML text and
-// silently ATE real `new Date(` code two lines later — a false-negative far worse
-// than the rare cost of flagging a `new Date(a,b)` written literally inside a string,
-// which is simply a one-time SAFE ledger entry.) Pragmatic, not a full lexer.
-function stripComments(src) {
-  const out = src.split('');
-  let inStr = null, prev = '';
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i], n = src[i + 1];
-    if (inStr) {
-      if (c === inStr && prev !== '\\') inStr = null;
-      prev = c === '\\' && prev === '\\' ? '' : c;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; prev = c; continue; }
-    if (c === '/' && n === '/') {
-      while (i < src.length && src[i] !== '\n') { out[i] = ' '; i++; }
-      i--; prev = ''; continue;
-    }
-    if (c === '/' && n === '*') {
-      out[i] = ' '; out[i + 1] = ' '; i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
-        if (src[i] !== '\n') out[i] = ' ';
-        i++;
-      }
-      if (i < src.length) { out[i] = ' '; out[i + 1] = ' '; i++; }
-      prev = ''; continue;
-    }
-    prev = c;
-  }
-  return out.join('');
-}
+import { stripComments } from './lib/strip-comments.mjs';
 
 function lineOf(src, index) {
   let line = 1;

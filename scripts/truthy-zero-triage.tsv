@@ -30,7 +30,7 @@ queen-scarlet-school/index.html	.value,10)||12	SAFE	maxRaw=parseInt(rule-max)||1
 queen-scarlet-school/index.html	.value,10)||1	SAFE	Math.max(1,parseInt(rule-smin)||1) — min sentences ≥1, 0 invalid
 queen-scarlet-school/index.html	.value,10)||3	SAFE	smaxRaw=parseInt(rule-smax)||3; smax=Math.max(smin,smaxRaw)≥1 — 0 sentences meaningless
 todo/index.html	.value,10)||24	SAFE	clamp(parseInt(hEnd)||24,1,24) — day-end hour clamped 1-24, 0 invalid
-translation/src/main.js	parseInt(seqEl.querySelector('rate>timebase')?.textContent)||24	SAFE	timebase is the fps rate denominator; 0 is invalid XML
+translation/src/main.js	parseInt(seqEl.querySelector()?.textContent)||24	SAFE	timebase is the fps rate denominator; 0 is invalid XML
 translation/src/main.js	.value)||23.976	SAFE	parseFloat(#seq-fps.value)||23.976 — sequence fps; 0 fps invalid (3 call sites)
 translation/src/main.js	.value||16	SAFE	parseInt(#max-words?.value||16) — `||` on the STRING value; typed "0" is truthy and survives, only empty→16; SRT word-cap, 0 invalid anyway
 translation/src/main.js	.value||5	SAFE	parseInt(#max-duration?.value||5) — `||` on the STRING value; typed "0" survives; SRT duration cap, 0 invalid anyway

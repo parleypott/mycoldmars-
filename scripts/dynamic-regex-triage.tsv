@@ -29,3 +29,24 @@ scripts/inception-import.ts	constre=newRegExp(`\\b${escaped}\\b`,'i')	SAFE	`esca
 scripts/sort-comparators.mjs	returnnewRegExp(`(${BASE_SKIP_SOURCE}|${selfMarker})`)	SAFE	BASE_SKIP_SOURCE and selfMarker are controlled internal regex-source constants (gate basenames) — regex fragments by design, not data.
 translation/src/command-palette-core.js	newRegExp(`\\b${escapeReg(ql)}`)	SAFE	ql wrapped in escapeReg().
 translation/src/csv-parser.js	constwordRe=newRegExp(`(^|[^a-z])${kw}([^a-z]|$)`)	SAFE	kw is always a controlled call-site literal ('start'/'end'/'duration'); cols lowercased by caller.
+api/_lib/qss-art-direction.js	constre=newRegExp(${lname.replace(/[.*+?^${}()|[\]\\]/g,)},)	SAFE	lname escaped inline via the standard metachar char-class replace.
+api/_lib/qss-canon.js	returnnewRegExp(${escapeRegExp(term)})	SAFE	term wrapped in escapeRegExp().
+api/_lib/qss-signals.js	constre=newRegExp(${escapeRegExp(c)})	SAFE	c wrapped in escapeRegExp().
+api/_lib/qss-signals.js	constre=newRegExp(${escapeRegExp(w)},)	SAFE	w wrapped in escapeRegExp().
+api/_lib/strip-quotes.js	constLEADING=newRegExp(${QUOTE_CHARS})	SAFE	QUOTE_CHARS is a fixed quote-char class fragment constant; no ] or unescaped metachar.
+api/_lib/strip-quotes.js	constTRAILING=newRegExp(${QUOTE_CHARS})	SAFE	QUOTE_CHARS is a fixed quote-char class fragment constant; no ] or unescaped metachar.
+api/nano-banana.js	constkeyRe=newRegExp(+key+,)	SAFE	key is a hardcoded field-name literal (title/description/vibe) from grabField callers; no metachars.
+api/nano-banana.js	constnextRe=newRegExp(+k+,)	SAFE	k iterates KNOWN_KEYS = [title,description,vibe] literal constants; no metachars.
+api/qss-stories.js	newRegExp(${col},)	SAFE	col iterates OPTIONAL_COLS fixed identifier constants; no metachars.
+hunter/index.html	newRegExp(+name+)	SAFE	name is the hardcoded cookie const np_hunter_access; no metachars.
+prawn/index.html	newRegExp(${k})	SAFE	k iterates DAY_NAME_ALIASES day-name constants; no metachars.
+public/queen-scarlet-school/lib/voice-segmenter.js	constreA=newRegExp(${namePat}${VERBS},)	SAFE	namePat = sortedNames.map(escape).join; VERBS is a fixed constant.
+public/queen-scarlet-school/lib/voice-segmenter.js	constreB=newRegExp(${VERBS}${namePat},)	SAFE	namePat = sortedNames.map(escape).join; VERBS is a fixed constant.
+public/queen-scarlet-school/lib/voice-segmenter.js	constreC=newRegExp(${namePat},)	SAFE	namePat = sortedNames.map(escape).join (each name regex-escaped).
+public/westchester/index.html	conststNameRe=newRegExp(+Object.keys(STATE_NAMES).join()+,)	SAFE	built from STATE_NAMES keys, fixed state-name constants; no metachars.
+public/westchester/index.html	constsuffixRe=newRegExp(+STREET_SUFFIX+,)	SAFE	STREET_SUFFIX is a fixed constant alternation; no user input.
+queen-scarlet-school/index.html	constre=newRegExp(${lname.replace(/[.*+?^${}()|[\]\\]/g,)},)	SAFE	lname escaped inline via the standard metachar char-class replace.
+scripts/inception-import.ts	constre=newRegExp(${escaped},)	SAFE	escaped = lname.replace(metachar char-class) before use.
+scripts/sort-comparators.mjs	returnnewRegExp(${BASE_SKIP_SOURCE}${selfMarker})	SAFE	internal gate constants (the comment-skip lexer machinery); no user input.
+translation/src/command-palette-core.js	newRegExp(${escapeReg(ql)})	SAFE	ql wrapped in escapeReg().
+translation/src/csv-parser.js	constwordRe=newRegExp(${kw})	SAFE	kw is a hardcoded search literal (start/end/duration) from callers; the user CSV cols are TESTED against it, not interpolated.

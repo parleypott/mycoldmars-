@@ -99,61 +99,7 @@ function lineOf(src, index) {
   return line;
 }
 
-// Blank out COMMENTS only (overwrite comment chars with spaces, preserving every
-// byte offset so line numbers stay exact). String/template bodies are skipped-over
-// (not blanked) so a `//` inside a string isn't misread as a comment start.
-function stripComments(src) {
-  const out = src.split('');
-  let i = 0;
-  const n = src.length;
-  const blank = (j) => { if (src[j] !== '\n') out[j] = ' '; };
-  const eatQuoteSkip = (q) => {
-    i++;
-    while (i < n) {
-      if (src[i] === '\\') { i += 2; continue; }
-      if (src[i] === q) { i++; return; }
-      i++;
-    }
-  };
-  const eatTemplate = () => {
-    i++;
-    while (i < n) {
-      if (src[i] === '\\') { i += 2; continue; }
-      if (src[i] === '`') { i++; return; }
-      if (src[i] === '$' && src[i + 1] === '{') {
-        i += 2;
-        let depth = 1;
-        while (i < n && depth > 0) {
-          const c = src[i], nx = src[i + 1];
-          if (c === '"' || c === "'") { eatQuoteSkip(c); continue; }
-          if (c === '`') { eatTemplate(); continue; }
-          if (c === '/' && nx === '/') { while (i < n && src[i] !== '\n') { blank(i); i++; } continue; }
-          if (c === '/' && nx === '*') { blank(i); blank(i + 1); i += 2; while (i < n && !(src[i] === '*' && src[i + 1] === '/')) { blank(i); i++; } if (i < n) { blank(i); blank(i + 1); i += 2; } continue; }
-          if (c === '{') depth++;
-          else if (c === '}') depth--;
-          if (depth > 0) i++;
-        }
-        if (i < n) i++;
-        continue;
-      }
-      i++;
-    }
-  };
-  while (i < n) {
-    const c = src[i], nx = src[i + 1];
-    if (c === '"' || c === "'") { eatQuoteSkip(c); continue; }
-    if (c === '`') { eatTemplate(); continue; }
-    if (c === '/' && nx === '/') { while (i < n && src[i] !== '\n') { blank(i); i++; } continue; }
-    if (c === '/' && nx === '*') {
-      blank(i); blank(i + 1); i += 2;
-      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) { blank(i); i++; }
-      if (i < n) { blank(i); blank(i + 1); i += 2; }
-      continue;
-    }
-    i++;
-  }
-  return out.join('');
-}
+import { stripComments } from './lib/strip-comments.mjs';
 
 function normalize(s) {
   return s.replace(/\s+/g, '');
@@ -304,12 +250,16 @@ function selfTest() {
     else { fail++; console.log(`  ✗ ${label}: got ${JSON.stringify(got)}, expected ${JSON.stringify(expected)}`); }
   };
   // Flags dynamic patterns — escaped or not (escapedness is a ledger judgment).
+  // NOTE: snippets show the shared stripComments output — string/template literal
+  // TEXT is blanked to spaces (only `${...}` expression contents survive), so the
+  // displayed snippet is the de-littered form. Detection keys on the surviving
+  // `${...}` / `+` markers, NOT the blanked literal text.
   expectSites('template interp flagged', "const re = new RegExp(`\\\\b${name}\\\\b`, 'i');",
-    ["const re = new RegExp(`\\\\b${name}\\\\b`, 'i')"]);
+    ["const re = new RegExp( ${name} , )"]);
   expectSites('concat flagged', "const re = new RegExp('(?:^|; )' + name + '=([^;]*)');",
-    ["const re = new RegExp('(?:^|; )' + name + '=([^;]*)')"]);
+    ["const re = new RegExp( + name + )"]);
   expectSites('escaped interp still flagged', "const re = new RegExp(`\\\\b${escapeRegExp(t)}\\\\b`);",
-    ["const re = new RegExp(`\\\\b${escapeRegExp(t)}\\\\b`)"]);
+    ["const re = new RegExp( ${escapeRegExp(t)} )"]);
   // Does NOT flag static literals, bare identifiers, or a `+`/`${` inside a string.
   expectSites('static single-quote literal not flagged', "const re = new RegExp('\\\\d+');", []);
   expectSites('static double-quote literal not flagged', 'const re = new RegExp("[a-z]+");', []);

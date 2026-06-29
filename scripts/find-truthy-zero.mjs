@@ -121,40 +121,7 @@ function lineOf(src, index) {
   return line;
 }
 
-// Blank out `//` line comments and `/* */` block comments (string/template aware)
-// by overwriting their characters with spaces — preserves every byte offset so
-// line numbers stay exact, but stops a `|| N` example inside a docstring (the
-// loop documents the trap in the very files it fixed) from polluting the ledger.
-// Pragmatic, not a full lexer: a `//` inside a regex literal could be misread as a
-// comment, which can only DROP a site (never invent one) — the safe direction.
-function stripComments(src) {
-  const out = src.split('');
-  let inStr = null, prev = '';
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i], n = src[i + 1];
-    if (inStr) {
-      if (c === inStr && prev !== '\\') inStr = null;
-      prev = c === '\\' && prev === '\\' ? '' : c;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; prev = c; continue; }
-    if (c === '/' && n === '/') {
-      while (i < src.length && src[i] !== '\n') { out[i] = ' '; i++; }
-      i--; prev = ''; continue;
-    }
-    if (c === '/' && n === '*') {
-      out[i] = ' '; out[i + 1] = ' '; i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
-        if (src[i] !== '\n') out[i] = ' ';
-        i++;
-      }
-      if (i < src.length) { out[i] = ' '; out[i + 1] = ' '; i++; }
-      prev = ''; continue;
-    }
-    prev = c;
-  }
-  return out.join('');
-}
+import { stripComments } from './lib/strip-comments.mjs';
 
 // Last index of any coercion keyword within `window`, or -1.
 function lastCoerce(window) {
