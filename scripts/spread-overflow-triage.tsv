@@ -1,0 +1,43 @@
+# spread-overflow-triage.tsv — human verdicts for scripts/find-spread-overflow.mjs
+#
+# One row per `Math.min(...arr)` / `Math.max(...arr)` site in the repo. The gate
+# (--check) FAILS only on a site NOT listed here (status NEW), so every spread
+# must be judged: can `arr` be UNBOUNDED/large at this site (→ RangeError when the
+# spread blows the call-argument limit)? If a user-supplied / recorded / unfiltered
+# array with no cap → BUG (replace the spread with a reduce loop, as mapkeys
+# route-geo did). If a fixed-arity / few-corners / bounded-enum array → SAFE + why.
+#
+# Format:  FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE | BUG     (# or blank lines ignored)
+#   key = the site's snippet with all whitespace removed (regenerate via
+#         `scripts/find-spread-overflow.mjs --dump-ledger`)
+#
+api/_lib/render-geometry.js	Math.min(...xs)	SAFE	xs = aligned house-footprint corners (houseEN, a handful of points) — fixed small arity
+api/_lib/render-geometry.js	Math.max(...xs)	SAFE	xs = aligned house-footprint corners — fixed small arity
+api/_lib/render-geometry.js	Math.min(...ys)	SAFE	ys = aligned house-footprint corners — fixed small arity
+api/_lib/render-geometry.js	Math.max(...ys)	SAFE	ys = aligned house-footprint corners — fixed small arity
+hunter/src/main.js	Math.max(...flowTiers.map(t=>tierStats[t].total))	SAFE	flowTiers = ['raw','selects','finished'] filtered — at most 3 elements
+hunter/src/main.js	Math.max(...Object.values(byDay).map(d=>d.clips))	SAFE	byDay keyed by shoot-day — bounded by # of shoot days (small); function currently unwired
+public/walden-3d/studio.html	Math.min(..._ALL.map(p=>p[0]))	SAFE	_ALL = parcel+house corner points of one landscape plan — tens of points, not unbounded
+public/walden-3d/studio.html	Math.max(..._ALL.map(p=>p[0]))	SAFE	_ALL = parcel+house corner points — bounded by plan element count
+public/walden-3d/studio.html	Math.min(..._ALL.map(p=>p[1]))	SAFE	_ALL = parcel+house corner points — bounded by plan element count
+public/walden-3d/studio.html	Math.max(..._ALL.map(p=>p[1]))	SAFE	_ALL = parcel+house corner points — bounded by plan element count
+public/walden-3d/studio.html	Math.min(...all.map(p=>p[0]))	SAFE	all = element polygon corners for the current plan — bounded (tens of points)
+public/walden-3d/studio.html	Math.max(...all.map(p=>p[0]))	SAFE	all = element polygon corners — bounded
+public/walden-3d/studio.html	Math.min(...all.map(p=>p[1]))	SAFE	all = element polygon corners — bounded
+public/walden-3d/studio.html	Math.max(...all.map(p=>p[1]))	SAFE	all = element polygon corners — bounded
+public/walden-3d/studio.html	Math.min(...HOUSE_EN.map(p=>p[0]))	SAFE	HOUSE_EN = fixed house-footprint corner constant — fixed small arity
+public/walden-3d/studio.html	Math.max(...HOUSE_EN.map(p=>p[0]))	SAFE	HOUSE_EN = fixed house-footprint corner constant — fixed small arity
+public/walden-3d/studio.html	Math.min(...HOUSE_EN.map(p=>p[1]))	SAFE	HOUSE_EN = fixed house-footprint corner constant — fixed small arity
+public/walden-3d/studio.html	Math.max(...HOUSE_EN.map(p=>p[1]))	SAFE	HOUSE_EN = fixed house-footprint corner constant — fixed small arity
+public/walden/index.html	Math.min(...houseLocal.map(p=>p[0]))	SAFE	houseLocal = house-footprint corner points — fixed small arity
+public/walden/index.html	Math.max(...houseLocal.map(p=>p[0]))	SAFE	houseLocal = house-footprint corner points — fixed small arity
+public/walden/index.html	Math.min(...houseLocal.map(p=>p[1]))	SAFE	houseLocal = house-footprint corner points — fixed small arity
+public/walden/index.html	Math.max(...houseLocal.map(p=>p[1]))	SAFE	houseLocal = house-footprint corner points — fixed small arity
+public/walden/index.html	Math.max(...xs)	SAFE	xs = one element's polygon x-coords (e.pts) — bounded per element (tens of points)
+public/walden/index.html	Math.min(...xs)	SAFE	xs = one element's polygon x-coords — bounded per element
+public/walden/index.html	Math.max(...ys)	SAFE	ys = one element's polygon y-coords — bounded per element
+public/walden/index.html	Math.min(...ys)	SAFE	ys = one element's polygon y-coords — bounded per element
+translation/src/main.js	Math.min(...segNums)	SAFE	segNums = user-selected segment-number range; guarded by length===0 early return; bounded by selection
+translation/src/main.js	Math.max(...segNums)	SAFE	segNums = user-selected segment-number range; bounded by selection (a few thousand at most, far under the spread cap)
+zanyplans/src/mac-window.js	Math.max(...Array.from(win.parentElement?.children||[]).map(el=>parseInt(el.style.zIndex)||0))	SAFE	children = on-screen floating windows — a handful, not unbounded

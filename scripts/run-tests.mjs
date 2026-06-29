@@ -156,7 +156,12 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // library/cast/write) with no watcher. Ledger-backed
 // (scripts/dynamic-regex-triage.tsv): --check fails only on a NEW one whose value
 // isn't escapeRegExp'd or a controlled constant.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs'].flatMap((s) =>
+// find-spread-overflow flags `Math.min(...arr)` / `Math.max(...arr)` — spreading
+// an array into a call args-blows the ~64k-arg cap and THROWS RangeError. Hit in
+// production (MapKeys fitBounds on a recorded GPS track). Ledger-backed
+// (scripts/spread-overflow-triage.tsv): --check fails only on a NEW spread whose
+// array isn't a fixed-arity / bounded-enum source.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
