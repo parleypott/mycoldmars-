@@ -1,0 +1,14 @@
+# negative-slice triage ledger — judged `.slice(-<non-literal>)` sites.
+# Columns: FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+# STATUS: SAFE (count can never be 0/NaN/negative here) | BUG (open, must fix).
+# The question for each site: can the negated count be 0 (or NaN / a negative
+# value)? If yes, `slice(-0)`/`slice(NaN)` returns the WHOLE array instead of the
+# last N. Add a row here only after judging WHY a site is safe (or fixing it).
+# Key = whitespace-collapsed snippet, so it survives reformatting / line shifts.
+#
+api/_lib/cap-loved.js	constkeptUnloved=keepUnlovedCount>0?unloved.slice(-keepUnlovedCount)	SAFE	guarded: ternary only slices when keepUnlovedCount > 0, so the count is always ≥ 1 (the original slice(-0) bug this code was written to fix).
+api/_lib/gemini-chat-contents.js	history)?history:[]).slice(-cap)	SAFE	cap is clamped just above: `const cap = Number.isInteger(window) && window > 0 ? window : 12;` — always a positive integer, never 0/NaN.
+api/_lib/prune-variations.js	constkeptUnloved=keepUnlovedCount>0?unloved.slice(-keepUnlovedCount)	SAFE	guarded: ternary only slices when keepUnlovedCount > 0 (same loved-aware cap fix as cap-loved.js).
+api/_lib/qss-signals.js	constrecent=blocks.slice(-FIXATION_WINDOW)	SAFE	FIXATION_WINDOW is a module constant = 5 (positive int literal), never 0.
+api/qss-cast.js	c.chat)?c.chat.slice(-MAX_CHAT)	SAFE	MAX_CHAT is a function-local constant = 200 (positive int literal), never 0.
+api/qss-stories.js	c.chat)?c.chat.slice(-MAX_CHAT_TURNS)	SAFE	MAX_CHAT_TURNS is a function-local constant = 50 (positive int literal), never 0.
