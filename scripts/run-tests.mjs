@@ -148,7 +148,15 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // sort-on-numbers bug the two comparator gates above are structurally blind to
 // (they only read a comparator BODY). Ledger-backed (scripts/bare-sort-triage.tsv):
 // --check fails only on a NEW untriaged bare sort.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs'].flatMap((s) =>
+// find-dynamic-regex flags `new RegExp(<dynamic pattern>)` — a pattern built by
+// `${...}` interpolation or `+` concatenation — where an UNESCAPED metachar in
+// the spliced value changes the match, THROWS SyntaxError on an unbalanced
+// `(`/`[`, or (for cookie/user-controlled values) enables regex injection/ReDoS.
+// The cookie-regex shape was hand-migrated ≥6× (research/app.js, gate.js, QSS
+// library/cast/write) with no watcher. Ledger-backed
+// (scripts/dynamic-regex-triage.tsv): --check fails only on a NEW one whose value
+// isn't escapeRegExp'd or a controlled constant.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

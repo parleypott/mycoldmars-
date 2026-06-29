@@ -1,0 +1,31 @@
+# dynamic-regex-triage.tsv — verdicts for find-dynamic-regex.mjs.
+# Columns: FILE <TAB> NORMALIZED-SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE (escaped / controlled constant — not a bug) | BUG (open, fix it)
+# A NEW (untriaged) dynamic `new RegExp(...)` fails `--check` until a row lands here.
+# Judge each: is the interpolated/concatenated value regex-ESCAPED (escapeRegExp /
+# inline char-class replace) or a CONTROLLED constant (hardcoded literal/array)?
+# If the value can carry user/data metacharacters UNESCAPED → BUG, fix at source.
+#
+api/_lib/qss-art-direction.js	constre=newRegExp(`\\b${lname.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`,'i')	SAFE	lname escaped inline via the standard metachar char-class replace.
+api/_lib/qss-canon.js	returnnewRegExp(`\\b${escapeRegExp(term)}\\b`)	SAFE	term wrapped in escapeRegExp().
+api/_lib/qss-signals.js	constre=newRegExp(`\\b${escapeRegExp(c)}\\b`)	SAFE	c wrapped in escapeRegExp().
+api/_lib/qss-signals.js	constre=newRegExp(`\\b${escapeRegExp(w)}\\b`,'g')	SAFE	w wrapped in escapeRegExp().
+api/_lib/strip-quotes.js	constLEADING=newRegExp(`^[${QUOTE_CHARS}]+`)	SAFE	QUOTE_CHARS is a controlled module constant (curated quote-glyph char-class).
+api/_lib/strip-quotes.js	constTRAILING=newRegExp(`[${QUOTE_CHARS}]+$`)	SAFE	QUOTE_CHARS is a controlled module constant (curated quote-glyph char-class).
+api/nano-banana.js	constkeyRe=newRegExp('"'+key+'"\\s*:\\s*','i')	SAFE	key is a controlled known field name passed by the caller (title/description/vibe).
+api/nano-banana.js	constnextRe=newRegExp(',\\s*"'+k+'"\\s*:','i')	SAFE	k iterates the hardcoded KNOWN_KEYS literal array (title/description/vibe).
+api/qss-stories.js	newRegExp(`,${col}\\b`,'g')	SAFE	col iterates the hardcoded OPTIONAL_COLS constant array (no metachars).
+api/qss-stories.js	newRegExp(`\\b${col},`,'g')	SAFE	col iterates the hardcoded OPTIONAL_COLS constant array (no metachars).
+api/qss-stories.js	newRegExp(`\\b${col}\\b`,'g')	SAFE	col iterates the hardcoded OPTIONAL_COLS constant array (no metachars).
+hunter/index.html	newRegExp('(?:^|;)'+name+'=([^;]*)')	SAFE	name is the hardcoded constant 'np_hunter_access' (no metachars), correctly anchored. Backlog low-pri: attended migration to shared/cookie.js regex-free parse. Not a live bug.
+prawn/index.html	newRegExp(`\\b${k}\\b`)	SAFE	k iterates DAY_NAME_ALIASES hardcoded alphabetic day-name keys (no metachars).
+public/queen-scarlet-school/lib/voice-segmenter.js	constreA=newRegExp(`\\b(${namePat})\\b\\s+(?:${VERBS})[,:]?\\s+("[^"\\n]+")`,'gi')	SAFE	namePat = sortedNames.map(escape).join('|') — names escaped; VERBS is a controlled literal alternation.
+public/queen-scarlet-school/lib/voice-segmenter.js	constreB=newRegExp(`("[^"\\n]+")[,]?\\s+(?:${VERBS})\\s+\\b(${namePat})\\b`,'gi')	SAFE	namePat escaped per-name; VERBS is a controlled literal alternation.
+public/queen-scarlet-school/lib/voice-segmenter.js	constreC=newRegExp(`^(\\s*)(${namePat}):\\s*(.+?)\\s*$`,'gim')	SAFE	namePat escaped per-name; remaining pattern is static.
+public/westchester/index.html	conststNameRe=newRegExp('(?:,\\s*|\\s+)('+Object.keys(STATE_NAMES).join('|')+')\\s*$','i')	SAFE	STATE_NAMES keys are US state names (controlled constant, no metachars).
+public/westchester/index.html	constsuffixRe=newRegExp('^(.+?\\s+'+STREET_SUFFIX+')\\.?\\s+(.+?)(?:\\s+([A-Za-z]{2}))?\\s*$','i')	SAFE	STREET_SUFFIX is a controlled constant street-suffix alternation.
+queen-scarlet-school/index.html	constre=newRegExp(`\\b${lname.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`,'i')	SAFE	lname escaped inline via the standard metachar char-class replace.
+scripts/inception-import.ts	constre=newRegExp(`\\b${escaped}\\b`,'i')	SAFE	`escaped` = lname.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') — escaped one line above.
+scripts/sort-comparators.mjs	returnnewRegExp(`(${BASE_SKIP_SOURCE}|${selfMarker})`)	SAFE	BASE_SKIP_SOURCE and selfMarker are controlled internal regex-source constants (gate basenames) — regex fragments by design, not data.
+translation/src/command-palette-core.js	newRegExp(`\\b${escapeReg(ql)}`)	SAFE	ql wrapped in escapeReg().
+translation/src/csv-parser.js	constwordRe=newRegExp(`(^|[^a-z])${kw}([^a-z]|$)`)	SAFE	kw is always a controlled call-site literal ('start'/'end'/'duration'); cols lowercased by caller.

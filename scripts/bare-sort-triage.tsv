@@ -34,3 +34,4 @@ scripts/find-wrongtype-json-parse.mjs	out	SAFE	sourceFiles() returns sorted file
 scripts/gen-sitemap.ts	.filter((r)=>!noindex.has(r))	SAFE	route path STRINGS for the sitemap; lexical is the intended order
 scripts/gen-sitemap.ts	[...noindex]	SAFE	excluded-route STRINGS for a log line; lexical is the intended order
 scripts/sort-comparators.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-dynamic-regex.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
