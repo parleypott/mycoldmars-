@@ -1,0 +1,44 @@
+# wrongtype-json-parse-triage.tsv — human verdicts for find-wrongtype-json-parse.mjs.
+#
+# Each row: FILE <TAB> NORMALIZED-SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE (judged a non-bug — wrong-type result can't crash) | BUG (open).
+# A typed-fallback JSON.parse NOT listed here reads as NEW and trips `--check`,
+# forcing a human to judge: can a stored value of the WRONG TYPE (corrupt/legacy/
+# tampered) survive the parse and crash a downstream array op (.map/.length/
+# for..of/new Set), with no Array.isArray guard and no caller-side try/catch?
+#   • SAFE if: Array.isArray/typeof guard after the parse, OR object-shape store
+#     read only via property access/spread (tolerates any type — no throw), OR the
+#     iteration runs inside a try/catch that contains the throw.
+#   • BUG if: the raw result is returned/iterated with no type guard and reaches a
+#     load-time array op outside any try/catch (white-screens the tool).
+# Baseline (2026-06-29, iteration #11): all 33 live sites judged SAFE — the vein
+# is clean; this gate is forward-looking, to catch the NEXT one Johnny ships.
+burma-script/src/main.jsx	constraw=JSON.parse(localStorage.getItem(LS_CTRL)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+burma-script/src/Workshop.jsx	returnJSON.parse(localStorage.getItem(LS_WORKSHOP)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+prawn/index.html	checks=JSON.parse(localStorage.getItem(key)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+public/burma-essays/index.html	constv=JSON.parse(localStorage.getItem('burma:offline')||'[]')	SAFE	reader returns Array.isArray(v) ? v : [] — a non-array degrades to [].
+public/burma-essays/index.html	constv=JSON.parse(localStorage.getItem('burma:list')||'[]')	SAFE	reader returns Array.isArray(v) ? v : [] — a non-array degrades to [].
+public/burma-essays/index.html	returnJSON.parse(localStorage.getItem('burma:detail:'+id)||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+public/deck-v2/deck-stage.js	constparsed=JSON.parse(tag.textContent||'[]')	SAFE	guarded by if (Array.isArray(parsed)) inside try/catch — a non-array leaves _notes = [].
+public/walden-3d/scene3d.html	constd=JSON.parse(localStorage.getItem('walden-design')||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+public/walden-3d/studio.html	consts=JSON.parse(localStorage.getItem('walden-design')||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+public/walden/index.html	constv=JSON.parse(localStorage.getItem(SCENES)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+public/westchester/index.html	constv=JSON.parse(localStorage.getItem(key)||'[]')	SAFE	parseArrayLS returns Array.isArray(v) ? v : [] — a non-array degrades to [].
+public/westchester/index.html	constv=JSON.parse(localStorage.getItem(key)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+public/westchester/index.html	constcached=JSON.parse(localStorage.getItem(BIKE_KEY)||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+queen-scarlet-school/cast/index.html	constperStory=JSON.parse(localStorage.getItem(k)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	returnJSON.parse(localStorage.getItem(LS)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	returnJSON.parse(localStorage.getItem(LS_LIST)||'[]')	SAFE	loadList returns raw, but both call sites (.includes/.push in persist; .filter in delete) run inside try/catch — a wrong-type throw is caught, no crash.
+queen-scarlet-school/index.html	returnJSON.parse(localStorage.getItem(LS_KEY(name))||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+queen-scarlet-school/index.html	constglobalCast=JSON.parse(localStorage.getItem(QSSWorlds.key('globalcast'))||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	constparsed=JSON.parse(localStorage.getItem(KEY)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	constglobal=JSON.parse(localStorage.getItem(QSSWorlds.key('globalcast'))||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	constg=JSON.parse(localStorage.getItem(KEY)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	constbackup=JSON.parse(localStorage.getItem(bkey)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	constexisting=JSON.parse(localStorage.getItem(key)||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+queen-scarlet-school/index.html	constparsed=JSON.parse(e.newValue||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+translation/src/edit/media-deck.js	constsaved=JSON.parse(localStorage.getItem('mcm_media_deck_pos')||'null')	SAFE	result read via optional-chaining / typeof guard inside try/catch — a wrong-type value is never iterated unguarded.
+translation/src/edit/media-deck.js	constcur=JSON.parse(localStorage.getItem('mcm_media_deck_pos')||'{}')	SAFE	object-shape store read via property access / spread, which tolerates a wrong-type value (no throw); parse in try/catch.
+translation/src/main.js	JSON.parse(localStorage.getItem(STARRED_KEY)||'[]')	SAFE	array store, but parse feeds new Set(...) INSIDE try/catch — a wrong-type (non-iterable) value throws and is caught to an empty Set.
+translation/src/manual-steps.js	JSON.parse(localStorage.getItem(DONE_KEY)||'[]')	SAFE	array store, but parse feeds new Set(...) INSIDE try/catch — a wrong-type (non-iterable) value throws and is caught to an empty Set.
+translation/src/snapshot.js	constv=JSON.parse(localStorage.getItem(INDEX_KEY)||'[]')	SAFE	readIndex returns Array.isArray(v) ? v : [] immediately after the parse — a non-array degrades to [].

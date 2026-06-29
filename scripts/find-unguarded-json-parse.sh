@@ -177,7 +177,7 @@ scan_repo() {
             --include='*.js' --include='*.ts' --include='*.mjs' --include='*.jsx' --include='*.html' . 2>/dev/null \
           | grep -v node_modules | grep -vE '/dist/|assets/index-' \
           | grep -vE '\.(test|spec)\.' \
-          | grep -vE 'migrate-probe|integrity-check' || true)
+          | grep -vE 'migrate-probe|integrity-check|find-wrongtype-json-parse' || true)
           # ^ exclude standalone dev probe/check harnesses: they parse trusted
           #   round-trip data (bytes they just JSON.stringify'd) against an
           #   in-memory fake-localStorage and are NOT in any client tool's load

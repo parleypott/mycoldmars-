@@ -127,7 +127,13 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // shape that bit MapKeys lineCentroid, route-geo, and the Hunter keep-rate math.
 // Ledger-backed (scripts/divide-by-length-triage.tsv): --check fails only on a
 // NEW unguarded divide, so the next one that lands trips the suite on landing.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs'].flatMap((s) =>
+// find-wrongtype-json-parse flags `JSON.parse(... || '[]')` typed-fallback parses
+// — the WRONG-TYPE storage sibling find-unguarded-json-parse.sh (throw class) is
+// blind to: a stored '{}'/'5'/'null' parses fine past the try/catch, then crashes
+// the first .map/.length/for-of/new Set. The `|| '[]'` only guards MISSING, not
+// wrong-shape. This is the ~20×-hand-fixed Array.isArray vein. Ledger-backed
+// (scripts/wrongtype-json-parse-triage.tsv): --check fails only on a NEW one.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
