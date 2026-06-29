@@ -3649,10 +3649,15 @@ T政要數據, 含黨派、電話、傳真、郵箱、出生地點、工作地�
       gate.style.display = 'none';
       content.style.display = 'block';
       try { sessionStorage.setItem(GATE_KEY, '1'); } catch {}
-      // Re-anchor if URL had a hash
+      // Re-anchor if URL had a hash. A tampered/shared hash that isn't a valid CSS
+      // selector (#123, "#a b", a stray "#") makes querySelector throw SyntaxError —
+      // which, since unlock() already revealed content above, would surface as an
+      // uncaught error and kill the re-anchor. Guard it (same class as safeDecodeURI).
       if (location.hash) {
-        const el = document.querySelector(location.hash);
-        if (el) el.scrollIntoView();
+        try {
+          const el = document.querySelector(location.hash);
+          if (el) el.scrollIntoView();
+        } catch {}
       }
     }
 
