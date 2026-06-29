@@ -92,6 +92,13 @@ ok(lineLength([]) === 0, 'lineLength: empty → 0');
 {
   const c = lineCentroid([[0, 0], [10, 0], [10, 10], [0, 10]]);
   ok(near(c[0], 5) && near(c[1], 5), 'lineCentroid: average of a square = its center');
+  // Empty/missing input -> [0,0] sentinel, NEVER [NaN,NaN] (sum/0 trap).
+  // Mutation-proof: strip the empty guard and these go RED (NaN !== 0, isNaN true).
+  const e = lineCentroid([]);
+  ok(e[0] === 0 && e[1] === 0, 'lineCentroid: [] -> [0,0], not [NaN,NaN]');
+  const u = lineCentroid(undefined);
+  ok(u[0] === 0 && u[1] === 0, 'lineCentroid: undefined -> [0,0], no throw');
+  ok(!Number.isNaN(e[0]) && !Number.isNaN(e[1]), 'lineCentroid: empty centroid is NaN-free');
 }
 
 // ── transformLineCoords ──

@@ -43,6 +43,10 @@ export function sliceRoute(route, progress) {
 }
 
 export function lineCentroid(coords) {
+  // Empty in -> [0,0] sentinel, never [NaN,NaN]. The live caller (transformLineCoords)
+  // maps over the same empty array and returns [] regardless, so this is byte-identical
+  // for today's path; the guard only protects any future direct consumer of the centroid.
+  if (!coords || coords.length === 0) return [0, 0];
   let sx = 0, sy = 0;
   for (const [x, y] of coords) { sx += x; sy += y; }
   return [sx / coords.length, sy / coords.length];
