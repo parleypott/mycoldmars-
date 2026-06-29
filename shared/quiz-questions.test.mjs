@@ -50,6 +50,17 @@ function checkStructure(label, pool) {
     assert.ok(typeof q.explanation === 'string' && q.explanation.trim().length > 0, `${where}: empty explanation`);
     assert.ok(Array.isArray(q.options), `${where}: options must be an array`);
     assert.ok(q.options.length >= 2, `${where}: need at least 2 options`);
+    // THE render-capacity LOCK. All three games render the option letter badge
+    // from a 4-element `LETTERS = ['A','B','C','D']` array via `LETTERS[i]`
+    // (fascism/main.js:131,146 · flyingmoney/main.js:131,146 ·
+    // modern-middle-east/main.js:257,276), and the CSS lays out exactly 4
+    // options. A 5th+ option would render the literal text "undefined" as its
+    // letter badge (LETTERS[4] === undefined) and fall outside the styled grid
+    // — a silent, fully-shipped content bug, same authoring-error class as the
+    // off-by-one answer. The live render caps at 4, so the data must too.
+    assert.ok(q.options.length <= 4,
+      `${where}: ${q.options.length} options exceeds the 4-letter render capacity (A–D) — ` +
+      `the option letter badge would render "undefined" for option ${q.options.length}`);
     q.options.forEach((opt, oi) =>
       assert.ok(typeof opt === 'string' && opt.trim().length > 0, `${where}: option ${oi} is empty`));
     // THE answer-in-bounds LOCK — the one that silently breaks a question.
@@ -112,6 +123,11 @@ t('modern-middle-east deliberately carries no per-question timecode (no YT jump-
 t('the in-bounds lock rejects an off-by-one answer index', () => {
   const bad = { question: 'q', explanation: 'e', options: ['a', 'b', 'c', 'd'], answer: 4 };
   assert.throws(() => checkStructure('synthetic', [bad]), /out of bounds/);
+});
+
+t('the render-capacity lock rejects a 5-option question (the "undefined" letter-badge bug)', () => {
+  const bad = { question: 'q', explanation: 'e', options: ['a', 'b', 'c', 'd', 'e'], answer: 4 };
+  assert.throws(() => checkStructure('synthetic', [bad]), /render capacity/);
 });
 
 t('the timecode lock rejects a missing timecode (the &t=undefineds bug)', () => {
