@@ -363,14 +363,23 @@ function setEntryVisible(id,on){
   (markersByEntry[id]||[]).forEach(m=>{ m.getElement().style.display=on?'':'none'; });
   syncPanel();
 }
+// flat [lng,lat] coords across journeys' legs; pass an entryId to scope to one (null = all).
+// pure + empty-safe — a journey with no legs (or a leg with no line) contributes nothing
+// instead of crashing the bounds math below. (The __loadJourneys refine hook can swap in
+// mid-edit geodata, so a legless/empty journey is reachable.)
+function journeyCoords(journeys, id){
+  const src = (id==null) ? journeys : journeys.filter(j=>j.entryId===id);
+  return src.flatMap(j=>(j.legs||[]).flatMap(l=>l.line||[]));
+}
 function entryBounds(id){
-  const j=JOURNEYS.find(x=>x.entryId===id); if(!j) return null;
-  const all=j.legs.flatMap(l=>l.line);
+  const all=journeyCoords(JOURNEYS,id);
+  if(!all.length) return null;
   return all.reduce((b,p)=>b.extend(p),new mapboxgl.LngLatBounds(all[0],all[0]));
 }
 function fitEntry(id){ const b=entryBounds(id); if(b) map.fitBounds(b,{padding:{top:90,bottom:70,left:280,right:70},pitch:52,duration:1200,maxZoom:14}); }
 function fitAll(){
-  const all=JOURNEYS.flatMap(j=>j.legs.flatMap(l=>l.line));
+  const all=journeyCoords(JOURNEYS,null);
+  if(!all.length) return;
   const b=all.reduce((bb,p)=>bb.extend(p),new mapboxgl.LngLatBounds(all[0],all[0]));
   map.fitBounds(b,{padding:{top:90,bottom:70,left:280,right:70},pitch:52,bearing:18,duration:0,maxZoom:13});
 }
