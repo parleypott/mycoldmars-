@@ -128,11 +128,26 @@ function lineOf(src, index) {
 // that only INVENTS a site (read as NEW → re-review, the safe way), and string
 // literals containing the exact `JSON.parse(... || '[]')` source are vanishingly
 // rare outside this file (which is SKIP-listed).
+//
+// This is the STRING-PRESERVING twin of scripts/lib/strip-comments.mjs — it
+// CANNOT import the shared blanker because that one blanks ALL strings, which
+// would erase the very `'[]'`/`'{}'` fallback literals this gate keys on. But it
+// DOES carry the same REGEX-LITERAL disambiguation the shared copy does, for the
+// same soundness reason: a regex body holding a quote (`/['"]/`,
+// `.replace(/_Proxy\.MP4$/i, '')`, `str.split(/[,;]/)`) would otherwise make
+// `eatQuoteSkip` open string-mode at that inner quote and run away — skipping
+// every byte (and any real `JSON.parse(... || '[]')` site) until the next
+// matching quote far downstream. For a GATE that's a silent FALSE NEGATIVE: it
+// under-reports and looks clean. So we disambiguate `/` as divide-vs-regex via
+// the standard rule (a `/` is DIVISION when the last significant code char is a
+// value-ender, else it opens a regex literal we consume past).
 function stripComments(src) {
   const out = src.split('');
   let i = 0;
   const n = src.length;
+  let lastSig = ''; // last significant (non-ws) CODE char — drives divide-vs-regex
   const blank = (j) => { if (src[j] !== '\n') out[j] = ' '; };
+  const DIVIDE_CTX = /[A-Za-z0-9_$)\].]/; // value-enders: `/` after these is division
   // Blank a template-literal body but recurse into ${...} so a real parse there
   // is still scanned; leave single/double quoted strings INTACT (we need their
   // literal text). We still must skip OVER quoted strings so a `//` or `/*`
@@ -144,6 +159,24 @@ function stripComments(src) {
       if (src[i] === q) { i++; return; }
       i++;
     }
+  };
+  // Consume a regex literal, blanking its body (honoring `\` escapes and `[...]`
+  // char classes so a `/` inside a class doesn't end it early). We blank rather
+  // than preserve because a regex body never holds a real fallback parse, and
+  // neutralizing its bytes keeps any stray quote inside it from desyncing.
+  const eatRegexSkip = () => {
+    blank(i); i++; // opening `/`
+    let inClass = false;
+    while (i < n) {
+      const c = src[i];
+      if (c === '\n') return;       // unterminated — regex can't span a line; bail
+      if (c === '\\') { blank(i); blank(i + 1); i += 2; continue; }
+      if (c === '[') { inClass = true; blank(i); i++; continue; }
+      if (c === ']') { inClass = false; blank(i); i++; continue; }
+      if (c === '/' && !inClass) { blank(i); i++; break; } // closing `/`
+      blank(i); i++;
+    }
+    while (i < n && /[a-z]/i.test(src[i])) { blank(i); i++; } // flags
   };
   const eatTemplate = () => {
     i++;
@@ -171,8 +204,8 @@ function stripComments(src) {
   };
   while (i < n) {
     const c = src[i], nx = src[i + 1];
-    if (c === '"' || c === "'") { eatQuoteSkip(c); continue; }
-    if (c === '`') { eatTemplate(); continue; }
+    if (c === '"' || c === "'") { eatQuoteSkip(c); lastSig = ')'; continue; } // string is a value
+    if (c === '`') { eatTemplate(); lastSig = ')'; continue; }
     if (c === '/' && nx === '/') { while (i < n && src[i] !== '\n') { blank(i); i++; } continue; }
     if (c === '/' && nx === '*') {
       blank(i); blank(i + 1); i += 2;
@@ -180,6 +213,12 @@ function stripComments(src) {
       if (i < n) { blank(i); blank(i + 1); i += 2; }
       continue;
     }
+    if (c === '/') {
+      if (DIVIDE_CTX.test(lastSig)) { lastSig = '/'; i++; }   // division — leave intact
+      else { eatRegexSkip(); lastSig = ')'; }                 // regex literal — consume past
+      continue;
+    }
+    if (!/\s/.test(c)) lastSig = c;
     i++;
   }
   return out.join('');
@@ -300,6 +339,21 @@ function selfTest() {
   expectSites('comment', "// const v = JSON.parse(raw || '[]')\nconst x = 1;", []);
   // Stringify clone (JSON.parse(JSON.stringify(x))) has no typed fallback → skip.
   expectSites('stringify clone', "const c = JSON.parse(JSON.stringify(obj));", []);
+
+  // REGEX-LITERAL DESYNC GUARD (mutation lock for the regex-aware blanker). A
+  // regex body holding a quote — `/['"]/` — must NOT make the lexer open
+  // string-mode at that inner quote and run away. If it does (the old
+  // regex-blind blanker), it skips over the `//` of the next line so the
+  // commented-out fake parse is NEVER blanked → scanner reports a PHANTOM site.
+  // Correct behavior: consume the regex, blank the comment, flag ONLY the real
+  // parse on the last line. Neutering eatRegexSkip turns this RED (2 sites, not 1).
+  expectSites('regex-quote desync guard',
+    [
+      "const m = str.match(/['\"]/);",
+      "// const fake = JSON.parse(x || '[]');",
+      "const real = JSON.parse(y || '[]');",
+    ].join('\n'),
+    ["const real = JSON.parse(y || '[]')"]);
 
   // Multi-site + line numbers.
   const fixture = [
