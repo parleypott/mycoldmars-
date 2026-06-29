@@ -25,8 +25,12 @@
 // NUMBER being defaulted with `||`:
 //   • parseFloat(...) || N      • parseInt(...) || N      • Number(...) || N
 //   • <expr>.value ... || N     (a DOM input value — always a numeric field here)
+//   • +<expr> || N              (unary-plus coercion: `const w = +el.wFt || 8`)
 // defaulted to a NON-ZERO literal (`|| 0` is harmless — 0-or-0 is still 0 — and
 // is never flagged). String/array defaults (`|| ''`, `|| []`) are out of scope.
+// The unary-plus form is matched ONLY in genuine unary position (the `+` directly
+// follows `= , ( [ : ?`), so binary addition (`a + b || 5`) and `++`/`+=` are not
+// mistaken for a coercion.
 //
 // WHY A LEDGER, NOT A HEURISTIC
 // Whether a `|| N` is a BUG depends on whether 0 is a legitimate value for THAT
@@ -105,7 +109,10 @@ function sourceFiles() {
 // but NOT a bare 0 / 0.0 — defaulting to zero can't eat a meaningful zero).
 const OR_NUM = /\|\|\s*(-?\d+(?:\.\d+)?)/g;
 // The numeric-intent left side we care about, searched in the window before `||`.
-const COERCE = /(parseFloat\s*\(|parseInt\s*\(|Number\s*\(|\.value\b)/g;
+// The final alternative matches a unary-plus coercion (`+ident`) — but ONLY when
+// the `+` sits in unary position (immediately after `= , ( [ : ?`, optional
+// spaces), so binary `a + b`, `++`, and `+=` never trip it.
+const COERCE = /(parseFloat\s*\(|parseInt\s*\(|Number\s*\(|\.value\b|(?<=[=,(\[:?]\s*)\+(?=[a-zA-Z_$]))/g;
 const WINDOW = 90; // chars to look back from `||` for a coercion keyword
 
 function lineOf(src, index) {
@@ -242,6 +249,14 @@ function selfTest() {
   expectSites('parseInt default', 'const n = parseInt(el.value, 10) || 12;', ['.value, 10) || 12']);
   expectSites('Number coerce', 'const s = Number(seg.start) || 1;', ['Number(seg.start) || 1']);
   expectSites('.value form', 'const fps = $("#seq-fps").value || 23.976;', ['.value || 23.976']);
+  // Unary-plus coercion form (the walden-3d `+el.wFt || 8` shape).
+  expectSites('unary-plus coerce', 'const w = +el.wFt || 8;', ['+el.wFt || 8']);
+  expectSites('unary-plus after comma', 'const w=+el.wFt||8,l=+el.lFt||8;', ['+el.wFt||8', '+el.lFt||8']);
+  expectSites('unary-plus after paren', 'box(+x || 3);', ['+x || 3']);
+  // Does NOT mistake binary `+`, `++`, or `+=` for a unary coercion.
+  expectSites('binary plus not coerce', 'const x = a + b || 5;', []);
+  expectSites('postfix incr not coerce', 'const x = i++ || 5;', []);
+  expectSites('unary-plus || 0 harmless', 'const r = +el.rot || 0;', []);
   // Does NOT flag the harmless / out-of-scope forms.
   expectSites('|| 0 harmless', 'const x = parseFloat(v) || 0;', []);
   expectSites('|| 0.0 harmless', 'const x = Number(v) || 0.0;', []);
