@@ -1,0 +1,22 @@
+# unguarded-decode-triage.tsv — verdicts for find-unguarded-decode.mjs
+#
+# One row per decodeURIComponent() call site. The gate FAILS `--check` on any
+# site NOT listed here (status NEW), so a newly-added decode call must be judged
+# before it can merge. Judge: can the argument carry a malformed % from the URL
+# or a cookie (→ URIError), and if so is the throw caught (try/catch or a
+# safe-wrapper that try/catches internally)?
+#
+# Columns (TAB-separated):  FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE (judged a non-bug) | BUG (open, must be fixed)
+#   SNIPPET-KEY = whitespace-stripped snippet (line-number-immune); from --dump-ledger
+#
+# Baseline (iteration #13, 2026-06-29): all 7 sites are cookie/hash readers whose
+# decode is wrapped in an inline try/catch (or a safeDecodeURI() wrapper that is),
+# so a malformed % returns the raw value instead of throwing. All SAFE.
+commentbank/index.html	returndecodeURIComponent(s)	SAFE	safeDecodeURI(): inline try/catch returns raw s on malformed % (the #ask/50% hash fix).
+hunter/index.html	returndecodeURIComponent(match[1])	SAFE	gate getCookie: inline try/catch returns raw match[1] on malformed % (the gate-IIFE white-screen fix).
+queen-scarlet-school/cast/index.html	returndecodeURIComponent(part.slice(eq+1))	SAFE	getCookie: inline try/catch returns raw cookie value on malformed %.
+queen-scarlet-school/cast/index.html	returndecodeURIComponent(s)	SAFE	safeDecodeURI(): inline try/catch returns raw s on malformed % (popstate hash fix).
+queen-scarlet-school/index.html	returndecodeURIComponent(part.slice(eq+1))	SAFE	getC(): inline try/catch returns raw cookie value on malformed %.
+queen-scarlet-school/library/index.html	returndecodeURIComponent(part.slice(eq+1))	SAFE	getCookie(): inline try/catch returns raw cookie value on malformed %.
+shared/cookie.js	returndecodeURIComponent(part.slice(eq+1))	SAFE	parseCookieValue(): inline try/catch returns raw cookie value on malformed % (the shared regex-free reader).

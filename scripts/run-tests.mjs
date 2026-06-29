@@ -133,7 +133,12 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // the first .map/.length/for-of/new Set. The `|| '[]'` only guards MISSING, not
 // wrong-shape. This is the ~20×-hand-fixed Array.isArray vein. Ledger-backed
 // (scripts/wrongtype-json-parse-triage.tsv): --check fails only on a NEW one.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs'].flatMap((s) =>
+// find-unguarded-decode flags every decodeURIComponent() call — a lone/truncated
+// `%` (a hand-typed/shared deep-link like #ask/50%, or a tampered cookie) throws
+// URIError, and an UNGUARDED decode at load white-screens the tool (fixed by hand
+// in commentbank, QSS cast, the hunter gate). Ledger-backed
+// (scripts/unguarded-decode-triage.tsv): --check fails only on a NEW decode call.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
