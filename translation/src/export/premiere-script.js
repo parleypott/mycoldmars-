@@ -13,13 +13,22 @@
  */
 export function tcToSeconds(tc) {
   if (!tc) return 0;
+  // Guard every field. The soundbite timecode regex ([0-9:.,]+) accepts
+  // pure-punctuation values (":", "::", ":30", "1::30"), so an empty hh/mm/ss
+  // field yields NaN here — which then poisons inSec/outSec and serializes to a
+  // `null` in/out point in the generated .jsx (JSON.stringify(NaN) === "null"),
+  // corrupting that clip's nest point in Premiere. A malformed field now
+  // contributes 0, never NaN. Byte-identical for every well-formed timecode.
+  // (Mirrors soundbites.js parts() and premiere-xml.js timecodeToFrames, which
+  // were already hardened against the same input; this copy was the holdout.)
+  const num = (x) => { const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
   const parts = tc.replace(',', '.').split(':');
   if (parts.length === 3) {
-    return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+    return num(parts[0]) * 3600 + num(parts[1]) * 60 + num(parts[2]);
   } else if (parts.length === 2) {
-    return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+    return num(parts[0]) * 60 + num(parts[1]);
   }
-  return parseFloat(parts[0]) || 0;
+  return num(parts[0]);
 }
 
 /**

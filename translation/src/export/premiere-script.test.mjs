@@ -45,6 +45,16 @@ eq(tcToSeconds(''), 0, 'empty string = 0');
 eq(tcToSeconds(null), 0, 'null = 0');
 eq(tcToSeconds(undefined), 0, 'undefined = 0');
 
+// Malformed-but-truthy timecodes (the soundbite regex [0-9:.,]+ admits pure
+// punctuation). Every field is guarded, so an empty hh/mm/ss contributes 0 —
+// NEVER NaN, which would serialize to a `null` in/out point in the .jsx.
+// These are the mutation-lock: drop the num() guard and each goes RED.
+eq(tcToSeconds('::'), 0, 'all-empty HH:MM:SS = 0, not NaN');
+eq(tcToSeconds(':30'), 30, 'empty minute field (:SS) = 30s, not NaN');
+eq(tcToSeconds('1::30'), 3630, 'empty middle field (H::SS) keeps hour+sec, not NaN');
+eq(tcToSeconds('01:02:'), 3720, 'empty seconds field (HH:MM:) = 1h2m, not NaN');
+eq(tcToSeconds(':'), 0, 'bare colon (M:SS both empty) = 0, not NaN');
+
 // ── buildPremiereScript: apostrophe handling ────────────────────────────
 // A soundbite prefix can include a speaker/block name (sot-hunter appends an
 // upper-cased block label), e.g. "260322-04 - O'BRIEN". That apostrophe must
