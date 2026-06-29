@@ -47,8 +47,17 @@ export const EXT = /\.(js|mjs|ts|html)$/;
 // comparators that would otherwise self-trip the gate) via buildSkip().
 export const BASE_SKIP_SOURCE = '\\.test\\.|\\.spec\\.|\\.min\\.|node_modules|/assets/index-|\\bdist\\b';
 
+// The sort-gate family's own files (+ ledgers): each carries intentional sort
+// fixtures in its docstring/self-test that would self-trip a SIBLING gate (e.g.
+// find-bare-sort's boolean-comparator scope fixture trips find-bool). No sort
+// gate should scan another's fixtures, so all three skip the whole family. One
+// source of truth: add a new sort gate's file here and every sibling skips it.
+export const SORT_GATE_FILES =
+  'find-bool-sort-comparator\\.mjs|find-nan-sort-comparator\\.mjs|find-bare-sort\\.mjs|bare-sort-triage\\.tsv';
+
 // Compose the base skip with a gate's own self-file marker (e.g. its basename),
-// so each gate excludes itself without re-stating the shared exclusions.
+// so each gate excludes itself without re-stating the shared exclusions. Pass
+// SORT_GATE_FILES to also exclude the sibling sort gates' fixture files.
 export function buildSkip(selfMarker) {
   return new RegExp(`(${BASE_SKIP_SOURCE}|${selfMarker})`);
 }
@@ -74,6 +83,44 @@ export function sourceFiles(skip, scanDirs = SCAN_DIRS, root = ROOT) {
   const out = [];
   for (const d of scanDirs) walk(join(root, d), out, skip);
   return out.sort();
+}
+
+// ── Comment stripping (offset-preserving) ─────────────────────────────────────
+// Overwrite `//` line comments and `/* */` block comments with spaces, leaving
+// every byte offset (and line number) intact, so a `.sort(` written inside a
+// docstring (this repo documents the very patterns its gates hunt) can't be
+// mistaken for a real call site. String/template aware. Pragmatic, not a full
+// lexer: a `//` inside a regex literal could be misread as a comment, which can
+// only DROP a site (never invent one) — the safe direction. Shared so the sort
+// gates that need it can't drift on the logic. (find-bare-sort uses this; the
+// comparator gates skip their own files instead, so they don't call it.)
+export function stripComments(src) {
+  const out = src.split('');
+  let inStr = null, prev = '';
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i], n = src[i + 1];
+    if (inStr) {
+      if (c === inStr && prev !== '\\') inStr = null;
+      prev = c === '\\' && prev === '\\' ? '' : c;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { inStr = c; prev = c; continue; }
+    if (c === '/' && n === '/') {
+      while (i < src.length && src[i] !== '\n') { out[i] = ' '; i++; }
+      i--; prev = ''; continue;
+    }
+    if (c === '/' && n === '*') {
+      out[i] = ' '; out[i + 1] = ' '; i += 2;
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
+        if (src[i] !== '\n') out[i] = ' ';
+        i++;
+      }
+      if (i < src.length) { out[i] = ' '; out[i + 1] = ' '; i++; }
+      prev = ''; continue;
+    }
+    prev = c;
+  }
+  return out.join('');
 }
 
 // ── Extraction (paren-balanced, string-aware) ──────────────────────────────────

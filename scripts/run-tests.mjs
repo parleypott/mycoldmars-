@@ -144,7 +144,11 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // PROJECT class in the loop's backlog; hand-fixed ≥4× in The Hunter, never gated).
 // Ledger-backed (scripts/tz-date-drift-triage.tsv): --check fails only on a NEW
 // untriaged construct+toISOString pairing.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs'].flatMap((s) =>
+// find-bare-sort flags a `.sort()` with NO comparator — the lexicographic
+// sort-on-numbers bug the two comparator gates above are structurally blind to
+// (they only read a comparator BODY). Ledger-backed (scripts/bare-sort-triage.tsv):
+// --check fails only on a NEW untriaged bare sort.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

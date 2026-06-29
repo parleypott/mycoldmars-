@@ -61,7 +61,7 @@
 
 import { relative } from 'node:path';
 import {
-  ROOT, sourceFiles as collectSourceFiles, buildSkip,
+  ROOT, sourceFiles as collectSourceFiles, buildSkip, SORT_GATE_FILES,
   classifySource as classifySourceCore, classifyFile as classifyFileCore,
 } from './sort-comparators.mjs';
 
@@ -71,7 +71,7 @@ import {
 // drift on either again. This gate adds only its own self-file skip: its
 // docstring + self-test fixtures embed intentional `new Date(...)` comparators
 // that would otherwise self-trip it.
-const SKIP = buildSkip('find-nan-sort-comparator\\.mjs');
+const SKIP = buildSkip(SORT_GATE_FILES);
 const sourceFiles = () => collectSourceFiles(SKIP);
 const classifyFile = (path, opts) => classifyFileCore(path, classifyBody, opts);
 const classifySource = (src, opts) => classifySourceCore(src, classifyBody, opts);

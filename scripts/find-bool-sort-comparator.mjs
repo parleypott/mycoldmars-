@@ -50,7 +50,7 @@
 
 import { relative } from 'node:path';
 import {
-  ROOT, sourceFiles as collectSourceFiles, buildSkip,
+  ROOT, sourceFiles as collectSourceFiles, buildSkip, SORT_GATE_FILES,
   classifySource as classifySourceCore, classifyFile as classifyFileCore,
 } from './sort-comparators.mjs';
 
@@ -60,7 +60,7 @@ import {
 // either again. This gate adds only its own self-file skip: its docstring +
 // self-test fixtures embed intentional boolean comparators that would otherwise
 // self-trip the gate.
-const SKIP = buildSkip('find-bool-sort-comparator\\.mjs');
+const SKIP = buildSkip(SORT_GATE_FILES);
 const sourceFiles = () => collectSourceFiles(SKIP);
 const classifyFile = (path, opts) => classifyFileCore(path, classifyBody, opts);
 

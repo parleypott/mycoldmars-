@@ -1,0 +1,36 @@
+# bare-sort-triage.tsv — the loop's memory of which bare `.sort()` calls (no
+# comparator) have already been JUDGED, so find-bare-sort.mjs --check can stay
+# green on the healthy tree and fail ONLY on a NEW, untriaged bare sort.
+#
+# A bare `.sort()` orders elements as STRINGS (UTF-16 code units). That is:
+#   • a BUG when the receiver holds raw NUMBERS  ([1,10,2].sort() → wrong order)
+#   • SAFE when it holds genuine strings, fixed-width keys, or ISO dates
+#     (lexical order == the intended order), or when the result is used only as
+#     a canonical/equality key where ANY deterministic order is fine.
+#
+# Format (TAB-separated):  FILE <TAB> RECEIVER-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE (judged a non-bug) | BUG (open — fix it)
+# The key is the whitespace-stripped receiver expression (not file:line), so a
+# row survives edits that move the call. Change the receiver text → reads as NEW
+# again (re-review), the safe direction. Add a row the moment you judge a site.
+#
+# FILE	RECEIVER-KEY	STATUS	REASON
+burma-script/src/cloud-sync.js	Object.keys(v)	SAFE	stableStringify canonical form — only needs a DETERMINISTIC key order, not numeric; lexical is correct
+burma-script/src/cloud-sync.js	keys	SAFE	localStorage keys are fixed-width ms-prefixed strings; lexical == chronological (commented inline)
+burma-script/src/migrate-doc.js	keys	SAFE	prefix-scanned localStorage keys (fixed-width ms prefix); lexical == chronological
+burma-script/src/recovery-store.js	keys	SAFE	IDB recovery keys, fixed-width ms prefix; lexical == chronological (commented inline)
+burma-script/src/recovery.js	Object.keys(v)	SAFE	stableStringify canonical form (byte-identical to cloud-sync); deterministic key order only
+hunter/src/main.js	Object.keys(byDay)	SAFE	byDay keys are ISO YYYY-MM-DD (sceneDateLabels); lexical == chronological. Also dead/unwired code.
+hunter/src/main.js	Object.entries(byDay)	SAFE	byDay keys are ISO YYYY-MM-DD; lexical == chronological. Also dead/unwired code.
+hunter/worker/scene-detection.mjs	Object.entries(byDay)	SAFE	byDay keys are ISO YYYY-MM-DD (scene-detection-core sceneDateLabels); lexical == chronological. Worker report only.
+queen-scarlet-school/cast/index.html	lovedPortraits.map(p=>p.id).slice()	SAFE	builds an equality key (join compared to _lastConsistencyKey); any deterministic order works
+scripts/find-divide-by-length.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-inline-gemini-contents.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-naive-body-read.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-truthy-zero.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-tz-date-drift.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-unguarded-decode.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-wrongtype-json-parse.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/gen-sitemap.ts	.filter((r)=>!noindex.has(r))	SAFE	route path STRINGS for the sitemap; lexical is the intended order
+scripts/gen-sitemap.ts	[...noindex]	SAFE	excluded-route STRINGS for a log line; lexical is the intended order
+scripts/sort-comparators.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
