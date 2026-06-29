@@ -1,0 +1,16 @@
+# tz-date-drift triage ledger — judged sites for scripts/find-tz-date-drift.mjs
+#
+# A site is a LOCAL multi-arg `new Date(y, m, d, …)` construct in a file that ALSO
+# calls `.toISOString()`. It is a BUG only when the SAME local-constructed date
+# flows INTO .toISOString() for a calendar-day label/key (construct-LOCAL / read-UTC
+# → off-by-one day on any non-UTC machine). Fix the bug with Date.UTC(…). It is SAFE
+# when the local date is read back with LOCAL getters (getFullYear/getMonth/getDate)
+# and the toISOString in the file is a SEPARATE "now"/instant stamp that never
+# round-trips the local date.
+#
+# FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#
+prawn/index.html	newDate(year,month-1,day)	SAFE	parseDate() builds a local event date; it is read back ONLY via local getters in dateKey() (getFullYear/getMonth/getDate, line ~1646) and daysBetween/addDays (getTime). The file's lone toISOString is `new Date().toISOString()` (line ~1508) — a separate save/event "now" stamp that never touches parseDate's dates. Local-construct ↔ local-read is internally consistent; no UTC round-trip → no day drift.
+prawn/index.html	newDate(defaultYear,monthIdx,day)	SAFE	Same parseDate() month-name branch; identical reasoning to the m/d branch above — local construct, local readback, decoupled from the "now" toISOString stamp.
+public/nile-flights/index.html	newDate(Y,M-1,D,h,m)	SAFE	parse() builds local flight-schedule datetimes compared only against each other (connection-gap classifier) and read via dayOnly()/local getters — never .toISOString(). The file's toISOString (line ~275) is the booking "at" marker (`new Date().toISOString()`), a separate instant stamp read back at ~308 and displayed locally. Two unrelated date subsystems; the schedule date never round-trips through UTC → no drift.
+public/nile-flights/index.html	newDate(dt.getFullYear(),dt.getMonth(),dt.getDate())	SAFE	dayOnly() truncates a local schedule datetime to local midnight using local getters — consistent with parse()'s local construction; never serialized via toISOString. Same decoupled-subsystem reasoning as the parse() row above.

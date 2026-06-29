@@ -138,7 +138,13 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // URIError, and an UNGUARDED decode at load white-screens the tool (fixed by hand
 // in commentbank, QSS cast, the hunter gate). Ledger-backed
 // (scripts/unguarded-decode-triage.tsv): --check fails only on a NEW decode call.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs'].flatMap((s) =>
+// find-tz-date-drift flags LOCAL multi-arg `new Date(y, m, d, …)` constructs in a
+// file that also calls `.toISOString()` — the construct-LOCAL / read-UTC mismatch
+// that drifts a calendar-day label by the machine's UTC offset (the most-repeated
+// PROJECT class in the loop's backlog; hand-fixed ≥4× in The Hunter, never gated).
+// Ledger-backed (scripts/tz-date-drift-triage.tsv): --check fails only on a NEW
+// untriaged construct+toISOString pairing.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
