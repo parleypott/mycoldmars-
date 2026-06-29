@@ -6,6 +6,8 @@
  * Does NOT interpret what colors mean — that comes from training.
  */
 
+import { countWords } from '../src/count-words.js';
+
 /**
  * Main entry point. Parses Docs API JSON into a structured intermediate format.
  *
@@ -432,10 +434,6 @@ function computeStats(elements) {
   }
 
   return { totalBeats, totalParagraphs, wordCount, coloredRunCount };
-}
-
-function countWords(text) {
-  return text.split(/\s+/).filter(w => w.length > 0).length;
 }
 
 function countColoredRuns(runs) {
