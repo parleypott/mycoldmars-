@@ -172,7 +172,7 @@
 const ICON_TRAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>';
 const ICON_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
 const gmaps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
-const place = (label, q) => `<a class="ln place" href="${gmaps(q)}" target="_blank" rel="noopener">${ICON_PIN}${label}</a>`;
+const place = (label, q) => `<a class="ln place" href="${/^https?:\/\//.test(q) ? q : gmaps(q)}" target="_blank" rel="noopener">${ICON_PIN}${label}</a>`;
 const trail = (label, url) => `<a class="ln trail" href="${url}" target="_blank" rel="noopener">${ICON_TRAIL}${label}</a>`;
 
 // ===== MENU DATA =====
