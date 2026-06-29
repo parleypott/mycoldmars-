@@ -200,6 +200,29 @@ eq('sequence with no video tracks → []', extractCorpusUnits([seq()]).length, 0
   eq('name falls back to clip.name', clips[0].name, 'cn');
 }
 
+// ─── INTENTIONAL A/V-track divergence between the two extractors ───
+// extractSourceClips is for Dropbox FILE matching, so it must reach EVERY
+// referenced media file — including ones that live only on audio tracks
+// (interview .wav, VO, music). extractCorpusUnits, by contrast, is the
+// editorial-selection corpus and stays video-only so a synced A/V pair counts
+// as ONE decision, not two. This pair of asserts locks both halves so a future
+// "these two look the same, let's consolidate" refactor can't silently drop
+// audio media from file-matching (or double-count synced clips into the corpus).
+{
+  // An audio-ONLY source on an audio track (no video counterpart at all).
+  const s = seq({
+    videoTracks: [vtrack(1, [clip({ sourceFile: file('PIX.mov', '/vol/PIX.mov') })])],
+    audioTracks: [atrack(1, [clip({ sourceFile: file('INTERVIEW.wav', '/vol/INTERVIEW.wav') })])],
+  });
+  const clips = extractSourceClips([s]);
+  eq('audio-only source IS file-matched', clips.length, 2);
+  eq('the audio source file is present', !!clips.find(c => c.name === 'INTERVIEW.wav'), true);
+  // And the corpus stays video-only on the SAME input — the divergence is real.
+  const u = extractCorpusUnits([s]);
+  eq('corpus excludes the audio source (no double-count)', u.length, 1);
+  eq('corpus unit is the picture', u[0].sourceClipName, 'PIX.mov');
+}
+
 // Empty input → empty list, never throws.
 eq('no sequences → [] (source clips)', extractSourceClips([]).length, 0);
 eq('sequence with no tracks → []', extractSourceClips([seq()]).length, 0);
