@@ -326,8 +326,14 @@ let map=null, layersBuilt=false;
 const layerIdsByEntry={}, markersByEntry={};
 const entryVisible={}; ENTRIES.forEach(e=>entryVisible[e.n]=true);
 
+// EMPTY-SAFE (same contract as journeyCoords): a missing .legs, or a leg whose
+// .line isn't a >=2-point array, contributes no feature instead of leaking an
+// invalid LineString (coordinates:undefined) into Mapbox or throwing on .map.
+// Reachable via the __loadJourneys refine hook swapping in mid-edit geodata.
 function legFeatures(j){
-  return {type:'FeatureCollection',features:j.legs.map((lg,i)=>({type:'Feature',properties:{mode:lg.mode,i},geometry:{type:'LineString',coordinates:lg.line}}))};
+  return {type:'FeatureCollection',features:(j.legs||[])
+    .filter(lg=>Array.isArray(lg.line)&&lg.line.length>=2)
+    .map((lg,i)=>({type:'Feature',properties:{mode:lg.mode,i},geometry:{type:'LineString',coordinates:lg.line}}))};
 }
 function addJourney(j){
   const sid='legs-'+j.entryId;
@@ -338,7 +344,7 @@ function addJourney(j){
   map.addLayer({id:casingId,type:'line',source:sid,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#FBFAF6','line-width':6.5,'line-opacity':0.92}});
   ids.push(casingId);
   // one line layer per mode present (dash differs per mode)
-  const modes=[...new Set(j.legs.map(l=>l.mode))];
+  const modes=[...new Set((j.legs||[]).map(l=>l.mode))];
   modes.forEach(mode=>{
     const st=MODE_STYLE[mode]||MODE_STYLE.hike;
     const lid=sid+'-'+mode;
@@ -349,7 +355,7 @@ function addJourney(j){
   layerIdsByEntry[j.entryId]=ids;
   // stop markers
   const mks=[];
-  j.stops.forEach(s=>{
+  (j.stops||[]).forEach(s=>{
     if(s.name==='Wengen') return;
     const el=document.createElement('div'); el.className='smk';
     el.innerHTML=`<span class="sd ${s.kind}"></span>${s.name}`;
