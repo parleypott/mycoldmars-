@@ -57,7 +57,7 @@ const navRoutes = [...hub.matchAll(/href="(\/[^"#]*)"/g)]
   .map((h) => (h.endsWith('/') ? h : h + '/'));
 
 // Real public projects that aren't on the hub nav.
-const EXTRA_ROUTES = ['/', '/burma-essays/', '/walden/'];
+const EXTRA_ROUTES = ['/', '/burma-essays/', '/lauterbrunnen/', '/walden/'];
 
 // Some nav routes 302-redirect to a canonical destination (see vercel.json) —
 // list the resolved URL so crawlers index the real page, not the redirect.
