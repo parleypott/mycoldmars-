@@ -183,7 +183,12 @@
 
       function getCookie(name) {
         const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-        return match ? decodeURIComponent(match[1]) : null;
+        if (!match) return null;
+        // A malformed percent-encoded value (e.g. a bare "%" in the cookie) makes
+        // decodeURIComponent throw URIError, which would crash this gate IIFE and
+        // white-screen the whole Hunter page (no gate, no app). Degrade to the raw
+        // value instead — same safe-decode posture as commentbank + QSS cast.
+        try { return decodeURIComponent(match[1]); } catch { return match[1]; }
       }
 
       function setCookie(name, value) {
