@@ -33,6 +33,7 @@
     --trail:#1F5938; --trail-line:#BFDCC8;
     --map:#1B4894; --map-line:#C6D6F2;
     --gold:#B07A1E;
+    --hike:#D42A1C; --train:#2563C9; --lift:#B07A1E; --funi:#138A72;
     --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --serif:"Newsreader",Georgia,serif;
     --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,monospace;
@@ -78,6 +79,9 @@
   .emeta{display:flex;gap:7px;align-items:center;flex-shrink:0}
   .dist{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--line);padding:5px 10px;border-radius:var(--r-pill);white-space:nowrap}
   .pick{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);background:#FBF3E2;border:1px solid #ECD9A8;padding:5px 9px;border-radius:var(--r-pill);white-space:nowrap}
+  .mapit{font-family:var(--mono);font-size:11px;font-weight:600;color:#fff;background:var(--ink);border:none;padding:6px 12px;border-radius:var(--r-pill);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+  .mapit:hover{background:var(--red)}
+  .mapit svg{width:12px;height:12px}
   .route{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:9px;letter-spacing:.01em}
   .route .sep{color:var(--ink-faint);margin:0 4px}
   .overview{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.42;color:var(--ink-2);margin:14px 0 0}
@@ -104,20 +108,40 @@
   .maploading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--ink-3);gap:12px;background:#EFEDE8;z-index:3}
   .spin{width:24px;height:24px;border:2px solid var(--line-2);border-top-color:var(--ink);border-radius:50%;animation:sp .8s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .mlegend{position:absolute;bottom:24px;left:16px;z-index:5;background:rgba(251,250,246,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);box-shadow:0 6px 22px rgba(22,20,15,.12);max-width:230px}
+
+  /* layer panel */
+  .layers{position:absolute;top:64px;left:16px;z-index:6;background:rgba(251,250,246,.94);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;box-shadow:0 8px 26px rgba(22,20,15,.16);width:248px;max-width:calc(100vw - 32px)}
+  .layers .lh{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .layers .lt{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+  .layers .allbtns{display:flex;gap:5px}
+  .layers .allbtns button{font-family:var(--mono);font-size:10px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:3px 9px;cursor:pointer}
+  .layers .allbtns button:hover{border-color:var(--ink-3)}
+  .lrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:var(--r-sm);cursor:pointer;transition:background .12s}
+  .lrow:hover{background:var(--paper-2)}
+  .lrow .box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--line-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--surface)}
+  .lrow.on .box{background:var(--ink);border-color:var(--ink)}
+  .lrow .box svg{width:11px;height:11px;color:#fff;opacity:0;stroke-width:3.5}
+  .lrow.on .box svg{opacity:1}
+  .lrow .lnum{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink-faint);width:18px}
+  .lrow .lname{font-size:13px;font-weight:500;color:var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lrow.off .lname,.lrow.off .lnum{color:var(--ink-faint)}
+  .lrow .swatch{width:16px;height:4px;border-radius:2px;background:var(--red);flex-shrink:0}
+
+  .mlegend{position:absolute;bottom:24px;left:16px;z-index:5;background:rgba(251,250,246,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);box-shadow:0 6px 22px rgba(22,20,15,.12)}
   .mlegend .mt{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:8px}
   .mlegend .lr{display:flex;align-items:center;gap:9px;margin-top:6px;line-height:1.3}
-  .mlegend .ll{width:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-  .ml-trail{height:3px;width:20px;background:var(--red);border-radius:2px}
-  .ml-rail{height:0;width:20px;border-top:2px dashed #3a352f}
-  .ml-cable{height:0;width:20px;border-top:1.5px dotted #8a847a}
-  .ml-contour{height:0;width:20px;border-top:1px solid #a99}
+  .mlegend .ll{width:22px;flex-shrink:0;display:flex;align-items:center}
+  .seg{height:3px;width:22px;border-radius:2px}
+  .seg.dash{height:0;border-top-width:2.5px;border-top-style:dashed}
+  .seg.dot{height:0;border-top-width:2px;border-top-style:dotted}
+
   /* map markers */
-  .tmk{cursor:pointer}
-  .tmk .dot{width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(22,20,15,.3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;transition:transform .15s}
-  .tmk:hover .dot{transform:scale(1.15)}
-  .tmk .lbl{position:absolute;left:50%;transform:translateX(-50%);top:30px;white-space:nowrap;font-family:var(--font);font-size:11.5px;font-weight:600;color:var(--ink);background:rgba(251,250,246,.9);padding:2px 7px;border-radius:5px;box-shadow:0 1px 4px rgba(22,20,15,.15);pointer-events:none}
-  .emk{width:11px;height:11px;border-radius:50%;background:#fff;border:2.5px solid var(--red);box-shadow:0 1px 4px rgba(22,20,15,.3)}
+  .smk{display:flex;align-items:center;gap:6px;background:rgba(251,250,246,.92);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:3px 9px 3px 6px;box-shadow:0 2px 8px rgba(22,20,15,.18);font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;cursor:default}
+  .smk .sd{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--ink)}
+  .smk .sd.village{background:var(--red)} .smk .sd.lake{background:var(--train)} .smk .sd.restaurant{background:var(--lift)} .smk .sd.peak{background:#5a544b} .smk .sd.viewpoint{background:var(--funi)}
+  .mapit-mk{width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(22,20,15,.3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600}
+  .homemk{display:flex;align-items:center;gap:7px;background:var(--ink);color:#fff;border:2.5px solid #fff;border-radius:var(--r-pill);padding:6px 13px 6px 11px;box-shadow:0 5px 16px rgba(22,20,15,.4);font-size:13.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+  .homemk svg{width:15px;height:15px}
 
   @media(max-width:560px){
     header{padding:64px 0 24px}
@@ -127,6 +151,7 @@
     .overview{font-size:17px}
     .legend{display:none}
     .ln{white-space:normal}
+    .layers{width:210px;top:60px}
   }
 </style>
 </head>
@@ -140,7 +165,7 @@
   <header>
     <div class="kicker">Lauterbrunnen Valley · Bernese Oberland</div>
     <h1>The <em>menu</em></h1>
-    <p class="lede">Days out from Wengen — each one a named little adventure with a step-by-step plan. The links live inside the steps: <b style="color:var(--trail)">green</b> opens the trail on AllTrails, <b style="color:var(--map)">blue</b> opens the place on Google Maps. Switch to <b>Map</b> up top to see the trails on the valley.</p>
+    <p class="lede">Days out from Wengen — each one a named little adventure with a step-by-step plan. The links live inside the steps: <b style="color:var(--trail)">green</b> opens the trail on AllTrails, <b style="color:var(--map)">blue</b> opens the place on Google Maps. Hit <b>Map it</b> on any adventure to see its legs drawn on the valley.</p>
     <div class="basebar">
       <span class="homebase"><span class="dot"></span>Home base · <b>Wengen</b></span>
       <span class="legend">
@@ -158,12 +183,20 @@
 <div id="mapview">
   <div class="maploading" id="maploading"><div class="spin"></div>drawing the valley…</div>
   <div id="map"></div>
+  <div class="layers" id="layers">
+    <div class="lh"><span class="lt">Adventures</span><span class="allbtns"><button id="allOn">all</button><button id="allOff">none</button></span></div>
+    <div id="lrows"></div>
+  </div>
   <div class="mlegend">
-    <div class="mt">Lauterbrunnen valley</div>
-    <div class="lr"><span class="ll"><span class="ml-trail"></span></span> menu trails</div>
-    <div class="lr"><span class="ll"><span class="ml-rail"></span></span> cog railway</div>
-    <div class="lr"><span class="ll"><span class="ml-cable"></span></span> gondola</div>
-    <div class="lr"><span class="ll"><span class="ml-contour"></span></span> contours &amp; hillshade</div>
+    <div class="mt">How you travel each leg</div>
+    <div class="lr"><span class="ll"><span class="seg" style="background:var(--hike)"></span></span> hike</div>
+    <div class="lr"><span class="ll"><span class="seg dash" style="border-color:var(--train)"></span></span> train</div>
+    <div class="lr"><span class="ll"><span class="seg dot" style="border-color:var(--lift)"></span></span> gondola / cable</div>
+    <div class="lr"><span class="ll"><span class="seg dash" style="border-color:var(--funi)"></span></span> funicular</div>
+    <div class="lr"><span class="ll"><span class="seg" style="background:#7A5AA6"></span></span> bike</div>
+    <div style="height:1px;background:var(--line);margin:9px 0 3px"></div>
+    <div class="lr" style="opacity:.75"><span class="ll"><span class="seg dash" style="border-color:#6b655c;border-top-width:3px"></span></span> rail network</div>
+    <div class="lr" style="opacity:.75"><span class="ll"><span class="seg dot" style="border-color:#b0a99d"></span></span> gondola network</div>
   </div>
 </div>
 
@@ -171,64 +204,49 @@
 // ===== inline link helpers =====
 const ICON_TRAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>';
 const ICON_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+const ICON_MAPIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>';
+const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const ICON_HOME = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z"/></svg>';
 const gmaps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
-const place = (label, q) => `<a class="ln place" href="${/^https?:\/\//.test(q) ? q : gmaps(q)}" target="_blank" rel="noopener">${ICON_PIN}${label}</a>`;
+const place = (label, q) => `<a class="ln place" href="${gmaps(q)}" target="_blank" rel="noopener">${ICON_PIN}${label}</a>`;
+const placeUrl = (label, url) => `<a class="ln place" href="${url}" target="_blank" rel="noopener">${ICON_PIN}${label}</a>`;
 const trail = (label, url) => `<a class="ln trail" href="${url}" target="_blank" rel="noopener">${ICON_TRAIL}${label}</a>`;
 
 // ===== MENU DATA =====
 const ENTRIES = [
   {
-    n: 1,
-    name: "The Eiger Balcony",
-    route: ["Wengen","Männlichen","Kleine Scheidegg"],
-    dist: "≈3 mi",
+    n: 1, name: "The Eiger Balcony", route: ["Wengen","Männlichen","Kleine Scheidegg"], dist: "≈3 mi",
     overview: "An easy ridge walk with the Eiger, Mönch and Jungfrau standing right in front of you the whole way.",
     steps: [
       `Take the gondola from ${place("Wengen","Wengen, Switzerland")} up to ${place("Männlichen","Männlichen, Switzerland")}.`,
       `Walk the ridge along the ${trail("Männlichen → Grindelwald route","https://www.alltrails.com/explore/custom-routes/copy-mannlichen-to-grindelwald-d5ffa58")} to ${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")}.`,
-      `${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")} itself is the mountain train station and lodge up on the pass at 2,061 m — a cluster of grand old railway-era hotels and cafés, trains coming and going, and the junction where you catch the railway up to the Jungfraujoch. For a century it's been the staging area for alpinists taking on the big three, with the ${place("Eiger","Eiger, Switzerland")}, ${place("Mönch","Mönch, Switzerland")} and ${place("Jungfrau","Jungfrau, Switzerland")} standing straight overhead.`,
+      `${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")} itself is the mountain train station and lodge up on the pass at 2,061 m — a cluster of grand old railway-era hotels and cafés, trains coming and going, and the junction where you catch the Jungfraujoch railway — a train that climbs up inside the mountain and comes out among the high peaks, the highest station in Europe. For a century it's been the staging area for alpinists taking on the big three, with the ${place("Eiger","Eiger, Switzerland")}, ${place("Mönch","Mönch, Switzerland")} and ${place("Jungfrau","Jungfrau, Switzerland")} standing straight overhead.`,
       `From there, take the train down into ${place("Grindelwald","Grindelwald, Switzerland")}, or back home to ${place("Wengen","Wengen, Switzerland")}.`,
     ],
-    line: [[7.9405,46.6108],[7.9425,46.6065],[7.9445,46.6025],[7.947,46.5985],[7.9495,46.595],[7.952,46.5915],[7.9545,46.589],[7.9575,46.5865],[7.9594,46.5844]],
-    pin: [7.9405,46.6108],
   },
   {
-    n: 2,
-    name: "The Far Balcony",
-    route: ["Wengen","Lauterbrunnen","Grütschalp","Mürren"],
-    dist: "≈2.5 mi walk",
+    n: 2, name: "The Far Balcony", route: ["Wengen","Lauterbrunnen","Grütschalp","Mürren"], dist: "≈2.5 mi walk",
     overview: "Cross to the quiet car-free shelf on the far side of the valley, looking straight back at the wall of big peaks.",
     steps: [
       `Take the train from ${place("Wengen","Wengen, Switzerland")} down to ${place("Lauterbrunnen","Lauterbrunnen, Switzerland")}.`,
       `From there, ride the gondola up the other side of the valley to ${place("Grütschalp","Grütschalp, Lauterbrunnen, Switzerland")}.`,
       `Once you're up, either take the little train, or do the ${trail("walk to Mürren","https://www.alltrails.com/trail/switzerland/bern/murren-grutschalp")} — about 2.5 miles (≈4 km, ~1h15, mostly flat) into ${place("Mürren","Mürren, Switzerland")}.`,
-      `About halfway along, stop at ${place("Winteregg","Winteregg, Mürren, Switzerland")} for lunch — the train pulls in right there, or it's an easy walk in. There's a playground with a big mountain view and seriously good mountain food.`,
+      `About halfway along, stop at ${placeUrl("Winteregg","https://www.google.com/maps/place/Restaurant+Winteregg/@46.5835087,7.8962661,17z/data=!3m1!5s0x478fa0455f3cadbb:0xb62dccdebb44a6f7!4m15!1m8!3m7!1s0x478fa04522a1dcf7:0x44b0934d7a2c601d!2sWinteregg,+Lauterbrunnen,+Switzerland!3b1!8m2!3d46.5967742!4d7.8943208!16s%2Fg%2F1tf5jk2r!3m5!1s0x478fa0455f3440b5:0x7101df5684256f7d!8m2!3d46.581831!4d7.896282!16s%2Fg%2F1thll_98")} for lunch — the train pulls in right there, or it's an easy walk in. There's a playground with a big mountain view and seriously good mountain food.`,
     ],
-    line: [[7.8909,46.5965],[7.8924,46.593],[7.8943,46.5895],[7.8954,46.586],[7.8961,46.5819],[7.8965,46.578],[7.8968,46.5742],[7.897,46.5705],[7.8972,46.567],[7.8973,46.5638]],
-    pin: [7.8909,46.5965],
   },
   {
-    n: 3,
-    name: "North Faces & a Hidden Village",
-    route: ["Mürren","Allmendhubel","Gimmelwald"],
-    dist: "≈4 mi (can shorten)",
-    pick: true,
+    n: 3, name: "North Faces & a Hidden Village", route: ["Mürren","Allmendhubel","Gimmelwald"], dist: "≈4 mi (can shorten)", pick: true,
     overview: "The most spectacular walk of them all — north-face history under your feet, ending in a tiny cliff village for lunch.",
     steps: [
-      `From ${place("Mürren","Mürren, Switzerland")}, take the funicular up to ${place("Allmendhubel","Allmendhubel, Mürren, Switzerland")}.`,
+      `From ${place("Mürren","Mürren, Switzerland")}, take the funicular up to ${placeUrl("Allmendhubel","https://maps.app.goo.gl/wxyghzuCjqZFLXuVA")}.`,
       `Hike around the ${trail("North Face Trail","https://www.alltrails.com/trail/switzerland/bern/northface-trail-murren")} back down to Mürren — 4 miles, but you can make it shorter.`,
       `Or — and this is what I recommend — follow the signs to ${place("Gimmelwald","Gimmelwald, Switzerland")}, a really beautiful tiny village (${trail("Allmendhubel → Gimmelwald","https://www.alltrails.com/trail/switzerland/bern/allmendhubel-gimmelwald")}).`,
-      `Stop for a meal at ${place("Pension Gimmelwald","https://www.google.com/maps/place/Pension+Gimmelwald/@46.5466255,7.8925067,3a,75y,90t/data=!3m8!1e2!3m6!1sCIHM0ogKEICAgIDCt9XmyAE!2e10!3e12!6shttps:%2F%2Flh3.googleusercontent.com%2Fgps-cs-s%2FAPNQkAHFYZ_xfk5KvT28UxnIL9TUq3RB9Vnt1LSwwkRvCxwk5TMJjXCJYhWqNlWvuaXxYyZyThTBIEF6BXCfpCrPWvXwQkMxthov6l5h3zlZWdmhjmpLIBBQwe80NmihGj9YtJofQO4beA%3Dw114-h86-k-no!7i1600!8i1200!4m19!1m8!3m7!1s0x478f0aed3f1c9881:0xcdef1b5a011453a8!2sGimmelwald,+3826+Lauterbrunnen,+Switzerland!3b1!8m2!3d46.5459095!4d7.8916164!16zL20vMDMxMnpu!3m9!1s0x478f0a993ce1ab21:0xd42d86909edd1a62!5m2!4m1!1i2!8m2!3d46.5466754!4d7.8925744!10e5!16s%2Fg%2F1tf1mr1l")}, a perfect little place.`,
+      `Stop for a meal at ${placeUrl("Pension Gimmelwald","https://maps.app.goo.gl/in5B41xsCxRm1ptH6")}, a perfect little place.`,
       `From Gimmelwald, take the gondola back up to Mürren, or down to the valley floor to head back toward ${place("Wengen","Wengen, Switzerland")}.`,
     ],
-    line: [[7.8936,46.5634],[7.8905,46.5648],[7.887,46.5658],[7.883,46.5672],[7.8775,46.5685],[7.881,46.5640],[7.8895,46.5560],[7.8908,46.5500],[7.8910,46.5466]],
-    pin: [7.8936,46.5634],
   },
   {
-    n: 4,
-    name: "The Mirror Lake",
-    route: ["Wengen","Grindelwald","First","Bachalpsee"],
-    dist: "≈3.5 mi at the lake",
+    n: 4, name: "The Mirror Lake", route: ["Wengen","Grindelwald","First","Bachalpsee"], dist: "≈3.5 mi at the lake",
     overview: "Cross over to Grindelwald, ride to a cliff-top, and walk to an alpine lake that mirrors the peaks back at you.",
     steps: [
       `Get to ${place("Grindelwald","Grindelwald, Switzerland")} the scenic way: gondola over the ridge from ${place("Wengen","Wengen, Switzerland")} up to ${place("Männlichen","Männlichen, Switzerland")}, then down the far side. Or take the train around via ${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")}.`,
@@ -237,15 +255,24 @@ const ENTRIES = [
       `Hike to ${place("Bachalpsee","Bachalpsee, Switzerland")}, the mountain lake — ${trail("First → Bachalpsee","https://www.alltrails.com/trail/switzerland/bern/first-bachalpsee")}.`,
       `On the way back, ride the Eiger Express from ${place("Grindelwald","Grindelwald, Switzerland")} up to ${place("Eigergletscher","Eigergletscher, Grindelwald, Switzerland")} — the most advanced gondola on earth — then trail down to ${place("Kleine Scheidegg","Kleine Scheidegg, Switzerland")} and catch the train home to ${place("Wengen","Wengen, Switzerland")}.`,
     ],
-    line: [[8.0544,46.6589],[8.05,46.6595],[8.046,46.66],[8.0445,46.6601],[8.041,46.6608],[8.037,46.6618],[8.0345,46.6632],[8.031,46.6648],[8.029,46.6662],[8.027,46.6674],[8.0245,46.6689],[8.0225,46.6701]],
-    pin: [8.0544,46.6589],
+  },
+  {
+    n: 5, name: "Seventy Waterfalls by Bike", route: ["Lauterbrunnen","valley floor","Stechelberg"], dist: "half day",
+    overview: "Rent an e-bike on the valley floor and roll along the flat trough beneath the cliffs and waterfalls — an easy half-day of exploring at your own pace.",
+    steps: [
+      `In ${place("Lauterbrunnen","Lauterbrunnen, Switzerland")}, you can rent an ${place("e-bike","e-bike rental Lauterbrunnen Switzerland")} right on the valley floor.`,
+      `Bike up the flat valley floor toward ${place("Stechelberg","Stechelberg, Switzerland")}, past waterfalls like the ${place("Trümmelbach Falls","Trümmelbach Falls Lauterbrunnen")}, and go exploring — easy enough for a half day.`,
+    ],
   },
 ];
+
+// ===== JOURNEY GEODATA (legs by mode + highlighted stops). Refined by research; safe to edit. =====
+let JOURNEYS = [{"entryId": 1, "entryName": "The Eiger Balcony", "legs": [{"mode": "cablecar", "label": "Cable car: Wengen → Männlichen", "line": [[7.922, 46.6055], [7.9285, 46.6072], [7.9345, 46.609], [7.9405, 46.6108]]}, {"mode": "hike", "label": "Hike: Panoramaweg ridge Männlichen → Kleine Scheidegg", "line": [[7.9405, 46.6108], [7.9418, 46.6075], [7.944, 46.6042], [7.9468, 46.601], [7.95, 46.5965], [7.9528, 46.5925], [7.9555, 46.589], [7.9578, 46.5865], [7.9594, 46.5844]]}, {"mode": "train", "label": "Cog railway: Kleine Scheidegg → Grindelwald", "line": [[7.9594, 46.5844], [7.974, 46.593], [7.992, 46.6035], [8.014, 46.615], [8.03, 46.621], [8.0414, 46.6242]]}], "stops": [{"name": "Wengen", "coord": [7.922, 46.6055], "kind": "station"}, {"name": "Männlichen", "coord": [7.9405, 46.6108], "kind": "station"}, {"name": "Kleine Scheidegg", "coord": [7.9594, 46.5844], "kind": "station"}, {"name": "Grindelwald", "coord": [8.0414, 46.6242], "kind": "village"}]}, {"entryId": 2, "entryName": "The Far Balcony", "legs": [{"mode": "train", "label": "Cog railway: Wengen → Lauterbrunnen", "line": [[7.922, 46.6055], [7.9195, 46.6018], [7.9162, 46.5985], [7.9128, 46.5958], [7.9089, 46.5936]]}, {"mode": "cablecar", "label": "Cable car: Lauterbrunnen → Grütschalp", "line": [[7.9089, 46.5936], [7.9, 46.5951], [7.8909, 46.5965]]}, {"mode": "hike", "label": "Hike: Grütschalp → Winteregg → Mürren (panorama path)", "line": [[7.8909, 46.5965], [7.8918, 46.5918], [7.8938, 46.5868], [7.8965, 46.58], [7.8961, 46.5742], [7.8948, 46.5682], [7.8932, 46.5632], [7.8925, 46.5594]]}], "stops": [{"name": "Wengen", "coord": [7.922, 46.6055], "kind": "station"}, {"name": "Lauterbrunnen", "coord": [7.9089, 46.5936], "kind": "station"}, {"name": "Grütschalp", "coord": [7.8909, 46.5965], "kind": "station"}, {"name": "Winteregg", "coord": [7.8965, 46.58], "kind": "restaurant"}, {"name": "Mürren", "coord": [7.8925, 46.5594], "kind": "village"}]}, {"entryId": 3, "entryName": "North Faces & a Hidden Village", "legs": [{"mode": "funicular", "label": "Funicular: Mürren → Allmendhubel", "line": [[7.8925, 46.5594], [7.891, 46.5611], [7.8895, 46.5626], [7.8881, 46.5637]]}, {"mode": "hike", "label": "Hike: North Face Trail, Allmendhubel → Gimmelwald", "line": [[7.8881, 46.5637], [7.8867, 46.5614], [7.8851, 46.5589], [7.8845, 46.5562], [7.8857, 46.5536], [7.8878, 46.5512], [7.8898, 46.5489], [7.891, 46.5466]]}, {"mode": "cablecar", "label": "Cable car: Gimmelwald → Mürren (Schilthornbahn)", "line": [[7.891, 46.5466], [7.8915, 46.5509], [7.892, 46.5552], [7.8925, 46.5594]]}], "stops": [{"name": "Mürren", "coord": [7.8925, 46.5594], "kind": "village"}, {"name": "Allmendhubel", "coord": [7.8881, 46.5637], "kind": "station"}, {"name": "Gimmelwald", "coord": [7.891, 46.5466], "kind": "village"}, {"name": "Stechelberg", "coord": [7.9046, 46.543], "kind": "station"}]}, {"entryId": 4, "entryName": "The Mirror Lake", "legs": [{"mode": "gondola", "label": "Gondola: Wengen → Männlichen", "line": [[7.922, 46.6055], [7.93, 46.608], [7.936, 46.6097], [7.9405, 46.6108]]}, {"mode": "gondola", "label": "Gondola: Männlichen → Grindelwald (Terminal)", "line": [[7.9405, 46.6108], [7.97, 46.6125], [8, 46.6145], [8.032, 46.6168], [8.0566, 46.6195]]}, {"mode": "gondola", "label": "Gondola: Grindelwald (Firstbahn) → First", "line": [[8.0419, 46.6256], [8.046, 46.638], [8.05, 46.649], [8.0544, 46.6589]]}, {"mode": "hike", "label": "Hike: First → Bachalpsee (the mirror lake)", "line": [[8.0544, 46.6589], [8.049, 46.6608], [8.0435, 46.6628], [8.038, 46.665], [8.032, 46.6672], [8.027, 46.669], [8.0225, 46.6701]]}, {"mode": "gondola", "label": "Eiger Express: Grindelwald Terminal → Eigergletscher", "line": [[8.0566, 46.6195], [8.03, 46.605], [8.005, 46.592], [7.985, 46.582], [7.9712, 46.5773]]}, {"mode": "hike", "label": "Hike: Eigergletscher → Kleine Scheidegg (under the Eiger)", "line": [[7.9712, 46.5773], [7.9688, 46.5792], [7.966, 46.5808], [7.9632, 46.5822], [7.961, 46.5835], [7.9594, 46.5844]]}, {"mode": "train", "label": "Train: Kleine Scheidegg → Wengen (Wengernalpbahn)", "line": [[7.9594, 46.5844], [7.948, 46.5915], [7.937, 46.598], [7.929, 46.6025], [7.922, 46.6055]]}], "stops": [{"name": "Wengen", "coord": [7.922, 46.6055], "kind": "station"}, {"name": "Männlichen", "coord": [7.9405, 46.6108], "kind": "station"}, {"name": "Grindelwald", "coord": [8.0414, 46.6242], "kind": "village"}, {"name": "Grindelwald (Firstbahn)", "coord": [8.0419, 46.6256], "kind": "station"}, {"name": "Grindelwald Terminal", "coord": [8.0566, 46.6195], "kind": "station"}, {"name": "First", "coord": [8.0544, 46.6589], "kind": "station"}, {"name": "Bachalpsee", "coord": [8.0225, 46.6701], "kind": "lake"}, {"name": "Eigergletscher", "coord": [7.9712, 46.5773], "kind": "station"}, {"name": "Kleine Scheidegg", "coord": [7.9594, 46.5844], "kind": "station"}]}, {"entryId": 5, "entryName": "Seventy Waterfalls by Bike", "legs": [{"mode": "bike", "label": "E-bike: up the valley floor", "line": [[7.9089, 46.5936], [7.9085, 46.587], [7.9075, 46.579], [7.9065, 46.57], [7.9058, 46.56], [7.905, 46.551], [7.9046, 46.543]]}], "stops": [{"name": "Lauterbrunnen", "coord": [7.9089, 46.5936], "kind": "station"}, {"name": "Trümmelbach Falls", "coord": [7.9082, 46.5808], "kind": "viewpoint"}, {"name": "Stechelberg", "coord": [7.9046, 46.543], "kind": "village"}]}];
 
 // ===== RENDER MENU =====
 function entryHTML(e){
   const route = e.route ? `<div class="route">${e.route.join('<span class="sep">›</span>')}</div>` : '';
-  const meta = `<div class="emeta">${e.pick?'<span class="pick">★ my pick</span>':''}${e.dist?`<span class="dist">${e.dist}</span>`:''}</div>`;
+  const meta = `<div class="emeta">${e.pick?'<span class="pick">★ my pick</span>':''}${e.dist?`<span class="dist">${e.dist}</span>`:''}<button class="mapit" data-mapit="${e.n}">${ICON_MAPIT}Map it</button></div>`;
   const steps = `<ol class="steps">${e.steps.map(s=>`<li>${s}</li>`).join('')}</ol>`;
   return `<article class="entry" id="entry-${e.n}">
     <div class="ehead">
@@ -264,10 +291,17 @@ document.getElementById('foot').textContent = ENTRIES.length + ' adventures · a
 
 // ===== MONOCHROME MAP =====
 const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
+const MODE_STYLE = {
+  hike:     {color:'#D42A1C', dash:[1,0],     width:3.6},
+  walk:     {color:'#D42A1C', dash:[1,0],     width:3.6},
+  train:    {color:'#2563C9', dash:[2,1.4],   width:3.0},
+  gondola:  {color:'#B07A1E', dash:[0.4,2],   width:2.8},
+  cablecar: {color:'#B07A1E', dash:[0.4,2],   width:2.8},
+  funicular:{color:'#138A72', dash:[1.4,1.4], width:2.8},
+  bike:     {color:'#7A5AA6', dash:[1,0],     width:3.4},
+};
 const MONO_STYLE = {
-  version:8,
-  name:'mono-valley',
-  glyphs:'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
+  version:8, name:'mono-valley', glyphs:'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
   sources:{
     dem:{type:'raster-dem',url:'mapbox://mapbox.mapbox-terrain-dem-v1',tileSize:512,maxzoom:14},
     terr:{type:'vector',url:'mapbox://mapbox.mapbox-terrain-v2'},
@@ -280,48 +314,110 @@ const MONO_STYLE = {
     {id:'water',type:'fill',source:'streets','source-layer':'water',paint:{'fill-color':'#d7dcd9'}},
     {id:'waterway',type:'line',source:'streets','source-layer':'waterway',paint:{'line-color':'#c4cbc6','line-width':0.8}},
     {id:'roads',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['motorway','trunk','primary','secondary','tertiary','street','street_limited'],true,false],paint:{'line-color':'#dcd6ca','line-width':['interpolate',['linear'],['zoom'],11,0.5,15,1.4]}},
-    {id:'rail',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['major_rail','minor_rail'],true,false],paint:{'line-color':'#3a352f','line-width':['interpolate',['linear'],['zoom'],11,0.8,15,1.6],'line-dasharray':[2.5,2]}},
-    {id:'aerial',type:'line',source:'streets','source-layer':'road',filter:['==',['get','class'],'aerialway'],paint:{'line-color':'#8a847a','line-width':0.9,'line-dasharray':[1,2.5]}},
-    {id:'labels',type:'symbol',source:'streets','source-layer':'place_label',filter:['match',['get','class'],['settlement','settlement_subdivision'],true,false],layout:{'text-field':['get','name_en'],'text-font':['DIN Pro Medium','Arial Unicode MS Regular'],'text-size':['interpolate',['linear'],['zoom'],11,10,14,13],'text-letter-spacing':0.02},paint:{'text-color':'#4a443c','text-halo-color':'#EFEDE8','text-halo-width':1.4}},
+    {id:'aerial',type:'line',source:'streets','source-layer':'road',filter:['==',['get','class'],'aerialway'],paint:{'line-color':'#b0a99d','line-width':0.9,'line-dasharray':[1,2],'line-opacity':0.75}},
+    {id:'rail-line',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['major_rail','minor_rail'],true,false],paint:{'line-color':'#6b655c','line-width':['interpolate',['linear'],['zoom'],11,0.7,15,1.4]}},
+    {id:'rail-ties',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['major_rail','minor_rail'],true,false],paint:{'line-color':'#6b655c','line-width':['interpolate',['linear'],['zoom'],11,2.4,15,4.2],'line-dasharray':[0.35,0.7]}},
+    {id:'labels',type:'symbol',source:'streets','source-layer':'place_label',filter:['match',['get','class'],['settlement','settlement_subdivision'],true,false],layout:{'text-field':['coalesce',['get','name_en'],['get','name']],'text-font':['DIN Pro Medium','Arial Unicode MS Regular'],'text-size':['interpolate',['linear'],['zoom'],11,10,14,13],'text-letter-spacing':0.02},paint:{'text-color':'#4a443c','text-halo-color':'#EFEDE8','text-halo-width':1.4}},
   ],
 };
 
-let map=null, mapReady=false;
-function buildRouteGeoJSON(){
-  return {type:'FeatureCollection',features:ENTRIES.map(e=>({type:'Feature',properties:{n:e.n,name:e.name},geometry:{type:'LineString',coordinates:e.line}}))};
+let map=null, layersBuilt=false;
+const layerIdsByEntry={}, markersByEntry={};
+const entryVisible={}; ENTRIES.forEach(e=>entryVisible[e.n]=true);
+
+function legFeatures(j){
+  return {type:'FeatureCollection',features:j.legs.map((lg,i)=>({type:'Feature',properties:{mode:lg.mode,i},geometry:{type:'LineString',coordinates:lg.line}}))};
+}
+function addJourney(j){
+  const sid='legs-'+j.entryId;
+  map.addSource(sid,{type:'geojson',data:legFeatures(j)});
+  const ids=[];
+  // white casing under everything
+  const casingId=sid+'-casing';
+  map.addLayer({id:casingId,type:'line',source:sid,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#FBFAF6','line-width':6.5,'line-opacity':0.92}});
+  ids.push(casingId);
+  // one line layer per mode present (dash differs per mode)
+  const modes=[...new Set(j.legs.map(l=>l.mode))];
+  modes.forEach(mode=>{
+    const st=MODE_STYLE[mode]||MODE_STYLE.hike;
+    const lid=sid+'-'+mode;
+    const lp={'line-color':st.color,'line-width':st.width}; const solid=!st.dash||st.dash[1]===0; if(!solid) lp['line-dasharray']=st.dash;
+    map.addLayer({id:lid,type:'line',source:sid,filter:['==',['get','mode'],mode],layout:{'line-cap':solid?'round':'butt','line-join':'round'},paint:lp});
+    ids.push(lid);
+  });
+  layerIdsByEntry[j.entryId]=ids;
+  // stop markers
+  const mks=[];
+  j.stops.forEach(s=>{
+    if(s.name==='Wengen') return;
+    const el=document.createElement('div'); el.className='smk';
+    el.innerHTML=`<span class="sd ${s.kind}"></span>${s.name}`;
+    mks.push(new mapboxgl.Marker({element:el,anchor:'left'}).setLngLat(s.coord).addTo(map));
+  });
+  markersByEntry[j.entryId]=mks;
+}
+function setEntryVisible(id,on){
+  entryVisible[id]=on;
+  (layerIdsByEntry[id]||[]).forEach(lid=>{ if(map.getLayer(lid)) map.setLayoutProperty(lid,'visibility',on?'visible':'none'); });
+  (markersByEntry[id]||[]).forEach(m=>{ m.getElement().style.display=on?'':'none'; });
+  syncPanel();
+}
+function entryBounds(id){
+  const j=JOURNEYS.find(x=>x.entryId===id); if(!j) return null;
+  const all=j.legs.flatMap(l=>l.line);
+  return all.reduce((b,p)=>b.extend(p),new mapboxgl.LngLatBounds(all[0],all[0]));
+}
+function fitEntry(id){ const b=entryBounds(id); if(b) map.fitBounds(b,{padding:{top:90,bottom:70,left:280,right:70},pitch:52,duration:1200,maxZoom:14}); }
+function fitAll(){
+  const all=JOURNEYS.flatMap(j=>j.legs.flatMap(l=>l.line));
+  const b=all.reduce((bb,p)=>bb.extend(p),new mapboxgl.LngLatBounds(all[0],all[0]));
+  map.fitBounds(b,{padding:{top:90,bottom:70,left:280,right:70},pitch:52,bearing:18,duration:0,maxZoom:13});
+}
+function isolate(id){
+  JOURNEYS.forEach(j=>setEntryVisible(j.entryId, j.entryId===id));
+  fitEntry(id);
+}
+
+// layer panel
+function buildPanel(){
+  const c=document.getElementById('lrows'); c.innerHTML='';
+  JOURNEYS.forEach(j=>{
+    const e=ENTRIES.find(x=>x.n===j.entryId);
+    const row=document.createElement('div'); row.className='lrow '+(entryVisible[j.entryId]?'on':'off'); row.dataset.entry=j.entryId;
+    row.innerHTML=`<span class="box">${ICON_CHECK}</span><span class="lnum">${String(j.entryId).padStart(2,'0')}</span><span class="lname">${e?e.name:j.entryName}</span>`;
+    row.addEventListener('click',()=>{ setEntryVisible(j.entryId,!entryVisible[j.entryId]); if(entryVisible[j.entryId]) fitEntry(j.entryId); });
+    c.appendChild(row);
+  });
+}
+function syncPanel(){
+  document.querySelectorAll('#lrows .lrow').forEach(r=>{
+    const id=+r.dataset.entry; r.classList.toggle('on',entryVisible[id]); r.classList.toggle('off',!entryVisible[id]);
+  });
+}
+document.getElementById('allOn').addEventListener('click',()=>{JOURNEYS.forEach(j=>setEntryVisible(j.entryId,true));fitAll();});
+document.getElementById('allOff').addEventListener('click',()=>{JOURNEYS.forEach(j=>setEntryVisible(j.entryId,false));});
+
+function addHomeMarker(){
+  const el=document.createElement('div'); el.className='homemk';
+  el.innerHTML=`${ICON_HOME}<span>Wengen</span>`;
+  new mapboxgl.Marker({element:el,anchor:'bottom'}).setLngLat([7.922,46.6055]).addTo(map);
 }
 function initMap(){
   if(map) return;
   mapboxgl.accessToken = MAPBOX_TOKEN;
-  map = new mapboxgl.Map({container:'map',style:MONO_STYLE,center:[7.955,46.61],zoom:11.3,pitch:54,bearing:18,antialias:true,attributionControl:false});
+  map = new mapboxgl.Map({container:'map',style:MONO_STYLE,center:[7.955,46.61],zoom:11.2,pitch:52,bearing:18,antialias:true,attributionControl:false});
   map.addControl(new mapboxgl.AttributionControl({compact:true}),'bottom-right');
-  map.addControl(new mapboxgl.NavigationControl({visualizePitch:true,showZoom:true,showCompass:true}),'top-right');
+  map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}),'top-right');
   map.on('style.load',()=>{
     map.addSource('dem2',{type:'raster-dem',url:'mapbox://mapbox.mapbox-terrain-dem-v1',tileSize:512,maxzoom:14});
     map.setTerrain({source:'dem2',exaggeration:1.4});
     map.setFog({range:[1,12],color:'#EFEDE8','high-color':'#EFEDE8','horizon-blend':0.25,'space-color':'#e6e2da','star-intensity':0});
-    // trails
-    map.addSource('routes',{type:'geojson',data:buildRouteGeoJSON()});
-    map.addLayer({id:'route-casing',type:'line',source:'routes',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#FBFAF6','line-width':6.5,'line-opacity':0.95}});
-    map.addLayer({id:'route-line',type:'line',source:'routes',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#D42A1C','line-width':3.2}});
-    // trailhead markers
-    ENTRIES.forEach(e=>{
-      const el=document.createElement('div'); el.className='tmk';
-      el.innerHTML=`<div class="dot">${e.n}</div><div class="lbl">${e.name}</div>`;
-      el.onclick=()=>{ showView('menu'); const t=document.getElementById('entry-'+e.n); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); };
-      new mapboxgl.Marker({element:el,anchor:'bottom'}).setLngLat(e.pin).addTo(map);
-    });
-    // endpoint dots
-    ENTRIES.forEach(e=>{
-      const end=e.line[e.line.length-1];
-      const el=document.createElement('div'); el.className='emk';
-      new mapboxgl.Marker({element:el,anchor:'center'}).setLngLat(end).addTo(map);
-    });
-    // fit to all routes
-    const all=ENTRIES.flatMap(e=>e.line);
-    const b=all.reduce((bb,p)=>bb.extend(p),new mapboxgl.LngLatBounds(all[0],all[0]));
-    map.fitBounds(b,{padding:{top:90,bottom:90,left:90,right:90},pitch:54,bearing:18,duration:0,maxZoom:13.2});
-    mapReady=true;
+    JOURNEYS.forEach(addJourney);
+    addHomeMarker();
+    layersBuilt=true;
+    buildPanel();
+    fitAll();
+    if(window.__pendingIsolate){ isolate(window.__pendingIsolate); window.__pendingIsolate=null; }
     const l=document.getElementById('maploading'); if(l){l.style.opacity=0;setTimeout(()=>l.remove(),400);}
   });
 }
@@ -335,6 +431,17 @@ function showView(v){
   if(isMap){ initMap(); setTimeout(()=>{ if(map) map.resize(); },60); }
 }
 document.getElementById('switch').addEventListener('click',e=>{const b=e.target.closest('button');if(b)showView(b.dataset.view);});
+
+// ===== Map it =====
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-mapit]'); if(!b) return;
+  const id=+b.dataset.mapit;
+  showView('map');
+  if(layersBuilt){ isolate(id); } else { window.__pendingIsolate=id; }
+});
+
+// hook for refined geodata
+window.__loadJourneys=function(arr){ JOURNEYS=arr; if(map&&layersBuilt){ location.reload(); } };
 </script>
 </body>
 </html>
