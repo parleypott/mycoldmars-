@@ -18,6 +18,31 @@
 
 import * as Sentry from '@sentry/vercel-edge';
 
+// Derive the Sentry `route` tag from a request URL, NEVER throwing.
+//
+// This runs INSIDE withSentry's catch block, while we're already handling the
+// handler's original error. The old inline form was `new URL(req.url).pathname
+// .replace(/^\/api\//, '')` — but `new URL()` throws a TypeError on a missing,
+// relative, or malformed `req.url`. A throw there is the worst possible place
+// for one: it would replace the handler's real error (the thing we're trying to
+// report) with a URL-parse error, mask the genuine failure in Sentry, AND change
+// what propagates to the client. On Vercel Edge `req.url` is an absolute string
+// today so this is latent — but an error path must not be the thing that can
+// crash. Falls back to the relative path (or 'unknown') so there's always a
+// usable tag and the original error always survives to be captured + rethrown.
+export function routeTag(rawUrl) {
+  const s = typeof rawUrl === 'string' ? rawUrl : '';
+  let pathname = s;
+  try {
+    pathname = new URL(s).pathname;
+  } catch {
+    // Not an absolute URL — isolate the path from a relative form, stripping
+    // any query/hash so the tag stays a clean route.
+    pathname = s.split(/[?#]/)[0] || s;
+  }
+  return pathname.replace(/^\/api\//, '') || 'unknown';
+}
+
 let initialized = false;
 
 function ensureInit() {
@@ -45,7 +70,7 @@ export function withSentry(handler) {
       return await handler(req, ctx);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { route: new URL(req.url).pathname.replace(/^\/api\//, '') },
+        tags: { route: routeTag(req && req.url) },
       });
       await Sentry.flush(2000);
       throw err;
