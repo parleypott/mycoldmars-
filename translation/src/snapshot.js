@@ -14,6 +14,19 @@ const INDEX_KEY = 'mcm_snap_index'; // ordered list of transcriptIds, newest fir
 const MAX_TRANSCRIPTS = 10;
 const MAX_BYTES = 4 * 1024 * 1024;
 
+// Estimate the localStorage STORAGE COST of a string. Browsers store
+// localStorage values as UTF-16 (~2 bytes per code unit), so the real cost is
+// `length * 2` — NOT `.length`, which counts code units and so undercounts the
+// stored bytes for every value. That undercount bites hardest on Johnny's
+// non-Latin transcripts (Burmese / Chinese): a `.length`-based 4 MB cap
+// actually admits ~8 MB of storage — ABOVE typical quota, defeating the whole
+// "stay well under quota" purpose. Worse, an oversized snapshot that slips past
+// the loose pre-filter forces saveSnapshot's QuotaExceededError loop to evict
+// every OTHER transcript's recovery snapshot trying (and failing) to fit it —
+// one giant snapshot wipes the whole vault. Measuring true UTF-16 cost rejects
+// it up front (plain `return`), leaving the other snapshots intact.
+function storageBytes(s) { return s.length * 2; }
+
 export function readIndex() {
   try {
     const v = JSON.parse(localStorage.getItem(INDEX_KEY) || '[]');
@@ -52,8 +65,11 @@ export function saveSnapshot(transcriptId, payload, updatedAt) {
   };
   const json = JSON.stringify(record);
 
-  // If too big to fit at all, skip — better than crashing the app.
-  if (json.length > MAX_BYTES) return;
+  // If too big to fit at all, skip — better than crashing the app (and better
+  // than triggering the eviction loop below, which would sacrifice every other
+  // transcript's snapshot for one that can't fit). Measured in true UTF-16
+  // storage bytes — see storageBytes().
+  if (storageBytes(json) > MAX_BYTES) return;
 
   // Evict oldest until this fits AND we're under the transcript cap.
   let index = readIndex().filter(id => id !== transcriptId);
@@ -153,7 +169,7 @@ export function saveDraftSnapshot(payload) {
   };
   try {
     const json = JSON.stringify(record);
-    if (json.length > MAX_BYTES) return;
+    if (storageBytes(json) > MAX_BYTES) return;
     localStorage.setItem(DRAFT_KEY, json);
   } catch {}
 }

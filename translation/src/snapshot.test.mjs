@@ -177,6 +177,26 @@ ok('oversized snapshot: index untouched',      readIndex().length === 0);
 saveSnapshot('small', { ok: true }, 'ts');
 ok('normal save after oversized still works',  loadSnapshot('small') !== null);
 
+// UTF-16 storage cost — the cap measures `length * 2` (real localStorage cost),
+// NOT `.length`. A blob whose `.length` is UNDER MAX_BYTES but whose UTF-16
+// storage cost is OVER it must still be rejected — and rejected UP FRONT, so it
+// never touches the index/eviction loop (the bug: under a `.length` cap this
+// slips through, then the QuotaExceededError loop sacrifices every other
+// transcript's snapshot trying to fit it). Bites non-Latin transcripts hardest.
+// MUTATION: reverting either guard to `json.length > MAX_BYTES` re-admits this
+// blob → both asserts below go RED.
+reset();
+const MAX_BYTES = 4 * 1024 * 1024;
+const midBlob = 'x'.repeat(2_200_000); // .length ~2.2M < 4MB, but *2 = 4.4M > 4MB
+ok('test fixture: blob.length is under the cap', (JSON.stringify({ blob: midBlob }).length) < MAX_BYTES);
+saveSnapshot('mid', { blob: midBlob }, 'ts');
+ok('UTF-16-oversized snapshot rejected',        loadSnapshot('mid') === null);
+ok('UTF-16-oversized: index untouched',         readIndex().length === 0);
+// guard against over-rejection: a real non-Latin snapshot well under the cap
+// (Burmese text, BMP code units) must still save.
+saveSnapshot('my', { text: 'မြန်မာစာ '.repeat(50) }, 'ts');
+ok('real non-Latin snapshot still saves',       loadSnapshot('my') !== null);
+
 // ──────────────────────────────────────────────────────────────────────────
 // clearSnapshot — removes key AND index entry, leaves others intact
 // ──────────────────────────────────────────────────────────────────────────
