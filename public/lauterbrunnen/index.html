@@ -137,7 +137,7 @@
   .lrow .swatch{width:16px;height:4px;border-radius:2px;background:var(--red);flex-shrink:0}
 
   .mlegend{position:absolute;bottom:24px;left:16px;z-index:5;background:rgba(251,250,246,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);box-shadow:0 6px 22px rgba(22,20,15,.12)}
-  .mlegend .mt{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:8px}
+  .mlegend .mt{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .mlegend .lr{display:flex;align-items:center;gap:9px;margin-top:6px;line-height:1.3}
   .mlegend .ll{width:22px;flex-shrink:0;display:flex;align-items:center}
   .seg{height:3px;width:22px;border-radius:2px}
@@ -177,6 +177,15 @@
   .stylebtn svg{width:15px;height:15px}
   .stylebtn:active{transform:scale(.95)}
   @media(max-width:560px){ .stylebtn{bottom:calc(18px + env(safe-area-inset-bottom));right:12px} }
+  .pcollapse{border:none;background:none;color:var(--ink-faint);font-size:13px;font-weight:400;cursor:pointer;line-height:1;padding:2px 5px;border-radius:5px}
+  .pcollapse:hover{color:var(--ink);background:var(--paper-2)}
+  .panel-fab{position:absolute;z-index:6;width:38px;height:38px;border-radius:50%;background:rgba(251,250,246,.95);backdrop-filter:blur(8px);border:1px solid var(--line);box-shadow:0 6px 20px rgba(22,20,15,.16);display:flex;align-items:center;justify-content:center;color:var(--ink-2);cursor:pointer}
+  .panel-fab svg{width:17px;height:17px}
+  .panel-fab[hidden]{display:none}
+  .panel-fab:active{transform:scale(.94)}
+  #layersFab{top:calc(64px + env(safe-area-inset-top));left:16px}
+  #legendFab{bottom:calc(24px + env(safe-area-inset-bottom));left:16px}
+  @media(max-width:560px){ #layersFab{top:calc(56px + env(safe-area-inset-top));left:12px} #legendFab{bottom:calc(16px + env(safe-area-inset-bottom));left:12px} }
 </style>
 </head>
 <body>
@@ -218,12 +227,14 @@
   <div class="maploading" id="maploading"><div class="spin"></div>drawing the valley…</div>
   <div id="map"></div>
   <button class="stylebtn" id="stylebtn" aria-label="Change map style"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg><span id="stylelabel">mono</span></button>
+  <button class="panel-fab" id="layersFab" aria-label="Show adventures" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><line x1="4" y1="6" x2="4.01" y2="6"/><line x1="4" y1="12" x2="4.01" y2="12"/><line x1="4" y1="18" x2="4.01" y2="18"/></svg></button>
+  <button class="panel-fab legend-fab" id="legendFab" aria-label="Show key" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.8" x2="12.01" y2="7.8"/></svg></button>
   <div class="layers" id="layers">
-    <div class="lh"><span class="lt">Adventures</span><span class="allbtns"><button id="allOn">all</button><button id="allOff">none</button></span></div>
+    <div class="lh"><span class="lt">Adventures</span><span class="allbtns"><button id="allOn">all</button><button id="allOff">none</button><button class="pcollapse" data-collapse="layers" aria-label="Collapse panel">✕</button></span></div>
     <div id="lrows"></div>
   </div>
   <div class="mlegend">
-    <div class="mt">How you travel each leg</div>
+    <div class="mt">How you travel each leg<button class="pcollapse" data-collapse="legend" aria-label="Collapse key">✕</button></div>
     <div class="lr"><span class="ll"><span class="seg" style="background:var(--hike)"></span></span> hike</div>
     <div class="lr"><span class="ll"><span class="seg dash" style="border-color:var(--train)"></span></span> train</div>
     <div class="lr"><span class="ll"><span class="seg dot" style="border-color:var(--lift)"></span></span> gondola / cable</div>
@@ -596,6 +607,17 @@ function showView(v){
 document.getElementById('switch').addEventListener('click',e=>{const b=e.target.closest('button');if(b)showView(b.dataset.view);});
 (function(){var modes=['mono','terrain','satellite'],i=0;var btn=document.getElementById('stylebtn'),lbl=document.getElementById('stylelabel');
 if(btn)btn.addEventListener('click',function(){ i=(i+1)%modes.length; var m=modes[i]; if(lbl)lbl.textContent=m; if(window.map&&map.isStyleLoaded()){applyMapStyle(m);} else {curStyle=m;} });})();
+(function(){
+  function pane(which){ return which==='layers'?document.getElementById('layers'):document.querySelector('.mlegend'); }
+  function fab(which){ return which==='layers'?document.getElementById('layersFab'):document.getElementById('legendFab'); }
+  function setCollapse(which,show){ var p=pane(which),f=fab(which); if(p)p.style.display=show?'':'none'; if(f)f.hidden=show; }
+  document.addEventListener('click',function(e){
+    var c=e.target.closest&&e.target.closest('[data-collapse]'); if(c){ setCollapse(c.getAttribute('data-collapse'),false); return; }
+    if(e.target.closest&&e.target.closest('#layersFab')){ setCollapse('layers',true); }
+    if(e.target.closest&&e.target.closest('#legendFab')){ setCollapse('legend',true); }
+  });
+  if(window.innerWidth<560){ setCollapse('layers',false); setCollapse('legend',false); }
+})();
 
 // ===== Map it =====
 document.addEventListener('click',e=>{
