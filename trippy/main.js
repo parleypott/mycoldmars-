@@ -10,6 +10,8 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import butterchurnRaw from 'butterchurn';
 import butterchurnPresetsRaw from 'butterchurn-presets/lib/butterchurnPresetsMinimal.min.js';
 
+import { foldBpm } from './bpm.js';
+
 const butterchurn = butterchurnRaw.default || butterchurnRaw;
 const butterchurnPresets = butterchurnPresetsRaw.default || butterchurnPresetsRaw;
 
@@ -206,10 +208,8 @@ class AudioEngine {
         for (let i = 1; i < this.beatTimes.length; i++) intervals.push(this.beatTimes[i] - this.beatTimes[i - 1]);
         intervals.sort((x, y) => x - y);
         const median = intervals[Math.floor(intervals.length / 2)];
-        let bpm = 60 / median;
-        while (bpm < 70)  bpm *= 2;
-        while (bpm > 180) bpm /= 2;
-        this.bpm = this.bpm * 0.6 + bpm * 0.4;
+        const bpm = foldBpm(median);
+        if (bpm !== null) this.bpm = this.bpm * 0.6 + bpm * 0.4;
       }
       const intensity = Math.min(2.5, ratio - 1.0); // ~0.45..1.5 typical
       this.beatBus.fire(intensity);
