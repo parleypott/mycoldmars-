@@ -138,7 +138,17 @@ export function clearSnapshot(transcriptId) {
  */
 export function isSnapshotNewerThan(snap, serverUpdatedAt) {
   if (!snap) return false;
-  if (snap.dirty) return true; // unsaved local work — always offer to restore
+  if (snap.dirty) {
+    // A dirty snapshot holds edits that never reached the server, so it's
+    // worth offering to restore — but ONLY while it's fresh. A dirty snapshot
+    // that has been sitting for over a day is almost always a save that
+    // silently failed long ago (tab was view-only, closed mid-save, network
+    // died). Continuing to pop a blocking restore modal on every open makes
+    // the transcript feel unclickable — the exact "I can't click Jerry" bug.
+    // After the window, treat it as stale and stop hijacking the load.
+    const ageMs = Date.now() - new Date(snap.savedAt).getTime();
+    return Number.isFinite(ageMs) ? ageMs < 24 * 60 * 60 * 1000 : false;
+  }
   if (!snap.updatedAt) return false;
   if (!serverUpdatedAt) return true;
   const snapMs = new Date(snap.updatedAt).getTime();

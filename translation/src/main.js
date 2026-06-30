@@ -6058,9 +6058,11 @@ function openCopilot(selection) {
 // callsite; everything else uses the toast system below.
 function showError(msg, parentSel) {
   const parent = parentSel ? $(parentSel) : $('#step-1');
-  // If we're not on step-1, use a toast instead — the inline error would
-  // never be seen otherwise.
-  if (!parent || (!parentSel && currentStep !== 1)) {
+  // If we're not on step-1 — or the library is open on top of step-1 — use a
+  // toast instead. Otherwise the inline error gets prepended into the hidden
+  // #step-1 panel and is never seen, making a failed load look like a dead
+  // click (the user clicks a transcript, the open fails, and nothing shows).
+  if (!parent || libraryShowing || (!parentSel && currentStep !== 1)) {
     return showToast(msg, 'error');
   }
   const existing = parent.querySelector('.error-msg');
