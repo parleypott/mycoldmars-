@@ -6,20 +6,26 @@
 <title>Los Petrey × Switzerland — little adventures from Wengen</title>
 <meta name="description" content="A simple menu of hikes and days out from Wengen, Lauterbrunnen valley. Every place links to its trail or map." />
 <meta name="theme-color" content="#16140F" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="canonical" href="https://mycoldmars.com/lauterbrunnen/" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Switzerland" />
+<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+<link rel="canonical" href="https://mycoldmars.com/switzerland/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="mycoldmars" />
 <meta property="og:title" content="Los Petrey × Switzerland" />
 <meta property="og:description" content="A simple menu of hikes and days out from Wengen. Every place links to its trail or map." />
-<meta property="og:url" content="https://mycoldmars.com/lauterbrunnen/" />
-<meta property="og:image" content="https://mycoldmars.com/lauterbrunnen/og.png" />
+<meta property="og:url" content="https://mycoldmars.com/switzerland/" />
+<meta property="og:image" content="https://mycoldmars.com/switzerland/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Los Petrey × Switzerland" />
 <meta name="twitter:description" content="Hikes and days out from Wengen, with a trail or map link for each." />
-<meta name="twitter:image" content="https://mycoldmars.com/lauterbrunnen/og.png" />
+<meta name="twitter:image" content="https://mycoldmars.com/switzerland/og.png" />
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet" />
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,7 +53,7 @@
   .wrap{max-width:740px;margin:0 auto;padding:0 22px}
 
   /* view toggle */
-  .switch{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:60;display:flex;background:rgba(22,20,15,.92);backdrop-filter:blur(10px);border-radius:var(--r-pill);padding:4px;box-shadow:0 8px 28px rgba(22,20,15,.22)}
+  .switch{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:60;display:flex;background:rgba(22,20,15,.92);backdrop-filter:blur(10px);border-radius:var(--r-pill);padding:4px;box-shadow:0 8px 28px rgba(22,20,15,.22)}
   .switch button{border:none;background:none;font-family:var(--mono);font-size:12px;font-weight:500;color:rgba(255,255,255,.62);padding:8px 22px;border-radius:var(--r-pill);transition:all .18s;cursor:pointer;display:flex;align-items:center;gap:7px}
   .switch button.active{background:#fff;color:var(--ink)}
   .switch svg{width:13px;height:13px}
@@ -119,7 +125,7 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* layer panel */
-  .layers{position:absolute;top:64px;left:16px;z-index:6;background:rgba(251,250,246,.94);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;box-shadow:0 8px 26px rgba(22,20,15,.16);width:248px;max-width:calc(100vw - 32px)}
+  .layers{position:absolute;top:calc(64px + env(safe-area-inset-top));left:16px;z-index:6;background:rgba(251,250,246,.94);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;box-shadow:0 8px 26px rgba(22,20,15,.16);width:248px;max-width:calc(100vw - 32px)}
   .layers .lh{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
   .layers .lt{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
   .layers .allbtns{display:flex;gap:5px}
@@ -136,7 +142,7 @@
   .lrow.off .lname,.lrow.off .lnum{color:var(--ink-faint)}
   .lrow .swatch{width:16px;height:4px;border-radius:2px;background:var(--red);flex-shrink:0}
 
-  .mlegend{position:absolute;bottom:24px;left:16px;z-index:5;background:rgba(251,250,246,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);box-shadow:0 6px 22px rgba(22,20,15,.12)}
+  .mlegend{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));left:16px;z-index:5;background:rgba(251,250,246,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);box-shadow:0 6px 22px rgba(22,20,15,.12)}
   .mlegend .mt{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:8px}
   .mlegend .lr{display:flex;align-items:center;gap:9px;margin-top:6px;line-height:1.3}
   .mlegend .ll{width:22px;flex-shrink:0;display:flex;align-items:center}
@@ -171,6 +177,32 @@
     .ln{white-space:normal}
     .layers{width:210px;top:60px}
   }
+
+  /* install / offline sheet */
+  .instbtn{position:fixed;top:calc(18px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));z-index:62;width:34px;height:34px;border-radius:50%;background:rgba(22,20,15,.92);backdrop-filter:blur(10px);border:none;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(22,20,15,.25);cursor:pointer}
+  .instbtn svg{width:16px;height:16px}
+  .instbtn:active{transform:scale(.93)}
+  .sheet{position:fixed;inset:0;z-index:80;background:rgba(22,20,15,.42);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s}
+  .sheet.on{opacity:1}
+  .sheet[hidden]{display:none}
+  .sheet-card{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:18px;max-width:380px;width:100%;padding:24px 22px;box-shadow:0 20px 60px rgba(22,20,15,.4);font-size:14px;line-height:1.55;color:var(--ink-2)}
+  .sheet-x{position:absolute;top:13px;right:14px;border:none;background:none;font-size:16px;color:var(--ink-3);cursor:pointer;line-height:1}
+  .sheet-h{font-family:var(--serif);font-size:21px;color:var(--ink);font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+  .sheet-h svg{width:18px;height:18px;color:var(--red)}
+  .sheet-lead{margin:0 0 16px}
+  .sheet-row{background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:9px;font-size:13px;color:var(--ink-2)}
+  .sheet-os{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--red-ink);font-weight:600;margin-bottom:4px}
+  .sheet-note{margin:14px 0 0;font-size:12px;color:var(--ink-3);line-height:1.5}
+  @media(max-width:560px){
+    .instbtn{top:calc(15px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));width:36px;height:36px}
+    .layers{width:min(218px,48vw);top:calc(56px + env(safe-area-inset-top));left:12px;padding:10px}
+    .mlegend{font-size:9.5px;padding:9px 11px;bottom:calc(16px + env(safe-area-inset-bottom));left:12px}
+    .switch{top:calc(13px + env(safe-area-inset-top))}
+    .switch button{padding:10px 20px}
+    .lrow{padding:9px 8px}
+    .layers .allbtns button{padding:5px 11px}
+  }
+  #mapview .mapboxgl-ctrl-top-right{margin-top:calc(40px + env(safe-area-inset-top))}
   .chainnote{display:flex;justify-content:center;margin:2px 0 -2px}
   .chain-pill{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--red-ink);background:var(--red-bg);border:1px dashed color-mix(in srgb,var(--red) 42%,transparent);border-radius:var(--r-pill);padding:6px 15px;display:inline-flex;align-items:center;gap:8px;text-align:center;line-height:1.35}
 </style>
@@ -179,6 +211,18 @@
 <div class="switch" id="switch">
   <button data-view="menu" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Menu</button>
   <button data-view="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>Map</button>
+</div>
+
+<button class="instbtn" id="instbtn" aria-label="Save to phone, works offline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2" width="11" height="20" rx="2.6"/><line x1="11" y1="18.3" x2="13" y2="18.3"/></svg></button>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Save to your phone" hidden>
+  <div class="sheet-card">
+    <button class="sheet-x" id="sheetx" aria-label="Close">✕</button>
+    <div class="sheet-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2" width="11" height="20" rx="2.6"/><line x1="11" y1="18.3" x2="13" y2="18.3"/></svg>Save to your phone</div>
+    <p class="sheet-lead">Add this to your home screen and it works <b>offline</b> — no loading screen, no signal needed.</p>
+    <div class="sheet-row"><span class="sheet-os">iPhone · Safari</span>Tap the Share button, then <b>Add to Home Screen</b>.</div>
+    <div class="sheet-row"><span class="sheet-os">Android · Chrome</span>Tap the <b>⋮</b> menu, then <b>Install app</b> / <b>Add to Home screen</b>.</div>
+    <p class="sheet-note">Open it once on wifi so the maps cache. After that the menu — and any map area you’ve looked at — loads with no signal. Tapping a trail or place opens the AllTrails or Google Maps app.</p>
+  </div>
 </div>
 
 <div class="wrap" id="menuview">
@@ -545,6 +589,7 @@ function showView(v){
   const isMap = v==='map';
   document.getElementById('mapview').classList.toggle('on',isMap);
   document.getElementById('menuview').style.display = isMap?'none':'';
+  var _ib=document.getElementById('instbtn'); if(_ib) _ib.style.display=isMap?'none':'';
   document.querySelectorAll('#switch button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   if(isMap){ initMap(); setTimeout(()=>{ if(map) map.resize(); },60); }
 }
@@ -560,6 +605,19 @@ document.addEventListener('click',e=>{
 
 // hook for refined geodata
 window.__loadJourneys=function(arr){ JOURNEYS=arr; if(map&&layersBuilt){ location.reload(); } };
+</script>
+<script>
+(function(){
+  var b=document.getElementById('instbtn'),s=document.getElementById('sheet'),x=document.getElementById('sheetx');
+  function op(){s.hidden=false;requestAnimationFrame(function(){s.classList.add('on');});}
+  function cl(){s.classList.remove('on');setTimeout(function(){s.hidden=true;},200);}
+  if(b)b.addEventListener('click',op); if(x)x.addEventListener('click',cl);
+  if(s)s.addEventListener('click',function(e){if(e.target===s)cl();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&s&&!s.hidden)cl();});
+})();
+var _standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+if(_standalone){ document.addEventListener('click',function(e){ var a=e.target.closest&&e.target.closest('a[href^="http"]'); if(a){ e.preventDefault(); window.location.href=a.getAttribute('href'); } }); }
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}
 </script>
 </body>
 </html>
