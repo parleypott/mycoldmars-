@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const TILE = 256;
-const OUT_W = 1600, OUT_H = 900;               // 16:9
+const OUT_W = 2560, OUT_H = 1440;              // 16:9 — wider FOV: room to zoom out + pan in the player
 const SERVERS = [0, 1, 2, 3];
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 
@@ -158,7 +158,7 @@ async function run() {
   // all — two variants per reef (wide @ z, tight @ z+1) for density + rhythm
   const dir = "public/reef/frames";
   await mkdir(dir, { recursive: true });
-  const manifest: { file: string; name: string; z: number }[] = [];
+  const manifest: { file: string; name: string; z: number; w: number; h: number }[] = [];
   // build the full job list first
   const jobs: { name: string; lat: number; lon: number; z: number; tag: string }[] = [];
   for (const [name, lat, lon, z] of CATALOG) {
@@ -171,10 +171,11 @@ async function run() {
     const file = `${String(i).padStart(3, "0")}-${slug(j.name)}-${j.tag}.jpg`;
     try {
       const buf = await renderFrame(j.lat, j.lon, j.z);
-      // skip near-empty frames (open water / imagery gaps) — under ~30kb = dud
-      if (buf.length < 30000) { console.log(`[${i}/${jobs.length}] SKIP dud ${file} ${(buf.length/1024|0)}kb`); continue; }
+      // skip near-empty frames (open water / imagery gaps) — under ~70kb = dud
+      // (30000 was tuned for 1600x900; 2560x1440 is ~2.56x the pixels, so scale the floor)
+      if (buf.length < 70000) { console.log(`[${i}/${jobs.length}] SKIP dud ${file} ${(buf.length/1024|0)}kb`); continue; }
       await writeFile(`${dir}/${file}`, buf);
-      manifest.push({ file, name: j.name, z: j.z });
+      manifest.push({ file, name: j.name, z: j.z, w: OUT_W, h: OUT_H });
       console.log(`[${i}/${jobs.length}] ${file} ${(buf.length / 1024 | 0)}kb`);
     } catch (e) {
       console.log(`[${i}/${jobs.length}] FAIL ${j.name}:`, (e as Error).message);
