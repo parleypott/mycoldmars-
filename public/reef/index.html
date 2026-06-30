@@ -191,7 +191,7 @@ let visible = 0;       // which of the two <img> layers is showing
 let playing = true;
 let interval = 1000 / 12; // 12 frames/sec = each held ~2 frames @ 24fps
 let timer = null;
-const BUFFER_TO_START = 24;
+const BUFFER_TO_START = 8;  // start fast, keep streaming the rest in
 
 function loadFrame(i) {
   return new Promise((res) => {
