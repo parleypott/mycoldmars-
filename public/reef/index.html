@@ -137,7 +137,7 @@ const els = {
 
 const KILL_STORE = 'reef_killed_v2';
 let killed = new Set();
-try { killed = new Set(JSON.parse(localStorage.getItem(KILL_STORE) || '[]')); } catch (e) {}
+try { const v = JSON.parse(localStorage.getItem(KILL_STORE) || '[]'); if (Array.isArray(v)) killed = new Set(v); } catch (e) {}
 const persistKilled = () => { try { localStorage.setItem(KILL_STORE, JSON.stringify([...killed])); } catch (e) {} };
 
 let FRAMES = [];
