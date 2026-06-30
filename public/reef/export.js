@@ -246,8 +246,26 @@ async function exportGIF(frames) {
   const W = 1280, H = 720;                 // gif is palette-limited; 720p keeps it sane
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d', { alpha: false });
-  const gif = GIFEncoder();
   const delay = Math.round(1000 / FPS);
+
+  // ONE shared palette from a spread of sample frames — quantizing per-frame (120x)
+  // is what made this crawl. The reef palette is consistent, so a global table is
+  // both ~15x faster and visually steadier.
+  setMsg('building palette…');
+  const sampleCount = Math.min(8, frames.length);
+  const samples = [];
+  for (let k = 0; k < sampleCount; k++) {
+    if (cancelFlag) return;
+    const fr = frames[Math.floor((k + 0.5) * frames.length / sampleCount)];
+    const img = await loadImage('frames/' + fr.file);
+    drawCrop(ctx, img, fr, W, H);
+    samples.push(new Uint8Array(ctx.getImageData(0, 0, W, H).data)); // rgba
+  }
+  const merged = new Uint8Array(samples.reduce((n, s) => n + s.length, 0));
+  let off = 0; for (const s of samples) { merged.set(s, off); off += s.length; }
+  const palette = quantize(merged, 256, { format: 'rgba4444' });
+
+  const gif = GIFEncoder();
   for (let i = 0; i < frames.length; i++) {
     if (cancelFlag) return;
     const fr = frames[i];
@@ -255,11 +273,10 @@ async function exportGIF(frames) {
     const img = await loadImage('frames/' + fr.file);
     drawCrop(ctx, img, fr, W, H);
     const { data } = ctx.getImageData(0, 0, W, H);
-    const palette = quantize(data, 256);
-    const index = applyPalette(data, palette);
-    gif.writeFrame(index, W, H, { palette, delay, repeat: 0 });
+    const index = applyPalette(data, palette, 'rgba4444');
+    gif.writeFrame(index, W, H, i === 0 ? { palette, delay, repeat: 0 } : { delay });
     setBar((i + 1) / frames.length * 0.95);
-    if (i % 4 === 3) await new Promise((r) => setTimeout(r));
+    if (i % 8 === 7) await new Promise((r) => setTimeout(r));
   }
   setMsg('packing gif…');
   gif.finish();
