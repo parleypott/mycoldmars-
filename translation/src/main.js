@@ -5464,6 +5464,7 @@ function mountWorkshop() {
       mount.innerHTML = '';
       workshopInstance = mw(mount, {
         segments,
+        translations,   // English per-segment — workshop shows English, not the source language
         editorialFocus: $('#editorial-focus')?.value || '',
         narrativeSummary: currentSummary || '',
         initialState: workshopState || {},

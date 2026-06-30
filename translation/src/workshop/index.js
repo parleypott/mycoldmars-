@@ -15,6 +15,18 @@ import { escapeHtml } from '../html-escape.js';
  *   - onUpdate(state): called when state changes that should be persisted
  */
 export function mountWorkshop(container, opts) {
+  // English per-segment, so the workshop renders the translation instead of the
+  // source-language transcript. Johnny works in English here — he doesn't need
+  // to read the original Chinese/etc. Falls back to the source text only for a
+  // segment that has no translation yet.
+  const translatedByNum = {};
+  for (const t of (opts.translations || [])) {
+    if (t && t.number != null && t.translated && t.translated !== '[chatter]') {
+      translatedByNum[t.number] = t.translated;
+    }
+  }
+  const biteText = (seg) => translatedByNum[seg.number] || seg.text;
+
   const state = {
     phase: 'bank',                 // 'bank' | 'processing' | 'viewer'
     themes: [],                    // [{ id, name, description }]
@@ -350,7 +362,7 @@ export function mountWorkshop(container, opts) {
         <div class="ws-bite-text">
           ${zap?.status === 'ready'
             ? renderZappedText(zap.chunks)
-            : escapeHtml(seg.text)}
+            : escapeHtml(biteText(seg))}
         </div>
         ${zap?.status === 'ready' ? `
           <div class="ws-bite-polished">
