@@ -19,7 +19,17 @@ let cancelFlag = false;
 
 // ---- data -------------------------------------------------------------------
 function readJSON(key, fallback) {
-  try { const v = JSON.parse(localStorage.getItem(key) || ''); return v ?? fallback; } catch { return fallback; }
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '');
+    // Type-match the fallback so a corrupt/wrong-type stored value can't blow up a
+    // downstream consumer: the kill-store ([] fallback) is fed to `new Set(...)`, which
+    // THROWS on a non-array, and the framing-store ({} fallback) is read with obj[key].
+    if (Array.isArray(fallback)) return Array.isArray(v) ? v : fallback;
+    if (fallback && typeof fallback === 'object') {
+      return (v && typeof v === 'object' && !Array.isArray(v)) ? v : fallback;
+    }
+    return v ?? fallback;
+  } catch { return fallback; }
 }
 async function gatherFrames() {
   const manifest = await fetch('frames/manifest.json', { cache: 'no-cache' }).then((r) => r.json());

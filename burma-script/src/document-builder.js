@@ -123,7 +123,7 @@ const BURMA_DAY_CLASS = '123';
 const BURMA_HEAD_ALTERNATION = 'COLD\\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO';
 const STRUCTURAL_HEAD_WORDS = ['ACT', 'EPILOGUE', 'OUTRO', 'TEASER', 'INTRO'];
 
-function buildDayCharacterClass(days) {
+export function buildDayCharacterClass(days) {
   const nums = (Array.isArray(days) ? days : [])
     .map((day) => Number(day))
     .filter((day) => Number.isInteger(day) && day >= 0 && day <= 9)
@@ -143,7 +143,7 @@ function episodeDayCharacterClass() {
   }
 }
 
-function episodeHeadAlternation() {
+export function episodeHeadAlternation() {
   try {
     const heads = (getEpisode()?.genres || []).map((genre) => genre?.head).filter(Boolean);
     if (!heads.length) return BURMA_HEAD_ALTERNATION;

@@ -45,3 +45,4 @@ public/walden/index.html	[xs.reduce((a,b)=>a+b,0)/xs.length,ys.reduce((a,b)=>a+b
 queen-scarlet-school/universe/index.html	consta=alphas[i]!=null?alphas[i]:(1-i/stops.length	SAFE	makeRadialSprite is only ever called with 3-element constant stops arrays
 translation/src/editor/Editor.jsx	constdotAngle=(fontIndex/FONT_SETS.length	SAFE	FONT_SETS is a module-level constant non-empty array
 translation/src/manual-steps.js	returnMath.round((stepsCompletedCount(steps,done)/steps.length	SAFE	early-return at :405 `if (steps.length === 0) return 0`
+public/reef/export.js	setBar((i+1)/frames.length	SAFE	run() guards `if (!frames.length) { setMsg(\047no frames to export\047); return; }` before any exporter is called, so frames.length is always > 0 in the progress-bar divisions (exportSequence/exportMP4/exportGIF). No NaN/Infinity possible.
