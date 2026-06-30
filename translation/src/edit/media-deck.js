@@ -92,7 +92,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
             ${ICON_SKIP_BACK}
             <span class="media-deck-skip-label">10</span>
           </button>
-          <button type="button" class="media-deck-btn media-deck-btn--play" data-deck-playpause aria-label="Play/Pause" title="Space">
+          <button type="button" class="media-deck-btn media-deck-btn--play" data-deck-playpause aria-label="Play/Pause" title="Play/Pause — Space, or Ctrl+Space from anywhere">
             ${ICON_PLAY}
           </button>
           <button type="button" class="media-deck-btn media-deck-btn--skip" data-deck-skipfwd aria-label="Skip forward 10 seconds" title="10s →">
@@ -708,6 +708,14 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     return false;
   }
   function onKeydown(e) {
+    // Ctrl+Space (Control, not Command) toggles play/pause from ANYWHERE —
+    // including while typing in the transcript. Runs before the guards below so
+    // the modifier-return and isTyping() checks don't swallow it.
+    if (e.ctrlKey && !e.metaKey && !e.altKey && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      if (video.paused) tryPlay(); else video.pause();
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey) return; // don't shadow OS shortcuts
     if (isTyping()) return;
     const k = e.key;
