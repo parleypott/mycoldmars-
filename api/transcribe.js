@@ -97,11 +97,9 @@ function send(res, status, body) { res.status(status).json(body); }
 async function runDeepgram({ mediaUrl, language, prompt, apiKey }) {
   const params = new URLSearchParams(DEEPGRAM_QUERY);
   if (language) params.set('language', language);
-  if (prompt) {
-    // Deepgram keyterm boosting (Nova-3+): first 50 words of the prompt.
-    const terms = prompt.split(/\s+/).slice(0, 50).join(' ');
-    if (terms) params.set('keyterm', terms);
-  }
+  // Deepgram keyterm boosting (Nova-3+): first 50 words of the prompt.
+  const terms = buildDeepgramKeyterm(prompt);
+  if (terms) params.set('keyterm', terms);
   const url = `${DEEPGRAM_ENDPOINT}?${params.toString()}`;
 
   let dgRes;
@@ -249,6 +247,18 @@ async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────
+// Build the Deepgram `keyterm` boost value from the caller-supplied prompt.
+// Type-safe by design: `prompt` flows straight from the request body, so a
+// non-string (a buggy client sending `prompt: 123`, an object, an array)
+// must NOT crash — the old inline `prompt.split(...)` threw a TypeError on
+// any non-string, and since runDeepgram is awaited with no try/catch that
+// surfaced as an opaque 500 instead of a clean transcription. Returns the
+// first 50 whitespace-separated words, '' when there's nothing usable.
+export function buildDeepgramKeyterm(prompt) {
+  if (typeof prompt !== 'string') return '';
+  return prompt.trim().split(/\s+/).filter(Boolean).slice(0, 50).join(' ');
+}
+
 export function extractFilenameFromUrl(url) {
   try { const u = new URL(url); return u.pathname.split('/').pop() || null; }
   catch { return null; }

@@ -20,6 +20,7 @@ import {
   normalizeDeepgram,
   redactApiErrorText,
   extractFilenameFromUrl,
+  buildDeepgramKeyterm,
 } from './transcribe.js';
 
 let pass = 0, fail = 0;
@@ -246,6 +247,35 @@ ok(redactApiErrorText(dgKey) === '***REDACTED***',
 // as "Speaker 0". Prove the shipped normalizer is 1-based.
 ok(normalizeDeepgram(dgParagraphs).segments[0].speaker !== 'Speaker 0',
   'RED-proof: speaker label is never the raw 0-based number');
+
+// ───────────────────────── buildDeepgramKeyterm ─────────────────────────
+// The caller-supplied prompt flows straight from the request body into the
+// Deepgram query. The OLD inline form was `prompt.split(/\s+/)` guarded only by
+// a truthy `if (prompt)` — so any NON-STRING truthy prompt (a number, object,
+// array) threw a TypeError, and since runDeepgram is awaited with no try/catch
+// that became an opaque 500. These assertions lock the type-safe contract.
+
+// Type safety — the crash class. Every non-string must yield '' (no throw).
+eq(buildDeepgramKeyterm(123), '', 'numeric prompt → "" (no crash)');
+eq(buildDeepgramKeyterm({}), '', 'object prompt → "" (no crash)');
+eq(buildDeepgramKeyterm(['a', 'b']), '', 'array prompt → "" (no crash)');
+eq(buildDeepgramKeyterm(true), '', 'boolean prompt → "" (no crash)');
+eq(buildDeepgramKeyterm(null), '', 'null prompt → ""');
+eq(buildDeepgramKeyterm(undefined), '', 'undefined prompt → ""');
+// RED-proof: the buggy old form would THROW here instead of returning ''.
+ok((() => { try { return buildDeepgramKeyterm(123) === ''; } catch { return false; } })(),
+  'RED-proof: a numeric prompt does not throw (old prompt.split crashed)');
+
+// Normal strings — keyterm value is preserved word-for-word.
+eq(buildDeepgramKeyterm('Yangon Aung San'), 'Yangon Aung San', 'clean prompt passes through');
+eq(buildDeepgramKeyterm(''), '', 'empty string → ""');
+eq(buildDeepgramKeyterm('   '), '', 'whitespace-only string → ""');
+// Messy whitespace is normalized (filter(Boolean) drops empties from split).
+eq(buildDeepgramKeyterm('  hello   world  '), 'hello world', 'leading/inner/trailing whitespace collapsed');
+// 50-word cap counts REAL words (empties filtered), proving the slice is honored.
+const fiftyTwo = Array.from({ length: 52 }, (_, i) => `w${i}`).join(' ');
+eq(buildDeepgramKeyterm(fiftyTwo).split(' ').length, 50, 'caps at 50 words');
+eq(buildDeepgramKeyterm(fiftyTwo).split(' ')[0], 'w0', 'keeps the FIRST 50 words, not the last');
 
 // ───────────────────────── report ─────────────────────────
 if (fail === 0) {
