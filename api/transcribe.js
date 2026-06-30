@@ -1,27 +1,23 @@
-// Vercel Edge function — transcription router.
+// Vercel Node function — transcription router.
+//
+// NOTE: this runs on the NODE runtime (not Edge) with maxDuration: 300. Edge
+// functions are capped at ~25s of wall-clock, so Deepgram transcription of a
+// longer clip blew the cap and surfaced to the user as "Transcription failed
+// (504)". The Node runtime + maxDuration:300 (also set in vercel.json) gives
+// Deepgram the full 5 minutes it needs. Matches the cutter.js pattern.
 //
 // Routes to one of two providers based on availability and file size:
-//
-//   • Deepgram (preferred when DEEPGRAM_API_KEY is set):
-//       Handles up to 2 GB. Accepts a URL — we pass the Supabase signed
-//       URL directly, so Deepgram fetches the file and we don't have to
-//       stream it through Vercel. Returns word + paragraph timestamps.
-//   • OpenAI Whisper (fallback, OPENAI_API_KEY required):
-//       25 MB hard limit. We fetch the file via signed URL, send as
-//       multipart, and normalize the verbose_json response.
+//   • Deepgram (preferred when DEEPGRAM_API_KEY is set): handles up to 2 GB,
+//     accepts a URL — we pass the Supabase signed URL directly so Deepgram
+//     fetches the file. Returns word + paragraph timestamps.
+//   • OpenAI Whisper (fallback, OPENAI_API_KEY): 25 MB limit, multipart upload.
 //
 // Request body: { mediaUrl, mediaSizeBytes, language?, prompt?, provider? }
-//   - provider: 'auto' (default) | 'deepgram' | 'whisper'
-//
-// Response (both providers normalized to the same shape):
-//   { language, duration_seconds, full_text, segments[], word_timings[], provider }
+// Response (normalized): { language, duration_seconds, full_text, segments[], word_timings[], provider }
 
 import { checkAccess } from './_lib/access.js';
 
-export const config = {
-  runtime: 'edge',
-  maxDuration: 300,
-};
+export const config = { maxDuration: 300 };
 
 const WHISPER_ENDPOINT = 'https://api.openai.com/v1/audio/transcriptions';
 const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
@@ -39,72 +35,70 @@ const DEEPGRAM_QUERY = new URLSearchParams({
   filler_words: 'false',    // skip "um/uh" by default; can flip via opts
 }).toString();
 
-export default async function handler(req) {
-  if (req.method !== 'POST') {
-    return jsonError(405, 'method_not_allowed', 'POST only');
-  }
-  const denied = await checkAccess(req);
-  if (denied) return denied;
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return send(res, 405, err('method_not_allowed', 'POST only'));
 
-  let body;
-  try { body = await req.json(); }
-  catch { return jsonError(400, 'bad_json', 'Request body must be JSON'); }
+  // checkAccess expects a Request-like object with headers.get() (it was
+  // written for the Edge runtime). Node's req.headers is a plain object.
+  const reqLike = { method: req.method, headers: { get: (k) => req.headers[k.toLowerCase()] } };
+  const denied = await checkAccess(reqLike);
+  if (denied) {
+    const body = await denied.json().catch(() => ({}));
+    return res.status(denied.status).json(body);
+  }
 
-  const { mediaUrl, mediaSizeBytes, language, prompt, provider = 'auto' } = body || {};
-  if (!mediaUrl) {
-    return jsonError(400, 'missing_media_url', 'mediaUrl is required (signed URL to the media file)');
-  }
-  // Reject anything that isn't an http(s) URL — closes SSRF angles like
-  // file:// and arbitrary internal URLs that the audit flagged.
-  if (!/^https?:\/\//i.test(mediaUrl)) {
-    return jsonError(400, 'bad_media_url', 'mediaUrl must be an http(s) URL.');
-  }
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
+  if (!body || typeof body !== 'object') return send(res, 400, err('bad_json', 'Request body must be JSON'));
+
+  const { mediaUrl, mediaSizeBytes, language, prompt, provider = 'auto' } = body;
+  if (!mediaUrl) return send(res, 400, err('missing_media_url', 'mediaUrl is required (signed URL to the media file)'));
+  // Reject anything that isn't an http(s) URL — closes SSRF angles (file://, internal URLs).
+  if (!/^https?:\/\//i.test(mediaUrl)) return send(res, 400, err('bad_media_url', 'mediaUrl must be an http(s) URL.'));
 
   const deepgramKey = process.env.DEEPGRAM_API_KEY;
   const whisperKey  = process.env.OPENAI_API_KEY;
 
-  // Pick a provider.
   let chosen = provider;
   if (chosen === 'auto') {
-    if (deepgramKey) chosen = 'deepgram';            // prefer Deepgram when available
+    if (deepgramKey) chosen = 'deepgram';
     else if (whisperKey) chosen = 'whisper';
-    else return jsonError(500, 'no_provider', 'Neither DEEPGRAM_API_KEY nor OPENAI_API_KEY is configured');
+    else return send(res, 500, err('no_provider', 'Neither DEEPGRAM_API_KEY nor OPENAI_API_KEY is configured'));
   }
 
+  let result;
   if (chosen === 'whisper') {
-    if (!whisperKey) return jsonError(500, 'misconfigured', 'OPENAI_API_KEY not set');
-    // Require mediaSizeBytes for the Whisper path — without it we'd happily
-    // fetch a 500 MB file into Edge memory (128 MB cap) and blow up the
-    // runtime with a generic timeout. The audit flagged this as a P0 because
-    // the previous `&&` short-circuit silently skipped the size gate when
-    // mediaSizeBytes was undefined.
+    if (!whisperKey) return send(res, 500, err('misconfigured', 'OPENAI_API_KEY not set'));
     if (typeof mediaSizeBytes !== 'number' || !Number.isFinite(mediaSizeBytes) || mediaSizeBytes <= 0) {
-      return jsonError(400, 'missing_media_size',
-        'mediaSizeBytes is required for Whisper provider so we can guard the 25 MB limit before fetching.');
+      return send(res, 400, err('missing_media_size',
+        'mediaSizeBytes is required for Whisper provider so we can guard the 25 MB limit before fetching.'));
     }
     if (mediaSizeBytes > WHISPER_MAX_BYTES) {
-      return jsonError(413, 'file_too_large',
+      return send(res, 413, err('file_too_large',
         `Whisper API limit is 25 MB. Got ${(mediaSizeBytes / 1024 / 1024).toFixed(1)} MB. ` +
-        `Set DEEPGRAM_API_KEY (handles up to 2 GB) or use 'provider: deepgram' explicitly.`);
+        `Set DEEPGRAM_API_KEY (handles up to 2 GB) or use 'provider: deepgram' explicitly.`));
     }
-    return runWhisper({ mediaUrl, language, prompt, apiKey: whisperKey });
+    result = await runWhisper({ mediaUrl, language, prompt, apiKey: whisperKey });
+  } else if (chosen === 'deepgram') {
+    if (!deepgramKey) return send(res, 500, err('misconfigured', 'DEEPGRAM_API_KEY not set'));
+    result = await runDeepgram({ mediaUrl, language, prompt, apiKey: deepgramKey });
+  } else {
+    return send(res, 400, err('unknown_provider', `Unknown provider: ${chosen}`));
   }
 
-  if (chosen === 'deepgram') {
-    if (!deepgramKey) return jsonError(500, 'misconfigured', 'DEEPGRAM_API_KEY not set');
-    return runDeepgram({ mediaUrl, language, prompt, apiKey: deepgramKey });
-  }
-
-  return jsonError(400, 'unknown_provider', `Unknown provider: ${chosen}`);
+  return send(res, result.status, result.body);
 }
+
+// Helpers return { status, body } so the handler can send via res.json().
+function err(code, message) { return { error: { code, message } }; }
+function send(res, status, body) { res.status(status).json(body); }
 
 // ── Deepgram ─────────────────────────────────────────────────────────
 async function runDeepgram({ mediaUrl, language, prompt, apiKey }) {
   const params = new URLSearchParams(DEEPGRAM_QUERY);
   if (language) params.set('language', language);
   if (prompt) {
-    // Deepgram supports keyterm boosting via `keyterm` param (Nova-3+)
-    // Take the first 50 words of the prompt as boost terms.
+    // Deepgram keyterm boosting (Nova-3+): first 50 words of the prompt.
     const terms = prompt.split(/\s+/).slice(0, 50).join(' ');
     if (terms) params.set('keyterm', terms);
   }
@@ -114,30 +108,24 @@ async function runDeepgram({ mediaUrl, language, prompt, apiKey }) {
   try {
     dgRes = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Authorization': `Token ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Token ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: mediaUrl }),
     });
-  } catch (err) {
-    return jsonError(502, 'deepgram_fetch_failed', err.message || String(err));
+  } catch (e) {
+    return { status: 502, body: err('deepgram_fetch_failed', e.message || String(e)) };
   }
 
   if (!dgRes.ok) {
     const errText = await dgRes.text().catch(() => '');
-    return jsonError(dgRes.status, 'deepgram_api_error',
-      `Deepgram: ${dgRes.status} ${dgRes.statusText}${errText ? ' — ' + redactApiErrorText(errText).slice(0, 400) : ''}`);
+    return { status: dgRes.status, body: err('deepgram_api_error',
+      `Deepgram: ${dgRes.status} ${dgRes.statusText}${errText ? ' — ' + redactApiErrorText(errText).slice(0, 400) : ''}`) };
   }
 
   let dg;
   try { dg = await dgRes.json(); }
-  catch { return jsonError(502, 'deepgram_bad_response', 'Deepgram returned non-JSON'); }
+  catch { return { status: 502, body: err('deepgram_bad_response', 'Deepgram returned non-JSON') }; }
 
-  return new Response(JSON.stringify(normalizeDeepgram(dg)), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return { status: 200, body: normalizeDeepgram(dg) };
 }
 
 // Deepgram's verbose response → Interpreter's normalized shape.
@@ -147,7 +135,6 @@ export function normalizeDeepgram(dg) {
   const detectedLang = channel.detected_language || dg?.results?.language || null;
   const duration = dg?.metadata?.duration || null;
 
-  // Prefer paragraphs (semantic) → utterances (speaker turns) → fallback to single block
   const paragraphs = alternative.paragraphs?.paragraphs || [];
   const utterances = dg?.results?.utterances || [];
 
@@ -157,15 +144,10 @@ export function normalizeDeepgram(dg) {
     let n = 1;
     for (const p of paragraphs) {
       const speakerLabel = (typeof p.speaker === 'number') ? `Speaker ${p.speaker + 1}` : 'Speaker 1';
-      // Paragraphs contain sentences; flatten each sentence into its own segment
       for (const sent of (p.sentences || [{ text: p.text || '', start: p.start, end: p.end }])) {
         segments.push({
-          index: n - 1,
-          number: n++,
-          speaker: speakerLabel,
-          start: sent.start,
-          end: sent.end,
-          original: (sent.text || '').trim(),
+          index: n - 1, number: n++, speaker: speakerLabel,
+          start: sent.start, end: sent.end, original: (sent.text || '').trim(),
         });
       }
     }
@@ -174,27 +156,20 @@ export function normalizeDeepgram(dg) {
     for (const u of utterances) {
       const speakerLabel = (typeof u.speaker === 'number') ? `Speaker ${u.speaker + 1}` : 'Speaker 1';
       segments.push({
-        index: n - 1,
-        number: n++,
-        speaker: speakerLabel,
-        start: u.start,
-        end: u.end,
-        original: (u.transcript || '').trim(),
+        index: n - 1, number: n++, speaker: speakerLabel,
+        start: u.start, end: u.end, original: (u.transcript || '').trim(),
       });
     }
   } else {
-    // Fallback: single big segment from full transcript
     segments = [{
       index: 0, number: 1, speaker: 'Speaker 1',
-      start: 0, end: duration || 0,
-      original: (alternative.transcript || '').trim(),
+      start: 0, end: duration || 0, original: (alternative.transcript || '').trim(),
     }];
   }
 
   const wordTimings = (alternative.words || []).map(w => ({
     word: w.punctuated_word || w.word,
-    start: w.start,
-    end: w.end,
+    start: w.start, end: w.end,
     speaker: typeof w.speaker === 'number' ? w.speaker : null,
   }));
 
@@ -212,17 +187,15 @@ export function normalizeDeepgram(dg) {
 async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
   let mediaBlob;
   try {
-    // 90s timeout on the upstream fetch — Supabase Storage stalls would
-    // otherwise hang against the Edge runtime's 5-minute hard cap and
-    // surface as a generic 504 to the client.
+    // 90s timeout on the upstream fetch so a Storage stall surfaces cleanly
+    // instead of hanging the whole function against the 300s cap.
     const mediaRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(90_000) });
     if (!mediaRes.ok) {
-      return jsonError(502, 'media_fetch_failed',
-        `Could not fetch media: ${mediaRes.status} ${mediaRes.statusText}`);
+      return { status: 502, body: err('media_fetch_failed', `Could not fetch media: ${mediaRes.status} ${mediaRes.statusText}`) };
     }
     mediaBlob = await mediaRes.blob();
-  } catch (err) {
-    return jsonError(502, 'media_fetch_error', err.message || String(err));
+  } catch (e) {
+    return { status: 502, body: err('media_fetch_error', e.message || String(e)) };
   }
 
   const form = new FormData();
@@ -241,72 +214,45 @@ async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
       headers: { 'Authorization': `Bearer ${apiKey}` },
       body: form,
     });
-  } catch (err) {
-    return jsonError(502, 'whisper_fetch_failed', err.message || String(err));
+  } catch (e) {
+    return { status: 502, body: err('whisper_fetch_failed', e.message || String(e)) };
   }
 
   if (!whisperRes.ok) {
     const errText = await whisperRes.text().catch(() => '');
-    return jsonError(whisperRes.status, 'whisper_api_error',
-      `Whisper API: ${whisperRes.status} ${whisperRes.statusText}${errText ? ' — ' + redactApiErrorText(errText).slice(0, 400) : ''}`);
+    return { status: whisperRes.status, body: err('whisper_api_error',
+      `Whisper API: ${whisperRes.status} ${whisperRes.statusText}${errText ? ' — ' + redactApiErrorText(errText).slice(0, 400) : ''}`) };
   }
 
   let whisperJson;
   try { whisperJson = await whisperRes.json(); }
-  catch { return jsonError(502, 'whisper_bad_response', 'Whisper returned non-JSON'); }
+  catch { return { status: 502, body: err('whisper_bad_response', 'Whisper returned non-JSON') }; }
 
-  const out = {
+  return { status: 200, body: {
     provider: 'whisper',
     language: whisperJson.language || language || null,
     duration_seconds: whisperJson.duration || null,
     full_text: whisperJson.text || '',
     segments: (whisperJson.segments || []).map((s, i) => ({
-      index: i,
-      number: i + 1,
-      speaker: 'Speaker 1',
-      start: s.start,
-      end: s.end,
-      original: (s.text || '').trim(),
+      index: i, number: i + 1, speaker: 'Speaker 1',
+      start: s.start, end: s.end, original: (s.text || '').trim(),
     })),
-    word_timings: (whisperJson.words || []).map(w => ({
-      word: w.word, start: w.start, end: w.end, speaker: null,
-    })),
-  };
-
-  return new Response(JSON.stringify(out), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
+    word_timings: (whisperJson.words || []).map(w => ({ word: w.word, start: w.start, end: w.end, speaker: null })),
+  } };
 }
 
 // ── helpers ─────────────────────────────────────────────────────────
 export function extractFilenameFromUrl(url) {
-  try {
-    const u = new URL(url);
-    return u.pathname.split('/').pop() || null;
-  } catch { return null; }
+  try { const u = new URL(url); return u.pathname.split('/').pop() || null; }
+  catch { return null; }
 }
 
-// Some provider error bodies echo the API key back at us (e.g. "Invalid API
-// key sk-proj-XYZ..."). Strip anything that looks like a credential before
-// surfacing to the client. Defense-in-depth: errors should be informative,
-// never authenticating.
+// Strip anything credential-shaped from provider error bodies before surfacing.
 export function redactApiErrorText(text) {
   if (!text) return '';
   return String(text)
-    // OpenAI-style keys
     .replace(/sk-[A-Za-z0-9_-]{16,}/g, 'sk-***REDACTED***')
-    // Generic Bearer tokens
     .replace(/Bearer\s+[A-Za-z0-9._-]{16,}/gi, 'Bearer ***REDACTED***')
-    // Deepgram-style hex tokens (40+ hex chars)
     .replace(/\b[a-f0-9]{40,}\b/g, '***REDACTED***')
-    // Supabase JWTs
     .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '***JWT***');
-}
-
-function jsonError(status, code, message) {
-  return new Response(JSON.stringify({ error: { code, message } }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
 }

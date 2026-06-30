@@ -2,7 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/cutter.js": { "maxDuration": 300 }
+    "api/cutter.js": { "maxDuration": 300 },
+    "api/transcribe.js": { "maxDuration": 300 }
   },
   "rewrites": [
     { "source": "/universe", "destination": "/queen-scarlet-school/universe/index.html" },
