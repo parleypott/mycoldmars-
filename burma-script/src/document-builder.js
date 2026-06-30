@@ -572,7 +572,7 @@ const NODE_TO_TYPE = {
 //       command that marks without braces) → we wrap it so the blocks export stays
 //       faithful (low-priority round-trip fix). The doc JSON remains canonical; this
 //       keeps docToBlocks() a faithful derived/export view.
-function wrapToken(text, kind) {
+export function wrapToken(text, kind) {
   const t = text;
   if (kind === 'tkSpan') {
     if (/^\{.*\}$/s.test(t.trim())) return t;        // already braced
