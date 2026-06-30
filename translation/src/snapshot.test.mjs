@@ -64,10 +64,24 @@ const reset = () => { LS = makeLS(); globalThis.localStorage = LS; };
 // ──────────────────────────────────────────────────────────────────────────
 ok('null snap → false',                       isSnapshotNewerThan(null, '2026-01-01') === false);
 ok('undefined snap → false',                  isSnapshotNewerThan(undefined, '2026-01-01') === false);
-// dirty = unsaved local work → ALWAYS offer to restore, even with no/older ts
-ok('dirty snap → true (no updatedAt)',         isSnapshotNewerThan({ dirty: true }, '2026-01-01') === true);
-ok('dirty snap → true (older updatedAt)',      isSnapshotNewerThan({ dirty: true, updatedAt: '2000-01-01' }, '2026-01-01') === true);
-ok('dirty snap → true (server null)',          isSnapshotNewerThan({ dirty: true }, null) === true);
+// dirty = unsaved local work → offer to restore, even with no/older updatedAt,
+// but ONLY while the snapshot is FRESH. commit f4274d8 ("age-out stale dirty
+// snapshots") added a 24h window keyed on `savedAt`: a dirty snapshot that's
+// been sitting over a day is almost always a save that silently failed long
+// ago, and re-popping a blocking restore modal on every open made the
+// transcript feel unclickable (the "can't click Jerry" dead-library bug).
+// So the restore decision now turns on savedAt age, not just the dirty flag.
+const FRESH = new Date(Date.now() - 60_000).toISOString();          // 1 min ago
+const STALE = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(); // 25h ago
+ok('dirty+fresh → true (no updatedAt)',        isSnapshotNewerThan({ dirty: true, savedAt: FRESH }, '2026-01-01') === true);
+ok('dirty+fresh → true (older updatedAt)',     isSnapshotNewerThan({ dirty: true, savedAt: FRESH, updatedAt: '2000-01-01' }, '2026-01-01') === true);
+ok('dirty+fresh → true (server null)',         isSnapshotNewerThan({ dirty: true, savedAt: FRESH }, null) === true);
+// the age-out itself: a stale dirty snapshot stops hijacking the load
+ok('dirty+stale → false (aged out)',           isSnapshotNewerThan({ dirty: true, savedAt: STALE }, '2026-01-01') === false);
+// dirty but savedAt missing/unparseable → can't confirm freshness → don't
+// hijack the load (lean against the blocking-modal bug f4274d8 just killed)
+ok('dirty, no savedAt → false (unknown age)',  isSnapshotNewerThan({ dirty: true }, '2026-01-01') === false);
+ok('dirty, bad savedAt → false (unknown age)', isSnapshotNewerThan({ dirty: true, savedAt: 'not-a-date' }, null) === false);
 // non-dirty with no updatedAt → can't compare → don't restore
 ok('clean snap, no updatedAt → false',         isSnapshotNewerThan({ dirty: false }, '2026-01-01') === false);
 // clean snap, server has nothing → snapshot wins
@@ -100,7 +114,7 @@ ok('both ts corrupt → true (offer)',           isSnapshotNewerThan({ updatedAt
 ok('no-regress: newer matches old',            isSnapshotNewerThan({ updatedAt: '2026-06-02T00:00:00Z' }, '2026-06-01T00:00:00Z') === oldIsNewer({ updatedAt: '2026-06-02T00:00:00Z' }, '2026-06-01T00:00:00Z'));
 ok('no-regress: older matches old',            isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-02T00:00:00Z') === oldIsNewer({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-02T00:00:00Z'));
 ok('no-regress: equal matches old',            isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-01T00:00:00Z') === oldIsNewer({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-01T00:00:00Z'));
-ok('no-regress: dirty still wins',             isSnapshotNewerThan({ dirty: true, updatedAt: 'not-a-date' }, '2026-06-01T00:00:00Z') === true);
+ok('no-regress: dirty+fresh still wins',       isSnapshotNewerThan({ dirty: true, savedAt: FRESH, updatedAt: 'not-a-date' }, '2026-06-01T00:00:00Z') === true);
 ok('no-regress: clean no-updatedAt → false',   isSnapshotNewerThan({ dirty: false }, '2026-06-01T00:00:00Z') === false);
 
 // ──────────────────────────────────────────────────────────────────────────
