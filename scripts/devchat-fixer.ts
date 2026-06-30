@@ -113,12 +113,24 @@ async function handle(thread: any, messages: any[]) {
   // Ship it.
   sh('git', ['add', '-A']);
   const subject = reply.split('\n')[0].slice(0, 72);
-  const commit = sh('git', ['commit', '-m', `devchat: ${subject}\n\nShipped via DevChat live pipe. Thread ${tid}.`]);
-  const push = sh('git', ['push', 'origin', 'main']);
+  sh('git', ['commit', '-m', `devchat: ${subject}\n\nShipped via DevChat live pipe. Thread ${tid}.`]);
+
+  // Push with rebase-retry: the main Claude Code chat (or another devchat
+  // request) may have advanced origin/main DURING our claude run, so the first
+  // push can be rejected as non-fast-forward. Rebase our commit on top and
+  // retry instead of stranding it locally.
+  let pushed = false, pushErr = '';
+  for (let attempt = 0; attempt < 4 && !pushed; attempt++) {
+    const push = sh('git', ['push', 'origin', 'main']);
+    if (push.code === 0) { pushed = true; break; }
+    pushErr = push.out;
+    const reb = sh('git', ['pull', '--rebase', 'origin', 'main']);
+    if (reb.code !== 0) { sh('git', ['rebase', '--abort']); pushErr = reb.out; break; }
+  }
   const sha = sh('git', ['rev-parse', '--short', 'HEAD']).out.trim();
 
-  if (push.code !== 0) {
-    await postMessage(tid, `I made and built the change (commit ${sha}) but the push failed:\n\n\`\`\`\n${push.out.split('\n').slice(-6).join('\n')}\n\`\`\`\nIt's committed locally on the fort; I'll retry on the next run.`);
+  if (!pushed) {
+    await postMessage(tid, `I made and built the change (commit ${sha}) but couldn't push it after retrying:\n\n\`\`\`\n${pushErr.split('\n').slice(-6).join('\n')}\n\`\`\`\nIt's committed locally on the fort; flagging for Johnny.`);
     return;
   }
   await postMessage(tid, `✅ shipped — ${reply}\n\ncommit \`${sha}\` · deploying to production now, give it ~60 seconds then refresh.`);
