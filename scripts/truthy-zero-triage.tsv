@@ -36,3 +36,4 @@ translation/src/main.js	.value||16	SAFE	parseInt(#max-words?.value||16) — `||`
 translation/src/main.js	.value||5	SAFE	parseInt(#max-duration?.value||5) — `||` on the STRING value; typed "0" survives; SRT duration cap, 0 invalid anyway
 public/walden-3d/scene3d.html	+el.wFt||8	SAFE	BoxGeometry width (ft) of a landscape element; a 0-ft-wide pool/deck/etc is geometrically degenerate (zero-volume, invisible) — not a meaningful value, 8ft is the sensible fallback for an unset dim
 public/walden-3d/scene3d.html	+el.lFt||8	SAFE	BoxGeometry length (ft) of a landscape element; a 0-ft-long element is degenerate (same as wFt); 8ft fallback for an unset dim
+scripts/devchat-fixer.ts	Number(process.env.DEVCHAT_POLL_MS||12000	SAFE	`||` on an env-var STRING; typed "0" is truthy and survives, only unset/empty→12000; a 0ms poll interval is busy-loop nonsense anyway
