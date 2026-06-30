@@ -272,11 +272,45 @@ export function mountMediaDeck(editorContainer, opts = {}) {
 
   const regionsPlugin = wavesurfer.registerPlugin(RegionsPlugin.create());
 
+  const wordKaraokeEnabled = Array.isArray(wordTimings) &&
+    wordTimings.length > 0 &&
+    typeof window !== 'undefined' &&
+    'Highlight' in window &&
+    typeof CSS !== 'undefined' &&
+    CSS.highlights;
+  let rafId = null;
+  let lastWordKey = null;
+  let karaokeHighlight = null;
+  if (wordKaraokeEnabled) {
+    karaokeHighlight = new Highlight();
+    CSS.highlights.set('karaoke-word', karaokeHighlight);
+  }
+
   // ── Time sync ──────────────────────────────────────────────────────
   function refreshTimeLabel() {
     const cur = video.currentTime || 0;
     const total = video.duration || 0;
     timeEl.textContent = `${formatClock(cur)} / ${formatClock(total)}`;
+  }
+  function onVideoPlay() {
+    playPauseBtn.innerHTML = ICON_PAUSE;
+    playPauseBtn.setAttribute('aria-label', 'Pause');
+    startWordLoop();
+  }
+  function onVideoPause() {
+    playPauseBtn.innerHTML = ICON_PLAY;
+    playPauseBtn.setAttribute('aria-label', 'Play');
+    stopWordLoop();
+    highlightCurrentWord(video.currentTime);
+  }
+  function onVideoEnded() {
+    stopWordLoop();
+  }
+  function onVideoSeeking() {
+    highlightCurrentWord(video.currentTime);
+  }
+  function onVideoSeeked() {
+    highlightCurrentWord(video.currentTime);
   }
   video.addEventListener('timeupdate', () => {
     refreshTimeLabel();
@@ -284,14 +318,11 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     onTimeUpdate(video.currentTime);
   });
   video.addEventListener('loadedmetadata', refreshTimeLabel);
-  video.addEventListener('play', () => {
-    playPauseBtn.innerHTML = ICON_PAUSE;
-    playPauseBtn.setAttribute('aria-label', 'Pause');
-  });
-  video.addEventListener('pause', () => {
-    playPauseBtn.innerHTML = ICON_PLAY;
-    playPauseBtn.setAttribute('aria-label', 'Play');
-  });
+  video.addEventListener('play', onVideoPlay);
+  video.addEventListener('pause', onVideoPause);
+  video.addEventListener('ended', onVideoEnded);
+  video.addEventListener('seeking', onVideoSeeking);
+  video.addEventListener('seeked', onVideoSeeked);
 
   // Surface load errors instead of silently failing. CORS, 403, or media
   // codec issues all show up here. Without this we'd just see a dead player.
@@ -447,6 +478,143 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     return locateSegmentAt(segIndex, t);
   }
 
+  function clearCurrentWordHighlight() {
+    if (!karaokeHighlight) return;
+    karaokeHighlight.clear();
+    lastWordKey = null;
+  }
+
+  function wordCharRangeInSegment(spanEls, wordIndex) {
+    const text = Array.from(spanEls || [], el => el.textContent || '').join('');
+    if (!text) return null;
+    const tokens = Array.from(text.matchAll(/\S+/g));
+    if (tokens.length === 0) return null;
+    const clampedIndex = Math.max(0, Math.min(tokens.length - 1, wordIndex));
+    const match = tokens[clampedIndex];
+    if (!match || match.index == null) return null;
+    return {
+      charStart: match.index,
+      charEnd: match.index + match[0].length,
+    };
+  }
+
+  function rangeForCharSpan(spanEls, charStart, charEnd) {
+    const elements = Array.from(spanEls || []);
+    if (elements.length === 0) return null;
+    if (!isFinite(charStart) || !isFinite(charEnd) || charEnd <= charStart) return null;
+    let total = 0;
+    let startNode = null;
+    let startOffset = 0;
+    let endNode = null;
+    let endOffset = 0;
+    let lastTextNode = null;
+
+    for (const el of elements) {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+      let cur;
+      // eslint-disable-next-line no-cond-assign
+      while ((cur = walker.nextNode())) {
+        const len = cur.textContent?.length || 0;
+        if (len === 0) continue;
+        const nextTotal = total + len;
+        if (!startNode && charStart >= total && charStart < nextTotal) {
+          startNode = cur;
+          startOffset = charStart - total;
+        }
+        if (!endNode && charEnd > total && charEnd <= nextTotal) {
+          endNode = cur;
+          endOffset = charEnd - total;
+        }
+        total = nextTotal;
+        lastTextNode = cur;
+      }
+    }
+
+    if (!startNode || !lastTextNode) return null;
+    if (!endNode) {
+      if (charEnd !== total) return null;
+      endNode = lastTextNode;
+      endOffset = lastTextNode.textContent?.length || 0;
+    }
+
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    return range;
+  }
+
+  function highlightCurrentWord(currentTime) {
+    if (!wordKaraokeEnabled || !editorContainer) return;
+    const seg = findSegmentAt(currentTime);
+    if (!seg) {
+      clearCurrentWordHighlight();
+      return;
+    }
+
+    const segStart = seg.startSec;
+    const segEnd = seg.endSec;
+    const wordsInSeg = wordTimingsInSegment(wordTimings, segStart, segEnd);
+    if (wordsInSeg.length === 0) {
+      clearCurrentWordHighlight();
+      return;
+    }
+
+    let activeIndex = -1;
+    for (let i = 0; i < wordsInSeg.length; i += 1) {
+      const word = wordsInSeg[i];
+      if (word.start <= currentTime && currentTime <= word.end + 0.04) {
+        activeIndex = i;
+      }
+    }
+
+    const segKeyPrefix = `${seg.number}:`;
+    if (activeIndex < 0) {
+      if (lastWordKey && lastWordKey.startsWith(segKeyPrefix)) return;
+      clearCurrentWordHighlight();
+      return;
+    }
+
+    const wordKey = `${seg.number}:${activeIndex}`;
+    if (wordKey === lastWordKey) return;
+
+    const segmentEls = editorContainer.querySelectorAll(`span[data-segment][data-number="${seg.number}"]`);
+    if (!segmentEls.length) {
+      clearCurrentWordHighlight();
+      return;
+    }
+
+    const charRange = wordCharRangeInSegment(segmentEls, activeIndex);
+    if (!charRange) {
+      clearCurrentWordHighlight();
+      return;
+    }
+
+    const range = rangeForCharSpan(segmentEls, charRange.charStart, charRange.charEnd);
+    if (!range) {
+      clearCurrentWordHighlight();
+      return;
+    }
+
+    karaokeHighlight.clear();
+    karaokeHighlight.add(range);
+    lastWordKey = wordKey;
+  }
+
+  function startWordLoop() {
+    if (!wordKaraokeEnabled || rafId != null) return;
+    const tick = () => {
+      highlightCurrentWord(video.currentTime);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function stopWordLoop() {
+    if (rafId == null) return;
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+
   // Capture refs so destroy() can detach.
   const noteUserScroll = () => { lastUserScrollAt = Date.now(); };
   const noteUserScrollKey = (e) => {
@@ -580,6 +748,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
 
   function destroy() {
     try { video.pause(); } catch {}
+    stopWordLoop();
     // Cancel any in-flight media fetch so we're not still downloading a
     // 2 GB ProRes proxy after the user navigated away.
     try { video.removeAttribute('src'); video.load(); } catch {}
@@ -592,12 +761,21 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     window.removeEventListener('mousemove', onWindowMousemove);
     window.removeEventListener('mouseup',   onWindowMouseup);
     window.removeEventListener('keydown',   onKeydown);
+    video.removeEventListener('play',    onVideoPlay);
+    video.removeEventListener('pause',   onVideoPause);
+    video.removeEventListener('ended',   onVideoEnded);
+    video.removeEventListener('seeking', onVideoSeeking);
+    video.removeEventListener('seeked',  onVideoSeeked);
     // Editor-container listeners — same risk.
     if (editorContainer) {
       editorContainer.removeEventListener('click',     onEditorClick);
       editorContainer.removeEventListener('wheel',     noteUserScroll);
       editorContainer.removeEventListener('touchmove', noteUserScroll);
       editorContainer.removeEventListener('keydown',   noteUserScrollKey);
+    }
+    if (karaokeHighlight && typeof CSS !== 'undefined' && CSS.highlights) {
+      try { CSS.highlights.delete('karaoke-word'); } catch {}
+      karaokeHighlight = null;
     }
     if (root.parentNode) root.parentNode.removeChild(root);
     document.body.classList.remove('has-media-deck');
@@ -641,10 +819,7 @@ function isInViewportFairly(el) {
 // If anything goes wrong (no words match, bad geometry), return NaN
 // and the caller falls back to segStart.
 function wordTimeFromClick(e, segEl, segStart, segEnd, wordTimings) {
-  const wordsInSeg = wordTimings.filter(w =>
-    typeof w.start === 'number' && typeof w.end === 'number' &&
-    w.start >= segStart - 0.05 && w.end <= segEnd + 0.05
-  );
+  const wordsInSeg = wordTimingsInSegment(wordTimings, segStart, segEnd);
   if (wordsInSeg.length === 0) return NaN;
 
   const text = segEl.textContent || '';
@@ -679,6 +854,14 @@ function wordTimeFromClick(e, segEl, segStart, segEnd, wordTimings) {
   const idx = wordIndexFromCharOffset(text, offset, wordsInSeg.length);
   const target = wordsInSeg[idx];
   return target?.start ?? segStart;
+}
+
+function wordTimingsInSegment(wordTimings, segStart, segEnd) {
+  if (!Array.isArray(wordTimings)) return [];
+  return wordTimings.filter(w =>
+    typeof w.start === 'number' && typeof w.end === 'number' &&
+    w.start >= segStart - 0.05 && w.end <= segEnd + 0.05
+  );
 }
 
 // Compute the character offset from segEl.textContent up to (node, offset).

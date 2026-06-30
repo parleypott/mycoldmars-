@@ -5521,6 +5521,14 @@ span[data-segment].is-playing {
   transition: background 120ms ease-out;
 }
 
+::highlight(karaoke-word) {
+  background-color: rgba(221, 44, 30, 0.18); /* --np-red @ low alpha, subtle */
+  text-decoration: underline;
+  text-decoration-color: rgba(221, 44, 30, 0.9);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
 /* Block-segment style (bilingual mode where each segment is its own
    block) — promote the highlight to a left rule + soft fill so the
    moving marker reads at a glance. */
@@ -9097,4 +9105,3 @@ body:has(#gate:not(.hidden))::after { display: none !important; }
   letter-spacing: 0.04em;
 }
 #gate-setup-link:hover { color: var(--np-red) !important; }
-

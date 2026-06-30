@@ -70,7 +70,7 @@ let currentSummary = null;    // auto-generated chronological summary
 let rawSummary = null;        // raw AI output before timecode enrichment
 let summaryBullets = [];      // parsed bullet data: [{ id, rawText, enrichedText, segmentStart, segmentEnd }]
 let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
-let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
+let wordTimingsMap = null;    // JSON word-level timings: flat [{ word, start, end }] or legacy { segNum: { start, end } }
 let currentSlug = null;       // clean URL slug for permalink
 let lastServerUpdatedAt = null; // last updated_at the server confirmed for this transcript (optimistic concurrency)
 let libraryCurrentProject = null;  // null = root (show all projects + unsorted)
