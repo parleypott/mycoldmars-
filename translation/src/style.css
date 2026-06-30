@@ -7494,7 +7494,10 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   position: fixed;
   bottom: 20px;
   right: 20px;
-  z-index: var(--z-popover);
+  /* Sit just under toasts (600) so the button is ALWAYS visible + clickable on
+     every screen — above the editor's full-width waveform/transport bar and the
+     media deck, which previously covered it everywhere but the empty home page. */
+  z-index: 595;
   display: inline-flex;
   align-items: center;
   gap: 8px;
