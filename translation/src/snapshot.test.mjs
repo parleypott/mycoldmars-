@@ -212,6 +212,64 @@ saveSnapshot('my', { text: 'မြန်မာစာ '.repeat(50) }, 'ts');
 ok('real non-Latin snapshot still saves',       loadSnapshot('my') !== null);
 
 // ──────────────────────────────────────────────────────────────────────────
+// TRIMMED-snapshot fallback (commit 32b3771) — the crash-recovery safety net
+// for Johnny's LARGEST interviews. When a payload exceeds MAX_BYTES, the OLD
+// behavior was a silent `return`: the snapshot was NEVER written for exactly
+// the biggest, hardest-to-recreate transcripts. Now: drop the bulkiest,
+// RE-DERIVABLE field (wordTimings / word_timings) and store a TRIMMED snapshot
+// that keeps the irreplaceable human work (segments, translations, editorState).
+// MUTATION: restore the old `if (over) return;` (delete the trim block) and
+// every assert below that expects a STORED trimmed snapshot goes RED.
+reset();
+// Payload that is over-cap ONLY because of word timings: ~2.2M chars *2 (UTF-16)
+// = 4.4MB > 4MB whole, but tiny once the timings are dropped.
+const bigTimings = 'x'.repeat(2_200_000);
+saveSnapshot('huge', {
+  segments: [{ id: 1, text: 'irreplaceable transcription work' }],
+  translations: { my: 'အရေးကြီးသော' },
+  editorState: { caret: 42 },
+  wordTimings: bigTimings,
+  word_timings: bigTimings,
+}, 'ts-huge');
+const huge = loadSnapshot('huge');
+// the headline win: it's STORED now, not dropped (old code → null here)
+ok('over-cap snapshot is STORED (was dropped)', huge !== null);
+ok('trimmed snapshot flagged trimmed:true',     huge && huge.trimmed === true);
+// the bulky re-derivable fields are gone…
+ok('trim drops wordTimings',                    huge && huge.payload.wordTimings === undefined);
+ok('trim drops word_timings',                   huge && huge.payload.word_timings === undefined);
+// …but the irreplaceable human work survives
+ok('trim keeps segments',                       huge && Array.isArray(huge.payload.segments) && huge.payload.segments[0].text === 'irreplaceable transcription work');
+ok('trim keeps translations',                   huge && huge.payload.translations && huge.payload.translations.my === 'အရေးကြီးသော');
+ok('trim keeps editorState',                    huge && huge.payload.editorState && huge.payload.editorState.caret === 42);
+ok('trimmed snapshot enters the index',         readIndex().includes('huge'));
+// the trimmed write must NOT mutate the caller's payload object (it spreads a
+// shallow copy before deleting). MUTATION: drop the `payload: { ...payload }`
+// copy and delete off `record.payload` directly → this goes RED.
+reset();
+const callerPayload = { segments: [{ text: 'keep' }], wordTimings: 'y'.repeat(2_200_000) };
+saveSnapshot('nomut', callerPayload, 'ts');
+ok('save does not mutate caller payload',        callerPayload.wordTimings !== undefined);
+
+// no-regression: a NORMAL (under-cap) save is NOT marked trimmed and keeps its
+// timings — the trim branch must only fire over the cap.
+reset();
+saveSnapshot('normal', { segments: [{ text: 'hi' }], wordTimings: [0.1, 0.2] }, 'ts');
+const normal = loadSnapshot('normal');
+ok('under-cap save not flagged trimmed',         normal && normal.trimmed === undefined);
+ok('under-cap save keeps wordTimings',           normal && Array.isArray(normal.payload.wordTimings));
+
+// outlier still-too-big even trimmed (bulk is NOT in timings) → skipped, as
+// before, and must not poison the next save. MUTATION: this is the existing
+// guard at snapshot.js:82.
+reset();
+saveSnapshot('whale', { segments: 'z'.repeat(2_200_000) }, 'ts');
+ok('still-over-cap-after-trim → skipped',        loadSnapshot('whale') === null);
+ok('skipped whale: index untouched',             readIndex().length === 0);
+saveSnapshot('after', { ok: true }, 'ts');
+ok('normal save after skipped whale works',      loadSnapshot('after') !== null);
+
+// ──────────────────────────────────────────────────────────────────────────
 // clearSnapshot — removes key AND index entry, leaves others intact
 // ──────────────────────────────────────────────────────────────────────────
 reset();
