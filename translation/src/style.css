@@ -8799,8 +8799,8 @@ body:has(#step-1.home--brutalist.active) #app {
   border-top: 2px solid var(--br-accent);
 }
 
-/* ── CIRCLE CTAs ───────────────────────────────────────────────────
- * Each path becomes a hard circle with the icon stacked above the
+/* ── SQUARE CTAs ───────────────────────────────────────────────────
+ * Each path becomes a hard square with the icon stacked above the
  * blocky title and a mono caption below. Two side by side. */
 .home--brutalist.active .home-paths {
   position: relative;
@@ -8828,7 +8828,7 @@ body:has(#step-1.home--brutalist.active) #app {
   cursor: pointer;
   font-family: var(--br-display);
   text-align: center;
-  /* the circle is the glyph — title and sub stack below it */
+  /* the square is the glyph — title and sub stack below it */
 }
 .home--brutalist.active .home-path:active { transform: translateY(1px); }
 .home--brutalist.active .home-path-glyph {
@@ -8842,7 +8842,7 @@ body:has(#step-1.home--brutalist.active) #app {
   flex: 0 0 auto;
   background: transparent;
   border: 2px solid var(--br-ink);
-  border-radius: 50%;
+  border-radius: 4px;
   color: var(--br-ink);
   transition: background 160ms ease, color 160ms ease, transform 200ms ease;
 }
