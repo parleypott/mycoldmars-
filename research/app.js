@@ -314,10 +314,6 @@ async function clarifyPhase(prompt) {
   });
 }
 
-function escapeHtml(s) {
-  return (s ?? "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 // ----- master "run" -----
 async function runResearch() {
   const prompt = $("#prompt").value.trim();
