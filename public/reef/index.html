@@ -20,7 +20,6 @@
   }
   .frame.show { opacity: 1; }
 
-  /* boot / loading */
   #boot {
     position: fixed; inset: 0; z-index: 20;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -32,12 +31,10 @@
   #boot.gone { opacity: 0; pointer-events: none; }
   #bar { width: 220px; height: 2px; background: #14201f; overflow: hidden; }
   #bar > i { display: block; height: 100%; width: 0%; background: #2e6f6a; transition: width .2s ease; }
-  #boot .hint { font-size: 10px; color: #2c3a3a; max-width: 320px; text-align: center; }
+  #boot .hint { font-size: 10px; color: #2c3a3a; max-width: 340px; text-align: center; }
 
-  /* mono helpers */
   .mono { font: 500 11px/1 ui-monospace, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
 
-  /* kill button — only while paused */
   #kill {
     position: fixed; top: 22px; right: 22px; z-index: 15;
     width: 54px; height: 54px; border-radius: 50%;
@@ -51,7 +48,6 @@
   #kill:hover { background: rgba(220,38,38,.9); border-color: rgba(255,120,120,.6); color: #fff; transform: scale(1.06); }
   #kill:active { transform: scale(.94); }
 
-  /* pause control strip */
   #ctrl {
     position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
     z-index: 15; display: none; align-items: center; gap: 6px;
@@ -73,7 +69,6 @@
   #ctrl .resume { background: rgba(46,111,106,.5); color: #eafffb; }
   #ctrl .resume:hover { background: rgba(46,111,106,.9); }
 
-  /* readout: reef name + tally, shown while paused */
   #meta {
     position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
     z-index: 15; text-align: center; color: #8aa0a0; display: none;
@@ -83,7 +78,6 @@
   #meta .name { font-size: 13px; letter-spacing: .22em; color: #d4e2e1; }
   #meta .tally { font-size: 10px; letter-spacing: .18em; color: #4a5e5d; margin-top: 6px; }
 
-  /* tiny corner hud on mouse move while playing */
   #hud {
     position: fixed; left: 16px; bottom: 14px; z-index: 5;
     color: #243231; pointer-events: none; opacity: 0; transition: opacity .4s ease;
@@ -91,10 +85,7 @@
   body.peek:not(.paused) #hud { opacity: 1; }
   body.peek { cursor: default; }
 
-  .flash {
-    position: fixed; inset: 0; z-index: 14; background: rgba(220,38,38,.0);
-    pointer-events: none; transition: background .08s ease;
-  }
+  .flash { position: fixed; inset: 0; z-index: 14; background: rgba(220,38,38,0); pointer-events: none; transition: background .08s ease; }
   .flash.on { background: rgba(220,38,38,.28); transition: none; }
 </style>
 </head>
@@ -131,127 +122,36 @@
   <div id="hud"><span class="mono" id="hudText"></span></div>
 
 <script>
-const TOKEN = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
+// Frames are baked Google-satellite stills in ./frames, listed in manifest.json.
+// Rebuild them with: bun tools/reef-render.ts all
+const els = {
+  imgs: [document.getElementById('a'), document.getElementById('b')],
+  boot: document.getElementById('boot'),
+  bar: document.querySelector('#bar > i'),
+  flash: document.getElementById('flash'),
+  hud: document.getElementById('hudText'),
+  name: document.getElementById('metaName'),
+  tally: document.getElementById('metaTally'),
+  fps: document.getElementById('fps'),
+};
 
-// ---- reef catalog -----------------------------------------------------------
-// Clear-demarcation reefs: atolls + barrier systems. [name, lat, lon, zoom]
-const REEFS = [
-  ["Rangiroa",        -15.13, -147.65, 10],
-  ["Fakarava",        -16.30, -145.62, 11],
-  ["Tikehau",         -15.00, -148.18, 11],
-  ["Toau",            -15.93, -145.90, 11],
-  ["Apataki",         -15.55, -146.40, 11],
-  ["Kauehi",          -15.83, -145.13, 11],
-  ["Raroia",          -16.05, -142.45, 11],
-  ["Makemo",          -16.55, -143.65, 10],
-  ["Anaa",            -17.40, -145.50, 11],
-  ["Hao",             -18.10, -140.95, 10],
-  ["Bora Bora",       -16.50, -151.74, 12],
-  ["Tetiaroa",        -17.01, -149.57, 12],
-  ["Maupiti",         -16.43, -152.24, 12],
-  ["Aitutaki",        -18.85, -159.78, 12],
-  ["Manuae",          -19.27, -158.95, 12],
-  ["Suwarrow",        -13.25, -163.10, 11],
-  ["North Male",        4.40,   73.45, 11],
-  ["Ari Atoll",         3.90,   72.85, 10],
-  ["Baa Atoll",         5.20,   73.05, 10],
-  ["Addu Atoll",       -0.63,   73.15, 11],
-  ["Huvadhu",           0.50,   73.30,  9],
-  ["Diego Garcia",     -7.31,   72.41, 11],
-  ["Salomon Atoll",    -5.33,   72.25, 12],
-  ["Peros Banhos",     -5.30,   71.78, 11],
-  ["Aldabra",          -9.41,   46.36, 11],
-  ["Astove",          -10.08,   47.74, 12],
-  ["Cosmoledo",        -9.71,   47.55, 11],
-  ["Lighthouse/Blue Hole", 17.31, -87.53, 12],
-  ["Glover's Reef",    16.83,  -87.80, 11],
-  ["Turneffe",         17.40,  -87.85, 11],
-  ["Banco Chinchorro", 18.60,  -87.33, 11],
-  ["Alacranes",        22.45,  -89.68, 11],
-  ["Exuma Cays",       24.20,  -76.50, 10],
-  ["Andros Barrier",   24.70,  -77.75, 10],
-  ["Ribbon Reefs",    -14.65,  145.65, 10],
-  ["Swain Reefs",     -21.70,  152.30,  9],
-  ["Hardy/Heart Reef",-19.75,  149.20, 12],
-  ["Palau Rock Is.",    7.15,  134.37, 12],
-  ["Chuuk Lagoon",      7.40,  151.78, 10],
-  ["Kwajalein",         8.72,  167.73,  9],
-  ["Bikini Atoll",     11.60,  165.38, 11],
-  ["Majuro",            7.11,  171.18, 11],
-  ["Ailinglaplap",      7.28,  168.62, 10],
-  ["Ulithi",            9.96,  139.65, 11],
-  ["Woleai",            7.36,  143.91, 12],
-  ["Kiritimati",        1.87, -157.40, 10],
-  ["Tarawa",            1.42,  172.98, 11],
-  ["Caroline Atoll",   -9.93, -150.21, 12],
-  ["Palmyra",           5.88, -162.08, 12],
-  ["Kingman Reef",      6.40, -162.41, 12],
-  ["Tubbataha",         8.85,  119.92, 11],
-  ["Mischief Reef",     9.90,  115.53, 12],
-  ["Ouvea Barrier",   -20.55,  166.45, 11],
-  ["Great Astrolabe", -18.75,  178.55, 11],
-  ["Sanganeb",         19.73,   37.43, 13],
-  ["Sha'ab Rumi",      19.93,   37.41, 13],
-  ["Lakshadweep",      10.57,   72.64, 10],
-  ["St Joseph Atoll",  -5.43,   53.34, 12],
-];
-
-// expand each reef into zoom/pan variants for a denser loop
-function expand(reefs) {
-  const out = [];
-  for (const [name, lat, lon, z] of reefs) {
-    out.push({ name, lat, lon, z });
-    out.push({ name, lat, lon, z: z + 1 });
-    const d = 0.55 / Math.pow(2, z - 9);
-    out.push({ name, lat: lat + d, lon: lon + d, z });
-    out.push({ name, lat: lat - d, lon: lon - d, z });
-  }
-  return out;
-}
-
-const frameKey = (f) => `${f.name}|${f.lat.toFixed(3)}|${f.lon.toFixed(3)}|${f.z}`;
-
-// persisted cull list — frames Johnny has deleted stay gone across reloads
-const KILL_STORE = 'reef_killed_v1';
+const KILL_STORE = 'reef_killed_v2';
 let killed = new Set();
 try { killed = new Set(JSON.parse(localStorage.getItem(KILL_STORE) || '[]')); } catch (e) {}
 const persistKilled = () => { try { localStorage.setItem(KILL_STORE, JSON.stringify([...killed])); } catch (e) {} };
 
-let FRAMES = expand(REEFS);
+let FRAMES = [];
+const frameKey = (f) => f.file;
+const url = (f) => `frames/${f.file}`;
 
-// shuffle order each load
-for (let i = FRAMES.length - 1; i > 0; i--) {
-  const j = Math.floor(Math.random() * (i + 1));
-  [FRAMES[i], FRAMES[j]] = [FRAMES[j], FRAMES[i]];
-}
-
-function url(f) {
-  return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/`
-    + `${f.lon},${f.lat},${f.z},0/1280x720@2x`
-    + `?access_token=${TOKEN}&attribution=false&logo=false`;
-}
-
-// ---- player -----------------------------------------------------------------
-const imgs = [document.getElementById('a'), document.getElementById('b')];
-const boot = document.getElementById('boot');
-const barFill = document.querySelector('#bar > i');
-const flash = document.getElementById('flash');
-const hudText = document.getElementById('hudText');
-const metaName = document.getElementById('metaName');
-const metaTally = document.getElementById('metaTally');
-const fpsEl = document.getElementById('fps');
-
-let cache = [];
-let ready = [];                 // true = loaded & alive; false = unloaded/killed/failed
-let order = [...FRAMES.keys()];
-let pos = 0, curIdx = null;
-let visible = 0;
-let playing = true;
-let interval = 1000 / 12;       // 12 frames/sec ≈ 2 frames held @ 24fps
-let timer = null;
+let cache = [], ready = [], order = [];
+let pos = 0, curIdx = null, visible = 0;
+let playing = true, interval = 1000 / 12, timer = null;
 const BUFFER_TO_START = 8;
 
-function isKilled(i) { return killed.has(frameKey(FRAMES[i])); }
+const isKilled = (i) => killed.has(frameKey(FRAMES[i]));
+const readyCount = () => ready.filter(Boolean).length;
+const liveCount = () => FRAMES.filter((f) => !killed.has(frameKey(f))).length;
 
 function loadFrame(i) {
   return new Promise((res) => {
@@ -265,15 +165,13 @@ function loadFrame(i) {
 }
 
 async function preload() {
-  let started = false, done = 0;
+  let started = false;
   const idxs = [...FRAMES.keys()];
   const POOL = 6; let cursor = 0;
   async function worker() {
     while (cursor < idxs.length) {
-      const i = idxs[cursor++];
-      await loadFrame(i);
-      done++;
-      barFill.style.width = Math.min(100, (readyCount() / BUFFER_TO_START) * 100) + '%';
+      await loadFrame(idxs[cursor++]);
+      els.bar.style.width = Math.min(100, (readyCount() / BUFFER_TO_START) * 100) + '%';
       if (!started && readyCount() >= BUFFER_TO_START) { started = true; start(); }
     }
   }
@@ -282,19 +180,16 @@ async function preload() {
   updateMeta();
 }
 
-const readyCount = () => ready.filter(Boolean).length;
-const liveCount  = () => FRAMES.filter((f, i) => ready[i] || (cache[i] && !killed.has(frameKey(f)))).length;
-
 function display(i) {
   if (i == null || !cache[i]) return;
-  const incoming = imgs[1 - visible];
+  const incoming = els.imgs[1 - visible];
   incoming.src = cache[i].src;
   incoming.classList.add('show');
-  imgs[visible].classList.remove('show');
+  els.imgs[visible].classList.remove('show');
   visible = 1 - visible;
   curIdx = i;
   if (document.body.classList.contains('paused')) updateMeta();
-  if (hud.on) hudText.textContent =
+  if (hud.on) els.hud.textContent =
     `${FRAMES[i].name} · z${FRAMES[i].z} · ${Math.round(1000/interval)}fps · ${readyCount()} ready`;
 }
 
@@ -306,13 +201,12 @@ function step(dir) {
   }
   return -1;
 }
-
-function tick() { step(1); }
+const tick = () => step(1);
 
 function start() {
-  boot.classList.add('gone');
+  els.boot.classList.add('gone');
   if (timer) clearInterval(timer);
-  const first = order.find(x => ready[x]);
+  const first = order.find((x) => ready[x]);
   if (first != null) { pos = order.indexOf(first); display(first); }
   timer = setInterval(() => { if (playing) tick(); }, interval);
 }
@@ -320,38 +214,26 @@ function start() {
 function setSpeed(fps) {
   fps = Math.max(1, Math.min(24, fps));
   interval = 1000 / fps;
-  fpsEl.textContent = fps + ' fps';
+  els.fps.textContent = fps + ' fps';
   if (timer) { clearInterval(timer); timer = setInterval(() => { if (playing) tick(); }, interval); }
 }
 
-function setPaused(p) {
-  playing = !p;
-  document.body.classList.toggle('paused', p);
-  if (p) updateMeta();
-}
-function togglePause() { setPaused(playing); }
+function setPaused(p) { playing = !p; document.body.classList.toggle('paused', p); if (p) updateMeta(); }
+const togglePause = () => setPaused(playing);
 
 function updateMeta() {
-  if (curIdx != null && FRAMES[curIdx]) {
-    const f = FRAMES[curIdx];
-    metaName.textContent = `${f.name}  ·  z${f.z}`;
-  }
-  metaTally.textContent = `live ${liveCount()}  ·  deleted ${killed.size}  ·  ${Math.round(1000/interval)} fps`;
+  if (curIdx != null && FRAMES[curIdx]) els.name.textContent = `${FRAMES[curIdx].name}  ·  z${FRAMES[curIdx].z}`;
+  els.tally.textContent = `live ${liveCount()}  ·  deleted ${killed.size}  ·  ${Math.round(1000/interval)} fps`;
 }
 
 function killCurrent() {
   if (curIdx == null) return;
-  killed.add(frameKey(FRAMES[curIdx]));
-  persistKilled();
-  ready[curIdx] = false;          // pull from rotation immediately
-  // red flash feedback
-  flash.classList.add('on');
-  setTimeout(() => flash.classList.remove('on'), 90);
-  step(1);                        // advance to next alive frame
-  updateMeta();
+  killed.add(frameKey(FRAMES[curIdx])); persistKilled();
+  ready[curIdx] = false;
+  els.flash.classList.add('on'); setTimeout(() => els.flash.classList.remove('on'), 90);
+  step(1); updateMeta();
 }
 
-// ---- controls ---------------------------------------------------------------
 const hud = { on: false, t: null };
 function peek() {
   if (document.body.classList.contains('paused')) return;
@@ -371,8 +253,7 @@ document.getElementById('resume').addEventListener('click', (e) => { e.stopPropa
 window.addEventListener('keydown', (e) => {
   switch (e.key) {
     case ' ':          e.preventDefault(); togglePause(); break;
-    case 'k': case 'Backspace': case 'Delete':
-                       e.preventDefault(); if (!playing) killCurrent(); break;
+    case 'k': case 'Backspace': case 'Delete': e.preventDefault(); if (!playing) killCurrent(); break;
     case 'ArrowUp':    setSpeed(Math.round(1000/interval) + 1); updateMeta(); break;
     case 'ArrowDown':  setSpeed(Math.round(1000/interval) - 1); updateMeta(); break;
     case 'ArrowRight': if (!playing) step(1); break;
@@ -380,12 +261,22 @@ window.addEventListener('keydown', (e) => {
     case 'f':          document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
   }
 });
-
-// click the image: pause if playing, resume if paused (kill button handles its own clicks)
 document.getElementById('stage').addEventListener('click', () => togglePause());
 
-setSpeed(12);
-preload();
+// ---- boot -------------------------------------------------------------------
+(async function init() {
+  let manifest = [];
+  try { manifest = await fetch('frames/manifest.json', { cache: 'no-cache' }).then((r) => r.json()); } catch (e) {}
+  FRAMES = manifest.map((m) => ({ name: m.name, z: m.z, file: m.file }));
+  for (let i = FRAMES.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [FRAMES[i], FRAMES[j]] = [FRAMES[j], FRAMES[i]];
+  }
+  order = [...FRAMES.keys()];
+  if (!FRAMES.length) { els.boot.querySelector('div').textContent = 'no frames'; return; }
+  setSpeed(12);
+  preload();
+})();
 </script>
 </body>
 </html>
