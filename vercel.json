@@ -29,6 +29,8 @@
     { "source": "/burma-script/", "destination": "/burma-script/index.html" }
   ],
   "redirects": [
+    { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?newpress\\.press" }], "destination": "/deck-v2/", "permanent": false },
+
     { "source": "/queen-scarlet-school", "destination": "/universe/queen-scarlet/write", "permanent": false },
     { "source": "/queen-scarlet-school/", "destination": "/universe/queen-scarlet/write/", "permanent": false },
     { "source": "/queen-scarlet-school/universe", "destination": "/universe", "permanent": false },
