@@ -32,6 +32,11 @@ import { initFallingGlyphs, startFallingGlyphs, stopFallingGlyphs } from './fall
 import { isMediaFile, uploadMedia, runTranscription } from './upload/media-flow.js';
 import { openPreTranscribeDialog, openSpeakerLabelDialog } from './upload/dialogs.js';
 import { mountMediaDeck } from './edit/media-deck.js';
+import { initErrorReporting, captureError } from './sentry-lite.js';
+
+// Install the error reporter before anything else runs, so a throw during
+// init or in any handler surfaces in Sentry instead of dying silently.
+initErrorReporting();
 
 // ── State ──
 let segments = [];
@@ -1614,7 +1619,8 @@ async function handleLoad(id) {
     maybeAcquireLock();
   } catch (err) {
     console.error('Failed to load transcript:', err);
-    showError('Failed to load transcript: ' + err.message);
+    captureError(err, { where: 'handleLoad', transcriptId: id });
+    showError('Failed to load transcript: ' + (err?.message || 'Unknown error'));
   }
 }
 
