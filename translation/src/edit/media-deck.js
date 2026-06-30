@@ -25,7 +25,7 @@ import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.js';
 
 import { parseTimecodeToSeconds } from '../timecode-utils.js';
-import { buildSegIndex, findSegmentAt as locateSegmentAt, highlightTimeSpan } from './segment-locate.js';
+import { buildSegIndex, findSegmentAt as locateSegmentAt, highlightTimeSpan, wordTimingsInSegment, activeWordIndex } from './segment-locate.js';
 import { wordIndexFromCharOffset } from './word-index.js';
 import { formatClock } from '../format-clock.js';
 import { parseDeckCoord, clampDeckPosition } from './deck-position.js';
@@ -559,13 +559,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
       return;
     }
 
-    let activeIndex = -1;
-    for (let i = 0; i < wordsInSeg.length; i += 1) {
-      const word = wordsInSeg[i];
-      if (word.start <= currentTime && currentTime <= word.end + 0.04) {
-        activeIndex = i;
-      }
-    }
+    const activeIndex = activeWordIndex(wordsInSeg, currentTime);
 
     const segKeyPrefix = `${seg.number}:`;
     if (activeIndex < 0) {
@@ -854,14 +848,6 @@ function wordTimeFromClick(e, segEl, segStart, segEnd, wordTimings) {
   const idx = wordIndexFromCharOffset(text, offset, wordsInSeg.length);
   const target = wordsInSeg[idx];
   return target?.start ?? segStart;
-}
-
-function wordTimingsInSegment(wordTimings, segStart, segEnd) {
-  if (!Array.isArray(wordTimings)) return [];
-  return wordTimings.filter(w =>
-    typeof w.start === 'number' && typeof w.end === 'number' &&
-    w.start >= segStart - 0.05 && w.end <= segEnd + 0.05
-  );
 }
 
 // Compute the character offset from segEl.textContent up to (node, offset).

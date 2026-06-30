@@ -17,6 +17,7 @@
 
 import {
   resolveSegStart, resolveSegEnd, buildSegIndex, findSegmentAt, highlightTimeSpan,
+  wordTimingsInSegment, activeWordIndex,
 } from './segment-locate.js';
 
 let pass = 0, fail = 0;
@@ -110,6 +111,50 @@ eq(highlightTimeSpan({ segment_numbers: [999] }, SEGS), null, 'all-unresolvable 
 eq(highlightTimeSpan({ segment_numbers: [3, 1] }, SEGS), { start: 0, end: 30 }, 'out-of-order numbers -> min start, max end');
 // a single segment whose end <= start would be a non-positive span -> null.
 eq(highlightTimeSpan({ segment_numbers: [9] }, [{ number: 9, startSec: 5, endSec: 5 }]), null, 'zero-width highlight span -> null');
+
+// ── wordTimingsInSegment: which timed words belong to a segment ───────────────
+// The membership filter shared by the karaoke highlight loop AND click-to-seek.
+// A word belongs if its [start,end] sits inside [segStart,segEnd] ±0.05s grace.
+const WORDS = [
+  { start: 0.0,  end: 0.4 },   // 0: clearly in seg [0,2)
+  { start: 0.5,  end: 0.9 },   // 1
+  { start: 1.0,  end: 1.4 },   // 2
+  { start: 2.4,  end: 2.8 },   // 3: belongs to the NEXT segment [2.3,4)
+];
+eq(wordTimingsInSegment(WORDS, 0, 2).length, 3, 'seg [0,2) captures its 3 words, not the next seg\'s word');
+eq(wordTimingsInSegment(WORDS, 2.3, 4).map(w => w.start), [2.4], 'seg [2.3,4) captures only its own word');
+// ±0.05 grace: a word ending 0.04s past the segment end is still in (boundary brush).
+eq(wordTimingsInSegment([{ start: 1.9, end: 2.04 }], 0, 2).length, 1, '+0.05 end grace keeps a word brushing the boundary');
+// ...but a word clearly past the boundary is excluded.
+eq(wordTimingsInSegment([{ start: 2.2, end: 2.6 }], 0, 2).length, 0, 'word past the +0.05 grace is excluded');
+// RED proof: dropping the grace (using bare >=segStart && <=segEnd) drops the brush word above; widening it (e.g. ±1) would admit the 2.2 word.
+// Robustness: non-array -> [], words missing numeric start/end skipped.
+eq(wordTimingsInSegment(null, 0, 2), [], 'non-array wordTimings -> []');
+eq(wordTimingsInSegment([{ start: '0', end: 1 }, { start: 0.1, end: 0.2 }], 0, 2).length, 1, 'word with non-numeric start skipped');
+
+// ── activeWordIndex: which word is lit at currentTime ─────────────────────────
+// LAST word whose [start, end+grace] contains the time; -1 in a gap.
+const SEG_WORDS = [
+  { start: 0.0, end: 0.4 },  // 0
+  { start: 0.5, end: 0.9 },  // 1
+  { start: 1.0, end: 1.4 },  // 2
+];
+eq(activeWordIndex(SEG_WORDS, 0.2), 0, 'time inside word 0 -> 0');
+eq(activeWordIndex(SEG_WORDS, 0.7), 1, 'time inside word 1 -> 1');
+eq(activeWordIndex(SEG_WORDS, 1.2), 2, 'time inside word 2 -> 2');
+// 40ms end-grace keeps a word lit just past its end (in the micro-gap to next).
+eq(activeWordIndex(SEG_WORDS, 0.43), 0, 'within 40ms after word 0 end -> still 0 (grace)');
+// RED proof: a 50ms gap is beyond the 0.04 grace and before word 1 -> no word.
+eq(activeWordIndex(SEG_WORDS, 0.46), -1, 'gap beyond grace, before next word -> -1');
+// before the first word and after the last (past grace) -> -1.
+eq(activeWordIndex(SEG_WORDS, -1), -1, 'before all words -> -1');
+eq(activeWordIndex(SEG_WORDS, 5), -1, 'after all words -> -1');
+// LAST-match on overlap: with a generous grace, word 0's window [0,0.4+0.2] and
+// word 1's [0.5,...] both could match at 0.55 — but only if windows overlap.
+// Construct an explicit overlap: two words whose padded windows both contain t.
+eq(activeWordIndex([{ start: 0, end: 1 }, { start: 0.5, end: 2 }], 0.6), 1, 'overlapping windows -> LAST match wins');
+eq(activeWordIndex([], 1), -1, 'empty word list -> -1');
+eq(activeWordIndex(null, 1), -1, 'null word list -> -1 (no throw)');
 
 console.log(`\nsegment-locate: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

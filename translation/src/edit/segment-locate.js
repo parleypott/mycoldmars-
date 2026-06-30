@@ -71,3 +71,40 @@ export function highlightTimeSpan(h, segments) {
   if (!isFinite(start) || !isFinite(end) || end <= start) return null;
   return { start, end };
 }
+
+// ── Word-karaoke cores (the per-word highlight that lights up as the video
+// plays). Extracted VERBATIM from media-deck.js so the two previously-zero-
+// coverage, correctness-critical behaviors are unit-testable headlessly, and so
+// the membership filter can't drift between its two callers (the RAF highlight
+// loop AND click-to-seek).
+
+// Which timed words belong to a segment: those whose [start,end] sits inside the
+// segment's [segStart,segEnd] window, with a small ±0.05s tolerance so a word
+// whose timing brushes the boundary isn't dropped. Non-array input -> []; words
+// missing numeric start/end are skipped. Used by BOTH the highlight loop and
+// click-to-seek, so a single shared copy keeps them aligned.
+export function wordTimingsInSegment(wordTimings, segStart, segEnd) {
+  if (!Array.isArray(wordTimings)) return [];
+  return wordTimings.filter(w =>
+    typeof w.start === 'number' && typeof w.end === 'number' &&
+    w.start >= segStart - 0.05 && w.end <= segEnd + 0.05
+  );
+}
+
+// Which word (within a segment's word list, in document order) is active at
+// currentTime: the LAST word whose [start, end+grace] window contains the time.
+// A small end grace (default 40ms) keeps a word lit through the tiny gap before
+// the next one starts; taking the LAST match favors the later word when padded
+// windows overlap. Returns -1 when the time falls in a gap before/after/between
+// words (the caller keeps the prior word lit, or clears).
+export function activeWordIndex(wordsInSeg, currentTime, grace = 0.04) {
+  let activeIndex = -1;
+  const words = wordsInSeg || [];
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i];
+    if (word.start <= currentTime && currentTime <= word.end + grace) {
+      activeIndex = i;
+    }
+  }
+  return activeIndex;
+}
