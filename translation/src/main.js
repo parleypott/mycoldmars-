@@ -183,6 +183,11 @@ function goToStep(n) {
 
 function showLibrary() {
   flushPendingSave();
+  // Leaving the open transcript for the library — destroy the floating media
+  // deck so the video player doesn't linger over the library list and its
+  // playback/animation loops stop. It re-mounts when a transcript is reopened.
+  if (mediaDeck) { try { mediaDeck.destroy(); } catch {} mediaDeck = null; }
+  document.body.classList.remove('has-media-deck');
   stopFallingGlyphs();
   librarySelected.clear();
   libraryShowing = true;
@@ -223,7 +228,14 @@ async function fetchLibrary() {
   let transcripts = [];
   let p = [];
   try {
-    [p, transcripts] = await Promise.all([listProjects(), listTranscripts()]);
+    // Never hang on the skeleton forever — if the fetch stalls (stuck save
+    // holding the auth refresh, network), time out into the visible error +
+    // retry banner instead of leaving the user frozen on loading rows.
+    const withTimeout = (promise, ms, label) => Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out — tap retry`)), ms)),
+    ]);
+    [p, transcripts] = await withTimeout(Promise.all([listProjects(), listTranscripts()]), 15000, 'Library load');
     projects = p;
     const deletedSoFar = libraryCache?.deleted || disk?.deleted || [];
     libraryCache = { transcripts, projects, deleted: deletedSoFar, ts: Date.now() };
@@ -2686,8 +2698,13 @@ async function runSaveOnce(opts = {}) {
   if (saveInFlight) {
     nextSavePending = true;
     if (opts.awaitInFlight) {
-      // Wait until the chain settles.
-      while (saveInFlight || nextSavePending) {
+      // Wait until the chain settles — but NEVER block forever. A wedged save
+      // (network stall, stuck retry, the persistent "SAVING…" state) must not
+      // freeze navigation: the logo (resetToUpload) and the library both
+      // `await flushPendingSave()`, and an unbounded wait here made the logo
+      // dead and left the editor (video deck) stranded on screen.
+      const deadline = Date.now() + 6000;
+      while ((saveInFlight || nextSavePending) && Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 30));
       }
     }
