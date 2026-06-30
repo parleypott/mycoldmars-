@@ -128,13 +128,15 @@ async function handle(thread: any, messages: any[]) {
 
 // ── poll loop ──
 async function tick(processed: Set<string>) {
-  // Recent user messages (last 2h), newest first.
+  // Recent user messages (last 2h), newest first. NOTE: encode timestamp values —
+  // a raw "+00:00" offset becomes a space in the query string and PostgREST then
+  // rejects it as an invalid timestamp (22007).
   const sinceIso = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
-  const msgs: any[] = await rest(`devchat_messages?select=id,thread_id,sender,body,created_at&sender=eq.user&created_at=gt.${sinceIso}&order=created_at.asc`);
+  const msgs: any[] = await rest(`devchat_messages?select=id,thread_id,sender,body,created_at&sender=eq.user&created_at=gt.${encodeURIComponent(sinceIso)}&order=created_at.asc`);
   for (const m of msgs) {
     if (processed.has(m.id)) continue;
     // Skip if this thread already has a later non-user message (already answered).
-    const later: any[] = await rest(`devchat_messages?select=id,sender&thread_id=eq.${m.thread_id}&created_at=gt.${m.created_at}&sender=neq.user&limit=1`);
+    const later: any[] = await rest(`devchat_messages?select=id,sender&thread_id=eq.${m.thread_id}&created_at=gt.${encodeURIComponent(m.created_at)}&sender=neq.user&limit=1`);
     if (later.length) { processed.add(m.id); continue; }
     // Load the whole thread for context.
     const [thread] = await rest(`devchat_threads?select=id,page_url,page_state,title,status&id=eq.${m.thread_id}`);
