@@ -591,6 +591,13 @@
       toast(err.message || 'something went wrong', true);
       showPhase('upload');
       setStatus('error');
+      // Re-enable the analyze button so the "try again" the toast promises is actually
+      // possible. uploadedFile is still set on the error path (we never cleared it), and
+      // showPhase('upload') only toggles phase visibility — it does NOT touch the button,
+      // which runAnalysis disabled at entry. Without this, a single Gemini hiccup / timeout
+      // / "no segments returned" strands the button greyed-out until the user re-drops the
+      // same file. Mirrors the chat handler, which re-enables chatSend after its try/catch.
+      btnAnalyze.disabled = false;
     }
   }
 
