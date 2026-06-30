@@ -135,8 +135,10 @@ async function tick(processed: Set<string>) {
   const msgs: any[] = await rest(`devchat_messages?select=id,thread_id,sender,body,created_at&sender=eq.user&created_at=gt.${encodeURIComponent(sinceIso)}&order=created_at.asc`);
   for (const m of msgs) {
     if (processed.has(m.id)) continue;
-    // Skip if this thread already has a later non-user message (already answered).
-    const later: any[] = await rest(`devchat_messages?select=id,sender&thread_id=eq.${m.thread_id}&created_at=gt.${encodeURIComponent(m.created_at)}&sender=neq.user&limit=1`);
+    // Skip if WE already answered this (a later 'agent' message). We key on
+    // 'agent' specifically — not any non-user message — so a stray
+    // 'assistant'/'system' row can never make us silently skip a real request.
+    const later: any[] = await rest(`devchat_messages?select=id,sender&thread_id=eq.${m.thread_id}&created_at=gt.${encodeURIComponent(m.created_at)}&sender=eq.agent&limit=1`);
     if (later.length) { processed.add(m.id); continue; }
     // Load the whole thread for context.
     const [thread] = await rest(`devchat_threads?select=id,page_url,page_state,title,status&id=eq.${m.thread_id}`);

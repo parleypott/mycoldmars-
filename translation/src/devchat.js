@@ -490,11 +490,16 @@ async function sendCurrentMessage() {
     appendMessage(insertedRow);
     renderThreadList();
 
-    // 4. Kick the assistant reply. Show a typing indicator until either
-    // a reply lands via realtime/poll OR the API surfaces an error.
+    // 4. Show a typing indicator and wait for Parley's reply. The reply now
+    // comes from the DevChat live-pipe worker on the Redoubt (scripts/
+    // devchat-fixer.ts): it runs the real Parley agent in the repo, ACTUALLY
+    // makes the requested code change, build-gates + ships it, and posts an
+    // 'agent' reply (which pollAssistantReply/realtime paint here). We no
+    // longer call the edge-function triage — the fort worker is the single
+    // voice, so DevChat is a true live pipe to Parley, not a separate triage
+    // bot that can't ship code.
     showTypingIndicator();
     pollAssistantReply(activeThreadId, insertedRow.created_at).catch(() => {});
-    callDevchatRespond(activeThreadId);
   } catch (err) {
     showError(err?.message || 'Send failed.');
     console.warn('[devchat] send failed:', err);
