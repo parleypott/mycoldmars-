@@ -14,10 +14,15 @@ import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cl
 import { isReadOnly } from './read-mode.js';
 import { captureWriteTokenFromUrl } from './write-token.js';
 import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSnapshotAsync, snapshotToText, dismissSnapshot, dismissSnapshotAsync } from './recovery.js';
-import scriptData from '../sample-blocks.json';
+import { getEpisode } from './episode-config.js';
 
-const SOURCE_BLOCKS = scriptData.blocks || [];
-const DOC_TITLE = scriptData.title || 'Burma — The Human Element';
+// EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
+// palau-script/main.jsx) which calls setEpisode(...) BEFORE dynamically importing this
+// shared app, so getEpisode() here always returns the active episode. episode-config
+// defaults to BURMA, so a direct (boot-less) import still degrades to Burma.
+const EPISODE = getEpisode();
+const SOURCE_BLOCKS = EPISODE.blocksData || [];
+const DOC_TITLE = EPISODE.title;
 
 // ── THE CONTROL UNIT (feature E) — reading instrument ────────────────────────
 // A sticky LEFT panel, flat fig.01 box with Teenage-Engineering tactile knobs that
@@ -25,7 +30,7 @@ const DOC_TITLE = scriptData.title || 'Burma — The Human Element';
 // selector (serif + sans), and a tasteful-neutral COLOR SCHEME flipper. Everything
 // persists to localStorage and re-skins the whole instrument instantly. The unit
 // collapses into a small TE knob icon and re-expands with a smooth ~200ms ease.
-const LS_CTRL = 'wp01.controls.v1';
+const LS_CTRL = EPISODE.storage.CTRL;
 
 // 9 classic reading / word-processing faces — serif + sans. System faces need no
 // load; Newsreader / Source Serif / Literata / IBM Plex / Inter come from @import.
@@ -586,7 +591,7 @@ function recoveryFilename(snap) {
   const d = new Date(snap.ts || Date.now());
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-  return `burma-recovered-${snap.kind}-${stamp}.txt`;
+  return `${EPISODE.recoverPrefix}-${snap.kind}-${stamp}.txt`;
 }
 
 function RecoveryBanner() {
@@ -701,6 +706,12 @@ function App({ readOnly = false, readOnlyDoc = null }) {
   const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
 
+  useEffect(() => {
+    document.title = `${EPISODE.wordmark} · ${DOC_TITLE}`;
+    const icon = document.querySelector('link[rel="icon"]');
+    if (icon && EPISODE.favicon) icon.setAttribute('href', EPISODE.favicon);
+  }, []);
+
   function resetDoc() {
     // SACRED #1 — never wipe Johnny's fills without a recoverable copy. Snapshot the current
     // saved doc to a timestamped backup BEFORE removing it. snapshotDoc returns null when the
@@ -785,8 +796,8 @@ function App({ readOnly = false, readOnlyDoc = null }) {
             >
               <span class="wp-outline-glyph">{outlineOpen ? '‹' : '☰'}</span> OUTLINE
             </button>
-            <span class="wp-wordmark">WP·<b>01</b></span>
-            <span class="wp-rack-fig">fig.03 — CARTRIDGE RACK</span>
+            <span class="wp-wordmark">{EPISODE.wordmark}</span>
+            <span class="wp-rack-fig">{EPISODE.figLabel}</span>
           </div>
           <div class="wp-telemetry">
             {words.toLocaleString()} WORDS · {blocks} BLOCKS · <span class="wp-tel-sot">{String(done).padStart(2, '0')}/{String(sot).padStart(2, '0')} SOT</span> · DRAFT

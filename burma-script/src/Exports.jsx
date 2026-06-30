@@ -16,6 +16,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'preact/hooks';
 import { docToBlocks } from './document-builder.js';
 import { buildWorklists, toPlainText, actionable } from './worklists.js';
+import { getEpisode } from './episode-config.js';
 
 // Worklist bodies unwrap the inline span scaffolding ({tk …} / [visual …]) to inner text —
 // stripSpanScaffolding lives beside its inverse (inlineContent/wrapToken) in document-builder.js
@@ -49,8 +50,16 @@ function Worklist({ rows, empty, showDone }) {
   );
 }
 
+const TRANSLATION_TAB = { key: 'translation', label: 'TRANSLATION', file: 'burma-translation.txt', heading: 'Translation worklist (SOT)', empty: 'No SOT blocks to translate.' };
 const TABS = [
-  { key: 'translation', label: 'TRANSLATION', file: 'burma-translation.txt', heading: 'Translation worklist (SOT)', empty: 'No SOT blocks to translate.' },
+  TRANSLATION_TAB,
+  ...(((getEpisode()?.flavors) || []).filter((f) => f?.id).map((f) => ({
+    key: f.id,
+    label: f.label || f.id,
+    file: `${getEpisode().id}-${f.id}.txt`,
+    heading: `${f.label || f.id} worklist`,
+    empty: `No ${f.label || f.id} blocks.`,
+  }))),
 ];
 
 // `getDoc` returns the live ProseMirror JSON; `docTitle` heads the printed/downloaded sheet.

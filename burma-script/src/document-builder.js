@@ -49,6 +49,8 @@ export function cleanQuote(text) {
 // producer reading a checklist shouldn't see that markup. Strip the braces/brackets and
 // keep the inner text. This is the INVERSE of inlineContent/wrapToken above — keep the two
 // in sync (guarded by the worklist-unwrap checks in integrity-check.ts).
+import { getEpisode } from './episode-config.js';
+
 export function stripSpanScaffolding(text) {
   if (!text) return '';
   return String(text)
@@ -117,6 +119,48 @@ function formatTimecode(tc) {
 const TIMECODE_RE = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/;
 const TIMECODE_RE_G = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/g;
 
+const BURMA_DAY_CLASS = '123';
+const BURMA_HEAD_ALTERNATION = 'COLD\\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO';
+const STRUCTURAL_HEAD_WORDS = ['ACT', 'EPILOGUE', 'OUTRO', 'TEASER', 'INTRO'];
+
+function buildDayCharacterClass(days) {
+  const nums = (Array.isArray(days) ? days : [])
+    .map((day) => Number(day))
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 9)
+    .sort((a, b) => a - b);
+  const uniq = nums.filter((day, index) => index === 0 || day !== nums[index - 1]);
+  if (!uniq.length) return BURMA_DAY_CLASS;
+  const contiguous = uniq.every((day, index) => index === 0 || day === uniq[index - 1] + 1);
+  if (contiguous && uniq.length > 2) return `${uniq[0]}-${uniq[uniq.length - 1]}`;
+  return uniq.join('');
+}
+
+function episodeDayCharacterClass() {
+  try {
+    return buildDayCharacterClass(getEpisode()?.days);
+  } catch (_err) {
+    return BURMA_DAY_CLASS;
+  }
+}
+
+function episodeHeadAlternation() {
+  try {
+    const heads = (getEpisode()?.genres || []).map((genre) => genre?.head).filter(Boolean);
+    if (!heads.length) return BURMA_HEAD_ALTERNATION;
+    return [...heads, ...STRUCTURAL_HEAD_WORDS].join('|');
+  } catch (_err) {
+    return BURMA_HEAD_ALTERNATION;
+  }
+}
+
+const DAY_CLASS_SOURCE = episodeDayCharacterClass();
+const DAY_LOCAL = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
+const DAY_BLOCK = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
+const HEAD_ALTERNATION = episodeHeadAlternation();
+const ACT_HEAD = new RegExp(`^(${HEAD_ALTERNATION})\\b`, 'i');
+const ACT_LABEL_RE = new RegExp(`^(${HEAD_ALTERNATION})(\\s*\\d+)?`, 'i');
+const HEAD_BODY_SPLIT_RE = new RegExp(`^(${HEAD_ALTERNATION})(\\s*\\d+)?\\s*[.:–—-]?\\s*`, 'i');
+
 // Running DAY context for the timecode chip's `day` attr (#2). Set per-block by inlineContent /
 // headingNodes from the block's own day (sot/broll) or the nearest preceding DAY N. A bare module
 // variable is safe here because buildEditorDocument walks blocks strictly in order, single-threaded.
@@ -136,7 +180,6 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   let localDay = _ctxDay;
   let last = 0, m;
   TIMECODE_RE_G.lastIndex = 0;
-  const DAY_LOCAL = /\bDAY\s*([123])\b/i;
   while ((m = TIMECODE_RE_G.exec(text)) !== null) {
     if (m.index > last) {
       const seg = text.slice(last, m.index);
@@ -172,7 +215,7 @@ function inlineContent(rawText, type) {
   // broadcast timecode. Order in the alternation lets a timecode INSIDE a {tk …} stay part
   // of the brace token (the brace alternative wins because it starts earlier / is matched
   // first at that index). Standalone timecodes in plain prose get their own chip.
-  const re = /(\{[^{}]*\}|\[[^\[\]]*\])/g;
+  const re = /(\{[^{}]*\}|\[[^\[\]]*\]|~~[^~]+~~)/g;
   let last = 0;
   let m;
   while ((m = re.exec(text)) !== null) {
@@ -181,19 +224,22 @@ function inlineContent(rawText, type) {
     const tok = m[0];
 
     const isBrace = tok[0] === '{';
+    const isTrim = tok[0] === '~';
     // A {…} brace token is EITHER a fact-check ask ({fc …}/{fact …}) or a {tk …} writing
     // ask. Sniff the keyword to route to the right mark — the two are visually distinct and
     // open the Workshop hub in different modes (fc → verify; tk → 5 options).
     const isFc = isBrace && /^\{\s*(?:fc|fact)\b/i.test(tok);
-    const markType = isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan';
+    const markType = isTrim ? 'trimSpan' : (isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan');
     // Strip only the STRUCTURAL braces/brackets — KEEP the leading keyword ("tk"/"fc") in the
     // visible chip text, matching the CARTRIDGES reference ("tk fractured-shape", "tk ~one
     // fifth"). This is also the integrity-correct behaviour: the keyword is a real word in the
     // original script, so keeping it means no words are dropped (the audit sees every word).
     // nodeText.wrapToken is keyword-aware so the export round-trip stays single-keyword.
-    const inner = isBrace
-      ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
-      : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim();
+    const inner = isTrim
+      ? tok.slice(2, -2)                                  // keep struck words verbatim, drop only the ~~
+      : (isBrace
+        ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
+        : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim());
     // Emit the span — but a timecode embedded INSIDE the span ("[… DAY 2 00:09:19:03]") gets
     // BOTH the span mark AND a timecode chip mark, so every timecode is clickable/copyable.
     const spanMark = { type: markType };
@@ -223,7 +269,6 @@ function para(content) {
 // monologue, walk-and-talk, or other directing language is narration mis-filed as a divider:
 // demote it to ONCAM (it's a person on camera / a spoken beat), so the colour returns to the
 // rack and the dark CHAPTER bar is reserved for genuine new sections.
-const ACT_HEAD = /^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)\b/i;
 const DIRECTION_WORDS = /\b(ON[\s-]?CAM|MONOLOGUE|WALK\s*AND\s*TALK|WALK\s*&\s*TALK|VOICEOVER|\bVO\b|PIECE\s*TO\s*CAMERA|PTC|SEQUENCE|MAP\b)/i;
 
 // Trim a divider title down to its clean act label, dropping any directing tail the parser
@@ -232,7 +277,7 @@ const DIRECTION_WORDS = /\b(ON[\s-]?CAM|MONOLOGUE|WALK\s*AND\s*TALK|WALK\s*&\s*T
 // paragraph under the heading (integrity fix: the chapter's body text reaches the page).
 function actLabel(title) {
   let t = clean(title).replace(/\s+/g, ' ').trim();
-  const m = t.match(/^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)(\s*\d+)?/i);
+  const m = t.match(ACT_LABEL_RE);
   if (m) return m[0].toUpperCase().replace(/\s+/g, ' ').trim();
   return t;
 }
@@ -265,7 +310,7 @@ function headBodySplit(rawTitle, headLabel) {
   const head = clean(headLabel).replace(/\s+/g, ' ').trim();
   let body = t;
   // Try to peel the recognized act head (e.g. "HISTORY 2") off the front.
-  const m = t.match(/^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)(\s*\d+)?\s*[.:–—-]?\s*/i);
+  const m = t.match(HEAD_BODY_SPLIT_RE);
   if (m) body = t.slice(m[0].length).trim();
   else if (head && t.toUpperCase().startsWith(head.toUpperCase())) body = t.slice(head.length).replace(/^\s*[.:–—-]\s*/, '').trim();
   return body;
@@ -357,6 +402,7 @@ function blockToNode(b, opts) {
           ambiguous: !!b.timecode?.ambiguous,
           speaker: b.speaker || '',
           done: !!b.done,
+          flavor: b.flavor ?? null,
         },
         content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
       };
@@ -373,6 +419,7 @@ function blockToNode(b, opts) {
           ambiguous: !!b.timecode?.ambiguous,
           speaker: b.speaker || '',
           done: !!b.done,
+          flavor: b.flavor ?? null,
         },
         content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
       };
@@ -432,6 +479,17 @@ function fullWidthRow(blockNode) {
   };
 }
 
+function pairedRow(pairId, saidNodes, shownNodes) {
+  return {
+    type: 'tableRow',
+    attrs: { cols: 2, pairId },
+    content: [
+      { type: 'tableCell', attrs: { role: 'said' }, content: saidNodes },
+      { type: 'tableCell', attrs: { role: 'shown' }, content: shownNodes },
+    ],
+  };
+}
+
 export function buildEditorDocument(blocks) {
   const list = (blocks || []).filter(Boolean);
   // Everything before the first chapter is pre-script author scaffolding. Flag the
@@ -439,12 +497,11 @@ export function buildEditorDocument(blocks) {
   // ▸ SCRIPT BEGINS → CH 01), not buried under a collapsed toggle.
   const firstChapter = list.findIndex((b) => b.type === 'chapter');
 
-  const content = [];
+  const entries = [];
   // Running DAY context for inline timecode chips (#2). Threads the nearest preceding DAY N
   // across blocks exactly like parser.ts's contextDay, so a chip with no explicit local day
   // still shows the right "DAY N · …". A block's own timecode.day (sot/broll) takes precedence.
   let runningDay = null;
-  const DAY_BLOCK = /\bDAY\s*([123])\b/i;
   list.forEach((b, i) => {
     // Update the running day from this block's explicit DAY N (in its timecode or its text).
     const blockDay = b?.timecode?.day ?? (() => {
@@ -458,18 +515,51 @@ export function buildEditorDocument(blocks) {
     // visually starting the script after the pre-script (masthead lives in chrome; the
     // leading scaffold bins render as open NOTE boxes via their is-scaffold flag).
     if (firstChapter > 0 && i === firstChapter) {
-      content.push({ type: 'scriptStart', attrs: {} });
+      entries.push({ node: { type: 'scriptStart', attrs: {} }, block: null });
     }
     const node = blockToNode(b, { scaffold: b.type === 'bin' && firstChapter > 0 && i < firstChapter });
-    if (node) content.push(node);
+    if (node) entries.push({ node, block: b });
   });
   setContextDay(null);
 
   // ProseMirror requires at least one child.
-  if (!content.length) content.push({ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] });
+  if (!entries.length) {
+    entries.push({
+      node: { type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] },
+      block: null,
+    });
+  }
 
-  // TABLE SPINE — wrap every top-level block into a full-width row/cell band.
-  return { type: 'doc', content: content.map(fullWidthRow) };
+  const rows = [];
+  for (let i = 0; i < entries.length; i++) {
+    const { node, block } = entries[i];
+    const pairId = block?.pairId;
+    if (!pairId || node?.type === 'scriptStart') {
+      rows.push(fullWidthRow(node));
+      continue;
+    }
+
+    const runNodes = [node];
+    const runBlocks = [block];
+    while (i + 1 < entries.length && entries[i + 1].block?.pairId === pairId) {
+      runNodes.push(entries[i + 1].node);
+      runBlocks.push(entries[i + 1].block);
+      i++;
+    }
+
+    const saidNodes = [];
+    const shownNodes = [];
+    runNodes.forEach((runNode, runIndex) => {
+      const lane = runBlocks[runIndex]?.lane;
+      if (lane === 'said') saidNodes.push(runNode);
+      else if (lane === 'shown') shownNodes.push(runNode);
+    });
+
+    if (saidNodes.length && shownNodes.length) rows.push(pairedRow(pairId, saidNodes, shownNodes));
+    else runNodes.forEach((runNode) => rows.push(fullWidthRow(runNode)));
+  }
+
+  return { type: 'doc', content: rows };
 }
 
 // ---- migrate a PRE-TABLE saved doc (flat blocks at top level) into rows ----
@@ -589,6 +679,10 @@ export function wrapToken(text, kind) {
     if (/^\[.*\]$/s.test(t.trim())) return t;        // already bracketed
     return '[' + t.replace(/^\s+|\s+$/g, '') + ']';
   }
+  if (kind === 'trimSpan') {
+    if (/^~~.*~~$/s.test(t.trim())) return t;            // already struck
+    return '~~' + t.replace(/^\s+|\s+$/g, '') + '~~';
+  }
   return t;
 }
 
@@ -601,7 +695,7 @@ export function nodeText(node) {
   // into several tokens on the round-trip — "[B roll … 00:09:19:03]" became
   // "[B roll …][00:09:19:03]" and "{tk … 02:02:01:07 …}" became three {tk …} tokens.
   // Reuniting same-span runs first re-serializes each span as exactly one token.
-  const pieces = []; // { span: 'tkSpan'|'factCheckSpan'|'visualSpan'|null, text }
+  const pieces = []; // { span: 'tkSpan'|'factCheckSpan'|'visualSpan'|'trimSpan'|null, text }
   (function walk(n) {
     // Separate block-level siblings (sibling paragraphs, and the paragraph inside each
     // list item) with a single line boundary so their words never run together on the
@@ -617,7 +711,7 @@ export function nodeText(node) {
     }
     if (n.text) {
       const marks = n.marks || [];
-      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan');
+      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan' || m.type === 'trimSpan');
       const spanType = span ? span.type : null;
       const prev = pieces[pieces.length - 1];
       // Merge into the previous piece only when both carry the SAME (non-null) span —
@@ -652,23 +746,41 @@ export function docToBlocks(doc) {
   // row yields its one cell's blocks; a future split row yields LEFT then RIGHT cell blocks in
   // reading order. Backwards-safe: a bare (pre-table) block node is handled by the else branch.
   const flat = [];
-  for (const node of doc.content) {
+  for (let rowIndex = 0; rowIndex < doc.content.length; rowIndex++) {
+    const node = doc.content[rowIndex];
     if (node?.type === 'tableRow') {
+      const rowPairId = node?.attrs?.pairId || `pair_${rowIndex}`;
+      const isPairedRow = (node?.attrs?.cols || 0) === 2;
       for (const cell of node.content || []) {
         if (cell?.type === 'tableCell') {
           // Skip the empty SHOWN-lane placeholder paragraph (no words, no block) so a split row
           // doesn't leak a phantom empty bin block; keep everything else verbatim.
-          for (const blk of cell.content || []) if (!isEmptyPlaceholderPara(blk)) flat.push(blk);
-        } else flat.push(cell);
+          for (const blk of cell.content || []) {
+            if (isEmptyPlaceholderPara(blk)) continue;
+            const lane = !isPairedRow
+              ? null
+              : (cell.attrs?.role === 'said' ? 'said' : (cell.attrs?.role === 'shown' ? 'shown' : null));
+            flat.push({
+              node: blk,
+              lane,
+              pairId: isPairedRow ? rowPairId : null,
+            });
+          }
+        } else flat.push({ node: cell, lane: null, pairId: null });
       }
     } else {
-      flat.push(node);
+      flat.push({ node, lane: null, pairId: null });
     }
   }
-  flat.forEach((node, i) => {
+  flat.forEach(({ node, lane, pairId }, i) => {
     // scriptStart is a decorative divider — no source content, no block.
     if (node.type === 'scriptStart') return;
-    out.push(nodeToBlock(node, i));
+    const block = nodeToBlock(node, i);
+    if (lane && pairId) {
+      block.lane = lane;
+      block.pairId = pairId;
+    }
+    out.push(block);
   });
   return out;
 }
@@ -680,6 +792,7 @@ function nodeToBlock(node, i) {
   let type = NODE_TO_TYPE[node.type];
   if (node.type === 'noteBlock') type = a.kind || 'note';
   const block = { id, type: type || 'bin' };
+  if (a.flavor) block.flavor = a.flavor;
   if (node.type === 'chapterBlock') { block.title = text; block.genre = a.genre; }
   else if (node.type === 'sceneBlock') { block.title = text; }
   else if (node.type === 'sotBlock' || node.type === 'brollBlock') {

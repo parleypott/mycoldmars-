@@ -107,6 +107,7 @@ export default defineConfig({
         laserspace: resolve(__dirname, 'laserspace/index.html'),
         prawn: resolve(__dirname, 'prawn/index.html'),
         burmaScript: resolve(__dirname, 'burma-script/index.html'),
+        palauScript: resolve(__dirname, 'palau-script/index.html'),
       },
     },
   },

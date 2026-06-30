@@ -11,12 +11,23 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { isReadOnly } from '../read-mode.js';
+import { getEpisode } from '../episode-config.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 
-const baseAttrs = () => ({ blockId: { default: null } });
+const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null } });
 
 // chapter genre → ACT tag shown top-right of a chapter cartridge body.
-const ACT_TAG = { coldopen: 'HISTORY', history: 'HISTORY', ground: 'GROUND', inquiry: 'GROUND', latm: 'GROUND', other: '' };
+const ACT_TAG_FALLBACK = { coldopen: 'HISTORY', history: 'HISTORY', ground: 'GROUND', inquiry: 'GROUND', latm: 'GROUND', other: '' };
+const ACT_TAG = (() => {
+  const map = { ...ACT_TAG_FALLBACK };
+  const genres = getEpisode()?.genres;
+  if (!Array.isArray(genres)) return map;
+  for (const genre of genres) {
+    if (!genre?.id) continue;
+    map[genre.id] = genre.label || '';
+  }
+  return map;
+})();
 
 // ---------------------------------------------------------------------------
 // NodeView toolkit. A NodeView returns { dom, contentDOM } where `dom` is the whole
@@ -30,6 +41,24 @@ function el(tag, cls, attrs) {
   if (cls) n.className = cls;
   if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
   return n;
+}
+
+function maybeDataAttr(attrs, name, value) {
+  if (value === undefined || value === null || value === '') return attrs;
+  return { ...attrs, [name]: value };
+}
+
+function syncNullableAttr(dom, name, value) {
+  if (value === undefined || value === null || value === '') dom.removeAttribute(name);
+  else dom.setAttribute(name, value);
+}
+
+function syncSharedDomAttrs(dom, attrs) {
+  syncNullableAttr(dom, 'data-flavor', attrs?.flavor);
+}
+
+function sharedRenderAttrs(node, attrs) {
+  return maybeDataAttr(attrs, 'data-flavor', node.attrs.flavor);
 }
 
 // The SPINE: a 30px left rail. Knurled texture (CSS), a numbered cap (CSS counter colours
@@ -244,6 +273,19 @@ function openBlockMenu(editor, getPos, anchor) {
     makeItemKeyActivatable(item);
     menu.appendChild(item);
   });
+  const flavors = Array.isArray(getEpisode()?.flavors) ? getEpisode().flavors.filter((f) => f?.id) : [];
+  if (flavors.length) {
+    const flavorSep = el('div', 'wp-bm-sep'); menu.appendChild(flavorSep);
+    const flavorHead = el('div', 'wp-bm-head'); flavorHead.textContent = 'Flavor ▸';
+    menu.appendChild(flavorHead);
+    flavors.forEach((flavor) => {
+      const item = el('button', 'wp-bm-item', { type: 'button' });
+      item.textContent = flavor.label || flavor.id;
+      item.addEventListener('mousedown', (e) => { e.preventDefault(); setAttr(editor, getPos, { flavor: flavor.id }); closeBlockMenu(); });
+      makeItemKeyActivatable(item);
+      menu.appendChild(item);
+    });
+  }
   const sep = el('div', 'wp-bm-sep'); menu.appendChild(sep);
   const ins = el('button', 'wp-bm-item', { type: 'button' });
   ins.textContent = 'Insert block below';
@@ -294,6 +336,7 @@ function cartridge({ blockClass, dataAttr, node, editor, getPos, headChildren, b
   const dom = el('div', 'wp-cart ' + blockClass);
   dom.setAttribute(dataAttr, '');
   if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
+  syncSharedDomAttrs(dom, node.attrs);
 
   dom.appendChild(makeSpine(editor, getPos));
 
@@ -352,6 +395,7 @@ function directionNodeView({ node, editor, getPos }) {
         view.dom.setAttribute('data-done', updated.attrs.done ? '1' : '0');
         if (done) { done.classList.toggle('is-done', !!updated.attrs.done); done.setAttribute('aria-pressed', updated.attrs.done ? 'true' : 'false'); }
       }
+      syncSharedDomAttrs(view.dom, updated.attrs);
       return true;
     },
   };
@@ -369,10 +413,10 @@ export const ChapterBlock = Node.create({
   },
   parseHTML() { return [{ tag: 'section[data-chapter]' }]; },
   renderHTML({ node }) {
-    return ['section', mergeAttributes({
+    return ['section', mergeAttributes(sharedRenderAttrs(node, {
       'data-chapter': '', 'data-genre': node.attrs.genre || 'other',
       'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-chapter',
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -396,6 +440,7 @@ export const ChapterBlock = Node.create({
           if (updated.type.name !== 'chapterBlock') return false;
           tag.textContent = ACT_TAG[updated.attrs.genre || 'other'] || '';
           view.dom.setAttribute('data-genre', updated.attrs.genre || 'other');
+          syncSharedDomAttrs(view.dom, updated.attrs);
           return true;
         },
       };
@@ -413,9 +458,9 @@ export const SceneBlock = Node.create({
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'section[data-scene]' }]; },
   renderHTML({ node }) {
-    return ['section', mergeAttributes({
+    return ['section', mergeAttributes(sharedRenderAttrs(node, {
       'data-scene': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-scene',
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -440,10 +485,10 @@ export const VoBlock = Node.create({
   parseHTML() { return [{ tag: 'div[data-vo]' }]; },
   renderHTML({ node }) {
     const status = node.attrs.status || 'todo';
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-vo': '', 'data-status': status,
       'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-vo',
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -494,6 +539,7 @@ export const VoBlock = Node.create({
           const st = updated.attrs.status || 'todo';
           view.dom.setAttribute('data-status', st);
           paint(st);
+          syncSharedDomAttrs(view.dom, updated.attrs);
           return true;
         },
       };
@@ -510,9 +556,9 @@ export const OncamBlock = Node.create({
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-oncam]' }]; },
   renderHTML({ node }) {
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-oncam': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-oncam',
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   // Unified DIRECTION rendering (#3) — flat, no type badge/colour, no hero timecode.
   addNodeView() {
@@ -536,10 +582,10 @@ export const SotBlock = Node.create({
   parseHTML() { return [{ tag: 'div[data-sot]' }]; },
   renderHTML({ node }) {
     const a = node.attrs;
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-sot': '', 'data-block-id': a.blockId || '', 'data-done': a.done ? '1' : '0',
       class: 'wp-cart wp-sot' + (a.done ? ' is-done' : ''),
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   // Unified DIRECTION rendering (#1 + #3): NO recessed LCD / hero timecode, NO speaker badge,
   // NO type-specific colour — same flat DIRECTION chrome as every other direction block. The
@@ -568,10 +614,10 @@ export const BrollBlock = Node.create({
   parseHTML() { return [{ tag: 'div[data-broll]' }]; },
   renderHTML({ node }) {
     const a = node.attrs;
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-broll': '', 'data-block-id': a.blockId || '', 'data-done': a.done ? '1' : '0',
       class: 'wp-cart wp-broll' + (a.done ? ' is-done' : ''),
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   // Unified DIRECTION rendering (#1 + #3): NO hero copy-timecode string — timecodes appear only
   // as inline chips in the body prose. Same flat DIRECTION chrome, no burgundy badge/colour.
@@ -591,9 +637,9 @@ export const MontageBlock = Node.create({
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-montage]' }]; },
   renderHTML({ node }) {
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-montage': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-montage',
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -617,15 +663,16 @@ export const NoneBlock = Node.create({
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-none]' }]; },
   renderHTML({ node }) {
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-none': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-none',
-    }), ['div', { class: 'wp-none-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-none-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = el('div', 'wp-none');
       dom.setAttribute('data-none', '');
       if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
+      syncSharedDomAttrs(dom, node.attrs);
       // The grip still opens the block menu (press-to-pick-a-type), but the spine renders
       // chrome-less via CSS (.wp-none .wp-spine) — no knurl, no numbered cap.
       dom.appendChild(makeSpine(editor, getPos));
@@ -676,9 +723,9 @@ export const NoteBlock = Node.create({
   parseHTML() { return [{ tag: 'div[data-note]' }]; },
   renderHTML({ node }) {
     const a = node.attrs;
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-note': '', 'data-kind': a.kind, 'data-block-id': a.blockId || '', class: 'wp-cart wp-note',
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -686,7 +733,15 @@ export const NoteBlock = Node.create({
       head.appendChild(Object.assign(el('span', 'wp-note-kind'), { textContent: node.attrs.kind === 'jh-note' ? 'JH NOTE' : 'EDITOR NOTE' }));
       const view = cartridge({ blockClass: 'wp-note', dataAttr: 'data-note', node, editor, getPos, headChildren: [head] });
       view.dom.setAttribute('data-kind', node.attrs.kind);
-      return view;
+      return {
+        ...view,
+        update(updated) {
+          if (updated.type.name !== 'noteBlock') return false;
+          view.dom.setAttribute('data-kind', updated.attrs.kind);
+          syncSharedDomAttrs(view.dom, updated.attrs);
+          return true;
+        },
+      };
     };
   },
 });
@@ -700,11 +755,11 @@ export const BinBlock = Node.create({
   addAttributes() { return { ...baseAttrs(), scaffold: { default: false } }; },
   parseHTML() { return [{ tag: 'div[data-bin]' }]; },
   renderHTML({ node }) {
-    return ['div', mergeAttributes({
+    return ['div', mergeAttributes(sharedRenderAttrs(node, {
       'data-bin': '', 'data-block-id': node.attrs.blockId || '',
       'data-scaffold': node.attrs.scaffold ? '1' : '0',
       class: 'wp-cart wp-bin' + (node.attrs.scaffold ? ' is-scaffold' : ''),
-    }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
+    })), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   // Unified DIRECTION rendering (#3). A normal bin collapses into the generic DIRECTION
   // cartridge. A SCAFFOLD bin (pre-script author setup that sits BEFORE the first chapter) keeps

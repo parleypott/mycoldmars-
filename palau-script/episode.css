@@ -1,0 +1,40 @@
+/* ───────────────── PALAU episode palette ─────────────────
+   Layered ON TOP of the shared Cartridges styles (burma-script/src/styles.css). Palau-only — never
+   loaded by Burma — so this file recolors chapters by GENRE and direction cartridges by FLAVOR
+   without any risk to the Burma tool. Flat only: solid colors, no shadows, no bevels. */
+
+/* GENRE — tint the numbered chapter cap so the six chapter kinds read at a glance. */
+.wp-chapter[data-genre="cold_open"] .wp-cap-num { background: #b0431f; color: #fff; }
+.wp-chapter[data-genre="map"]       .wp-cap-num { background: #2f6fb0; color: #fff; }
+.wp-chapter[data-genre="explainer"] .wp-cap-num { background: #7a5cc0; color: #fff; }
+.wp-chapter[data-genre="ground"]    .wp-cap-num { background: #1f8a72; color: #fff; }
+.wp-chapter[data-genre="montage"]   .wp-cap-num { background: #c2491a; color: #fff; }
+.wp-chapter[data-genre="ending"]    .wp-cap-num { background: #2a2a28; color: #fff; }
+
+/* FLAVOR — your color legend, as additive chrome on a direction/SOT cartridge:
+   a solid left accent bar + a recolored cap. gold = liked b-roll, purple = animation,
+   pink = straggler, yellow = key line. */
+[data-flavor="gold"],
+[data-flavor="purple"],
+[data-flavor="pink"],
+[data-flavor="yellow"] { position: relative; }
+
+[data-flavor="gold"]::before,
+[data-flavor="purple"]::before,
+[data-flavor="pink"]::before,
+[data-flavor="yellow"]::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+}
+[data-flavor="gold"]::before   { background: #d9a400; }
+[data-flavor="purple"]::before { background: #7a5cc0; }
+[data-flavor="pink"]::before   { background: #e0608f; }
+[data-flavor="yellow"]::before { background: #e8b400; }
+
+[data-flavor="gold"]   .wp-cap-num { background: #d9a400; color: #1a1a18; }
+[data-flavor="purple"] .wp-cap-num { background: #7a5cc0; color: #fff; }
+[data-flavor="pink"]   .wp-cap-num { background: #e0608f; color: #fff; }
+[data-flavor="yellow"] .wp-cap-num { background: #e8b400; color: #1a1a18; }

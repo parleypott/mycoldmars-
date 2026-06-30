@@ -1,0 +1,40 @@
+import scriptData from './sample-blocks.json';
+import { DAY_SEQUENCES } from './schema.ts';
+
+export const BURMA = {
+  id: 'burma',
+  title: scriptData.title || 'Burma — The Human Element',
+  favicon: './favicon.svg',
+  wordmark: 'WP·01',
+  figLabel: 'fig.03 — CARTRIDGE RACK',
+  recoverPrefix: 'burma-recovered',
+  accent: '#ff5b1f',
+  days: [1, 2, 3],
+  sequences: DAY_SEQUENCES,
+  genres: [
+    { id: 'coldopen', label: 'HISTORY', head: 'COLD\\s*OPEN' },
+    { id: 'history', label: 'HISTORY', head: 'HISTORY' },
+    { id: 'ground', label: 'GROUND', head: 'GROUND' },
+    { id: 'inquiry', label: 'GROUND', head: 'INQUIRY' },
+    { id: 'latm', label: 'GROUND', head: 'LATM' },
+    { id: 'other', label: '', head: null },
+  ],
+  flavors: [],
+  blocksData: scriptData.blocks || [],
+  storage: {
+    DOC: 'wp01_burma_doc_v1',
+    DOC_VER: 'wp01_burma_doc_ver_v1',
+    MIGRATED: 'wp01_burma_doc_migrated_v2',
+    BLOCKS: 'wp01_burma_blocks_v1',
+    CTRL: 'wp01.controls.v1',
+    WORKSHOP: 'wp01_burma_workshop_v1',
+    WS_WIDTH: 'wp01_burma_workshop_width_v1',
+    WRITE_TOKEN: 'wp01_burma_write_token_v1',
+    DISMISSED: 'wp01.recovery.dismissed.v1',
+  },
+  cloud: {
+    api: '/api/burma-script-doc',
+    docId: 'wp01-burma',
+    tokenHeader: 'X-Burma-Write-Token',
+  },
+};

@@ -27,7 +27,7 @@ export interface Timecode {
 }
 
 // Inline span inside writing-surface text (VO/ONCAM). Offsets index into block.text.
-export type SpanKind = "tk" | "visual" | "factcheck";
+export type SpanKind = "tk" | "visual" | "factcheck" | "trim";
 export interface InlineSpan {
   id: string;
   kind: SpanKind;
@@ -53,6 +53,7 @@ export interface Block {
   text?: string;             // VO / ONCAM / note prose
   voStatus?: VOStatus;       // VO only
   spans?: InlineSpan[];      // inline {TK}/[visual]/factcheck objects within text
+  flavor?: string;          // additive per-block color flavor (default null); null = today's flat look
   // edit direction
   timecode?: Timecode;       // SOT / B-roll
   speaker?: string;          // SOT: "Jack" / "JH" / "Drew"

@@ -23,8 +23,15 @@ import { Workshop } from './Workshop.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
+import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
-const LS_DOC = 'wp01_burma_doc_v1';
+export let LS_DOC = '';
+
+function syncStorageKeys() {
+  LS_DOC = getEpisodeStorage().DOC;
+}
+
+onEpisodeChange(syncStorageKeys);
 
 // CARDINAL SIN GUARD: if the saved doc existed but could NOT be read/parsed at seed time, we
 // must NOT let autosave clobber the original bytes with the fresh source fallback — that would
@@ -251,6 +258,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
         // MUST stay identical to the mirror schema in migrate-doc.js or saved docs containing a
         // list fail the read-back invariant and fire wp-save-failed.
         horizontalRule: false,
+        strike: false,
         // We own dropcursor/gapcursor below so we can Swiss-red the dropcursor.
         dropcursor: false, gapcursor: false,
       }),
@@ -429,4 +437,4 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
   );
 }
 
-export { LS_DOC, docToBlocks };
+export { docToBlocks };

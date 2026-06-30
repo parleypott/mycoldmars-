@@ -9,12 +9,16 @@
 // Each row is normalized to { id, primary, body, meta } so render + download share one shape.
 
 import { cleanQuote, stripSpanScaffolding } from './document-builder.js';
+import { getEpisode } from './episode-config.js';
 
 // ---- worklist extraction -------------------------------------------------
 // Pull the worklist out of a live blocks array. Each entry is normalized to
 // { id, primary, body, meta } so the render + download paths share one shape.
-export function buildWorklists(blocks) {
+export function buildWorklists(blocks, episode = getEpisode()) {
   const translation = [];
+  const flavors = Array.isArray(episode?.flavors) ? episode.flavors.filter((f) => f?.id) : [];
+  const byFlavor = {};
+  for (const f of flavors) byFlavor[f.id] = [];
 
   // Track the chapter we're under so each worklist row says WHERE in the script it lives —
   // the producer needs the section, not just the line. (Chapter spine, like the outline.)
@@ -43,8 +47,18 @@ export function buildWorklists(blocks) {
         done: !!b.done,
       });
     }
+
+    if (b.flavor && byFlavor[b.flavor]) {
+      byFlavor[b.flavor].push({
+        id: b.id,
+        primary: b.timecode?.tc || b.title || '(line)',
+        body: stripSpanScaffolding(cleanQuote(b.text || '')),
+        meta: [b.speaker, chapter].filter(Boolean).join(' · '),
+        done: !!b.done,
+      });
+    }
   }
-  return { translation };
+  return { translation, ...byFlavor };
 }
 
 // ---- plain-text download -------------------------------------------------

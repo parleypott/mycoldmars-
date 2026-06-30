@@ -23,10 +23,12 @@
 // The gate only ENGAGES once the env secret exists, so turning it on is a pure server-side flip plus a
 // one-time `?key=` visit on Johnny's device. No bundle change ships the secret.
 
-const LS_WRITE_TOKEN = 'wp01_burma_write_token_v1';
+import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+
+export let LS_WRITE_TOKEN = '';
 
 // The header the server reads. Kept in sync with api/burma-script-doc.js (WRITE_TOKEN_HEADER).
-export const WRITE_TOKEN_HEADER = 'X-Burma-Write-Token';
+export let WRITE_TOKEN_HEADER = '';
 
 // The URL param Johnny uses ONCE to provision his device. Accepted in the search string AND in the hash
 // (so static/hash routing works), mirroring read-mode.js's dual-source parsing.
@@ -35,6 +37,14 @@ const KEY_PARAM = 'key';
 // In-memory cache of the resolved token so every push reads it without touching localStorage on the hot
 // path. Resolved lazily on first getWriteToken(), and refreshed by captureWriteTokenFromUrl().
 let _token = undefined; // undefined = not yet resolved; null = resolved-but-absent; string = present
+
+function syncEpisodeKeys() {
+  LS_WRITE_TOKEN = getEpisodeStorage().WRITE_TOKEN;
+  WRITE_TOKEN_HEADER = getEpisode().cloud.tokenHeader;
+  _token = undefined;
+}
+
+onEpisodeChange(syncEpisodeKeys);
 
 function readStored() {
   try {
@@ -130,4 +140,4 @@ export function __setWriteTokenForTest(v) {
   return _token;
 }
 
-export { LS_WRITE_TOKEN, KEY_PARAM };
+export { KEY_PARAM };

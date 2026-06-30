@@ -165,7 +165,14 @@ export const TableRow = Node.create({
   content: 'tableCell+',
   draggable: true,
   addAttributes() {
-    return { cols: { default: 1 } };
+    return {
+      cols: { default: 1 },
+      pairId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-pair-id') || null,
+        renderHTML: (attributes) => (attributes.pairId ? { 'data-pair-id': attributes.pairId } : {}),
+      },
+    };
   },
   parseHTML() { return [{ tag: 'div[data-trow]' }]; },
   renderHTML({ node }) {
@@ -208,7 +215,12 @@ export const TableRow = Node.create({
       const dom = el('div', 'wp-trow');
       dom.setAttribute('data-trow', '');
       const paintCols = (n) => dom.setAttribute('data-cols', String(n.childCount || n.attrs.cols || 1));
+      const paintPairId = (n) => {
+        if (n.attrs?.pairId) dom.setAttribute('data-pair-id', n.attrs.pairId);
+        else dom.removeAttribute('data-pair-id');
+      };
       paintCols(node);
+      paintPairId(node);
 
       // ---- ROW SPINE: the split / merge affordance ------------------------
       // A flat grip on the row's left margin. A FULL-WIDTH row shows ⊟ "split"; a
@@ -246,6 +258,7 @@ export const TableRow = Node.create({
         update(updated) {
           if (updated.type.name !== 'tableRow') return false;
           paintCols(updated);
+          paintPairId(updated);
           paintBtn(updated);
           return true;
         },

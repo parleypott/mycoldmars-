@@ -23,10 +23,19 @@ import { isReadOnly } from './read-mode.js';
 import { pruneConflictSnapshots, resetSessionBackup } from './migrate-doc.js';
 import { writeTokenHeaders } from './write-token.js';
 import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
+import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
-const API = '/api/burma-script-doc';
-const LS_DOC = 'wp01_burma_doc_v1';
-const CONFLICT_PREFIX = LS_DOC + '.conflict.';
+export let API = '';
+export let LS_DOC = '';
+export let CONFLICT_PREFIX = '';
+
+function syncEpisodeKeys() {
+  API = getEpisode().cloud.api;
+  LS_DOC = getEpisodeStorage().DOC;
+  CONFLICT_PREFIX = LS_DOC + '.conflict.';
+}
+
+onEpisodeChange(syncEpisodeKeys);
 
 // COLLISION-PROOF SNAPSHOT KEY (snapshot-key-collision) — mirrors migrate-doc.js's snapshotKey:
 // PREFIX + Date.now() + '-' + monotonic seq, so two snapshots in the same millisecond never
@@ -718,4 +727,4 @@ function defaultReadLocal() {
   return { hasDoc: !!raw, version, doc };
 }
 
-export { API, LS_DOC, CONFLICT_PREFIX, EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT, toInt, defaultReadLocal };
+export { EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT, toInt, defaultReadLocal };

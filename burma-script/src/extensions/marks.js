@@ -159,6 +159,32 @@ export const VisualSpan = Mark.create({
   // spans open the Workshop dock; visual direction is reference, not an action.
 });
 
+// TRIM mark — preserved strikethrough. Johnny strikes copy he is CUTTING but refuses to lose (the
+// tool is data-loss-proof): the words stay on the page, struck and dimmed, never deleted. Rendered
+// line-through + opacity .5 and INERT like visualSpan (no Workshop click). Round-trips as literal
+// ~~…~~ via document-builder nodeText/wrapToken. Owns ~~ (StarterKit's strike is disabled in the
+// editor + schema so this is the single ~~ handler).
+export const TrimSpan = Mark.create({
+  name: 'trimSpan',
+  inclusive: false,
+  parseHTML() { return [{ tag: 'span[data-trim]' }]; },
+  renderHTML() { return ['span', { 'data-trim': '', class: 'wp-trim' }, 0]; },
+  addCommands() {
+    return {
+      setTrimSpan: () => ({ commands }) => commands.setMark('trimSpan'),
+      unsetTrimSpan: () => ({ commands }) => commands.unsetMark('trimSpan'),
+      toggleTrimSpan: () => ({ commands }) => commands.toggleMark('trimSpan'),
+    };
+  },
+  // Live self-mark: ~~struck~~ wraps the moment the closing ~~ lands. The input rule replaces the
+  // match with the captured group, stripping the literal ~~ (mirrors visualSpan stripping []),
+  // exactly how document-builder stores loaded trims — so no double ~~~~ on a live-typed trim.
+  addInputRules() { return [markInputRule({ find: /~~([^~]+)~~$/, type: this.type })]; },
+  addPasteRules() { return [markPasteRule({ find: /~~([^~]+)~~/g, type: this.type })]; },
+  // NO addProseMirrorPlugins: trims are deliberately INERT — they render struck and round-trip, but
+  // a click does NOTHING.
+});
+
 // TIMECODE mark — the DATA-INTEGRITY chip. EVERY broadcast timecode (HH:MM:SS:FF) embedded
 // anywhere in any block's prose becomes a small clickable tag that COPIES the timecode on
 // click (Johnny: "a little tag you can click and it copies"). Mirrors the SOT LCD copy flow
@@ -437,4 +463,4 @@ export const TimecodeMark = Mark.create({
   },
 });
 
-export const BURMA_MARKS = [TkSpan, FactCheckSpan, VisualSpan, TimecodeMark];
+export const BURMA_MARKS = [TkSpan, FactCheckSpan, VisualSpan, TimecodeMark, TrimSpan];

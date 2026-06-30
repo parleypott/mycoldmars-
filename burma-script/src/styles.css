@@ -862,6 +862,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   white-space: normal; overflow-wrap: anywhere;
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
+.wp-trim { text-decoration: line-through; opacity: .5; pointer-events: none; }
 .wp-visual::before { content: "["; }
 .wp-visual::after { content: "]"; }
 

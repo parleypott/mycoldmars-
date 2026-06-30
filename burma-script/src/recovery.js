@@ -18,16 +18,29 @@
 import {
   idbListSnapshots, idbReadSnapshot, idbDeleteSnapshot, idbPutSnapshot, idbAvailable,
 } from './recovery-store.js';
+import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
-const LS_DOC = 'wp01_burma_doc_v1';
-const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
-const CONFLICT_PREFIX = LS_DOC + '.conflict.';
-const BAK_PREFIX = LS_DOC + '.bak.';
-const CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+export let LS_DOC = '';
+export let LS_DOC_VER = '';
+export let CONFLICT_PREFIX = '';
+export let BAK_PREFIX = '';
+export let CORRUPT_PREFIX = '';
 
 // localStorage key for snapshots the user has explicitly dismissed (recovered or discarded), so the
 // affordance does NOT nag forever once they've dealt with it. Stores a JSON array of keys.
-const LS_DISMISSED = 'wp01.recovery.dismissed.v1';
+export let LS_DISMISSED = '';
+
+function syncStorageKeys() {
+  const storage = getEpisodeStorage();
+  LS_DOC = storage.DOC;
+  LS_DOC_VER = storage.DOC_VER;
+  CONFLICT_PREFIX = LS_DOC + '.conflict.';
+  BAK_PREFIX = LS_DOC + '.bak.';
+  CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+  LS_DISMISSED = storage.DISMISSED;
+}
+
+onEpisodeChange(syncStorageKeys);
 
 // Parse the trailing timestamp out of a recovery key. Keys look like:
 //   wp01_burma_doc_v1.conflict.1718800000000-000001   (ms + '-' + seq, newer collision-proof form)
@@ -337,5 +350,3 @@ export function snapshotToText(doc) {
   // Collapse runs of blank lines, trim ends.
   return out.join('').replace(/\n{3,}/g, '\n\n').trim();
 }
-
-export { LS_DOC, LS_DOC_VER, CONFLICT_PREFIX, BAK_PREFIX, CORRUPT_PREFIX, LS_DISMISSED };

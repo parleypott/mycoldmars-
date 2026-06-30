@@ -50,3 +50,8 @@ scripts/inception-import.ts	constre=newRegExp(${escaped},)	SAFE	escaped = lname.
 scripts/sort-comparators.mjs	returnnewRegExp(${BASE_SKIP_SOURCE}${selfMarker})	SAFE	internal gate constants (the comment-skip lexer machinery); no user input.
 translation/src/command-palette-core.js	newRegExp(${escapeReg(ql)})	SAFE	ql wrapped in escapeReg().
 translation/src/csv-parser.js	constwordRe=newRegExp(${kw})	SAFE	kw is a hardcoded search literal (start/end/duration) from callers; the user CSV cols are TESTED against it, not interpolated.
+burma-script/src/document-builder.js	constDAY_LOCAL=newRegExp(${DAY_CLASS_SOURCE},)	SAFE	episode-config constant (digit class / genre head alternation), build-controlled not user input
+burma-script/src/document-builder.js	constDAY_BLOCK=newRegExp(${DAY_CLASS_SOURCE},)	SAFE	episode-config constant (digit class / genre head alternation), build-controlled not user input
+burma-script/src/document-builder.js	constACT_HEAD=newRegExp(${HEAD_ALTERNATION},)	SAFE	episode-config constant (digit class / genre head alternation), build-controlled not user input
+burma-script/src/document-builder.js	constACT_LABEL_RE=newRegExp(${HEAD_ALTERNATION},)	SAFE	episode-config constant (digit class / genre head alternation), build-controlled not user input
+burma-script/src/document-builder.js	constHEAD_BODY_SPLIT_RE=newRegExp(${HEAD_ALTERNATION},)	SAFE	episode-config constant (digit class / genre head alternation), build-controlled not user input

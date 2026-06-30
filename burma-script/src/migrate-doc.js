@@ -34,6 +34,7 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
 import { isReadOnly } from './read-mode.js';
 import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
+import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
 // PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
 // quota is hundreds of MB vs localStorage's ~5MB. The sync localStorage write that wraps each call to
@@ -50,21 +51,21 @@ function mirrorSnapshotToIDB(kind, raw) {
   } catch { /* best-effort — never disturb the canonical path */ }
 }
 
-const LS_DOC = 'wp01_burma_doc_v1';
+export let LS_DOC = '';
 // PERF-2 — the derived schema-faithful blocks export. The editor STOPPED writing this at runtime
 // (it was a ~167KB second copy of the doc that nothing reads), but a key may still linger in an
 // existing browser from before that change. saveDoc's quota escalation drops it FIRST (cheapest,
 // fully derivable from LS_DOC) so reclaimable dead weight is freed before any recovery snapshot.
-const LS_BLOCKS = 'wp01_burma_blocks_v1';
+let LS_BLOCKS = '';
 // Marker recording the safe migration ran to completion. Keyed to the spine version so a
 // future schema change can force a fresh, re-validated migration by bumping the suffix.
 // BUMPED to v2: the "service need" removal demotes legacy serviceGroup/serviceItem/serviceBlock
 // nodes to neutral binBlocks. Already-migrated (_v1) docs must re-run the pass once so a saved
 // doc that still holds those (now-unregistered) nodes is converted before TipTap drops them.
-const LS_MIGRATED = 'wp01_burma_doc_migrated_v2';
+export let LS_MIGRATED = '';
 // Bound the number of timestamped backups we keep so localStorage never fills up; the most
 // recent few are always retained (the freshest is the pre-migration safety copy).
-const BAK_PREFIX = LS_DOC + '.bak.';
+export let BAK_PREFIX = '';
 // BAK_KEEP cut 8 -> 3 (storage-budget): each backup is a full ~167KB copy of LS_DOC, so 8 backups
 // alone were ~1.3MB — by far the biggest, fastest-growing localStorage consumer (and stored UTF-16,
 // the real cost is ~2x). As Johnny fills more {tk}/{fc} answers the doc grows and the backups grow
@@ -107,9 +108,9 @@ export function isRenderableLocalDoc(rawOrParsed) {
 //     LS_DOC, so it shows a gentle "updated in another tab — reload" indicator and its own flush
 //     hits the guard instead of stomping. We deliberately do NOT silently advance a stale tab's
 //     base on the storage event: advancing it would re-enable the very stomp we're closing.
-const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
-const CONFLICT_PREFIX = LS_DOC + '.conflict.';
-const CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+export let LS_DOC_VER = '';
+export let CONFLICT_PREFIX = '';
+export let CORRUPT_PREFIX = '';
 // DL-5 — bound the recovery snapshots so they can't grow unbounded and exhaust quota (which would
 // flip every future save to the quota-failed banner). Only .bak was bounded before; a repeated
 // cross-tab/cloud-conflict loop accumulated full-doc .conflict/.corrupt copies forever. Keep the
@@ -119,6 +120,19 @@ const CONFLICT_KEEP = 4;
 const CORRUPT_KEEP = 2;
 // A per-tab id so a version stamp records WHICH tab wrote it (telemetry / conflict snapshots).
 const TAB_ID = 'tab_' + Math.random().toString(36).slice(2, 10);
+
+function syncStorageKeys() {
+  const storage = getEpisodeStorage();
+  LS_DOC = storage.DOC;
+  LS_BLOCKS = storage.BLOCKS;
+  LS_MIGRATED = storage.MIGRATED;
+  BAK_PREFIX = LS_DOC + '.bak.';
+  LS_DOC_VER = storage.DOC_VER;
+  CONFLICT_PREFIX = LS_DOC + '.conflict.';
+  CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+}
+
+onEpisodeChange(syncStorageKeys);
 
 // ── COLLISION-PROOF SNAPSHOT KEYS (snapshot-key-collision) ─────────────────────────────────────
 // Recovery snapshot keys (.bak. / .conflict. / .corrupt.) are PREFIX + Date.now(). Two snapshots in
@@ -258,6 +272,7 @@ function buildSchema() {
       // with a list the live editor produced fails this gate's read-back and fires wp-save-failed.
       heading: false, blockquote: false, codeBlock: false, code: false,
       horizontalRule: false,
+      strike: false,
       dropcursor: false, gapcursor: false,
     }),
     Dropcursor.configure({ color: '#d23b2c', width: 2 }),
@@ -808,4 +823,4 @@ export function migrateStoredDoc() {
 // copies bounded with the SAME policy, instead of growing them unbounded in parallel.
 export function pruneConflictSnapshots() { pruneByPrefix(CONFLICT_PREFIX, CONFLICT_KEEP); }
 
-export { LS_DOC, LS_MIGRATED, LS_DOC_VER, CONFLICT_PREFIX, CORRUPT_PREFIX, CONFLICT_KEEP, CORRUPT_KEEP };
+export { CONFLICT_KEEP, CORRUPT_KEEP };

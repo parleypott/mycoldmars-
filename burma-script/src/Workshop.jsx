@@ -13,10 +13,18 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import RESEARCH from '../tk-research.json';
+import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
-const LS_WS_WIDTH = 'wp01_burma_workshop_width_v1';
+let LS_WS_WIDTH = '';
+let LS_WORKSHOP = '';
 
-const LS_WORKSHOP = 'wp01_burma_workshop_v1';
+function syncStorageKeys() {
+  const storage = getEpisodeStorage();
+  LS_WS_WIDTH = storage.WS_WIDTH;
+  LS_WORKSHOP = storage.WORKSHOP;
+}
+
+onEpisodeChange(syncStorageKeys);
 // Normalize a marker to its inner content so the doc span ("shows years of…") matches the
 // research key ("{TK shows years of…}"): strip outer braces/brackets + any leading TK/tk runs.
 const norm = (s) => (s || '')
