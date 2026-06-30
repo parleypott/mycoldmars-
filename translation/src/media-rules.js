@@ -40,6 +40,16 @@ export function needsTranscode({ mimeType, filename } = {}) {
   if (m.startsWith('video/quicktime')) return true;
   if (m.startsWith('video/')) return true;
 
+  // Chrome-undecodable AUDIO recognized by EXTENSION alone — the mirror of the
+  // `audio/*` mime catch-all below, for when the browser supplied NO file.type
+  // (Chrome returns '' for exactly these uncommon codecs). Without it an .aiff /
+  // .wma with an empty mime fell through to `not_needed` and silently failed to
+  // play — the very failure the audio/* branch was added to kill, just via the
+  // extension door instead of the mime one. The live upload path normalizes a
+  // missing mime first (media-flow → guessMimeFromExt), so this is defense in
+  // depth: the core must not trust its callers (cf. srt-builder's posLimit).
+  if (['aiff', 'aif', 'aifc', 'wma', 'amr', 'ape', 'ac3', 'dts', 'caf', 'wv', 'm4b', 'ra'].includes(ext)) return true;
+
   // Unknown AUDIO codec (aiff, wma, amr, ape, …) Chrome can't decode → hand
   // to the worker, matching the conservative intent above. Previously these
   // fell through to `not_needed` and silently failed to play.

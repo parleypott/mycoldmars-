@@ -46,20 +46,50 @@ function oldGuessMime(name) {
   };
   return map[ext] || 'application/octet-stream';
 }
+// The ORIGINAL needsTranscode (before it grew the unknown-audio EXTENSION
+// fallback). The historical silent failure required BOTH the old guessMime
+// (octet-stream) AND a needsTranscode that caught audio by MIME ONLY — so the
+// faithful RED proof reconstructs this older form. The current needsTranscode
+// now ALSO catches unknown audio by extension (a second safety layer), which is
+// locked separately just below.
+function oldNeedsTranscode({ mimeType, filename }) {
+  const ext = (filename || '').split('.').pop()?.toLowerCase() || '';
+  const m = (mimeType || '').toLowerCase();
+  if (m === 'video/mp4' || m === 'video/webm') return false;
+  if (m.startsWith('audio/') && (m.includes('mp3') || m.includes('mpeg') || m.includes('mp4') || m.includes('aac') || m.includes('wav') || m.includes('ogg') || m.includes('opus') || m.includes('flac') || m.includes('webm'))) return false;
+  if (['mp4', 'm4a', 'mp3', 'wav', 'webm', 'ogg', 'oga', 'opus', 'flac', 'weba'].includes(ext)) return false;
+  if (['mov', 'mxf', 'mkv', 'avi', 'flv', 'mts', 'm2ts', 'wmv', 'prores'].includes(ext)) return true;
+  if (m.startsWith('video/quicktime')) return true;
+  if (m.startsWith('video/')) return true;
+  if (m.startsWith('audio/')) return true;
+  return false;
+}
 
 // (1) old gate REJECTED Johnny's archival/field-recorder formats.
 ok(oldIsMediaFile(f('interview.aiff')) === false, 'RED: old gate rejected .aiff');
 ok(oldIsMediaFile(f('archive.wma')) === false, 'RED: old gate rejected .wma');
 ok(oldIsMediaFile(f('x', 'audio/aiff')) === false, 'RED: old gate rejected audio/aiff mime');
-// (2) old guessMime → octet-stream (NOT audio/*), so the whole chain broke:
+// (2) old guessMime → octet-stream (NOT audio/*), and the ORIGINAL mime-only
+// needsTranscode then marked it not_needed → the whole chain broke:
 eq(oldGuessMime('interview.aiff'), 'application/octet-stream', 'RED: old guessMime(.aiff) → octet-stream');
 ok(
-  needsTranscode({ mimeType: oldGuessMime('interview.aiff'), filename: 'interview.aiff' }) === false,
+  oldNeedsTranscode({ mimeType: oldGuessMime('interview.aiff'), filename: 'interview.aiff' }) === false,
   'RED: old chain — AIFF marked not_needed → silent playback failure',
 );
 ok(
-  needsTranscode({ mimeType: oldGuessMime('archive.wma'), filename: 'archive.wma' }) === false,
+  oldNeedsTranscode({ mimeType: oldGuessMime('archive.wma'), filename: 'archive.wma' }) === false,
   'RED: old chain — WMA marked not_needed → silent playback failure',
+);
+// (3) SECOND defense layer: even fed the OLD octet-stream mime, the CURRENT
+// needsTranscode now rescues the file by its extension alone — so the silent
+// failure can't recur even if guessMimeFromExt ever regresses.
+ok(
+  needsTranscode({ mimeType: oldGuessMime('interview.aiff'), filename: 'interview.aiff' }) === true,
+  'FIX (defense-in-depth): octet-stream + .aiff → transcode by extension',
+);
+ok(
+  needsTranscode({ mimeType: oldGuessMime('archive.wma'), filename: 'archive.wma' }) === true,
+  'FIX (defense-in-depth): octet-stream + .wma → transcode by extension',
 );
 
 // ──────────────────────────────────────────────────────────────────────

@@ -70,6 +70,36 @@ for (const ext of ['mp3', 'm4a', 'wav', 'mp4', 'webm', 'ogg', 'oga', 'opus', 'fl
   eq(needsTranscode({ mimeType: '', filename: `clip.${ext}` }), false, `web audio ext .${ext} → skip`);
 }
 
+// ── The mirror gap: Chrome-undecodable audio by EXTENSION ALONE (empty mime) ──
+// Chrome supplies file.type='' for exactly these uncommon codecs, so the
+// extension path is the ONLY signal. The mime catch-all couldn't fire (no mime),
+// and the ext path had no unknown-audio entry → fell through to not_needed →
+// silent playback failure. Reconstruct the OLD (no audio-ext list) form to prove
+// the gap was real, then lock the fix.
+function oldNoAudioExt({ mimeType, filename }) {
+  const ext = (filename || '').split('.').pop()?.toLowerCase() || '';
+  const m = (mimeType || '').toLowerCase();
+  if (m === 'video/mp4' || m === 'video/webm') return false;
+  if (m.startsWith('audio/') && (m.includes('mp3') || m.includes('mpeg') || m.includes('mp4') || m.includes('aac') || m.includes('wav') || m.includes('ogg') || m.includes('opus') || m.includes('flac') || m.includes('webm'))) return false;
+  if (['mp4', 'm4a', 'mp3', 'wav', 'webm', 'ogg', 'oga', 'opus', 'flac', 'weba'].includes(ext)) return false;
+  if (['mov', 'mxf', 'mkv', 'avi', 'flv', 'mts', 'm2ts', 'wmv', 'prores'].includes(ext)) return true;
+  if (m.startsWith('video/quicktime')) return true;
+  if (m.startsWith('video/')) return true;
+  if (m.startsWith('audio/')) return true;
+  return false; // ← the gap: unknown-audio extension with empty mime
+}
+for (const ext of ['aiff', 'aif', 'aifc', 'wma', 'amr', 'ape', 'ac3', 'dts', 'caf', 'wv', 'm4b', 'ra']) {
+  // RED proof: old form mislabels the mime-less file as playable.
+  eq(oldNoAudioExt({ mimeType: '', filename: `interview.${ext}` }), false, `RED proof: old code skips mime-less .${ext}`);
+  // Fixed: now transcodes regardless of an absent mime.
+  eq(needsTranscode({ mimeType: '', filename: `interview.${ext}` }), true, `mime-less .${ext} → transcode`);
+}
+// Web-friendly audio extensions still short-circuit to skip BEFORE the new list,
+// so the fix never wastefully transcodes a Chrome-playable file (no regression).
+for (const ext of ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac', 'weba']) {
+  eq(needsTranscode({ mimeType: '', filename: `take.${ext}` }), false, `web audio ext .${ext} still skips (post-fix)`);
+}
+
 // ── Video behavior UNCHANGED — locks the no-regression guarantee ──
 // Web-friendly video.
 eq(needsTranscode({ mimeType: 'video/mp4', filename: 'a.mp4' }), false, 'video/mp4 → skip');
