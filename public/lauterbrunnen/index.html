@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Lauterbrunnen — the menu</title>
+<title>Los Petrey × Switzerland — little adventures from Wengen</title>
 <meta name="description" content="A simple menu of hikes and days out from Wengen, Lauterbrunnen valley. Every place links to its trail or map." />
 <meta name="theme-color" content="#16140F" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="canonical" href="https://mycoldmars.com/lauterbrunnen/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="mycoldmars" />
-<meta property="og:title" content="Lauterbrunnen — the menu" />
+<meta property="og:title" content="Los Petrey × Switzerland" />
 <meta property="og:description" content="A simple menu of hikes and days out from Wengen. Every place links to its trail or map." />
 <meta property="og:url" content="https://mycoldmars.com/lauterbrunnen/" />
 <meta property="og:image" content="https://mycoldmars.com/lauterbrunnen/og.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Lauterbrunnen — the menu" />
+<meta name="twitter:title" content="Los Petrey × Switzerland" />
 <meta name="twitter:description" content="Hikes and days out from Wengen, with a trail or map link for each." />
 <meta name="twitter:image" content="https://mycoldmars.com/lauterbrunnen/og.png" />
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet" />
@@ -164,8 +164,8 @@
 <div class="wrap" id="menuview">
   <header>
     <div class="kicker">Lauterbrunnen Valley · Bernese Oberland</div>
-    <h1>The <em>menu</em></h1>
-    <p class="lede">Days out from Wengen — each one a named little adventure with a step-by-step plan. The links live inside the steps: <b style="color:var(--trail)">green</b> opens the trail on AllTrails, <b style="color:var(--map)">blue</b> opens the place on Google Maps. Hit <b>Map it</b> on any adventure to see its legs drawn on the valley.</p>
+    <h1>Los Petrey × <em>Switzerland</em></h1>
+    <p class="lede">little adventures from wengen</p>
     <div class="basebar">
       <span class="homebase"><span class="dot"></span>Home base · <b>Wengen</b></span>
       <span class="legend">
@@ -315,7 +315,7 @@ const MONO_STYLE = {
     {id:'water',type:'fill',source:'streets','source-layer':'water',paint:{'fill-color':'#d7dcd9'}},
     {id:'waterway',type:'line',source:'streets','source-layer':'waterway',paint:{'line-color':'#c4cbc6','line-width':0.8}},
     {id:'roads',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['motorway','trunk','primary','secondary','tertiary','street','street_limited'],true,false],paint:{'line-color':'#dcd6ca','line-width':['interpolate',['linear'],['zoom'],11,0.5,15,1.4]}},
-    {id:'aerial',type:'line',source:'streets','source-layer':'road',filter:['==',['get','class'],'aerialway'],paint:{'line-color':'#b0a99d','line-width':0.9,'line-dasharray':[1,2],'line-opacity':0.75}},
+    {id:'aerial',type:'line',source:'streets','source-layer':'road',filter:['==',['get','class'],'aerialway'],paint:{'line-color':'#9a8e7c','line-width':['interpolate',['linear'],['zoom'],11,1.3,15,2.3],'line-dasharray':[1.6,1.5],'line-opacity':0.9}},
     {id:'rail-line',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['major_rail','minor_rail'],true,false],paint:{'line-color':'#6b655c','line-width':['interpolate',['linear'],['zoom'],11,0.7,15,1.4]}},
     {id:'rail-ties',type:'line',source:'streets','source-layer':'road',filter:['match',['get','class'],['major_rail','minor_rail'],true,false],paint:{'line-color':'#6b655c','line-width':['interpolate',['linear'],['zoom'],11,2.4,15,4.2],'line-dasharray':[0.35,0.7]}},
     {id:'labels',type:'symbol',source:'streets','source-layer':'place_label',filter:['match',['get','class'],['settlement','settlement_subdivision'],true,false],layout:{'text-field':['coalesce',['get','name_en'],['get','name']],'text-font':['DIN Pro Medium','Arial Unicode MS Regular'],'text-size':['interpolate',['linear'],['zoom'],11,10,14,13],'text-letter-spacing':0.02},paint:{'text-color':'#4a443c','text-halo-color':'#EFEDE8','text-halo-width':1.4}},
