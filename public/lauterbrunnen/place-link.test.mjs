@@ -75,9 +75,17 @@ assert.ok(!t.includes('/maps/search/'), 'trail() never builds a maps search quer
 
 // --- regression guard: the live page must still deep-link curated places via placeUrl(),
 //     not regress to search-wrapping (or to deleting the deep-link entirely). ---
+// NOTE: this guards the GENERAL contract — that placeUrl() is still wired to at least one
+// real curated http(s) Maps URL — rather than pinning one specific place. Which curated
+// spots get a full deep-link vs a plain-name place() search-wrap is a CONTENT decision the
+// page author changes freely (e.g. the 87f756c PWA rework moved Pension Gimmelwald to an
+// app-routable plain-name place() call). Pinning a single label here made the suite go RED
+// on a legitimate content edit. The real bug-class — feeding a raw URL through place(),
+// which search-wraps it into a broken /maps/search/?query=https%3A... link — is locked by
+// the second assertion below, which stays exact.
 assert.ok(
-  /placeUrl\("Pension Gimmelwald","https?:\/\//.test(html),
-  'the live page should still deep-link Pension Gimmelwald via a full Maps URL through placeUrl()',
+  /placeUrl\("[^"]*","https?:\/\//.test(html),
+  'the live page should still deep-link at least one curated place via a full Maps URL through placeUrl()',
 );
 assert.ok(
   !/\bplace\("[^"]*","https?:\/\//.test(html),
