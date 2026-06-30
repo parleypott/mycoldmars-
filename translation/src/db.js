@@ -1355,6 +1355,74 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
   const tusMod = await import('tus-js-client');
   const tus = tusMod.default || tusMod;
 
+  const clearTusFingerprint = ({ uploadUrl: staleUploadUrl } = {}) => {
+    // tus only clears its browser fingerprint after a SUCCESSFUL upload.
+    // When an upload dies mid-flight, we have to evict that resume record
+    // ourselves or the next retry can blindly re-attach to a dead session
+    // and wedge forever at 0% while the server keeps accepting PATCHes.
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const endpoint = `${url}/storage/v1/upload/resumable`;
+      const fileName = (file?.name || path.split('/').pop() || '').toLowerCase();
+      const fileNameNeedle = fileName.replace(/[^\w.-]/g, '');
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith('tus::')) continue;
+
+        const raw = localStorage.getItem(key);
+        let parsed = null;
+        try { parsed = raw ? JSON.parse(raw) : null; } catch {}
+
+        const metadata = parsed?.metadata || {};
+        const storedObjectName = metadata?.objectName;
+        const storedBucketName = metadata?.bucketName;
+        const storedUploadUrl = parsed?.uploadUrl;
+        const storedFingerprint = String(parsed?.fingerprint || '').toLowerCase();
+        const fingerprintHaystack = `${key.toLowerCase()} ${storedFingerprint}`;
+
+        let matchesFile = storedObjectName === path;
+        if (!matchesFile && fileNameNeedle && fingerprintHaystack.includes(fileNameNeedle)) {
+          matchesFile = storedBucketName === bucket ||
+                        storedUploadUrl?.startsWith(endpoint) ||
+                        key.includes(endpoint);
+        }
+        if (!matchesFile && staleUploadUrl && storedUploadUrl === staleUploadUrl) {
+          matchesFile = true;
+        }
+        if (matchesFile) localStorage.removeItem(key);
+      }
+    } catch {}
+  };
+
+  const validatePreviousUpload = async (previousUpload) => {
+    const previousUrl = previousUpload?.uploadUrl;
+    if (!previousUrl) {
+      clearTusFingerprint();
+      return false;
+    }
+    try {
+      const res = await fetch(previousUrl, {
+        method: 'HEAD',
+        headers: {
+          Authorization: `Bearer ${bearer}`,
+          apikey: anonKey,
+          'Tus-Resumable': '1.0.0',
+        },
+      });
+      const offsetHeader = res.headers.get('Upload-Offset');
+      const offset = offsetHeader === null ? Number.NaN : Number(offsetHeader);
+      if ((res.status === 200 || res.status === 204) &&
+          Number.isInteger(offset) &&
+          offset >= 0 &&
+          offset < file.size) {
+        return true;
+      }
+    } catch {}
+    // If we cannot prove the stored session is still coherent, discard the
+    // stale fingerprint and restart from byte 0. Fresh start is the safe path.
+    clearTusFingerprint({ uploadUrl: previousUrl });
+    return false;
+  };
+
   return new Promise((resolve, reject) => {
     const upload = new tus.Upload(file, {
       endpoint: `${url}/storage/v1/upload/resumable`,
@@ -1416,12 +1484,14 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
             `Upgrade the project to Supabase Pro ($25/mo) for a 50 GB per-file limit, or compress this file under 50 MB to test.`
           );
           e.code = 'STORAGE_QUOTA_EXCEEDED';
+          clearTusFingerprint();
           reject(e);
           return;
         }
         if (bodyText) detail += ' — ' + bodyText;
         const e = new Error(`Resumable upload failed: ${detail}`);
         e.code = 'TUS_ERROR';
+        clearTusFingerprint();
         reject(e);
       },
       onProgress: (bytesUploaded, bytesTotal) => {
@@ -1441,8 +1511,8 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
     }
 
     // Honor any in-progress upload so a refresh resumes instead of restarts.
-    upload.findPreviousUploads().then((previous) => {
-      if (previous.length > 0) {
+    upload.findPreviousUploads().then(async (previous) => {
+      if (previous.length > 0 && await validatePreviousUpload(previous[0])) {
         upload.resumeFromPreviousUpload(previous[0]);
       }
       upload.start();
