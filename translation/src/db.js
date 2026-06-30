@@ -1359,8 +1359,14 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
     const upload = new tus.Upload(file, {
       endpoint: `${url}/storage/v1/upload/resumable`,
       retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
+      // NOTE: do NOT set Authorization here. tus-js-client also runs
+      // onBeforeRequest (below) which sets Authorization — and the browser
+      // CONCATENATES duplicate setRequestHeader calls with ", ", producing
+      // "Bearer <tok>, Bearer <tok>". Supabase Storage strips "Bearer " and
+      // tries to verify the rest as a compact JWS → "Invalid Compact JWS" 400
+      // on every chunk, which TUS retries silently → upload frozen at 0%.
+      // Setting it in exactly one place (onBeforeRequest) is the fix.
       headers: {
-        Authorization: `Bearer ${bearer}`,
         apikey: anonKey,
         'x-upsert': 'true',
       },
@@ -1371,15 +1377,18 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
       // would 401 on every retry. Best-effort — if getSession fails
       // (offline blip), we keep the previous header.
       onBeforeRequest: async (req) => {
-        // Refresh from the live session if we have one. Critical for
-        // multi-GB uploads that outrun the JWT's 60-min TTL. Only swap
-        // in tokens that actually look like JWTs — never overwrite a
-        // good bearer with an sb_publishable_* string.
+        // The ONLY place Authorization is set (see headers note above).
+        // Start from the precomputed bearer, then prefer a fresh session
+        // token — critical for multi-GB uploads that outrun the JWT's
+        // 60-min TTL. Only swap in tokens that actually look like JWTs —
+        // never overwrite a good bearer with an sb_publishable_* string.
+        let tok = bearer;
         try {
           const { data } = await supabase.auth.getSession();
-          const tok = data?.session?.access_token;
-          if (looksLikeJwt(tok)) req.setHeader('Authorization', `Bearer ${tok}`);
+          const fresh = data?.session?.access_token;
+          if (looksLikeJwt(fresh)) tok = fresh;
         } catch {}
+        req.setHeader('Authorization', `Bearer ${tok}`);
       },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
