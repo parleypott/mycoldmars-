@@ -580,6 +580,7 @@ function initMap(){
   map = new mapboxgl.Map({container:'map',style:MONO_STYLE,center:[7.955,46.61],zoom:11.2,pitch:52,bearing:18,antialias:true,attributionControl:false});
   map.addControl(new mapboxgl.AttributionControl({compact:true}),'bottom-right');
   map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}),'top-right');
+  map.addControl(new mapboxgl.GeolocateControl({positionOptions:{enableHighAccuracy:true},trackUserLocation:true,showUserHeading:true,showAccuracyCircle:true}),'top-right');
   map.on('style.load',()=>{
     map.addSource('dem2',{type:'raster-dem',url:'mapbox://mapbox.mapbox-terrain-dem-v1',tileSize:512,maxzoom:14});
     map.setTerrain({source:'dem2',exaggeration:1.4});

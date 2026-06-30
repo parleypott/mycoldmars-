@@ -1,5 +1,5 @@
 // Los Petrey × Switzerland — offline service worker
-const CACHE = 'lpch-v3';
+const CACHE = 'lpch-v4';
 const SHELL = [
   './',
   './index.html',
