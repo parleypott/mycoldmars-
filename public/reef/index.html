@@ -21,6 +21,10 @@
   }
   .frame.show { opacity: 1; }
 
+  /* paused = editable: accent ring + grab cursor on the image */
+  body.paused #stage { box-shadow: inset 0 0 0 2px rgba(46,111,106,.45); cursor: grab; }
+  body.paused.grabbing #stage { cursor: grabbing; }
+
   #boot {
     position: fixed; inset: 0; z-index: 20;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -32,7 +36,7 @@
   #boot.gone { opacity: 0; pointer-events: none; }
   #bar { width: 220px; height: 2px; background: #14201f; overflow: hidden; }
   #bar > i { display: block; height: 100%; width: 0%; background: #2e6f6a; transition: width .2s ease; }
-  #boot .hint { font-size: 10px; color: #2c3a3a; max-width: 340px; text-align: center; }
+  #boot .hint { font-size: 10px; color: #2c3a3a; max-width: 360px; text-align: center; }
 
   .mono { font: 500 11px/1 ui-monospace, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
 
@@ -48,44 +52,6 @@
   body.paused #kill { display: flex; }
   #kill:hover { background: rgba(220,38,38,.9); border-color: rgba(255,120,120,.6); color: #fff; transform: scale(1.06); }
   #kill:active { transform: scale(.94); }
-  /* deleting the very frame you're reframing has no good answer — hide kill while editing */
-  body.reframing #kill { display: none !important; }
-
-  #lock {
-    position: fixed; top: 22px; left: 22px; z-index: 15;
-    width: 54px; height: 54px; border-radius: 50%;
-    display: none; align-items: center; justify-content: center;
-    background: rgba(8,12,14,.62); backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.14); color: #cfd9d8;
-    cursor: pointer;
-    transition: background .15s ease, transform .12s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
-  }
-  /* visible whenever the operator might want to enter edit: on mouse peek, when paused, or while editing */
-  body.peek #lock, body.paused #lock, body.reframing #lock { display: flex; }
-  #lock:hover { background: rgba(20,32,30,.9); border-color: rgba(116,178,171,.6); color: #fff; transform: scale(1.06); }
-  #lock:active { transform: scale(.94); }
-  #lock svg { display: block; }
-  /* unlocked / editing: the lock IS the mode signal — turn it turquoise and glow */
-  body.reframing #lock {
-    color: #eafffb; border-color: rgba(46,111,106,.9);
-    background: rgba(46,111,106,.55); box-shadow: 0 0 18px rgba(46,111,106,.45);
-  }
-
-  /* editing affordance: inset accent ring on the stage + grab cursor */
-  body.reframing #stage { box-shadow: inset 0 0 0 2px rgba(46,111,106,.55); cursor: grab; }
-  body.reframing.grabbing #stage { cursor: grabbing; }
-
-  #reframe {
-    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%);
-    z-index: 16; display: none; align-items: center; gap: 12px;
-    padding: 9px 15px; border-radius: 12px;
-    background: rgba(8,12,14,.66); backdrop-filter: blur(10px);
-    border: 1px solid rgba(46,111,106,.45); color: #9fcfc8;
-    pointer-events: none; text-shadow: 0 1px 8px rgba(0,0,0,.8);
-  }
-  body.reframing #reframe { display: flex; }
-  body.reframing #ctrl, body.reframing #meta { display: none !important; }
-  #reframe .sc { color: #eafffb; min-width: 52px; }
 
   #ctrl {
     position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
@@ -109,13 +75,15 @@
   #ctrl .resume:hover { background: rgba(46,111,106,.9); }
 
   #meta {
-    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%);
     z-index: 15; text-align: center; color: #8aa0a0; display: none;
     text-shadow: 0 1px 8px rgba(0,0,0,.8);
   }
   body.paused #meta { display: block; }
   #meta .name { font-size: 13px; letter-spacing: .22em; color: #d4e2e1; }
   #meta .tally { font-size: 10px; letter-spacing: .18em; color: #4a5e5d; margin-top: 6px; }
+  #meta .hint2 { font-size: 10px; letter-spacing: .16em; color: #5b7572; margin-top: 7px; }
+  #meta .hint2 #editScale { color: #9fcfc8; }
 
   #hud {
     position: fixed; left: 16px; bottom: 14px; z-index: 5;
@@ -136,16 +104,11 @@
   <div class="flash" id="flash"></div>
 
   <button id="kill" title="delete this frame (k)">✕</button>
-  <button id="lock" title="reframe this reef (l)"></button>
-
-  <div id="reframe">
-    <span class="mono sc" id="reframeScale">1.50×</span>
-    <span class="mono">scroll zoom · drag pan · ↵ save · esc cancel</span>
-  </div>
 
   <div id="meta">
     <div class="name mono" id="metaName">—</div>
     <div class="tally mono" id="metaTally"></div>
+    <div class="hint2 mono">scroll zoom · drag pan · <span id="editScale">1.50×</span> · space play</div>
   </div>
 
   <div id="ctrl">
@@ -155,13 +118,13 @@
     <button id="faster" title="faster (↑)">+</button>
     <button id="next" title="next frame (→)">⏭</button>
     <span class="sep"></span>
-    <button id="resume" class="resume" title="resume (space)">▶</button>
+    <button id="resume" class="resume" title="play (space)">▶</button>
   </div>
 
   <div id="boot">
     <div>buffering reefs</div>
     <div id="bar"><i></i></div>
-    <div class="hint mono" id="bootHint">space pause · l reframe · ←→ step · ↑↓ speed · k delete · f fullscreen</div>
+    <div class="hint mono" id="bootHint">space pause · scroll zoom · drag pan · ←→ step · ↑↓ speed · k delete · f fullscreen</div>
   </div>
 
   <div id="hud"><span class="mono" id="hudText"></span></div>
@@ -179,8 +142,7 @@ const els = {
   name: document.getElementById('metaName'),
   tally: document.getElementById('metaTally'),
   fps: document.getElementById('fps'),
-  lock: document.getElementById('lock'),
-  reframeScale: document.getElementById('reframeScale'),
+  scale: document.getElementById('editScale'),
 };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -191,12 +153,12 @@ try { const v = JSON.parse(localStorage.getItem(KILL_STORE) || '[]'); if (Array.
 const persistKilled = () => { try { localStorage.setItem(KILL_STORE, JSON.stringify([...killed])); } catch (e) {} };
 
 // ---- per-frame framing (zoom + pan), saved forever ---------------------------
-// Store pan as a FRACTION of the legal max-translate at the saved scale, NOT pixels.
-// Fractions are viewport/resolution independent: a frame locked on a 2560-wide laptop
-// re-applies with no black bars on a phone, in fullscreen, or after a resize.
+// Pan stored as a FRACTION of the legal max-translate at the saved scale, NOT pixels —
+// viewport/resolution independent, so a framing set on a laptop re-applies with no
+// black bars on a phone, in fullscreen, or after a resize.
 // localStorage 'reef_framing_v1' = { [file]: { s, x, y } }
-//   s = scale, clamped [1.0 .. 3.0], default 1.5 (zoomed in, with headroom to zoom OUT)
-//   x,y = pan fraction, each clamped [-1, 1]; px = fraction * (s-1)/2 * viewportDim
+//   s = scale [1.0 .. 3.0], default 1.5 (zoomed in, headroom to zoom OUT)
+//   x,y = pan fraction [-1, 1]; px = fraction * (s-1)/2 * viewportDim
 const FRAMING_STORE = 'reef_framing_v1';
 const S_MIN = 1.0, S_DEF = 1.5, S_MAX = 3.0;
 let framing = {};
@@ -211,7 +173,9 @@ try {
     }
   }
 } catch (e) {}
+let saveT = null;
 const persistFraming = () => { try { localStorage.setItem(FRAMING_STORE, JSON.stringify(framing)); } catch (e) {} };
+const scheduleSave = () => { clearTimeout(saveT); saveT = setTimeout(persistFraming, 140); };
 const getFraming = (file) => framing[file] || { s: S_DEF, x: 0, y: 0 };
 
 const stageWH = () => [els.stage.clientWidth, els.stage.clientHeight];
@@ -226,21 +190,12 @@ function applyFraming(img, file) {
   img.style.transform = frameTransform(f.s, f.x * maxTx, f.y * maxTy);
 }
 
-// ---- reframe edit session ---------------------------------------------------
-// While editing, hold the working framing in PIXELS (zero rounding drift); convert
-// to fractions only on commit. edit is a fresh copy each unlock — never inherits
-// the previously edited frame's values.
-let reframing = false;
-let edit = null;      // { s, tx, ty } in px, only while reframing
-let editFile = null;  // the file being edited (stable across the per-load shuffle)
+// ---- live editing: paused == editable, auto-saves (no lock) ------------------
+// While paused we hold the working framing in PIXELS for the current frame and
+// write it straight back to saved framing (as fractions) on every change.
+let edit = null;      // { s, tx, ty } px for the frame being edited
+let editFile = null;  // file of the frame being edited (stable across the shuffle)
 let drag = null;      // active pan gesture
-
-const LOCK_CLOSED = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
-const LOCK_OPEN   = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.4-2.1"/></svg>';
-function updateLockGlyph() {
-  els.lock.innerHTML = reframing ? LOCK_OPEN : LOCK_CLOSED;
-  els.lock.title = reframing ? 'save framing & resume (l)' : 'reframe this reef (l)';
-}
 
 function clampEdit() {
   const [W, H] = stageWH();
@@ -250,28 +205,9 @@ function clampEdit() {
   edit.ty = maxTy > 0 ? clamp(edit.ty, -maxTy, maxTy) : 0;
 }
 
-function renderEdit() {
-  if (!reframing) return;
-  clampEdit();
-  els.imgs[visible].style.transform = frameTransform(edit.s, edit.tx, edit.ty);
-  els.reframeScale.textContent = edit.s.toFixed(2) + '×';
-}
-
-function enterReframe() {
-  if (reframing || curIdx == null || !FRAMES[curIdx]) return;
-  setPaused(true);
-  reframing = true;
-  editFile = FRAMES[curIdx].file;
-  const f = getFraming(editFile);            // fresh copy seeded from saved-or-default
-  const [W, H] = stageWH();
-  edit = { s: f.s, tx: f.x * (f.s - 1) / 2 * W, ty: f.y * (f.s - 1) / 2 * H };
-  document.body.classList.add('reframing');
-  updateLockGlyph();
-  renderEdit();
-}
-
-function commitReframe() {
-  if (!reframing) return;
+// push the working edit into the saved framing (as fractions), reflect it live, auto-save
+function commitLive() {
+  if (!edit || editFile == null) return;
   clampEdit();
   const [W, H] = stageWH();
   const maxTx = (edit.s - 1) / 2 * W, maxTy = (edit.s - 1) / 2 * H;
@@ -280,31 +216,20 @@ function commitReframe() {
     x: maxTx > 0 ? clamp(edit.tx / maxTx, -1, 1) : 0,
     y: maxTy > 0 ? clamp(edit.ty / maxTy, -1, 1) : 0,
   };
-  persistFraming();
-  const file = editFile;
-  exitReframe();
-  applyFraming(els.imgs[visible], file);     // reflect the just-saved framing immediately
-  setPaused(false);
+  els.imgs[visible].style.transform = frameTransform(edit.s, edit.tx, edit.ty);
+  if (els.scale) els.scale.textContent = edit.s.toFixed(2) + '×';
+  scheduleSave();
 }
 
-function cancelReframe() {
-  if (!reframing) return;
-  const file = editFile;
-  exitReframe();
-  applyFraming(els.imgs[visible], file);     // revert to last-saved/default
-  setPaused(false);
+// (re)target editing at the currently shown frame — on pause, and on every step
+function beginEdit() {
+  if (playing || curIdx == null || !FRAMES[curIdx]) { edit = null; editFile = null; return; }
+  editFile = FRAMES[curIdx].file;
+  const f = getFraming(editFile);
+  const [W, H] = stageWH();
+  edit = { s: f.s, tx: f.x * (f.s - 1) / 2 * W, ty: f.y * (f.s - 1) / 2 * H };
+  if (els.scale) els.scale.textContent = edit.s.toFixed(2) + '×';
 }
-
-function exitReframe() {
-  reframing = false;
-  edit = null;
-  editFile = null;
-  drag = null;
-  document.body.classList.remove('reframing', 'grabbing');
-  updateLockGlyph();
-}
-
-function toggleLock() { if (reframing) commitReframe(); else enterReframe(); }
 
 let FRAMES = [];
 const frameKey = (f) => f.file;
@@ -355,7 +280,7 @@ function display(i) {
   els.imgs[visible].classList.remove('show');
   visible = 1 - visible;
   curIdx = i;
-  if (document.body.classList.contains('paused')) updateMeta();
+  if (!playing) { updateMeta(); beginEdit(); }   // stepped to a new frame while paused → edit it
   if (hud.on) els.hud.textContent =
     `${FRAMES[i].name} · z${FRAMES[i].z} · ${Math.round(1000/interval)}fps · ${readyCount()} ready`;
 }
@@ -385,7 +310,12 @@ function setSpeed(fps) {
   if (timer) { clearInterval(timer); timer = setInterval(() => { if (playing) tick(); }, interval); }
 }
 
-function setPaused(p) { playing = !p; document.body.classList.toggle('paused', p); if (p) updateMeta(); }
+function setPaused(p) {
+  playing = !p;
+  document.body.classList.toggle('paused', p);
+  if (p) { updateMeta(); beginEdit(); }
+  else { edit = null; editFile = null; drag = null; document.body.classList.remove('grabbing'); persistFraming(); }
+}
 const togglePause = () => setPaused(playing);
 
 function updateMeta() {
@@ -394,7 +324,7 @@ function updateMeta() {
 }
 
 function killCurrent() {
-  if (curIdx == null || reframing) return;
+  if (curIdx == null) return;
   killed.add(frameKey(FRAMES[curIdx])); persistKilled();
   ready[curIdx] = false;
   els.flash.classList.add('on'); setTimeout(() => els.flash.classList.remove('on'), 90);
@@ -410,13 +340,11 @@ function peek() {
 }
 window.addEventListener('mousemove', peek);
 
-document.getElementById('kill').addEventListener('click', (e) => { e.stopPropagation(); killCurrent(); });
-els.lock.addEventListener('click', (e) => { e.stopPropagation(); toggleLock(); });
-updateLockGlyph();
+document.getElementById('kill').addEventListener('click', (e) => { e.stopPropagation(); if (!playing) killCurrent(); });
 
-// wheel = zoom toward the cursor (only while reframing; otherwise let the page handle it)
+// wheel = zoom toward the cursor — only while paused; otherwise let the page scroll
 els.stage.addEventListener('wheel', (e) => {
-  if (!reframing) return;
+  if (playing || !edit) return;
   e.preventDefault();
   const rect = els.stage.getBoundingClientRect();
   const [W, H] = stageWH();
@@ -428,59 +356,47 @@ els.stage.addEventListener('wheel', (e) => {
   edit.tx = px - (s2 / edit.s) * (px - edit.tx);
   edit.ty = py - (s2 / edit.s) * (py - edit.ty);
   edit.s = s2;
-  renderEdit();
+  commitLive();
 }, { passive: false });
 
-// drag = pan (content follows the hand). Only active while reframing.
+// drag = pan — only while paused
 els.stage.addEventListener('mousedown', (e) => {
-  if (!reframing) return;
+  if (playing || !edit) return;
   e.preventDefault();
   drag = { mx: e.clientX, my: e.clientY, tx: edit.tx, ty: edit.ty };
   document.body.classList.add('grabbing');
 });
 window.addEventListener('mousemove', (e) => {
-  if (!reframing || !drag) return;
+  if (playing || !drag || !edit) return;
   edit.tx = drag.tx + (e.clientX - drag.mx);
   edit.ty = drag.ty + (e.clientY - drag.my);
-  renderEdit();
+  commitLive();
 });
 window.addEventListener('mouseup', () => {
-  if (drag) document.body.classList.remove('grabbing');
+  if (drag) { document.body.classList.remove('grabbing'); persistFraming(); }
   drag = null;
 });
 
-// keep saved framing black-bar-safe on resize / fullscreen: re-apply to the showing layer
+// keep framing black-bar-safe on resize / fullscreen
 window.addEventListener('resize', () => {
-  if (reframing) renderEdit();
-  else if (curIdx != null && FRAMES[curIdx]) applyFraming(els.imgs[visible], FRAMES[curIdx].file);
+  if (curIdx != null && FRAMES[curIdx]) applyFraming(els.imgs[visible], FRAMES[curIdx].file);
+  if (!playing) beginEdit();
 });
+
 document.getElementById('prev').addEventListener('click', (e) => { e.stopPropagation(); step(-1); });
 document.getElementById('next').addEventListener('click', (e) => { e.stopPropagation(); step(1); });
 document.getElementById('slower').addEventListener('click', (e) => { e.stopPropagation(); setSpeed(Math.round(1000/interval) - 1); updateMeta(); });
 document.getElementById('faster').addEventListener('click', (e) => { e.stopPropagation(); setSpeed(Math.round(1000/interval) + 1); updateMeta(); });
-document.getElementById('resume').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); });
+document.getElementById('resume').addEventListener('click', (e) => { e.stopPropagation(); togglePause(); });
 
 window.addEventListener('keydown', (e) => {
-  // while editing one frame, the keys mean reframe actions, not playback control
-  if (reframing) {
-    switch (e.key) {
-      case 'Escape':              e.preventDefault(); cancelReframe(); break;
-      case 'Enter': case ' ': case 'l': case 'L': e.preventDefault(); commitReframe(); break;
-      case 'ArrowUp':             e.preventDefault(); edit.s = clamp(edit.s + 0.05, S_MIN, S_MAX); renderEdit(); break;
-      case 'ArrowDown':           e.preventDefault(); edit.s = clamp(edit.s - 0.05, S_MIN, S_MAX); renderEdit(); break;
-      case 'ArrowRight':          e.preventDefault(); edit.tx -= 14; renderEdit(); break;
-      case 'ArrowLeft':           e.preventDefault(); edit.tx += 14; renderEdit(); break;
-    }
-    return;
-  }
   switch (e.key) {
     case ' ':          e.preventDefault(); togglePause(); break;
-    case 'l': case 'L': e.preventDefault(); toggleLock(); break;
     case 'k': case 'Backspace': case 'Delete': e.preventDefault(); if (!playing) killCurrent(); break;
-    case 'ArrowUp':    setSpeed(Math.round(1000/interval) + 1); updateMeta(); break;
-    case 'ArrowDown':  setSpeed(Math.round(1000/interval) - 1); updateMeta(); break;
     case 'ArrowRight': if (!playing) step(1); break;
     case 'ArrowLeft':  if (!playing) step(-1); break;
+    case 'ArrowUp':    setSpeed(Math.round(1000/interval) + 1); updateMeta(); break;
+    case 'ArrowDown':  setSpeed(Math.round(1000/interval) - 1); updateMeta(); break;
     case 'f':          document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
   }
 });
