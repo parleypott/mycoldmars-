@@ -4717,6 +4717,13 @@ tr.dimmed-speaker { opacity: 0.35; }
 /* ── SOT HUNTER ─────────────────────────────────────────────────────── */
 #sot-hunter-root { position: fixed; inset: 0 0 auto auto; pointer-events: none; z-index: 950; }
 #sot-hunter-root > * { pointer-events: auto; }
+/* When the SOT Hunter panel is CLOSED it stays in the DOM (opacity:0 for the
+   fade) at z-index 950 — above the DevChat panel (z-index 500). Without this it
+   becomes an INVISIBLE click-eater: clicks over its footprint (e.g. the DevChat
+   composer) hit the closed panel instead of what's visible underneath. Force the
+   closed panel + all its children to ignore pointer events. .open re-enables. */
+#sot-hunter-root > .sot-hunter-panel:not(.open),
+#sot-hunter-root > .sot-hunter-panel:not(.open) * { pointer-events: none; }
 
 .sot-hunter-toggle {
   position: fixed;
