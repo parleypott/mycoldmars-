@@ -352,8 +352,8 @@ header {
 .home-paths {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  max-width: 720px;
+  gap: 9px;
+  max-width: 360px;
   margin: var(--np-space-8) auto 0;
   padding: 0 var(--np-space-4);
 }
@@ -361,8 +361,8 @@ header {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 16px;
-  padding: 20px 22px;
+  gap: 8px;
+  padding: 10px 11px;
   background: #fff;
   border: 1px solid rgba(18, 17, 24, 0.12);
   border-radius: 6px;
@@ -424,9 +424,9 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
   background: rgba(221, 44, 30, 0.08);
   color: var(--np-red);
   flex-shrink: 0;
@@ -442,12 +442,12 @@ header {
 .home-path-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 .home-path-title {
   font-family: var(--np-font-serif);
-  font-size: 22px;
+  font-size: 11px;
   font-weight: 400;
   font-style: italic;
   letter-spacing: -0.005em;
@@ -463,7 +463,7 @@ header {
 }
 .home-path-arrow {
   font-family: var(--np-font-mono);
-  font-size: 22px;
+  font-size: 11px;
   color: var(--np-sepia);
   transition: transform 240ms var(--np-ease-out), color 240ms var(--np-ease-out);
   flex-shrink: 0;
