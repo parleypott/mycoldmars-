@@ -1,5 +1,6 @@
 import './style.css';
 import slides from './slides.js';
+import { navTarget } from './nav.js';
 
 const deck = document.getElementById('deck');
 const progressBar = document.getElementById('progress-bar');
@@ -602,11 +603,12 @@ function imgOrPlaceholder(src, name, cls) {
    NAVIGATION
    ============================================================ */
 function goTo(index) {
-  if (index < 0 || index >= total || index === current) return;
+  const target = navTarget(index, current, total);
+  if (target === null) return;
   const all = deck.querySelectorAll('.slide');
   all[current].classList.remove('active');
-  all[index].classList.add('active');
-  current = index;
+  all[target].classList.add('active');
+  current = target;
   updateProgress();
 }
 
