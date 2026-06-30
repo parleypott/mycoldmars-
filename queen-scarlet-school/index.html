@@ -3881,6 +3881,11 @@
       transition: background 80ms ease, color 80ms ease;
       padding: 0 2px;
       border-radius: 4px;
+      cursor: pointer;
+    }
+    /* Hover hint: each word is a tap-to-listen target during playback. */
+    .sb-cue-section.is-playing .sb-scene-text .ks-w:hover {
+      background: rgba(255,217,100,0.32);
     }
     .sb-scene-text .ks-w.ks-past {
       color: var(--ink-soft);
@@ -7298,7 +7303,13 @@
     //      characters get an appearance link; brand-new ones get
     //      queued for first-draw portraits automatically.
     async function runAutoBuild(sourceText) {
-      const text = (sourceText || '').trim();
+      // Unescape any literal \n / \r / \t the kid pasted (e.g. copied from a
+      // JSON blob or an AI tool that emitted escapes as text) so scenes get
+      // real paragraph breaks, not visible "\n\n" baked into the prose.
+      const text = (sourceText || '')
+        .replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\n').replace(/\\t/g, '\t')
+        .trim();
       if (!text) return;
       if (text.length < 80) {
         alert('Paste a full story — that text is too short for auto-build to find scenes.');
@@ -11353,6 +11364,37 @@
       return s.length > 48 ? s.slice(0, 48) + '…' : s;
     }
 
+    // One-time cleanup: repair block.text where escape sequences were baked
+    // in LITERALLY — i.e. the two characters backslash+n instead of a real
+    // newline. Happens when a generation/paste path stores a JSON-encoded
+    // string without unescaping it, so the storybook shows "\n\n" as visible
+    // text and read-aloud literally narrates "backslash n". Prose never
+    // legitimately contains a literal \n / \r / \t, so unescaping is always
+    // safe and this self-heals old stories the next time they open.
+    function repairLiteralEscapes() {
+      const blocks = state.blocks || [];
+      let repaired = 0;
+      for (const b of blocks) {
+        const text = String(b.text || '');
+        if (!text || !/\\[nrt]/.test(text)) continue;
+        const fixed = text
+          .replace(/\\r\\n/g, '\n')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\n')
+          .replace(/\\t/g, '\t');
+        if (fixed !== text) {
+          b.text = fixed;
+          b.__sceneBreaksScanned = '';
+          repaired++;
+        }
+      }
+      if (repaired > 0) {
+        try { console.warn('[sb-cleanup] repaired', repaired, 'block(s) with literal \\n escapes'); } catch {}
+        if (typeof persist === 'function') persist();
+        try { if (window.Lib?.flush) window.Lib.flush(); } catch {}
+      }
+    }
+
     // One-time cleanup: repair corrupted block.text where \n\n was baked
     // mid-word by flushBlockScenes using bad cue offsets. Two-pass:
     // Pass 1 — any paragraph starting with a lowercase letter is a mid-word
@@ -11497,7 +11539,9 @@
       const empty = document.getElementById('sb-empty');
       const reader = document.getElementById('sb-reader');
       // ORDER MATTERS — repair text BEFORE cleaning cues, because cue
-      // offsets may shift after text is rejoined.
+      // offsets may shift after text is rejoined. Unescape literal \n FIRST
+      // so the mid-word repair below sees real paragraph breaks to work with.
+      repairLiteralEscapes();
       repairCorruptBlockText();
       cleanupDegenerateAutoCues();
       snapCuesToWordBoundaries();
@@ -12205,6 +12249,75 @@
             e.stopPropagation();
             openArcInspector();
           }
+        });
+      }
+
+      // ── Click-to-read: tap anywhere in the story and audio starts there. ──
+      // Single click = read aloud from that word. Double click = edit (so we
+      // don't lose the ability to fix typos). During playback the prose is
+      // decorated with .ks-w word spans (contenteditable off) so a click is
+      // unambiguous; idle prose uses the caret position to find the word.
+      if (!host._sbReadClickWired) {
+        host._sbReadClickWired = true;
+
+        // Map a click point inside a scene element to a character offset in
+        // its text (works whether the prose is raw or span-decorated).
+        const caretCharOffset = (container, x, y) => {
+          let node = null, off = 0;
+          if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(x, y);
+            if (pos) { node = pos.offsetNode; off = pos.offset; }
+          } else if (document.caretRangeFromPoint) {
+            const r = document.caretRangeFromPoint(x, y);
+            if (r) { node = r.startContainer; off = r.startOffset; }
+          }
+          if (!node || !container.contains(node)) return null;
+          const range = document.createRange();
+          range.selectNodeContents(container);
+          try { range.setEnd(node, off); } catch { return null; }
+          return range.toString().length;
+        };
+
+        let clickTimer = null;
+        const IGNORE = '.sb-cue-delete,.sb-scene-auto-break,.sb-drag-handle,.sb-scene-char-chip,.sb-add-break-btn,.sb-cue-thumb,.sb-cue-mark';
+
+        host.addEventListener('click', (e) => {
+          if (e.target.closest(IGNORE)) return;
+          const sceneEl = e.target.closest('.sb-scene-text');
+          if (!sceneEl) return;
+          const cueId = sceneEl.dataset.cueId;
+          if (!cueId) return;
+
+          // Decorated word span → jump to that exact word immediately.
+          const span = e.target.closest('.ks-w');
+          if (span) {
+            e.preventDefault();
+            sbPlayer.playFrom(cueId, { wordIdx: parseInt(span.dataset.idx || '0', 10) });
+            return;
+          }
+
+          // Reading session is live but click missed a span (padding/gap) —
+          // seek by character offset, no edit possible here so go now.
+          if (sceneEl.getAttribute('contenteditable') === 'false') {
+            const off = caretCharOffset(sceneEl, e.clientX, e.clientY);
+            if (off != null) { e.preventDefault(); sbPlayer.playFrom(cueId, { charOffset: off }); }
+            return;
+          }
+
+          // Idle/editable prose: debounce so a double-click (edit) doesn't
+          // also fire a read.
+          const off = caretCharOffset(sceneEl, e.clientX, e.clientY);
+          if (off == null) return;
+          if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; } // 2nd click → let edit happen
+          clickTimer = setTimeout(() => {
+            clickTimer = null;
+            sbPlayer.playFrom(cueId, { charOffset: off });
+          }, 240);
+        });
+
+        host.addEventListener('dblclick', (e) => {
+          if (!e.target.closest('.sb-scene-text')) return;
+          if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; } // cancel pending read
         });
       }
       host.querySelectorAll('.sb-cue-section').forEach(section => {
@@ -14039,7 +14152,7 @@
         session.rafHandle = requestAnimationFrame(rafLoop);
       }
 
-      async function loadAndPlay(sceneIdx, { fromTime = 0 } = {}) {
+      async function loadAndPlay(sceneIdx, { fromTime = 0, fromWord = null, fromChar = null } = {}) {
         const myToken = ++session.token;
         const sc = session.scenes[sceneIdx];
         if (!sc) return false;
@@ -14107,6 +14220,24 @@
             stop();
           }
         };
+
+        // Resolve a click target (word index or character offset in the
+        // scene text) into a playback time, now that this scene's words
+        // (with their start times + charStart/charEnd) are loaded.
+        if (fromWord != null && Array.isArray(sc.words) && sc.words.length) {
+          const w = sc.words[Math.max(0, Math.min(sc.words.length - 1, fromWord))];
+          if (w && typeof w.start === 'number' && w.start >= 0) fromTime = w.start;
+        } else if (fromChar != null && Array.isArray(sc.words) && sc.words.length) {
+          let wi = sc.words.findIndex(w => fromChar >= (w.charStart ?? 0) && fromChar < (w.charEnd ?? 0));
+          if (wi < 0) { // nearest preceding word
+            wi = 0;
+            for (let i = 0; i < sc.words.length; i++) {
+              if ((sc.words[i].charStart ?? 0) <= fromChar) wi = i; else break;
+            }
+          }
+          const w = sc.words[wi];
+          if (w && typeof w.start === 'number' && w.start >= 0) fromTime = w.start;
+        }
 
         // Start playing
         try { sc.audio.currentTime = Math.max(0, Math.min(sc.duration - 0.1, fromTime)); } catch {}
@@ -14258,6 +14389,33 @@
           loadAndPlay(session.sceneIdx);
         }
       }
+      // Click-to-read: jump playback to a specific spot in the story.
+      // Works both cold (no session yet — builds scenes and starts there)
+      // and live (already playing/paused — tears down the current scene
+      // and resumes at the clicked word). `target` is { wordIdx } when we
+      // clicked a decorated karaoke span, or { charOffset } when we clicked
+      // raw (idle) prose and only know the character position.
+      function playFrom(cueId, target = {}) {
+        if (!session.scenes.length) {
+          session.token++;
+          session.scenes = buildScenes();
+          session.totalDuration = 0;
+          session.elapsedBefore = 0;
+        }
+        if (!session.scenes.length) { sbToast('no story to read yet'); return; }
+        const idx = session.scenes.findIndex(s => s.cueId === cueId);
+        if (idx < 0) return;
+        const cur = session.scenes[session.sceneIdx];
+        if (cur && cur.cueId !== cueId && cur.audio) {
+          try { cur.audio.pause(); } catch {}
+          restoreSceneCard(cur.cueId, cur.text);
+        }
+        session.paused = false;
+        loadAndPlay(idx, {
+          fromWord: (typeof target.wordIdx === 'number') ? target.wordIdx : null,
+          fromChar: (typeof target.charOffset === 'number') ? target.charOffset : null,
+        });
+      }
       function seekToPct(pct) {
         if (!session.scenes.length || !session.totalDuration) return;
         const targetT = Math.max(0, Math.min(session.totalDuration, pct * session.totalDuration));
@@ -14277,7 +14435,8 @@
       }
       // Public surface
       return {
-        start, pause, stop, toggle, nextScene, prevScene, skip, setVoice, seekToPct,
+        start, pause, stop, toggle, nextScene, prevScene, skip, setVoice, seekToPct, playFrom,
+        hasSession: () => session.scenes.length > 0 && (session.playing || session.paused),
         getVoice: () => session.voice,
         isPlaying: () => session.playing && !session.paused,
         updateUI,
@@ -14763,7 +14922,10 @@
       // 1) trim
       // 2) collapse runs of whitespace inside a line (but keep paragraph breaks)
       // 3) ensure ends with punctuation
-      let t = text.trim();
+      let t = text
+        .replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\n').replace(/\\t/g, '\t')
+        .trim();
       t = t.split(/\n{2,}/).map(p => p.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim()).join('\n')).join('\n\n');
       if (!/[.!?…]$/.test(t)) t += '.';
       // Capitalize first letter of first sentence (only if it starts lowercase)
