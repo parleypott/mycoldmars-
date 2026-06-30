@@ -119,6 +119,8 @@
     <button id="next" title="next frame (→)">⏭</button>
     <span class="sep"></span>
     <button id="resume" class="resume" title="play (space)">▶</button>
+    <span class="sep"></span>
+    <button id="export" title="export GIF / MP4 / image sequence (e)">⤓</button>
   </div>
 
   <div id="boot">
@@ -389,6 +391,17 @@ document.getElementById('slower').addEventListener('click', (e) => { e.stopPropa
 document.getElementById('faster').addEventListener('click', (e) => { e.stopPropagation(); setSpeed(Math.round(1000/interval) + 1); updateMeta(); });
 document.getElementById('resume').addEventListener('click', (e) => { e.stopPropagation(); togglePause(); });
 
+// lazy-load the export module (GIF / MP4 / image sequence) only when asked
+let exportMod = null;
+async function openExport() {
+  if (!playing) {} // exporting works from any state; it reads saved framing, not live transform
+  try {
+    if (!exportMod) exportMod = await import('./export.js');
+    exportMod.openMenu();
+  } catch (err) { console.error('export load failed', err); }
+}
+document.getElementById('export').addEventListener('click', (e) => { e.stopPropagation(); openExport(); });
+
 window.addEventListener('keydown', (e) => {
   switch (e.key) {
     case ' ':          e.preventDefault(); togglePause(); break;
@@ -398,6 +411,7 @@ window.addEventListener('keydown', (e) => {
     case 'ArrowUp':    setSpeed(Math.round(1000/interval) + 1); updateMeta(); break;
     case 'ArrowDown':  setSpeed(Math.round(1000/interval) - 1); updateMeta(); break;
     case 'f':          document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
+    case 'e': case 'E': e.preventDefault(); openExport(); break;
   }
 });
 
