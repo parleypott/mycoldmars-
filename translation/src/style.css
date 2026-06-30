@@ -8638,7 +8638,7 @@ body:has(#step-1.home--brutalist.active) #app {
   --br-dim:       rgba(241, 234, 216, 0.55);
   --br-faint:     rgba(241, 234, 216, 0.18);
   --br-line:      rgba(241, 234, 216, 0.14);
-  --br-accent:    #ff6a3d;
+  --br-accent:    #bf3c10;
   --br-accent-2:  #c4ff5d;
   --br-mono: 'JetBrains Mono', 'Courier Prime', ui-monospace, monospace;
   --br-display: 'Archivo Black', 'Space Grotesk', 'Helvetica Neue', sans-serif;
@@ -8712,7 +8712,7 @@ body:has(#step-1.home--brutalist.active) #app {
 .home-account-dot {
   display: inline-block;
   width: 9px; height: 9px;
-  background: #ff6a3d;
+  background: #bf3c10;
   border-radius: 0;
 }
 
