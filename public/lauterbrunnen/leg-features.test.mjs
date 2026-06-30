@@ -22,10 +22,16 @@ import { strict as assert } from 'node:assert';
 
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 
-// Pull the whole legFeatures function body out of the inline script.
+// Pull the whole legFeatures function body out of the inline script. legFeatures calls legInfo
+// (which calls _hav) for each feature's .info, so BOTH helpers must be in the sandbox scope or the
+// extracted function throws ReferenceError: legInfo is not defined — a false-positive RED with the
+// shipped page perfectly healthy. (legInfo itself is contract-locked separately in leg-info.test.mjs.)
 const m = html.match(/function legFeatures\(j\)\{[\s\S]*?\n\}/);
+const hav = html.match(/function _hav\(a,b\)\{[\s\S]*?\n\}/);
+const li = html.match(/function legInfo\(lg\)\{[\s\S]*?\n\}/);
 assert.ok(m, 'could not find legFeatures() in index.html');
-const legFeatures = new Function(`${m[0]}\nreturn legFeatures;`)();
+assert.ok(hav && li, 'could not find _hav()/legInfo() dependencies of legFeatures() in index.html');
+const legFeatures = new Function(`${hav[0]}\n${li[0]}\n${m[0]}\nreturn legFeatures;`)();
 
 // --- normal: each leg with a >=2-point line becomes one LineString feature, in order ---
 const fc = legFeatures({ legs: [
