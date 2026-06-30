@@ -24,6 +24,7 @@ import { needsTranscode, guessExtFromMime, mediaFieldsToRow } from './media-rule
 import { escapeLikePattern } from './like-escape.js';
 import { planProfileSearch, mergeProfileMatches } from './profile-search.js';
 import { lsGet, lsDelete, lsGetIndex } from './ls-index.js';
+import { matchesTusFingerprintKey } from './tus-fingerprint.js';
 
 // Re-export so existing importers (e.g. upload/media-flow.js) keep their
 // `import { needsTranscode } from '../db.js'` path working after the pure
@@ -1365,6 +1366,7 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
       const endpoint = `${url}/storage/v1/upload/resumable`;
       const fileName = (file?.name || path.split('/').pop() || '').toLowerCase();
       const fileNameNeedle = fileName.replace(/[^\w.-]/g, '');
+      const matchCtx = { path, bucket, endpoint, fileNameNeedle, staleUploadUrl };
       for (const key of Object.keys(localStorage)) {
         if (!key.startsWith('tus::')) continue;
 
@@ -1372,23 +1374,7 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
         let parsed = null;
         try { parsed = raw ? JSON.parse(raw) : null; } catch {}
 
-        const metadata = parsed?.metadata || {};
-        const storedObjectName = metadata?.objectName;
-        const storedBucketName = metadata?.bucketName;
-        const storedUploadUrl = parsed?.uploadUrl;
-        const storedFingerprint = String(parsed?.fingerprint || '').toLowerCase();
-        const fingerprintHaystack = `${key.toLowerCase()} ${storedFingerprint}`;
-
-        let matchesFile = storedObjectName === path;
-        if (!matchesFile && fileNameNeedle && fingerprintHaystack.includes(fileNameNeedle)) {
-          matchesFile = storedBucketName === bucket ||
-                        storedUploadUrl?.startsWith(endpoint) ||
-                        key.includes(endpoint);
-        }
-        if (!matchesFile && staleUploadUrl && storedUploadUrl === staleUploadUrl) {
-          matchesFile = true;
-        }
-        if (matchesFile) localStorage.removeItem(key);
+        if (matchesTusFingerprintKey(key, parsed, matchCtx)) localStorage.removeItem(key);
       }
     } catch {}
   };

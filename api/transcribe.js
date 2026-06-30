@@ -144,7 +144,14 @@ export function normalizeDeepgram(dg) {
     let n = 1;
     for (const p of paragraphs) {
       const speakerLabel = (typeof p.speaker === 'number') ? `Speaker ${p.speaker + 1}` : 'Speaker 1';
-      for (const sent of (p.sentences || [{ text: p.text || '', start: p.start, end: p.end }])) {
+      // Fall back to the paragraph's own text when it carries no sentences. The
+      // `|| []` form only caught a MISSING sentences field — an empty array []
+      // is truthy, so an empty-sentences paragraph used to skip the loop and
+      // silently drop its text from the transcript. Guard on length (and shape).
+      const sents = (Array.isArray(p.sentences) && p.sentences.length)
+        ? p.sentences
+        : [{ text: p.text || '', start: p.start, end: p.end }];
+      for (const sent of sents) {
         segments.push({
           index: n - 1, number: n++, speaker: speakerLabel,
           start: sent.start, end: sent.end, original: (sent.text || '').trim(),

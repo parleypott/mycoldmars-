@@ -157,6 +157,32 @@ const dgParagraphs = {
   eq(r.segments[1].original, 'Two.', 'second sentence text');
 }
 
+// EMPTY-sentences paragraph → must NOT be silently dropped; falls back to p.text.
+// (Regression guard: the old `p.sentences || [...]` form treated an empty array
+// as truthy, skipped the loop, and lost the paragraph's text entirely.)
+{
+  const dg = JSON.parse(JSON.stringify(dgParagraphs));
+  dg.results.channels[0].alternatives[0].paragraphs.paragraphs = [
+    { sentences: [], text: 'Salvaged from p.text', speaker: 0, start: 0, end: 4 },
+  ];
+  const r = normalizeDeepgram(dg);
+  eq(r.segments.length, 1, 'empty sentences[] → one fallback segment (not dropped)');
+  eq(r.segments[0].original, 'Salvaged from p.text', 'empty sentences[] falls back to paragraph text');
+  eq(r.segments[0].start, 0, 'fallback segment start from paragraph');
+  eq(r.segments[0].end, 4, 'fallback segment end from paragraph');
+}
+
+// Non-array sentences (malformed) → same fallback, no throw.
+{
+  const dg = JSON.parse(JSON.stringify(dgParagraphs));
+  dg.results.channels[0].alternatives[0].paragraphs.paragraphs = [
+    { sentences: 'oops', text: 'Still salvaged', speaker: 1, start: 1, end: 2 },
+  ];
+  const r = normalizeDeepgram(dg);
+  eq(r.segments.length, 1, 'non-array sentences → one fallback segment, no throw');
+  eq(r.segments[0].original, 'Still salvaged', 'non-array sentences falls back to paragraph text');
+}
+
 // Missing speaker number → defaults to "Speaker 1".
 {
   const dg = JSON.parse(JSON.stringify(dgParagraphs));

@@ -9,19 +9,9 @@
 // The DSN public key is meant to live in client code — it only permits writing
 // events, never reading them. Safe to ship in the bundle.
 
-const DSN = 'https://e859baaf76dba29c5f8de809ca65aa30@o4511436577308672.ingest.us.sentry.io/4511436583469056';
+import { parseDsn } from './sentry-dsn.js';
 
-function parseDsn(dsn) {
-  try {
-    const u = new URL(dsn);
-    const projectId = u.pathname.replace(/^\/+/, '');
-    return {
-      key: u.username,
-      // store endpoint: https://<host>/api/<projectId>/store/
-      url: `${u.protocol}//${u.host}/api/${projectId}/store/?sentry_key=${u.username}&sentry_version=7`,
-    };
-  } catch { return null; }
-}
+const DSN = 'https://e859baaf76dba29c5f8de809ca65aa30@o4511436577308672.ingest.us.sentry.io/4511436583469056';
 
 const target = parseDsn(DSN);
 
