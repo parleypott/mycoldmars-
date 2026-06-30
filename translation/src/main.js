@@ -1564,6 +1564,12 @@ function promptSnapshotRestore(serverRow, snap) {
 
 async function handleLoad(id) {
   try {
+    // Flush the OUTGOING transcript's pending save before we swap state.
+    // applyTranscriptToState (below) overwrites the global segments/etc with
+    // the new transcript, so any debounced cloud save still queued for the
+    // transcript we're leaving would be dropped. Flushing here makes every
+    // load path safe regardless of which caller routed us in.
+    try { await flushPendingSave(); } catch {}
     const t = await loadTranscript(id);
 
     // Snapshot recovery: if we have a newer local snapshot than what the
@@ -2966,6 +2972,12 @@ window.addEventListener('beforeunload', (e) => {
     saveState === 'dirty' || saveState === 'error' || saveState === 'conflict' ||
     activeUploads
   ) {
+    // Synchronously flush the dirty LS snapshot FIRST — this always lands
+    // before the tab dies, unlike the cloud save below which the browser
+    // may kill mid-flight. Without this, the last debounce-window keystrokes
+    // are lost on a hard close / mobile freeze even though the snapshot
+    // vault was supposed to catch them.
+    try { flushDirtySnapshotNow(); } catch {}
     // Best-effort: kick off a final save (fire-and-forget — the browser
     // may not actually wait for it, but on desktop it usually does).
     try { runSaveOnce(); } catch {}
@@ -2983,6 +2995,9 @@ document.addEventListener('visibilitychange', () => {
       pendingSave || saveInFlight ||
       saveState === 'dirty' || saveState === 'error' || saveState === 'conflict'
     ) {
+      // Flush the LS snapshot synchronously before backgrounding — iOS Safari
+      // freezes/kills a hidden tab without waiting for the async cloud save.
+      try { flushDirtySnapshotNow(); } catch {}
       try { runSaveOnce(); } catch {}
     }
   }

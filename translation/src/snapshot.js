@@ -63,13 +63,24 @@ export function saveSnapshot(transcriptId, payload, updatedAt) {
     savedAt: new Date().toISOString(),
     dirty: !updatedAt, // true = local edits not confirmed by server
   };
-  const json = JSON.stringify(record);
+  let json = JSON.stringify(record);
 
-  // If too big to fit at all, skip — better than crashing the app (and better
-  // than triggering the eviction loop below, which would sacrifice every other
-  // transcript's snapshot for one that can't fit). Measured in true UTF-16
-  // storage bytes — see storageBytes().
-  if (storageBytes(json) > MAX_BYTES) return;
+  // Too big to store whole. Long interviews (esp. Burmese/Chinese, which cost
+  // 2x in UTF-16) routinely exceed the cap, and the old behavior was a silent
+  // `return` — meaning the crash-recovery snapshot was NEVER written for
+  // exactly the largest, hardest-to-recreate transcripts. Instead of skipping,
+  // store a TRIMMED snapshot: drop the bulkiest field (word-level timings,
+  // which are re-derivable) and keep the irreplaceable human work — segments,
+  // translations, editor state. Mark it trimmed so the restore path can note it.
+  if (storageBytes(json) > MAX_BYTES) {
+    const slim = { ...record, trimmed: true, payload: { ...payload } };
+    delete slim.payload.wordTimings;
+    delete slim.payload.word_timings;
+    json = JSON.stringify(slim);
+    // Still too big even trimmed — only the truly enormous outliers reach here
+    // now (not every long interview). Skip rather than risk the eviction loop.
+    if (storageBytes(json) > MAX_BYTES) return;
+  }
 
   // Evict oldest until this fits AND we're under the transcript cap.
   let index = readIndex().filter(id => id !== transcriptId);
