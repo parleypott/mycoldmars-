@@ -75,3 +75,6 @@ classifyFile	IGNORE	83	collision: 5 per-gate file-classifiers sharing a name —
 selfTest	IGNORE	61	collision: 7 per-gate self-test harnesses sharing a name — each asserts its own gate fixtures (sort verdicts vs scan-site snippets vs status). Independent by design.
 expect	SAFE	80	twin test-assert helper in find-inline-gemini-contents + find-naive-body-read; only the classifySource(src,base) vs classifySource(src) arity differs — each matches its own classifier signature.
 eatTemplate	SAFE	61	two VALID comment-strip strategies: find-divide-by-length BLANKS template chars (preserves byte offsets) via eatQuote; find-wrongtype-json-parse SKIPS them via eatQuoteSkip. Each gate stripComments uses the matching one — not a drift.
+notify	SAFE	50	unrelated modules (burma episode-config broadcast vs translation auth broadcast); episode-config copy HARDENED iter #16 to isolate listeners in try/catch (commit 468b6fe) — no longer a bare loop
+syncStorageKeys	SAFE	72	per-module storage-key initializers (migrate-doc sets LS_DOC_FALLBACK/BLOCKS/MIGRATED; recovery sets LS_DISMISSED) — each recomputes only the keys ITS module references; not a stale twin
+eatTemplate	SAFE	81	scanner-internal fork: strip-comments.mjs BLANKS all chars to preserve offsets; find-wrongtype-json-parse.mjs PRESERVES string content (string-aware blanker) — intentional, judged iter #16
