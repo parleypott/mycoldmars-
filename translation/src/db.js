@@ -25,6 +25,7 @@ import { escapeLikePattern } from './like-escape.js';
 import { planProfileSearch, mergeProfileMatches } from './profile-search.js';
 import { lsGet, lsDelete, lsGetIndex } from './ls-index.js';
 import { matchesTusFingerprintKey } from './tus-fingerprint.js';
+import { fieldsToRow as mapFieldsToRow } from './fields-to-row.js';
 
 // Re-export so existing importers (e.g. upload/media-flow.js) keep their
 // `import { needsTranscode } from '../db.js'` path working after the pure
@@ -326,35 +327,10 @@ export async function listAiThreads(transcriptId) {
 // ============================================================
 // Transcript field mapping (camelCase ↔ snake_case)
 // ============================================================
+// Thin wrapper: the pure mapping lives in ./fields-to-row.js (unit-tested).
+// We only inject the runtime schema gate (`flag('hasSlug')`) here.
 function fieldsToRow(fields) {
-  const row = {};
-  if (fields.name !== undefined) row.name = fields.name;
-  if (fields.step !== undefined) row.step = fields.step;
-  if (fields.segments !== undefined) row.segments = fields.segments;
-  if (fields.analysis !== undefined) row.analysis = fields.analysis;
-  if (fields.translations !== undefined) row.translations = fields.translations;
-  if (fields.srtContent !== undefined) row.srt_content = fields.srtContent;
-  if (fields.speakerColors !== undefined) row.speaker_colors = fields.speakerColors;
-  if (fields.annotations !== undefined) row.annotations = fields.annotations;
-  if (fields.metadata !== undefined) row.metadata = fields.metadata;
-  if (fields.projectId !== undefined) row.project_id = fields.projectId;
-  if (fields.speakerMap !== undefined) row.speaker_map = fields.speakerMap;
-  if (fields.hiddenSpeakers !== undefined) row.hidden_speakers = fields.hiddenSpeakers;
-  if (fields.editorState !== undefined) row.editor_state = fields.editorState;
-  if (fields.customSequenceName !== undefined) row.custom_sequence_name = fields.customSequenceName;
-  if (fields.hideUnintelligible !== undefined) row.hide_unintelligible = fields.hideUnintelligible;
-  if (fields.wordTimings !== undefined) row.word_timings = fields.wordTimings;
-  if (fields.slug !== undefined && flag('hasSlug')) row.slug = fields.slug || null;
-  // Phase 3: link to media_uploads + new flow fields
-  if (fields.mediaUploadId !== undefined)     row.media_upload_id = fields.mediaUploadId;
-  if (fields.source !== undefined)             row.source = fields.source;
-  if (fields.targetLanguage !== undefined)     row.target_language = fields.targetLanguage;
-  if (fields.translationEnabled !== undefined) row.translation_enabled = fields.translationEnabled;
-  // Multi-user attribution. Nullable on the schema so pre-auth rows stay
-  // valid; new inserts/updates write the current auth user.
-  if (fields.createdBy !== undefined)    row.created_by = fields.createdBy;
-  if (fields.lastEditedBy !== undefined) row.last_edited_by = fields.lastEditedBy;
-  return row;
+  return mapFieldsToRow(fields, flag('hasSlug'));
 }
 
 // ============================================================
