@@ -1,0 +1,231 @@
+/* Script Library — landing chrome. Cartridges aesthetic: cream paper, JetBrains
+   Mono chrome, FLAT (no shadow, no bevel, no gradient). Reuses the engine's :root
+   tokens from ../burma-script/src/styles.css (--page, --frame, --face, --ink,
+   --label, --orange, --mono, --sans, --ease). Nothing here is a drop shadow. */
+
+.sl-page {
+  min-height: 100vh;
+  background: var(--page, #e7e1d3);
+  color: var(--ink, #1f1d18);
+  font-family: var(--sans, "Helvetica Neue", Arial, sans-serif);
+  padding: 40px 20px 96px;
+  box-sizing: border-box;
+}
+
+/* The device frame — a warm outlined panel with registration-screw corners,
+   matching the engine's .wp-device. */
+.sl-frame {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  background: var(--frame, #efeadd);
+  border: 2px solid var(--ink, #1f1d18);
+  border-radius: 14px;
+  padding: 30px 30px 40px;
+}
+
+.sl-screw {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--frame, #efeadd);
+}
+.sl-screw i { width: 8px; height: 1.5px; background: var(--ink, #1f1d18); transform: rotate(45deg); display: block; }
+.sl-screw.tl { top: -8px; left: 16px; }
+.sl-screw.tr { top: -8px; right: 16px; }
+.sl-screw.bl { bottom: -8px; left: 16px; }
+.sl-screw.br { bottom: -8px; right: 16px; }
+
+/* ── masthead ── */
+.sl-head { border-bottom: 1.5px solid var(--ink, #1f1d18); padding-bottom: 16px; margin-bottom: 20px; }
+.sl-id { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.sl-wordmark {
+  font-family: var(--mono, monospace);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+}
+.sl-fig {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--label, #6b6658);
+  text-transform: uppercase;
+}
+.sl-sub {
+  margin-top: 8px;
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--label, #6b6658);
+}
+
+/* ── toolbar ── */
+.sl-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+.sl-tabs { display: flex; gap: 0; border: 1.5px solid var(--ink, #1f1d18); border-radius: 9px; overflow: hidden; }
+.sl-tab {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 8px 13px;
+  background: transparent;
+  color: var(--ink, #1f1d18);
+  border: none;
+  cursor: pointer;
+  transition: background 140ms var(--ease, ease);
+}
+.sl-tab + .sl-tab { border-left: 1.5px solid var(--ink, #1f1d18); }
+.sl-tab.is-active { background: var(--ink, #1f1d18); color: var(--frame, #efeadd); }
+.sl-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--panel, #f1ede2);
+  color: var(--label, #6b6658);
+  font-size: 10px;
+}
+.sl-tab.is-active .sl-count { background: rgba(255,255,255,0.18); color: var(--frame, #efeadd); }
+
+.sl-search {
+  flex: 1 1 180px;
+  min-width: 140px;
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  padding: 8px 12px;
+  background: var(--face, #fbfaf5);
+  color: var(--ink, #1f1d18);
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 9px;
+  outline: none;
+}
+.sl-search::placeholder { color: var(--label, #6b6658); }
+
+.sl-new, .sl-inline-new {
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 9px 15px;
+  background: var(--orange, #ff5b1f);
+  color: #fff;
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: filter 140ms var(--ease, ease);
+}
+.sl-new:hover, .sl-inline-new:hover { filter: brightness(1.06); }
+.sl-inline-new { padding: 3px 8px; font-size: 11px; }
+
+/* ── card grid ── */
+.sl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+
+.sl-card {
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 11px;
+  background: var(--face, #fbfaf5);
+  overflow: hidden;
+}
+.sl-card-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 16px 16px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 140ms var(--ease, ease);
+}
+.sl-card-open:not([disabled]):hover { background: var(--face-hover, #f1ece0); }
+.sl-card-open[disabled] { cursor: default; }
+
+.sl-card-kind {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--label, #6b6658);
+  text-transform: uppercase;
+}
+.sl-card-title {
+  font-family: var(--sans, sans-serif);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink, #1f1d18);
+}
+.sl-card-rename {
+  font-family: var(--sans, sans-serif);
+  font-size: 18px;
+  font-weight: 600;
+  padding: 3px 6px;
+  background: var(--frame, #efeadd);
+  color: var(--ink, #1f1d18);
+  border: 1.5px solid var(--orange, #ff5b1f);
+  border-radius: 7px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.sl-card-time {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--label, #6b6658);
+}
+
+.sl-card-actions {
+  display: flex;
+  gap: 0;
+  border-top: 1.5px solid var(--rule, #cdc6b4);
+}
+.sl-act {
+  flex: 1;
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 9px 6px;
+  background: transparent;
+  color: var(--label, #6b6658);
+  border: none;
+  cursor: pointer;
+  transition: background 140ms var(--ease, ease), color 140ms var(--ease, ease);
+}
+.sl-act + .sl-act { border-left: 1.5px solid var(--rule, #cdc6b4); }
+.sl-act:hover { background: var(--panel, #f1ede2); color: var(--ink, #1f1d18); }
+.sl-act-danger:hover { background: var(--orange, #ff5b1f); color: #fff; }
+
+/* ── empty state ── */
+.sl-empty { text-align: center; padding: 64px 20px; }
+.sl-empty-title { font-family: var(--sans, sans-serif); font-size: 18px; font-weight: 600; color: var(--ink, #1f1d18); }
+.sl-empty-sub { margin-top: 8px; font-family: var(--mono, monospace); font-size: 12px; color: var(--label, #6b6658); }
+
+/* ── back-to-library affordance (injected in project mode) ── */
+.sl-backbar {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 9999;
+  font-family: var(--mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 7px 12px;
+  background: var(--frame, #efeadd);
+  color: var(--ink, #1f1d18);
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 8px;
+  transition: background 140ms var(--ease, ease), color 140ms var(--ease, ease);
+}
+.sl-backbar:hover { background: var(--ink, #1f1d18); color: var(--frame, #efeadd); }
