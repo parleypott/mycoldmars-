@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const INPUT_PATH = '/tmp/palau-build/palau-structured.json';
 const BLOCKS_URL = new URL('./palau-blocks.json', import.meta.url);
@@ -32,7 +33,7 @@ function readRows() {
   return rows;
 }
 
-function hash6(value) {
+export function hash6(value) {
   let hash = 2166136261;
 
   for (let i = 0; i < value.length; i += 1) {
@@ -43,7 +44,7 @@ function hash6(value) {
   return (hash >>> 0).toString(36).slice(0, 6).padStart(6, '0');
 }
 
-function applyTrims(text, trims) {
+export function applyTrims(text, trims) {
   let output = text ?? '';
 
   for (const trim of trims ?? []) {
@@ -67,7 +68,7 @@ function applyTrims(text, trims) {
   return output;
 }
 
-function buildTimecode(cellText, timecodes) {
+export function buildTimecode(cellText, timecodes) {
   const first = timecodes?.[0];
   const firstIn = timecodes?.find((entry) => entry?.kind === 'in') ?? first;
   const firstOut = timecodes?.find((entry) => entry?.kind === 'out');
@@ -87,7 +88,7 @@ function buildTimecode(cellText, timecodes) {
   return timecode;
 }
 
-function leftBlockFromCell(cell, pairId) {
+export function leftBlockFromCell(cell, pairId) {
   const text = applyTrims(cell?.text ?? '', cell?.trims);
   const typeMap = {
     vo: 'vo',
@@ -121,7 +122,7 @@ function leftBlockFromCell(cell, pairId) {
   return block;
 }
 
-function rightBlockFromCell(cell, pairId) {
+export function rightBlockFromCell(cell, pairId) {
   const text = applyTrims(cell?.text ?? '', cell?.trims);
   const block = {
     type: 'broll',
@@ -260,4 +261,14 @@ function main() {
   console.log(`pairs: ${pairCount}`);
 }
 
-main();
+// Only run the file->file build when invoked directly (node build-blocks.mjs).
+// When imported by a test the pure transforms above are exercised without
+// firing main() — which reads /tmp and would throw in a test context.
+const invokedDirectly =
+  Array.isArray(process.argv) &&
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === process.argv[1];
+
+if (invokedDirectly) {
+  main();
+}
