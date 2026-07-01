@@ -3,7 +3,7 @@ import { Plugin } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { isReadOnly } from '../read-mode.js';
 
-export const DIRECTION_CHIP_KINDS = ['archive', 'factcheck', 'animation', 'broll', 'direction'];
+export const DIRECTION_CHIP_KINDS = ['archive', 'factcheck', 'animation', '3d', 'broll', 'direction'];
 
 export function defaultDirectionChipAttrs(kind) {
   switch (kind) {
@@ -26,6 +26,7 @@ export function defaultDirectionMarkAttrs(kind) {
     case 'archive':   return { kind, status: 'needed' };
     case 'factcheck': return { kind, status: 'todo' };
     case 'animation': return { kind, status: 'static' };
+    case '3d':        return { kind, status: 'static' };
     case 'broll':     return { kind, status: 'unchecked' };
     case 'direction':
     default:          return { kind: 'direction', status: 'default' };

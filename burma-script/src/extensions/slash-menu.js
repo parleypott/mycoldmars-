@@ -43,6 +43,7 @@ export const SLASH_ITEMS = [
   makeItem('archive',   [],               (editor, range) => setDirectionMark(editor, range, 'archive')),
   makeItem('factcheck', ['fc', 'source'], (editor, range) => setDirectionMark(editor, range, 'factcheck')),
   makeItem('animation', ['anim'],         (editor, range) => setDirectionMark(editor, range, 'animation')),
+  makeItem('3d',        ['3d animation', 'threed'], (editor, range) => setDirectionMark(editor, range, '3d')),
   makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),
   makeItem('direction', [],               (editor, range) => setDirectionMark(editor, range, 'direction')),
   makeItem('break',     [],               (editor, range) => editor.chain().focus().deleteRange(range).insertContent({ type: 'directionBreak' }).run()),
