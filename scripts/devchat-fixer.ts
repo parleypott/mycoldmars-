@@ -17,6 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { pgTsFilter } from './lib/pgrest.mjs';
 
 const SUPA_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const SVC = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -140,17 +141,17 @@ async function handle(thread: any, messages: any[]) {
 
 // ── poll loop ──
 async function tick(processed: Set<string>) {
-  // Recent user messages (last 2h), newest first. NOTE: encode timestamp values —
-  // a raw "+00:00" offset becomes a space in the query string and PostgREST then
-  // rejects it as an invalid timestamp (22007).
+  // Recent user messages (last 2h), newest first. NOTE: timestamp values MUST be
+  // percent-encoded (via pgTsFilter) — a raw "+00:00" offset becomes a space in
+  // the query string and PostgREST rejects it as an invalid timestamp (22007).
   const sinceIso = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
-  const msgs: any[] = await rest(`devchat_messages?select=id,thread_id,sender,body,created_at&sender=eq.user&created_at=gt.${encodeURIComponent(sinceIso)}&order=created_at.asc`);
+  const msgs: any[] = await rest(`devchat_messages?select=id,thread_id,sender,body,created_at&sender=eq.user&${pgTsFilter('created_at', 'gt', sinceIso)}&order=created_at.asc`);
   for (const m of msgs) {
     if (processed.has(m.id)) continue;
     // Skip if WE already answered this (a later 'agent' message). We key on
     // 'agent' specifically — not any non-user message — so a stray
     // 'assistant'/'system' row can never make us silently skip a real request.
-    const later: any[] = await rest(`devchat_messages?select=id,sender&thread_id=eq.${m.thread_id}&created_at=gt.${encodeURIComponent(m.created_at)}&sender=eq.agent&limit=1`);
+    const later: any[] = await rest(`devchat_messages?select=id,sender&thread_id=eq.${m.thread_id}&${pgTsFilter('created_at', 'gt', m.created_at)}&sender=eq.agent&limit=1`);
     if (later.length) { processed.add(m.id); continue; }
     // Load the whole thread for context.
     const [thread] = await rest(`devchat_threads?select=id,page_url,page_state,title,status&id=eq.${m.thread_id}`);
@@ -169,7 +170,8 @@ console.log(`[devchat-fixer] watching DevChat → Interpreter at ${REPO}, every 
 const processed = loadProcessed();
 // Don't retro-answer old messages from before the worker started.
 {
-  const boot: any[] = await rest(`devchat_messages?select=id&sender=eq.user&created_at=gt.${new Date(Date.now() - 2 * 3600 * 1000).toISOString()}`).catch(() => []);
+  const bootSince = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+  const boot: any[] = await rest(`devchat_messages?select=id&sender=eq.user&${pgTsFilter('created_at', 'gt', bootSince)}`).catch(() => []);
   for (const m of boot) processed.add(m.id);
   saveProcessed(processed);
   console.log(`[devchat-fixer] seeded ${processed.size} existing messages as already-seen`);
