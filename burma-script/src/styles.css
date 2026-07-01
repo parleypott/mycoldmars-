@@ -276,26 +276,35 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
      broll      → orange text (#d0873f) + faint orange wash
      direction  → barely-there warm neutral tint
    FLAT: no shadows, no borders, no junk. */
+/* ALL viz direction reads as a BOLD CHIP (pill) — Johnny: "bold and chip-like not just plain
+   jane highlight". Border + radius + padding + bold weight; per-kind colour. box-decoration-break
+   keeps it a full chip if a run wraps. */
 .wp-dhl{
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  border-radius: 2px;
-  padding: 1px 0;
+  border: 1.5px solid transparent;
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-weight: 700;
 }
 .wp-dhl[data-kind="archive"][data-status="needed"],
-.wp-dhl[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; color:inherit; }
+.wp-dhl[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; border-color:#d79a9a; color:#7a2e2e; }
 .wp-dhl[data-kind="archive"][data-status="found"],
-.wp-dhl[data-kind="factcheck"][data-status="sourced"]{ background:#d9e8d0; color:inherit; }
-.wp-dhl[data-kind="animation"]{ background:#e6e2d6; color:#1a1a18; }
-.wp-dhl[data-kind="broll"]{ background:rgba(208,135,63,.12); color:#d0873f; }
-.wp-dhl[data-kind="direction"]{ background:rgba(58,56,47,.06); color:inherit; }
+.wp-dhl[data-kind="factcheck"][data-status="sourced"]{
+  background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34;
+  text-decoration: line-through; text-decoration-color: rgba(63,107,52,.45); /* faint strike when found */
+}
+.wp-dhl[data-kind="animation"]{ background:#ccc2ea; border-color:#9a86c9; color:#3a2f5a; }   /* prominent purple chip, like the old ANIMATION tag */
+.wp-dhl[data-kind="broll"]{ background:rgba(208,135,63,.16); border-color:#d0873f; color:#9a5410; }
+.wp-dhl[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; color:#4a463d; }
 
-/* Archive checkbox widget ☐/☑ — appears before each archive mark run */
+/* Archive checkbox widget ☐/☑ — BIG + BOLD, before each archive run. */
 .wp-dhl-cb{
   display:inline-block; cursor:pointer; user-select:none;
-  font-size:.85em; line-height:1; margin-right:2px; opacity:.75; vertical-align:baseline;
-  -webkit-user-select:none;
+  font-size:1.25em; font-weight:700; line-height:1; margin-right:6px; opacity:.9; vertical-align:-1px;
+  color:#a33; -webkit-user-select:none;
 }
+.wp-dhl[data-status="found"] + .wp-dhl-cb, .wp-dhl-cb{ }
 .wp-dhl-cb:hover{ opacity:1; }
 
 .wp-slash-menu{ position:fixed; z-index:60; background:var(--face); border:1.5px solid var(--ink); border-radius:8px; padding:4px; box-shadow:none; font-family:var(--mono); font-size:12px; min-width:180px; }

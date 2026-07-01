@@ -10,6 +10,10 @@ export const PALAU = {
   wordmark: 'WP·02',
   figLabel: 'fig.04 — REEF RACK',
   recoverPrefix: 'palau-recovered',
+  // LOCAL-ONLY: Palau saves to this device only (IndexedDB + compressed localStorage). No cloud
+  // sync at all — so the cloud-conflict "unsynced backup" banner can never appear and the save pill
+  // reads a calm "ALL CHANGES SAVED". (A real per-episode cloud endpoint is a future opt-in.)
+  localOnly: true,
   accent: '#0c7d8c', // ocean teal
   days: [1, 2, 3, 4, 5, 6, 7], // Palau shoot spans 7 days
   sequences: [],

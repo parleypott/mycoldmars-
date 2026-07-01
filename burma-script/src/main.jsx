@@ -381,6 +381,9 @@ function relTime(ms) {
 // "SAVED ON THIS DEVICE · CLOUD OFFLINE" when the cloud was unreachable (work is still safe locally),
 // and the plain "ALL CHANGES SAVED" before any push has happened (e.g. cloud table not set up yet).
 function savedPillLabel(state, cloud) {
+  // LOCAL-ONLY episodes (Palau) never touch the cloud, so the pill is calm + unambiguous: either a
+  // brief "SAVING…" or a reassuring "ALL CHANGES SAVED". No cloud/offline/conflict wording ever.
+  if (EPISODE.localOnly) return state === 'saving' ? 'SAVING…' : 'ALL CHANGES SAVED';
   // Conflict outranks everything except an in-progress save indicator: the cloud holds a newer doc
   // this device hasn't merged, so we must NOT claim "saved to cloud". Says reload, plainly.
   if (cloud === 'conflict') return 'NEWER VERSION ON CLOUD · RELOAD';
@@ -606,6 +609,10 @@ function recoveryFilename(snap) {
 }
 
 function RecoveryBanner() {
+  // LOCAL-ONLY episodes (Palau) can never have a cloud "newer version pulled in" conflict, so this
+  // "unsynced backup found" banner is pure noise there — never show it. (EPISODE.localOnly is a
+  // constant per entry, so this early return keeps the hook order consistent across renders.)
+  if (EPISODE.localOnly) return null;
   // SYNCHRONOUS first paint from localStorage (legacy snapshots) so a recovery affordance shows
   // instantly without waiting on IndexedDB. Then an async pass reads BOTH stores (IDB + localStorage),
   // migrates legacy localStorage copies into IDB, and replaces the list with the merged/deduped set.
@@ -1015,7 +1022,9 @@ async function startup() {
     // recovered bytes themselves. Without this, readLatestSavedRaw() can only see stale/empty sync
     // storage and the adopt path would diff/snapshot the wrong body on the exact quota-full reload.
     render(<App recoveredDoc={recoveredDoc} />, el);
-    reconcileOnLoad({
+    // LOCAL-ONLY (Palau): no cloud reconcile at all — the local doc IS the source of truth, so we
+    // never fetch, never go "offline", and never snapshot a cloud conflict. Burma still reconciles.
+    if (!EPISODE.localOnly) reconcileOnLoad({
       saveDoc,
       primeVersionFloor,
       ...(recoveredRead ? {

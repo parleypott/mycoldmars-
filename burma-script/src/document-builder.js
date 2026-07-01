@@ -254,11 +254,19 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   while ((m = timecodeRe.exec(text)) !== null) {
     let bundledDay = null;
     if (m.index > last) {
-      const seg = text.slice(last, m.index);
+      let seg = text.slice(last, m.index);
       bundledDay = trailingDayStamp(seg);
       const segDay = bundledDay ?? lastDayInText(seg);
       if (segDay != null) localDay = segDay;
-      out.push({ type: 'text', text: seg, ...(baseMarks ? { marks: baseMarks } : {}) });
+      // PALAU: the timecode chip DISPLAYS "DAY N · …" from its day attr, so a literal "DAY N"
+      // sitting right before the chip is a visible DUPLICATE (Johnny: "it should only be in the
+      // chip"). Fold it INTO the chip — strip the trailing "DAY N" from the visible text. Burma
+      // (IS_PALAU false) keeps its literal DAY prefix unchanged.
+      if (IS_PALAU && bundledDay != null) {
+        seg = seg.replace(DAY_TRAILING, '');
+        if (seg && !/\s$/.test(seg)) seg += ' ';
+      }
+      if (seg) out.push({ type: 'text', text: seg, ...(baseMarks ? { marks: baseMarks } : {}) });
     }
     const tcAttrs = { tc: m[0], day: localDay ?? null, bundledDay: !!(IS_PALAU && bundledDay != null) };
     const tcMark = { type: 'timecode', attrs: tcAttrs };
