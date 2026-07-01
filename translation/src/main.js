@@ -5,6 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { fmtShortTimecode } from './short-timecode.js';
 import { escapeHtml } from './html-escape.js';
+import { initialsOf } from './initials.js';
 import { enrichSegmentRefs } from './segment-ref.js';
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
@@ -488,7 +489,7 @@ function renderEditorBadge(t) {
   if (!editor) return '';
   const name = editor.display_name || 'User';
   const color = editor.color || '#412c27';
-  const initials = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const initials = initialsOf(name);
   const verb = t.last_edited_by_profile ? 'edited by' : 'created by';
   return `<span class="lib-row-editor" title="${esc(verb)} ${esc(name)}" style="background:${esc(color)}">${esc(initials)}</span>`;
 }
@@ -1907,7 +1908,7 @@ function renderHeaderIdentity() {
   }
   const name = currentClientName() || 'Anonymous';
   const color = currentClientColor();
-  const initials = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const initials = initialsOf(name);
   const signedIn = !!currentUser();
   const email = currentUser()?.email || '';
   host.innerHTML = `
@@ -6513,7 +6514,7 @@ function renderRevisionList(container, revisions) {
     // if the migration hasn't run (no client_label) or for old rows.
     const who = r.client_label || (isThisTab ? 'You' : 'anonymous');
     const color = r.client_color || (isThisTab ? currentClientColor() : 'rgba(65,44,39,0.45)');
-    const initials = who.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+    const initials = initialsOf(who);
     return `
       <div class="revision-row" data-id="${r.id}">
         <div class="revision-avatar" style="background:${escapeHtmlSafe(color)}">${escapeHtmlSafe(initials)}</div>
@@ -6683,7 +6684,7 @@ function renderPresence(peers) {
   }
   host.innerHTML = unique.map(p => {
     const name = p.name || 'anonymous';
-    const initials = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+    const initials = initialsOf(name);
     const tooltip = `${name}${p.device ? ' · ' + p.device : ''}`;
     return `
       <div class="presence-pill" title="${escapeHtmlSafe(tooltip)}" style="background:${escapeHtmlSafe(p.color || '#412C27')}">${escapeHtmlSafe(initials)}</div>
@@ -7227,7 +7228,7 @@ async function openShareDialog() {
       const profile = s.user_profile;
       const name = profile?.display_name || s.email || 'Pending invite';
       const color = profile?.color || '#412c27';
-      const initials = (name || '?').split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase() || '?';
+      const initials = initialsOf(name);
       const subtitle = profile?.email || (s.email ? 'Pending — invite sent' : '');
       return `
         <div class="share-row" data-share-id="${esc(s.id)}">
