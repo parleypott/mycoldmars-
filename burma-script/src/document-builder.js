@@ -204,6 +204,23 @@ const HEAD_BODY_SPLIT_RE = new RegExp(`^(${HEAD_ALTERNATION})(\\s*\\d+)?\\s*[.:�
 // variable is safe here because buildEditorDocument walks blocks strictly in order, single-threaded.
 let _ctxDay = null;
 
+// Running SEQUENCE context for the timecode chip's `seq` attr (Palau). Threaded per-block exactly
+// like _ctxDay: a named SOT/broll contributes its speaker as the sequence, a loose day-based block
+// contributes "DAY N". Burma never sets this (IS_PALAU false) so its chips carry no seq. Single-
+// threaded, in document order, so a bare module variable is safe (mirrors _ctxDay).
+let _ctxSeq = null;
+
+// Normalize a speaker to a single clean sequence-name line — drop leading bullets, collapse
+// whitespace, keep the last non-empty line. Kept in step with the picker's cleanSeqLabel (marks.js)
+// so a chip's stored seq dedupes to the SAME registry entry as its block's speaker.
+function cleanSeqName(raw) {
+  const lines = String(raw || '')
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^[\s\u2022\u25cf\u2219-]+/, '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  return lines.length ? lines[lines.length - 1] : '';
+}
+
 function activeInlineTimecodeRegex() {
   const re = IS_PALAU ? PALAU_TIMECODE_RE_G : TIMECODE_RE_G;
   re.lastIndex = 0;
@@ -251,6 +268,9 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   const opts = (arguments.length > 3 && arguments[3]) || null;
   const suppressDay = !!opts?.suppressDay;
   let localDay = suppressDay ? null : _ctxDay;
+  // The chip's sequence identity does NOT depend on suppressDay (which only hides the DAY display):
+  // a Palau interview stamp is still part of its interview sequence. Burma leaves _ctxSeq null.
+  const localSeq = IS_PALAU ? _ctxSeq : null;
   let last = 0, m;
   const timecodeRe = activeInlineTimecodeRegex();
   while ((m = timecodeRe.exec(text)) !== null) {
@@ -273,6 +293,7 @@ function pushTextWithTimecodes(out, text, baseMarks) {
       if (seg) out.push({ type: 'text', text: seg, ...(baseMarks ? { marks: baseMarks } : {}) });
     }
     const tcAttrs = { tc: m[0], day: localDay ?? null, bundledDay: !!(IS_PALAU && bundledDay != null) };
+    if (localSeq != null) tcAttrs.seq = localSeq; // Palau only — Burma omits the key entirely.
     const tcMark = { type: 'timecode', attrs: tcAttrs };
     out.push({ type: 'text', text: m[0], marks: baseMarks ? [...baseMarks, tcMark] : [tcMark] });
     last = m.index + m[0].length;
@@ -291,6 +312,9 @@ function headingNodes(heading) {
 // Set the running DAY for chips emitted by the next inlineContent/headingNodes call. Derived from
 // the block's own timecode day (sot/broll) or the nearest preceding "DAY N" the builder has seen.
 function setContextDay(day) { _ctxDay = day ?? null; }
+
+// Set the running SEQUENCE for chips emitted by the next inlineContent/headingNodes call (Palau).
+function setContextSeq(seq) { _ctxSeq = seq || null; }
 
 function inlineContent(rawText, type) {
   const text = stripLead(rawText, type);
@@ -669,6 +693,14 @@ export function buildEditorDocument(blocks) {
       return dm ? Number(dm[1]) : null;
     })();
     if (blockDay != null) runningDay = blockDay;
+    // Running SEQUENCE (Palau): a named SOT/broll carries its speaker as the sequence; anything else
+    // (chapters, VO, day string-outs) falls back to the running DAY as "DAY N". This is what stops a
+    // James-Porter interview chip from defaulting to a DAY — it becomes the interview's own sequence.
+    if (IS_PALAU) {
+      const spk = (b.type === 'sot' || b.type === 'broll') ? cleanSeqName(b.speaker) : '';
+      const blockSeq = spk || (runningDay != null ? 'DAY ' + runningDay : null);
+      setContextSeq(blockSeq);
+    }
     setContextDay(runningDay);
     // FEATURE B — emit the ▸ SCRIPT BEGINS divider right before the first real chapter,
     // visually starting the script after the pre-script (masthead lives in chrome; the
@@ -680,6 +712,7 @@ export function buildEditorDocument(blocks) {
     if (node) entries.push({ node, block: b });
   });
   setContextDay(null);
+  setContextSeq(null);
 
   // ProseMirror requires at least one child.
   if (!entries.length) {

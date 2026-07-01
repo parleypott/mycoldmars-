@@ -444,10 +444,12 @@ function directionNodeView({ node, editor, getPos }) {
   const hasDone = Object.prototype.hasOwnProperty.call(node.type.spec.attrs || {}, 'done');
   const isPalauChrome = isPalauChromeEnabled();
   const isPalauSot = isPalauChrome && node.type.name === 'sotBlock';
+  // PALAU SEQUENCE HEADER (#5): the SOT's sequence NAME rendered bold/mono at the block start, like
+  // Johnny's reference "20260311-James Porter - Interview:". Shown for every named SOT — the header is
+  // the sequence name itself now, NOT a name+timecode tag, so it no longer gates on a hero timecode.
   const showSequenceTag =
     isPalauSot &&
-    !!String(a.speaker || '').trim() &&
-    !!sequenceTimecode(a);
+    !!String(a.speaker || '').trim();
 
   const head = el('div', 'wp-dir-head', { contenteditable: 'false' });
   if (!isPalauChrome) {
@@ -459,22 +461,21 @@ function directionNodeView({ node, editor, getPos }) {
   let cleanupSequenceTag = null;
   const paintSequenceTag = (attrs) => {
     if (!seqTag) return;
-    const text = sequenceTagText(attrs);
-    const tc = sequenceTimecode(attrs);
+    // JUST the sequence name (speaker) — the timecodes are the bracketed body chips, shown once here.
+    const text = sequenceSpeakerLabel(attrs);
     seqTag.textContent = text;
     seqTag.hidden = !text;
-    syncNullableAttr(seqTag, 'data-tc', tc);
-    seqTag.setAttribute('aria-label', text ? `copy sequence tag ${text}` : 'copy sequence tag');
+    seqTag.setAttribute('aria-label', text ? `copy sequence name ${text}` : 'copy sequence name');
   };
   if (showSequenceTag) {
     seqTag = el('button', 'wp-seq-tag', {
       type: 'button',
       contenteditable: 'false',
-      title: 'Copy sequence tag',
+      title: 'Copy sequence name',
     });
     const copySequenceTag = () => {
       const cur = editor.state.doc.nodeAt(getPos());
-      const text = sequenceTagText(cur?.attrs || a);
+      const text = sequenceSpeakerLabel(cur?.attrs || a);
       if (!text) return;
       navigator.clipboard?.writeText(text).catch(() => {});
       seqTag.classList.remove('is-copied');

@@ -1105,6 +1105,10 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-bm-item:hover { background: var(--panel); }
 .wp-bm-item.is-current { color: var(--orange); font-weight: 700; }
 .wp-bm-sep { height: 1.5px; background: var(--ink); opacity: .12; margin: 5px 4px; }
+/* The Palau timecode menu is a SEQUENCE picker that can list every sequence in the doc (30+
+   interviews + DAY string-outs), so it must scroll rather than run off-screen. Burma's short
+   DAY 1/2/3 menu is well under this height, so the cap never clips it. */
+.wp-tcmenu { max-height: 60vh; overflow-y: auto; }
 .wp-bm-del { color: var(--red); }
 .wp-bm-del:hover { background: rgba(232,65,43,.08); }
 

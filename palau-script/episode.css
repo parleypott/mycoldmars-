@@ -215,9 +215,10 @@
   display: inline-flex;
   align-items: center;
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .02em;
-  color: #4a463d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #2c2a24;
   background: #f1ece0;
   border: 1px solid #d9d2c2;
   border-radius: 6px;
@@ -248,11 +249,14 @@
   border: 1px solid #d6cdb8;
   color: #6a6252;
 }
-.wp-page[data-episode="palau"] .wp-tc-tag::before { content: "▸ "; color: #a89f8a; }
-.wp-page[data-episode="palau"] .wp-tc-tag[data-day]::before {
-  content: "DAY " attr(data-day) " · ";
-  color: #9a917d; font-weight: 600; letter-spacing: .05em;
-}
+/* Johnny's pick: the Palau chip shows ONLY the bracketed timecode — "[00:03:29]" — never a
+   "DAY N · " prefix and never the sequence name inline. The sequence lives once in the bold SOT
+   header and in the chip's `seq` attr (surfaced by the right-click picker). The brackets are CSS
+   ::before/::after, so the copyable text node stays the bare HH:MM:SS(:FF) — a click copies only
+   the code (padded to Premiere HH:MM:SS:FF in JS). Higher specificity than Burma's global
+   .wp-tc-tag[data-day]::before, so a Palau chip that carries a day still reads as just the code. */
+.wp-page[data-episode="palau"] .wp-tc-tag::before { content: "["; color: #a89f8a; }
+.wp-page[data-episode="palau"] .wp-tc-tag::after { content: "]"; color: #a89f8a; }
 .wp-page[data-episode="palau"] .wp-tc-tag:hover { border-color: #b1a787; color: #3a382f; }
 .wp-page[data-episode="palau"] .wp-tc-tag.copied { border-color: #1f8a72; color: #1f8a72; }
 /* The block-type kind labels (DIRECTION / VO / etc.) go quiet grey — the frame + chips carry meaning. */

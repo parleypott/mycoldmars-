@@ -15,6 +15,7 @@ import { Plugin } from '@tiptap/pm/state';
 import { contiguousMarkRun } from './mark-run.js';
 import { isReadOnly } from '../read-mode.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
+import { getEpisode } from '../episode-config.js';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
 // workshop event. Returns true if a span was hit (so PM stops default handling).
@@ -201,9 +202,21 @@ const TC_RE = /^\d{2}:\d{2}:\d{2}:\d{2}$/;
 
 // Copy a timecode chip's code to the clipboard + flash + toast. Shared by the mouse (mousedown) and
 // keyboard (Enter/Space on a focused chip) paths so both do EXACTLY the same primary action.
+// PREMIERE PRO paste format = HH:MM:SS:FF. A 3-part broadcast code "00:04:30" must copy as
+// "00:04:30:00" (append :00 frames); a 4-part "00:27:04:17" copies verbatim. This is a COPY-TIME
+// transform only — it never touches the shared TC regex, the chip's stored data-tc, or the audit
+// (which reads data-tc / textContent). The 4-part detection is byte-identical to TC_RE above.
+function toPremiereTimecode(tc) {
+  const raw = String(tc || '').trim();
+  if (/^\d{2}:\d{2}:\d{2}:\d{2}$/.test(raw)) return raw;   // 4-part → as-is
+  if (/^\d{2}:\d{2}:\d{2}$/.test(raw)) return raw + ':00';  // 3-part → pad frames
+  return raw;
+}
+
 function copyTimecodeChip(target) {
-  const tc = target.getAttribute('data-tc') || target.textContent || '';
-  if (!tc) return;
+  const raw = target.getAttribute('data-tc') || target.textContent || '';
+  if (!raw) return;
+  const tc = toPremiereTimecode(raw);
   navigator.clipboard?.writeText(tc).catch(() => {});
   window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc, tone: 'ok' } }));
   target.classList.add('copied');
@@ -252,7 +265,7 @@ function patchTimecodeAt(view, pos, patch) {
   const found = timecodeMarkAt(view.state, pos);
   if (!found) return false;
   const { markType, range, mark } = found;
-  const attrs = { tc: mark?.attrs.tc || '', day: mark?.attrs.day ?? null, ...patch };
+  const attrs = { tc: mark?.attrs.tc || '', day: mark?.attrs.day ?? null, seq: mark?.attrs.seq ?? null, ...patch };
   let tr = view.state.tr;
   const newTc = patch.tc;
   if (newTc !== undefined && newTc !== (mark?.attrs.tc || '')) {
@@ -266,11 +279,50 @@ function patchTimecodeAt(view, pos, patch) {
   return true;
 }
 
+// Is the live episode Palau? The right-click menu becomes a SEQUENCE picker there (Burma keeps DAY).
+function isPalauEpisode() {
+  try { return getEpisode()?.id === 'palau'; } catch { return false; }
+}
+
+// Normalize a speaker/seq string to a single clean line (drop leading bullets, collapse whitespace)
+// so the SOT speaker attr and a chip's stored seq attr dedupe to the SAME registry entry.
+function cleanSeqLabel(raw) {
+  const lines = String(raw || '')
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^[\s\u2022\u25cf\u2219-]+/, '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  return lines.length ? lines[lines.length - 1] : '';
+}
+
+// Build a LIVE registry of every sequence in the doc for the Palau picker: the union of
+// (a) every sot/broll block's speaker and (b) every timecode mark's seq attr, deduped in doc order.
+function collectSequences(state) {
+  const seen = new Set();
+  const out = [];
+  const add = (raw) => {
+    const label = cleanSeqLabel(raw);
+    if (!label || seen.has(label)) return;
+    seen.add(label);
+    out.push(label);
+  };
+  state.doc.descendants((node) => {
+    const name = node.type?.name;
+    if (name === 'sotBlock' || name === 'brollBlock') add(node.attrs?.speaker);
+    if (node.isText) {
+      for (const m of node.marks) if (m.type?.name === 'timecode' && m.attrs?.seq) add(m.attrs.seq);
+    }
+    return true;
+  });
+  return out;
+}
+
 function openTimecodeMenu(view, pos, anchorRect) {
   closeTcMenu();
   const found = timecodeMarkAt(view.state, pos);
   const curDay = found?.mark?.attrs.day ?? null;
+  const curSeq = found?.mark?.attrs.seq ?? null;
   const curTc = found?.mark?.attrs.tc || '';
+  const palau = isPalauEpisode();
 
   const menu = document.createElement('div');
   menu.className = 'wp-blockmenu wp-tcmenu';
@@ -279,7 +331,7 @@ function openTimecodeMenu(view, pos, anchorRect) {
 
   const head = document.createElement('div');
   head.className = 'wp-bm-head';
-  head.textContent = 'Shooting day';
+  head.textContent = palau ? 'Sequence' : 'Shooting day';
   menu.appendChild(head);
 
   const addItem = (label, isCurrent, onPick) => {
@@ -292,8 +344,36 @@ function openTimecodeMenu(view, pos, anchorRect) {
     menu.appendChild(item);
   };
 
-  [1, 2, 3].forEach((d) => addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
-  addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+  if (palau) {
+    // PALAU — SEQUENCE picker. Lists every sequence the doc knows (all interview speakers + all
+    // DAY string-outs), marks the chip's current one, and offers a free-typed new name. Setting one
+    // writes the chip's `seq` attr → onUpdate → autosave → survives reload (mirrors the DAY path).
+    // The list scrolls when long (.wp-tcmenu max-height). Replaces the DAY 1/2/3 menu on Palau.
+    const seqs = collectSequences(view.state);
+    // Surface the current seq even if it somehow isn't in the scanned registry, so it's selectable.
+    if (curSeq && !seqs.includes(cleanSeqLabel(curSeq))) seqs.unshift(cleanSeqLabel(curSeq));
+    const curSeqLabel = curSeq ? cleanSeqLabel(curSeq) : null;
+    seqs.forEach((sq) => addItem(sq, curSeqLabel === sq, () => patchTimecodeAt(view, pos, { seq: sq })));
+    addItem('No sequence', curSeq == null, () => patchTimecodeAt(view, pos, { seq: null }));
+
+    const sepNew = document.createElement('div'); sepNew.className = 'wp-bm-sep'; menu.appendChild(sepNew);
+    const addNew = document.createElement('button');
+    addNew.type = 'button';
+    addNew.className = 'wp-bm-item';
+    addNew.textContent = 'New sequence…';
+    addNew.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      closeTcMenu();
+      const name = cleanSeqLabel(window.prompt('Sequence name', curSeq || '') || '');
+      if (name) patchTimecodeAt(view, pos, { seq: name });
+      view.focus();
+    });
+    makeItemKeyActivatable(addNew);
+    menu.appendChild(addNew);
+  } else {
+    [1, 2, 3].forEach((d) => addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
+    addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+  }
 
   const sep = document.createElement('div'); sep.className = 'wp-bm-sep'; menu.appendChild(sep);
 
@@ -387,6 +467,19 @@ export const TimecodeMark = Mark.create({
         },
         renderHTML: (attrs) => (attrs.day != null ? { 'data-day': String(attrs.day) } : {}),
       },
+      // The SEQUENCE this timecode belongs to — an interview/sequence NAME string
+      // ("20260311-James Porter - Interview:") for a named SOT, or a "DAY N" string-out label for a
+      // loose day-based SOT. Derived at BUILD time from the block's speaker/day context in
+      // document-builder (the same running context that sets `day`). On Palau the chip DISPLAYS only
+      // the bare code; the seq rides in data-seq purely for the right-click SEQUENCE picker + context.
+      // Burma never sets it (default null → no data-seq → chip HTML + integrity audit byte-unchanged).
+      // migrate-doc's buildSchema imports BURMA_MARKS, so this attr flows into the read-back schema in
+      // lockstep automatically; default null keeps every already-saved doc round-tripping untouched.
+      seq: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-seq') || null,
+        renderHTML: (attrs) => (attrs.seq ? { 'data-seq': attrs.seq } : {}),
+      },
     };
   },
   parseHTML() { return [{ tag: 'span[data-tc]' }]; },
@@ -397,7 +490,7 @@ export const TimecodeMark = Mark.create({
     // L6 — copying a timecode is the editor's PRIMARY action; it was mouse-only (tabindex -1, no key
     // handler). The chip is now keyboard-focusable (tabindex 0) and Enter/Space copies it (handled in
     // the plugin keydown below), so a keyboard user can copy a timecode. aria-label spells the action.
-    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'copy timecode · right-click to set day', role: 'button', 'aria-label': 'copy timecode', tabindex: '0' }, 0];
+    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'copy timecode · right-click to tag sequence', role: 'button', 'aria-label': 'copy timecode', tabindex: '0' }, 0];
   },
   addCommands() {
     return {
