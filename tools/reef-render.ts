@@ -6,25 +6,18 @@
 //
 import sharp from "sharp";
 import { mkdir, writeFile } from "node:fs/promises";
+import { TILE, frameLayout, wrapTileX, tileYInBounds } from "./reef-geo.ts";
 
-const TILE = 256;
 const OUT_W = 2560, OUT_H = 1440;              // 16:9 — wider FOV: room to zoom out + pan in the player
 const SERVERS = [0, 1, 2, 3];
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 
-// ---- web mercator -----------------------------------------------------------
-function lonToGlobalPx(lon: number, z: number) {
-  return ((lon + 180) / 360) * TILE * 2 ** z;
-}
-function latToGlobalPx(lat: number, z: number) {
-  const s = Math.sin((lat * Math.PI) / 180);
-  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * TILE * 2 ** z;
-}
+// web-mercator projection + tile-layout math live in reef-geo.ts (locked in
+// reef-geo.test.mjs) so this renderer and its test share one copy of the math.
 
 async function fetchTile(x: number, y: number, z: number, tries = 4): Promise<Buffer | null> {
-  const n = 2 ** z;
-  if (y < 0 || y >= n) return null;
-  const xx = ((x % n) + n) % n;
+  if (!tileYInBounds(y, z)) return null;
+  const xx = wrapTileX(x, z);
   for (let t = 0; t < tries; t++) {
     const s = SERVERS[(xx + y + t) % SERVERS.length];
     try {
@@ -39,10 +32,8 @@ async function fetchTile(x: number, y: number, z: number, tries = 4): Promise<Bu
 }
 
 async function renderFrame(lat: number, lon: number, z: number): Promise<Buffer> {
-  const cx = lonToGlobalPx(lon, z), cy = latToGlobalPx(lat, z);
-  const left = Math.round(cx - OUT_W / 2), top = Math.round(cy - OUT_H / 2);
-  const tL = Math.floor(left / TILE), tR = Math.floor((left + OUT_W - 1) / TILE);
-  const tT = Math.floor(top / TILE), tB = Math.floor((top + OUT_H - 1) / TILE);
+  const { tL, tR, tT, tB, canvasW, canvasH, extractLeft, extractTop } =
+    frameLayout(lat, lon, z, OUT_W, OUT_H);
 
   const jobs: Promise<{ x: number; y: number; buf: Buffer | null }>[] = [];
   for (let tx = tL; tx <= tR; tx++)
@@ -50,7 +41,6 @@ async function renderFrame(lat: number, lon: number, z: number): Promise<Buffer>
       jobs.push(fetchTile(tx, ty, z).then((buf) => ({ x: tx, y: ty, buf })));
   const tiles = await Promise.all(jobs);
 
-  const canvasW = (tR - tL + 1) * TILE, canvasH = (tB - tT + 1) * TILE;
   const layers = tiles
     .filter((t) => t.buf)
     .map((t) => ({ input: t.buf!, left: (t.x - tL) * TILE, top: (t.y - tT) * TILE }));
@@ -60,7 +50,7 @@ async function renderFrame(lat: number, lon: number, z: number): Promise<Buffer>
   }).composite(layers);
 
   return await stitched
-    .extract({ left: left - tL * TILE, top: top - tT * TILE, width: OUT_W, height: OUT_H })
+    .extract({ left: extractLeft, top: extractTop, width: OUT_W, height: OUT_H })
     .modulate({ saturation: 1.06 })           // a touch more life in the turquoise
     .jpeg({ quality: 82, mozjpeg: true })
     .toBuffer();
