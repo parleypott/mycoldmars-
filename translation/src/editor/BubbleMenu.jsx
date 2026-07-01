@@ -1,20 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { formatPreciseTimecode } from '../timecode-utils.js';
-
-/**
- * Parse a timecode string (HH:MM:SS, MM:SS, or raw seconds) to seconds.
- */
-function tcToSeconds(tc) {
-  if (typeof tc === 'number') return tc;
-  if (!tc) return NaN;
-  const n = parseFloat(tc);
-  // If it doesn't contain ':', it's already seconds
-  if (!String(tc).includes(':')) return n;
-  const parts = String(tc).replace(',', '.').split(':');
-  if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
-  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
-  return n;
-}
+import { tcToSeconds } from './tc-parse.js';
 
 /**
  * Collect the timecode range (earliest start, latest end) from segment marks
