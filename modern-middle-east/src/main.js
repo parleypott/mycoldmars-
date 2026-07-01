@@ -1,5 +1,5 @@
 import { easy, hard } from './questions.js';
-import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor } from '../../shared/quiz-answer.js';
+import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor, displayPercent } from '../../shared/quiz-answer.js';
 
 /* ─── Themes ─── */
 const THEMES = {
@@ -328,7 +328,7 @@ function showScorecard() {
 
   // Total
   const rounds = questions.length;
-  const pct = rounds ? Math.round((quiz.score / rounds) * 100) : 0;
+  const pct = displayPercent(quiz.score, rounds);
   scorecardTotal.innerHTML = `
     <div class="total-number">${quiz.score}/${rounds}</div>
     <div class="total-label">${pct}% — ${gradeFor(quiz.score, rounds)}</div>

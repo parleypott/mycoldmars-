@@ -66,3 +66,16 @@ export function gradeFor(score, total) {
   if (pct >= 40) return 'NOT BAD';
   return 'KEEP LEARNING';
 }
+
+// The rounded whole-number percentage shown on the end scorecard ("80% — GOOD").
+// Extracted to kill THREE byte-identical inline copies — each game's scorecard
+// computed `rounds ? Math.round((quiz.score / rounds) * 100) : 0` on its own,
+// the same divergent-triplet setup that produced the double-count bug this
+// module already fixed. A zero (or missing) round count returns 0, never NaN —
+// the `!total` guard mirrors the games' `rounds ? … : 0` so a quiz that somehow
+// ends with no rounds shows "0%" instead of "NaN%". Byte-identical to the inline
+// copies for every real quiz (rounds is always the played question count).
+export function displayPercent(score, total) {
+  if (!total || total <= 0) return 0;
+  return Math.round((score / total) * 100);
+}

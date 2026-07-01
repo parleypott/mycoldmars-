@@ -1,6 +1,6 @@
 // Mutation-locked tests for the shared quiz answer-accounting core.
 // Run: node shared/quiz-answer.test.mjs  (picked up by scripts/run-tests.mjs)
-import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor } from './quiz-answer.js';
+import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor, displayPercent } from './quiz-answer.js';
 import assert from 'node:assert/strict';
 
 let pass = 0;
@@ -170,6 +170,57 @@ t('gradeFor degrades to sensible labels for a short (3-question) game', () => {
 t('gradeFor never divides by zero on an empty game', () => {
   assert.equal(gradeFor(0, 0), 'KEEP LEARNING');
   assert.equal(gradeFor(0, undefined), 'KEEP LEARNING');
+});
+
+// ── displayPercent: the scorecard "N% — GRADE" number, de-triplicated ──
+
+// The three games each computed `rounds ? Math.round((score/rounds)*100) : 0`
+// inline. displayPercent must reproduce that EXACTLY — same rounding, same
+// zero-round guard — so the scorecard number never drifts between games.
+function legacyPct(score, rounds) {
+  return rounds ? Math.round((score / rounds) * 100) : 0;
+}
+
+t('displayPercent reproduces the inline scorecard math for every 5-question score', () => {
+  for (let s = 0; s <= 5; s++) {
+    assert.equal(displayPercent(s, 5), legacyPct(s, 5), `score ${s}/5`);
+  }
+  // canonical labels the user sees
+  assert.equal(displayPercent(5, 5), 100);
+  assert.equal(displayPercent(4, 5), 80);
+  assert.equal(displayPercent(3, 5), 60);
+  assert.equal(displayPercent(0, 5), 0);
+});
+
+t('displayPercent ROUNDS (not floors/truncates) to a whole percent', () => {
+  // 2/3 = 66.66% must round UP to 67, not truncate to 66 — the mutation guard:
+  // a floor/truncate/ceil/toFixed variant fails this.
+  assert.equal(displayPercent(2, 3), 67);
+  assert.equal(displayPercent(1, 3), 33); // 33.33% rounds DOWN to 33
+  assert.equal(displayPercent(1, 8), 13); // 12.5% rounds to 13
+  assert.equal(displayPercent(3, 8), 38); // 37.5% rounds to 38
+});
+
+t('displayPercent guards a zero/missing round count to 0, never NaN', () => {
+  assert.equal(displayPercent(0, 0), 0);
+  assert.equal(displayPercent(3, 0), 0);
+  assert.equal(displayPercent(0, undefined), 0);
+  assert.equal(displayPercent(0, null), 0);
+  assert.equal(Number.isNaN(displayPercent(2, 0)), false);
+});
+
+t('displayPercent agrees with gradeFor at the reachable (≤5) round counts', () => {
+  // For every real quiz size the rounded display % and the grade band tell the
+  // same story — no "80% — GOOD" contradiction. (Rounding is a no-op at these
+  // sizes, so coupling display to grade stays byte-identical.)
+  for (let total = 1; total <= 5; total++) {
+    for (let s = 0; s <= total; s++) {
+      const pct = displayPercent(s, total);
+      const grade = gradeFor(s, total);
+      if (pct >= 80) assert.ok(grade === 'EXCELLENT' || grade === 'PERFECT', `${s}/${total}=${pct}% is ${grade}`);
+      if (grade === 'KEEP LEARNING') assert.ok(pct < 40, `${s}/${total}=${pct}% graded KEEP LEARNING`);
+    }
+  }
 });
 
 console.log(`\nquiz-answer: ${pass} checks passed`);
