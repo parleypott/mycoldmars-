@@ -286,6 +286,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   border-radius: 5px;
   padding: 1px 7px;
   font-weight: 700;
+  font-style: normal;   /* Johnny: not italic — upright chip text */
 }
 .wp-dhl[data-kind="archive"][data-status="needed"],
 .wp-dhl[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; border-color:#d79a9a; color:#7a2e2e; }
