@@ -10333,7 +10333,7 @@
       }
 
       function initials(name) {
-        const parts = name.split(/\s+/).filter(Boolean);
+        const parts = String(name || '').split(/\s+/).filter(Boolean);
         return parts.map(p => p[0]?.toUpperCase()).slice(0, 2).join('') || '?';
       }
 
