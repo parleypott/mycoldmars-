@@ -45,7 +45,7 @@ export function decodeEntities(s) {
 }
 
 export function stripMarkdown(md) {
-  return decodeEntities(String(md ?? ''))
+  let s = decodeEntities(String(md ?? ''))
     .replace(/```[\s\S]*?```/g, '')        // fenced code blocks
     // HTML comments (<!-- editor note -->) — invisible on the page, but read ALOUD
     // by the TTS as the raw note. Strip before anything else.
@@ -96,12 +96,29 @@ export function stripMarkdown(md) {
     .replace(/^\s*[-*+]\s+/gm, '')         // bullet lists (-, *, +)
     // Numbered lists. CommonMark allows BOTH "1." and "1)" as ordered markers, so
     // a "1) point" list leaked its literal ")" into the audio (read as "close paren").
-    .replace(/^\s*\d+[.)]\s+/gm, '')       // numbered lists (1. and 1))
-    .replace(/~~([^~]+)~~/g, '$1')         // strikethrough (else reads "tilde")
-    .replace(/\*\*([^*]+)\*\*/g, '$1')     // bold **
-    .replace(/__([^_]+)__/g, '$1')         // bold __ (else leaves stray underscores)
-    .replace(/\*([^*]+)\*/g, '$1')         // italic *
-    .replace(/_([^_]+)_/g, '$1')           // italic _
+    .replace(/^\s*\d+[.)]\s+/gm, '');      // numbered lists (1. and 1))
+
+  // Inline emphasis (~~strike~~, **bold**, __bold__, *italic*, _italic_). Run to a
+  // FIXED POINT, not once. A single left-to-right pass leaves stray markers on NESTED
+  // spans: "The **coup was *deeply* destabilizing**" → "The *coup was deeply
+  // destabilizing*" — the outer ** can't match across the inner single stars, and the
+  // later italic pass strips only the inner pair, so a literal "*" leaked into the
+  // audio (read aloud as "asterisk"), the exact failure this module exists to kill.
+  // Each rule only ever DROPS markers, so the string strictly shrinks until stable and
+  // the loop always terminates. Simple spans converge on the first pass (byte-identical
+  // to the old single-pass behavior); only nested spans get additional cleanup.
+  let prev;
+  do {
+    prev = s;
+    s = s
+      .replace(/~~([^~]+)~~/g, '$1')       // strikethrough (else reads "tilde")
+      .replace(/\*\*([^*]+)\*\*/g, '$1')   // bold **
+      .replace(/__([^_]+)__/g, '$1')       // bold __ (else leaves stray underscores)
+      .replace(/\*([^*]+)\*/g, '$1')       // italic *
+      .replace(/_([^_]+)_/g, '$1');        // italic _
+  } while (s !== prev);
+
+  return s
     .replace(/^>+\s*/gm, '')               // blockquotes
     // CommonMark backslash escapes (\$ \* \# \. \- \_ \[ …). Authors — and markdown
     // generators / paste sources — escape ASCII punctuation so it renders literally:

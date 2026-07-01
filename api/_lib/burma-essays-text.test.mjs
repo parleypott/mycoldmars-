@@ -374,5 +374,41 @@ eq(stripMarkdown('no backslashes at all here'), 'no backslashes at all here', 'G
 eq(stripMarkdown('a < b and c > d'), 'a < b and c > d', 'GUARD: prose comparisons untouched by the escape rule');
 eq(stripMarkdown('path C:\\Users still'), 'path C:\\Users still', 'GUARD: \\U (non-punctuation) left intact — outside CommonMark escape set');
 
+// ---- NESTED EMPHASIS (fixed-point loop): a single left-to-right emphasis pass leaked
+// stray markers on NESTED spans, so a literal "*"/"_" reached the TTS ("asterisk").
+// RED PROOF: the five emphasis rules applied EXACTLY ONCE (the pre-loop behavior).
+function stripEmphasisSinglePass(s) {
+  return s
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1');
+}
+// The load-bearing case: emphatic prose with an italic span INSIDE a bold span — the
+// outer ** can't match across the inner single stars, so a single pass strands them.
+eq(stripEmphasisSinglePass('The **coup was *deeply* destabilizing** here.'),
+   'The *coup was deeply destabilizing* here.',
+   'RED: single-pass strands "*" on a bold span wrapping an italic span');
+eq(stripMarkdown('The **coup was *deeply* destabilizing** here.'),
+   'The coup was deeply destabilizing here.',
+   'FIX: nested bold+italic fully cleaned — no marker reaches the audio');
+// Same class in the underscore family: __bold__ wrapping an _italic_ (the inner single
+// underscores block the outer __ match, exactly as inner single stars block outer **).
+eq(stripEmphasisSinglePass('__grim _work_ done__'),
+   '_grim work done_',
+   'RED: single-pass strands "_" on __bold__ wrapping an _italic_ span');
+eq(stripMarkdown('__grim _work_ done__'), 'grim work done',
+   'FIX: __bold__ wrapping _italic_ fully cleaned');
+// Bare nested pair and triple emphasis.
+eq(stripMarkdown('**bold *italic* bold**'), 'bold italic bold', 'FIX: bare nested span leaves no markers');
+eq(stripMarkdown('***bold italic***'), 'bold italic', 'FIX: triple ***…*** cleaned (converges first pass)');
+// REGRESSION GUARDS: simple, non-nested spans are byte-identical to the single-pass
+// behavior (the loop converges on pass 1 and adds nothing).
+eq(stripMarkdown('**just bold**'), 'just bold', 'GUARD: simple **bold** unchanged');
+eq(stripMarkdown('an *italic* word'), 'an italic word', 'GUARD: simple *italic* unchanged');
+eq(stripMarkdown('a __two word__ b'), 'a two word b', 'GUARD: simple __bold__ unchanged');
+eq(stripMarkdown('no emphasis here at all'), 'no emphasis here at all', 'GUARD: plain prose untouched');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
