@@ -84,12 +84,7 @@ async function rangeFrom(res, req) {
       'Content-Type': 'audio/mpeg', 'Content-Length': String(size), 'Accept-Ranges': 'bytes',
     }});
   }
-  const m = /bytes=(\d*)-(\d*)/.exec(range) || [];
-  let start = m[1] ? parseInt(m[1], 10) : 0;
-  let end   = m[2] ? parseInt(m[2], 10) : size - 1;
-  if (isNaN(start)) start = 0;
-  if (isNaN(end) || end >= size) end = size - 1;
-  if (start > end) start = 0;
+  const { start, end } = computeByteRange(range, size);
   const chunk = buf.slice(start, end + 1);
   return new Response(chunk, { status: 206, headers: {
     'Content-Type': 'audio/mpeg',
@@ -97,4 +92,33 @@ async function rangeFrom(res, req) {
     'Content-Range': `bytes ${start}-${end}/${size}`,
     'Accept-Ranges': 'bytes',
   }});
+}
+
+/* Parse an HTTP Range header value against a known resource size, returning
+   inclusive { start, end } byte offsets clamped to [0, size-1]. Handles the
+   three real forms a browser sends when seeking audio:
+     bytes=500-999  → that window          bytes=500-  → 500 to the end
+     bytes=-500     → the LAST 500 bytes (suffix range)
+   The suffix form used to be mishandled — an empty start was read as 0, so
+   "give me the last 500 bytes" returned the FIRST 501, feeding wrong audio to
+   any client that reads the tail (e.g. ID3/metadata at the end of the file).
+   Forward ranges are byte-identical to the prior logic; only the suffix case
+   changes. Degrades to the whole file on anything unparseable. */
+function computeByteRange(range, size) {
+  const m = /bytes=(\d*)-(\d*)/.exec(range || '');
+  if (!m) return { start: 0, end: size - 1 };
+  const hasStart = m[1] !== '';
+  const hasEnd = m[2] !== '';
+  let start, end;
+  if (!hasStart && hasEnd) {
+    start = size - parseInt(m[2], 10);   // suffix: the last N bytes
+    end = size - 1;
+  } else {
+    start = hasStart ? parseInt(m[1], 10) : 0;
+    end = hasEnd ? parseInt(m[2], 10) : size - 1;
+  }
+  if (!Number.isFinite(start) || start < 0) start = 0;
+  if (!Number.isFinite(end) || end >= size) end = size - 1;
+  if (start > end) start = 0;
+  return { start, end };
 }
