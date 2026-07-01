@@ -103,6 +103,16 @@ export function stripMarkdown(md) {
     .replace(/\*([^*]+)\*/g, '$1')         // italic *
     .replace(/_([^_]+)_/g, '$1')           // italic _
     .replace(/^>+\s*/gm, '')               // blockquotes
+    // CommonMark backslash escapes (\$ \* \# \. \- \_ \[ …). Authors — and markdown
+    // generators / paste sources — escape ASCII punctuation so it renders literally:
+    // "It cost \$5", "the year 2020\." (to stop the auto-list), "use the \* operator".
+    // The stripper passed the backslash through RAW, so ElevenLabs read it ALOUD
+    // ("backslash dollar 5", "twenty twenty backslash"), the exact read-it-aloud
+    // failure this whole module exists to kill. Runs LAST — after every structural
+    // rule — so an escape has already done its job of PREVENTING interpretation (an
+    // escaped "1\." never matched the numbered-list rule, so its "1" still survives
+    // to here); we only now drop the backslash and keep the literal punctuation.
+    .replace(/\\([!-\/:-@\[-`{-~])/g, '$1') // \X (ASCII punctuation) -> X
     .replace(/\n{3,}/g, '\n\n')            // collapse blank runs
     .trim();
 }

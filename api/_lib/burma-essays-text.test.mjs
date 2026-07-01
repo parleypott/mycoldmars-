@@ -352,5 +352,27 @@ eq(stripMarkdown('Tom & Jerry & co.'), 'Tom & Jerry & co.', 'spaced bare & untou
 eq(decodeEntities('&amp;'), '&', 'decodeEntities standalone');
 eq(decodeEntities(null), '', 'decodeEntities null-safe');
 
+// ---- BACKSLASH ESCAPES: CommonMark lets authors escape ASCII punctuation so it
+// renders literally ("\$5", "2020\.", "\*"). The stripper used to pass the backslash
+// through RAW, so ElevenLabs read it ALOUD ("backslash dollar 5"). RED PROOF reuses
+// stripMarkdownOLD (no unescape rule); the live stripMarkdown drops the backslash and
+// keeps the literal char. The mutation lock: deleting the `\\(...)`->`$1` rule turns
+// every FIX line below RED.
+eq(stripMarkdownOLD('It cost \\$5 million.'), 'It cost \\$5 million.', 'RED: old code reads "\\$" aloud as "backslash dollar"');
+eq(stripMarkdown('It cost \\$5 million.'), 'It cost $5 million.', 'FIX: \\$ -> $ (no backslash spoken)');
+eq(stripMarkdown('use the \\* operator'), 'use the * operator', 'FIX: \\* -> * literal asterisk');
+eq(stripMarkdown('file\\_name.txt'), 'file_name.txt', 'FIX: \\_ -> _ (no stray backslash/underscore read)');
+eq(stripMarkdown('He paid \\$5 then \\$10.'), 'He paid $5 then $10.', 'FIX: every escaped $ in a line unescaped (global)');
+eq(stripMarkdown('rules\\: \\[a\\], \\(b\\), \\#c, \\!d'), 'rules: [a], (b), #c, !d', 'FIX: mixed punctuation escapes all cleaned');
+// ORDERING PROOF: an escaped list marker prevented interpretation, so unescaping LAST
+// keeps the "1." text (a fix placed BEFORE the list rule would eat the "1").
+eq(stripMarkdown('1\\. not a list, still text'), '1. not a list, still text', 'FIX: escaped "1\\." keeps its number (unescape runs after the list rule)');
+eq(stripMarkdown('the year 2020\\. It ended.'), 'the year 2020. It ended.', 'FIX: "2020\\." period restored, sentence intact');
+// REGRESSION GUARDS: prose with NO backslash is byte-identical, and a lone backslash
+// before a non-punctuation char (a Windows path tail) is left alone (not our class).
+eq(stripMarkdown('no backslashes at all here'), 'no backslashes at all here', 'GUARD: backslash-free prose untouched');
+eq(stripMarkdown('a < b and c > d'), 'a < b and c > d', 'GUARD: prose comparisons untouched by the escape rule');
+eq(stripMarkdown('path C:\\Users still'), 'path C:\\Users still', 'GUARD: \\U (non-punctuation) left intact — outside CommonMark escape set');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
