@@ -20,7 +20,7 @@
 // resolves to KEEP LOCAL. Cloud only wins when it answers cleanly AND is strictly newer.
 
 import { isReadOnly } from './read-mode.js';
-import { pruneConflictSnapshots, resetSessionBackup } from './migrate-doc.js';
+import { pruneConflictSnapshots, resetSessionBackup, readLatestSavedRaw, isRenderableLocalDoc } from './migrate-doc.js';
 import { writeTokenHeaders } from './write-token.js';
 import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
 import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
@@ -232,21 +232,34 @@ function stableStringify(v) {
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
 }
 
+// Shared canonical-content compare for callers that already HAVE a local doc object in memory
+// (e.g. the recovered IDB-only boot path in main.jsx). This keeps the recovered-doc injection on the
+// exact same sorted-key serialization localDiffersFrom uses, so the "same content?" gate agrees
+// whether the local doc came from readLatestSavedRaw() or from a recovered in-memory override.
+export function docsDiffer(localDoc, otherDoc) {
+  if (localDoc == null) return false;
+  const localTxt = canonicalText(localDoc);
+  const otherTxt = canonicalText(otherDoc);
+  if (!localTxt) return false;
+  return localTxt !== otherTxt;
+}
+
 // Does the LOCAL doc genuinely differ from `otherDoc` (the doc about to overwrite it)? Returns false
 // when there is nothing unique to preserve: no local doc, local unparseable-but-empty, or local's
-// canonical text equals otherDoc's. Only a true return justifies burning a recovery snapshot.
+// canonical text equals otherDoc's. readLatestSavedRaw() is the canonical NEWEST synchronous local-doc
+// reader here: it prefers the compressed `.z` crash-belt over LS_DOC, so a quota-skipped fat LS_DOC /
+// recovered-boot state cannot trick reconcile into diffing a stale body. The IDB-only boot case that
+// still cannot rehydrate sync storage injects its own recovered-doc comparator via reconcileOnLoad.
+// Only a true return justifies burning a recovery snapshot.
 export function localDiffersFrom(otherDoc) {
   let localRaw = null;
-  try { localRaw = localStorage.getItem(LS_DOC); } catch { return false; }
+  try { localRaw = readLatestSavedRaw(); } catch { return false; }
   if (!localRaw) return false;                 // no local doc → nothing of ours to lose
   let localDoc = null;
   try { localDoc = JSON.parse(localRaw); } catch { localDoc = null; }
   // Unparseable local: it IS bytes on disk that the adopt would overwrite — preserve it (differs).
   if (localDoc == null) return true;
-  const localTxt = canonicalText(localDoc);
-  const otherTxt = canonicalText(otherDoc);
-  if (!localTxt) return false;                 // local serialized to nothing → nothing to preserve
-  return localTxt !== otherTxt;
+  return docsDiffer(localDoc, otherDoc);
 }
 
 // The content of the most recent existing conflict snapshot (for dedup), or null. NEVER throws.
@@ -306,12 +319,15 @@ function writeConflictSnapshot(raw) {
 
 // Snapshot the current LOCAL doc to a .conflict.<ts> recovery key BEFORE we adopt a newer cloud doc
 // over it — mirrors migrate-doc.js's snapshotConflict so the existing recovery tooling finds it.
-// DEDUPED + CAPPED via writeConflictSnapshot. Returns the key, or null if storage refused / no local
-// doc. NEVER throws. (Whether a snapshot is NEEDED at all — i.e. local genuinely differs from cloud —
-// is decided by the caller via localDiffersFrom; this function just performs the write when asked.)
+// DEDUPED + CAPPED via writeConflictSnapshot. It snapshots the canonical NEWEST synchronous local doc
+// via readLatestSavedRaw(), not a bare LS_DOC read, so the safety copy preserves the fresh `.z`
+// crash-belt bytes when the fat LS_DOC write was skipped or left stale. Returns the key, or null if
+// storage refused / no local doc. NEVER throws. (Whether a snapshot is NEEDED at all — i.e. local
+// genuinely differs from cloud — is decided by the caller via localDiffersFrom; this function just
+// performs the write when asked.)
 export function snapshotLocalConflict() {
   try {
-    const raw = localStorage.getItem(LS_DOC);
+    const raw = readLatestSavedRaw();
     if (!raw) return null;
     return writeConflictSnapshot(raw);
   } catch {
@@ -341,10 +357,13 @@ export function snapshotDocConflict(doc) {
 // return is never fatal to the canonical save — the local doc is already durable in LS_DOC.
 
 // Snapshot the current LOCAL doc to a recovery snapshot, preferring IndexedDB. Resolves to the key
-// (IDB or localStorage), or null if there was nothing to snapshot / both stores refused. NEVER throws.
+// (IDB or localStorage), or null if there was nothing to snapshot / both stores refused. Reads the
+// same canonical NEWEST synchronous doc body as snapshotLocalConflict(), so the async adopt path backs
+// up the fresh `.z` bytes too. IDB-only recovered boots that still cannot refresh sync storage inject
+// snapshotDocConflictAsync(recoveredDoc) from main.jsx. NEVER throws.
 export async function snapshotLocalConflictAsync() {
   let raw = null;
-  try { raw = localStorage.getItem(LS_DOC); } catch { raw = null; }
+  try { raw = readLatestSavedRaw(); } catch { raw = null; }
   if (!raw) return null;
   if (idbAvailable()) {
     const k = await idbPutSnapshot('conflict', raw);
@@ -454,7 +473,7 @@ export function handlePushResult(result, localDoc) {
   try {
     if (idbAvailable()) {
       const localRaw = localDoc != null ? JSON.stringify(localDoc) : (() => {
-        try { return localStorage.getItem(LS_DOC); } catch { return null; }
+        try { return readLatestSavedRaw(); } catch { return null; }
       })();
       if (localRaw) idbPutSnapshot('conflict', localRaw).catch(() => {});
       try { idbPutSnapshot('conflict', JSON.stringify(result.doc)).catch(() => {}); } catch {}
@@ -490,10 +509,12 @@ export function handlePushResult(result, localDoc) {
 //   deps.saveDoc(doc)       -> writes LS_DOC via the canonical guarded path
 //   deps.primeVersionFloor  -> raises LS_DOC_VER floor to cloud.version
 //   deps.snapshotConflict   -> snapshots local to .conflict.<ts> before adopt
+//   deps.localDiffersFrom   -> compare the actual local doc vs the cloud doc before snapshotting
 //   deps.fetchCloud         -> fetchCloud (overridable for tests)
 export async function reconcileOnLoad(deps = {}) {
   const {
     readLocal = defaultReadLocal,
+    readLiveLocal: readLive = readLiveLocal,
     saveDoc: save,
     primeVersionFloor: prime,
     // PHASE 3 — default to the IDB-routed async snapshotter so the heavy .conflict copy lands in
@@ -501,6 +522,10 @@ export async function reconcileOnLoad(deps = {}) {
     // awaiting it costs nothing. Tests / callers may inject a sync stub; we await it either way (await
     // on a non-promise returns the value), so both shapes work without branching.
     snapshotConflict = snapshotLocalConflictAsync,
+    // Most boots can use the module-level localDiffersFrom(), which reads readLatestSavedRaw() and
+    // therefore sees fresh `.z` bytes even when LS_DOC is stale. The recovered IDB-only boot path
+    // injects a comparator against its in-memory recovered doc when sync rehydration still cannot fit.
+    localDiffersFrom: localDiffers = localDiffersFrom,
     fetchCloud: fetchC = fetchCloud,
   } = deps;
 
@@ -547,7 +572,7 @@ export async function reconcileOnLoad(deps = {}) {
       // global) we keep the original always-snapshot behaviour, so the must-land abort contract holds.
       let needSnapshot = true;
       if (typeof localStorage !== 'undefined' && localStorage) {
-        try { needSnapshot = localDiffersFrom(decision.doc); } catch { needSnapshot = true; }
+        try { needSnapshot = localDiffers(decision.doc); } catch { needSnapshot = true; }
       }
       if (needSnapshot) {
         let snapKey = null;
@@ -619,7 +644,7 @@ export async function reconcileOnLoad(deps = {}) {
     // retry, so an unreachable cloud here is caught up on the next connectivity event.
     try {
       let live = local;
-      try { live = readLiveLocal(); } catch {}
+      try { live = readLive(); } catch {}
       const pushDocBody = (live && live.doc != null) ? live.doc : local.doc;
       const pushVer = (live && live.hasDoc) ? live.version : local.version;
       if (pushDocBody != null) {
@@ -716,15 +741,31 @@ function logDecision(phase, action, localVersion, cloud) {
   } catch {}
 }
 
-// Default local reader — pulls LS_DOC + LS_DOC_VER straight from localStorage. NEVER throws.
+// Default local reader — pulls the doc AND its version from the SAME canonical source (LS_DOC +
+// LS_DOC_VER). NEVER throws.
+//
+// palau-v2 fix — TWO bugs closed:
+//   (a) The version key was HARDCODED to 'wp01_burma_doc_ver_v1', so on any other episode (Palau /
+//       future) reconcile read version 0 against a real local doc and mis-decided the merge. It is
+//       now episode-aware via getEpisodeStorage().DOC_VER.
+//   (b) doc and version came from DIFFERENT reads with no consistency guarantee: a stale/absent
+//       LS_DOC paired with a live version stamp returned { version:N, doc:null/stale }, which the
+//       reconcile then pushed to cloud — a NEW version carrying a STALE doc, clobbering the good
+//       cloud copy. We now derive version ONLY when the doc it belongs to is actually present: no
+//       local doc ⇒ version 0 (the implicit "we have nothing to push"), so reconcile keeps cloud.
+//       Boot rehydration (main.jsx) has already promoted the newest `.z`/IDB bytes into LS_DOC before
+//       reconcile runs, so LS_DOC + LS_DOC_VER are the mutually-consistent newest pair here.
 function defaultReadLocal() {
-  let raw = null, verRaw = null;
-  try { raw = localStorage.getItem(LS_DOC); } catch {}
-  try { verRaw = localStorage.getItem('wp01_burma_doc_ver_v1'); } catch {}
+  let raw = null;
+  try { raw = readLatestSavedRaw(); } catch {}
+  if (!raw) return { hasDoc: false, version: 0, doc: null };
   let doc = null;
-  if (raw) { try { doc = JSON.parse(raw); } catch { doc = null; } }
+  try { doc = JSON.parse(raw); } catch { return { hasDoc: false, version: 0, doc: null }; }
+  if (!isRenderableLocalDoc(doc)) return { hasDoc: false, version: 0, doc: null };
+  let verRaw = null;
+  try { verRaw = localStorage.getItem(getEpisodeStorage().DOC_VER); } catch {}
   const version = verRaw != null ? toInt(String(verRaw).split('|')[0]) : 0;
-  return { hasDoc: !!raw, version, doc };
+  return { hasDoc: true, version, doc };
 }
 
 export { EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT, toInt, defaultReadLocal };

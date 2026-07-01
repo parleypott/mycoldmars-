@@ -2,13 +2,15 @@
  * Tests for saveDoc's DATA-LOSS-CRITICAL guards (vector: savedoc-invariant-coverage) in
  * migrate-doc.js — the three deepest branches that previously had ZERO direct coverage:
  *
- *   STEP 2  QUOTA-EVICT-RETRY loop (setItem throws QuotaExceededError -> evict oldest backup ->
+ *   STEP 2  QUOTA-EVICT-RETRY loop (setItem throws QuotaExceededError on the compressed `.z` write
+ *           -> evict oldest backup ->
  *           retry until it lands or there's nothing left to evict, then {ok:false, reason:'quota'}
  *           + wp-save-failed kind:'quota').
- *   STEP 3  READ-BACK INVARIANT mismatch (re-read LS_DOC !== written bytes -> wp-save-failed
+ *   STEP 3  READ-BACK INVARIANT mismatch (re-read/decompress `.z` !== written bytes -> wp-save-failed
  *           kind:'invariant', {ok:false, reason:'invariant-mismatch'}).
- *   STEP 3  GARBLED/TRUNCATED read-back (corrupt bytes come back -> loud wp-save-failed
- *           kind:'invariant', ok:false; a corrupt write is never silently accepted).
+ *   STEP 3  GARBLED/TRUNCATED read-back (corrupt compressed bytes come back -> loud wp-save-failed
+ *           kind:'invariant', reason:'invariant-unparseable'; a corrupt write is never silently
+ *           accepted).
  *
  * saveDoc is the ONLY canonical LS_DOC write path and the cardinal rule is "data loss is the worst
  * outcome", so these silent-corruption guards must be load-bearing. We drive them with a
@@ -19,24 +21,41 @@
  * Run: bun src/savedoc-invariant.test.mjs   (auto-discovered by `bun run test`)
  */
 
+import { strToU8, strFromU8 } from 'fflate';
+import { compressDoc, decompressDoc } from './recovery-store.js';
+
 // ---- programmable localStorage shim -----------------------------------------------------------
 const store = new Map();
 // Controls the shim's misbehaviour. Reset per scenario.
 const ctl = {
-  throwSetItemTimes: 0,   // throw QuotaExceededError on the next N setItem(LS_DOC) calls
+  quotaMode: 'none', // 'none' | 'while-evictable' | 'always'
 };
 class QuotaError extends Error { constructor() { super('quota'); this.name = 'QuotaExceededError'; } }
 
 const LS_DOC = 'wp01_burma_doc_v1';
+const LS_DOC_FALLBACK = LS_DOC + '.z';
 const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
 const BAK_PREFIX = LS_DOC + '.bak.';
+const readSavedRaw = () => {
+  const packed = store.get(LS_DOC_FALLBACK);
+  return packed == null ? null : decompressDoc(strToU8(packed, true));
+};
+const packDoc = (raw) => {
+  const gz = compressDoc(raw);
+  return gz ? strFromU8(gz, true) : null;
+};
+const hasEvictableBlockers = () => Array.from(store.keys()).some((k) => k.startsWith(BAK_PREFIX));
+const isSyncDocKey = (k) => k === LS_DOC_FALLBACK || k === LS_DOC;
 
 globalThis.localStorage = {
   get length() { return store.size; },
   key: (i) => Array.from(store.keys())[i] ?? null,
   getItem: (k) => (store.has(k) ? store.get(k) : null),
   setItem: (k, v) => {
-    if (k === LS_DOC && ctl.throwSetItemTimes > 0) { ctl.throwSetItemTimes--; throw new QuotaError(); }
+    if (isSyncDocKey(k)) {
+      if (ctl.quotaMode === 'always') throw new QuotaError();
+      if (ctl.quotaMode === 'while-evictable' && hasEvictableBlockers()) throw new QuotaError();
+    }
     store.set(k, String(v));
   },
   removeItem: (k) => { store.delete(k); },
@@ -73,21 +92,22 @@ const doc = (text) => ({ type: 'doc', content: [
 // ════════════════════════════════════════════════════════════════════════════════════════════
 {
   store.clear(); events.length = 0;
-  ctl.throwSetItemTimes = 0;
+  ctl.quotaMode = 'none';
   const M = await import('./migrate-doc.js?inv=1');
   M.syncBaseVersion();
   // Seed two evictable backups so the loop has room to free.
   store.set(BAK_PREFIX + '1000000000000-000000', 'old-backup-A');
   store.set(BAK_PREFIX + '1000000000001-000000', 'old-backup-B');
-  // Throw quota on the FIRST LS_DOC write; the escalator's first effective tier (no LS_BLOCKS present,
+  // Throw quota on the FIRST `.z` write; the escalator's first effective tier (no LS_BLOCKS present,
   // so tier 0 is skipped) is "evict ALL .bak". After that tier frees space, the retry lands. PHASE-2:
   // when the live doc can't be written we sacrifice the WHOLE .bak tier — a stale session snapshot is
   // worthless if the live doc itself can't persist.
-  ctl.throwSetItemTimes = 1;
+  ctl.quotaMode = 'while-evictable';
   const res = M.saveDoc(doc('LANDS-AFTER-EVICT'));
+  ctl.quotaMode = 'none';
   ok(res.ok, '1a. save eventually lands after escalating eviction frees the .bak tier');
-  eq(JSON.parse(store.get(LS_DOC)).content[0].content[0].content[0].content[0].content[0].text, 'LANDS-AFTER-EVICT',
-    '1b. the doc actually persisted');
+  eq(JSON.parse(readSavedRaw()).content[0].content[0].content[0].content[0].content[0].text,
+    'LANDS-AFTER-EVICT', '1b. the compressed fallback round-trips to the saved doc');
   ok(bakKeys().length === 0, '1c. the entire .bak tier was sacrificed to land the live doc');
 }
 
@@ -97,18 +117,19 @@ const doc = (text) => ({ type: 'doc', content: [
 // ════════════════════════════════════════════════════════════════════════════════════════════
 {
   store.clear(); events.length = 0;
-  ctl.throwSetItemTimes = 0;
+  ctl.quotaMode = 'none';
   const M = await import('./migrate-doc.js?inv=2');
   M.syncBaseVersion();
-  // No backups to evict; throw on every LS_DOC write so the loop exhausts and bails.
-  ctl.throwSetItemTimes = 999;
+  // No backups to evict; reject BOTH sync doc-body writes so the loop exhausts and bails.
+  ctl.quotaMode = 'always';
   const res = M.saveDoc(doc('CANNOT-LAND'));
+  ctl.quotaMode = 'none';
   ok(!res.ok, '2a. save fails when quota is exhausted with nothing to evict');
   eq(res.reason, 'quota', '2b. failure reason is quota');
   const ev = lastEvent('wp-save-failed');
   ok(ev && ev.detail?.kind === 'quota', '2c. a loud wp-save-failed kind=quota was raised');
   ok(ev && /full/i.test(ev.detail?.message || ''), '2d. the message tells Johnny storage is full / export now');
-  ok(store.get(LS_DOC) == null, '2e. nothing was written (no half-write masquerading as saved)');
+  ok(store.get(LS_DOC_FALLBACK) == null, '2e. nothing was written (no half-write masquerading as saved)');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
@@ -117,7 +138,7 @@ const doc = (text) => ({ type: 'doc', content: [
 // ════════════════════════════════════════════════════════════════════════════════════════════
 {
   store.clear(); events.length = 0;
-  ctl.throwSetItemTimes = 0;
+  ctl.quotaMode = 'none';
   const M = await import('./migrate-doc.js?inv=3');
   M.syncBaseVersion();
   // setItem stores fine, but the read-back (the FIRST LS_DOC read after the write) returns DIFFERENT
@@ -128,10 +149,11 @@ const doc = (text) => ({ type: 'doc', content: [
   const realGet = globalThis.localStorage.getItem;
   const realSet = globalThis.localStorage.setItem;
   globalThis.localStorage.getItem = (k) => {
-    if (k === LS_DOC && written) return JSON.stringify(doc('SOMETHING-ELSE')); // != out, parses fine
+    if (written && k === LS_DOC_FALLBACK) return packDoc(JSON.stringify(doc('SOMETHING-ELSE')));
+    if (written && k === LS_DOC) return JSON.stringify(doc('SOMETHING-ELSE'));
     return realGet(k);
   };
-  globalThis.localStorage.setItem = (k, v) => { realSet(k, v); if (k === LS_DOC) written = true; };
+  globalThis.localStorage.setItem = (k, v) => { realSet(k, v); if (isSyncDocKey(k)) written = true; };
   const res = M.saveDoc(intended);
   globalThis.localStorage.getItem = realGet;
   globalThis.localStorage.setItem = realSet;
@@ -142,21 +164,14 @@ const doc = (text) => ({ type: 'doc', content: [
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
-// 4. GARBLED / TRUNCATED READ-BACK: the bytes that come back are unparseable garbage (a truncated
-//    or corrupted write) -> the invariant guard fires LOUDLY (wp-save-failed kind:'invariant') and
-//    saveDoc returns ok:false. This is the protection CH-01 cares about: a corrupt write is NEVER
-//    silently accepted as saved.
-//
-//    NOTE on the code path: STEP 3 reads LS_DOC ONCE and compares `readBack !== out`; an unparseable
-//    read-back ALSO differs from the valid `out`, so the mismatch arm fires first (same kind:
-//    'invariant', reason:'invariant-mismatch'). The `invariant-unparseable` arm is only reachable if
-//    a platform returns bytes that EQUAL the valid `out` yet fail JSON.parse — impossible for a
-//    well-formed `out`, so it is a defense-in-depth guard. We assert the reachable, load-bearing
-//    behaviour: garbled read-back -> loud invariant failure, ok:false.
+// 4. GARBLED / TRUNCATED READ-BACK: the compressed bytes that come back do not even decompress ->
+//    the invariant guard fires LOUDLY (wp-save-failed kind:'invariant') and saveDoc returns
+//    ok:false, reason:'invariant-unparseable'. This is the protection CH-01 cares about: a corrupt
+//    write is NEVER silently accepted as saved.
 // ════════════════════════════════════════════════════════════════════════════════════════════
 {
   store.clear(); events.length = 0;
-  ctl.throwSetItemTimes = 0;
+  ctl.quotaMode = 'none';
   const M = await import('./migrate-doc.js?inv=4');
   M.syncBaseVersion();
   const intended = doc('GARBLED-READBACK');
@@ -164,16 +179,18 @@ const doc = (text) => ({ type: 'doc', content: [
   const realGet = globalThis.localStorage.getItem;
   const realSet = globalThis.localStorage.setItem;
   globalThis.localStorage.getItem = (k) => {
-    if (k === LS_DOC && written) return '{ truncated json that will not par'; // garbled read-back
+    if (written && k === LS_DOC_FALLBACK) return '\u0000totally-not-a-zlib-stream';
+    if (written && k === LS_DOC) throw new Error('garbled raw read-back');
     return realGet(k);
   };
-  globalThis.localStorage.setItem = (k, v) => { realSet(k, v); if (k === LS_DOC) written = true; };
+  globalThis.localStorage.setItem = (k, v) => { realSet(k, v); if (isSyncDocKey(k)) written = true; };
   const res = M.saveDoc(intended);
   globalThis.localStorage.getItem = realGet; // restore
   globalThis.localStorage.setItem = realSet;
   ok(!res.ok, '4a. save fails when the read-back is garbled/truncated');
+  eq(res.reason, 'invariant-unparseable', '4b. failure reason is invariant-unparseable');
   const ev = lastEvent('wp-save-failed');
-  ok(ev && ev.detail?.kind === 'invariant', '4b. a loud wp-save-failed kind=invariant was raised (corrupt write never silently accepted)');
+  ok(ev && ev.detail?.kind === 'invariant', '4c. a loud wp-save-failed kind=invariant was raised (corrupt write never silently accepted)');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
@@ -182,7 +199,7 @@ const doc = (text) => ({ type: 'doc', content: [
 // ════════════════════════════════════════════════════════════════════════════════════════════
 {
   store.clear(); events.length = 0;
-  ctl.throwSetItemTimes = 0;
+  ctl.quotaMode = 'none';
   const M = await import('./migrate-doc.js?inv=5');
   M.syncBaseVersion();
   const res = M.saveDoc(doc('CLEAN'));

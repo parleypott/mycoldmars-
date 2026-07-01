@@ -70,9 +70,15 @@ export function findMarkRange(state, markType, a, b) {
 // CLOUD doc, seed straight from THAT (so they see his live script) and skip every localStorage read —
 // a reader's view is built purely in-memory from the cloud bytes, never from their own LS_DOC, and
 // `seededOverUnreadableDoc` stays false because no write path is ever reachable in read-only mode.
-function seedDoc(sourceBlocks, readOnlyDoc) {
+function seedDoc(sourceBlocks, readOnlyDoc, recoveredDoc) {
   if (readOnlyDoc?.content?.length) {
     return ensureTableDoc(readOnlyDoc);
+  }
+  // Boot rehydration can recover a renderable newest doc from `.z`/IDB even when the fat LS_DOC key
+  // still cannot fit under quota. In that one full-origin case we seed from the recovered bytes
+  // directly, but keep writes ENABLED — this is Johnny's real editable doc, not a read-only share.
+  if (recoveredDoc?.content?.length) {
+    return ensureTableDoc(recoveredDoc);
   }
   let saved = null;
   try {
@@ -156,13 +162,13 @@ export function telemetry(doc) {
   return { words, blocks, sot, done, scaffold, outline };
 }
 
-export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnlyDoc }) {
+export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnlyDoc, recoveredDoc }) {
   // READ-ONLY SHARE (read-only-share): frozen at mount. In read-only mode the editor is constructed
   // NON-editable and the ENTIRE persistence layer is short-circuited — no debounce, no flushSave, no
   // pagehide/visibility/storage listeners, no cloud push. A reader's browser has no code path that
   // can write LS_DOC or PUT the cloud. (saveDoc/pushDoc also refuse independently — defense in depth.)
   const readOnly = isReadOnly();
-  const initial = useMemo(() => seedDoc(sourceBlocks, readOnlyDoc), [sourceBlocks, readOnlyDoc]);
+  const initial = useMemo(() => seedDoc(sourceBlocks, readOnlyDoc, recoveredDoc), [sourceBlocks, readOnlyDoc, recoveredDoc]);
   const saveTimer = useRef(null);
   // PERF-3/PERF-7/ux-10 — telemetry (full-doc getJSON + nodeText word-recount + outline rebuild)
   // used to run SYNCHRONOUSLY on every keystroke. That is the one keystroke-latency cost that

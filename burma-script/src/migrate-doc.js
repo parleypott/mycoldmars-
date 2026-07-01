@@ -28,12 +28,15 @@ import { Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
+import { strToU8, strFromU8 } from 'fflate';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
 import { isReadOnly } from './read-mode.js';
-import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
+import {
+  idbPutSnapshot, idbPutDoc, idbReadDoc, idbDocProbe, idbAvailable, compressDoc, decompressDoc,
+} from './recovery-store.js';
 import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
 // PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
@@ -52,6 +55,7 @@ function mirrorSnapshotToIDB(kind, raw) {
 }
 
 export let LS_DOC = '';
+export let LS_DOC_FALLBACK = '';
 // PERF-2 — the derived schema-faithful blocks export. The editor STOPPED writing this at runtime
 // (it was a ~167KB second copy of the doc that nothing reads), but a key may still linger in an
 // existing browser from before that change. saveDoc's quota escalation drops it FIRST (cheapest,
@@ -124,6 +128,7 @@ const TAB_ID = 'tab_' + Math.random().toString(36).slice(2, 10);
 function syncStorageKeys() {
   const storage = getEpisodeStorage();
   LS_DOC = storage.DOC;
+  LS_DOC_FALLBACK = LS_DOC + '.z';
   LS_BLOCKS = storage.BLOCKS;
   LS_MIGRATED = storage.MIGRATED;
   BAK_PREFIX = LS_DOC + '.bak.';
@@ -207,6 +212,15 @@ function readStoredVersion() {
   }
 }
 
+function isQuotaError(err) {
+  return !!(err && (
+    err.name === 'QuotaExceededError' ||
+    err.code === 22 ||
+    err.code === 1014 ||
+    /quota/i.test(String(err && err.message))
+  ));
+}
+
 // The tab id that wrote the current on-disk version (for conflict messaging). "" if none.
 function readStoredVersionTab() {
   try {
@@ -231,6 +245,182 @@ export function syncBaseVersion() {
 // PUBLIC (test/telemetry): this tab's id and current known base version.
 export function getTabId() { return TAB_ID; }
 export function getKnownBaseVersion() { return knownBaseVersion; }
+
+// SAVE-PATH SOURCE OF TRUTH (pass-2 compressed crash-belt) — whenever a caller needs the newest
+// SYNCHRONOUS on-disk body (pre-overwrite backup latch, stale-tab snapshot, reset snapshot) prefer
+// the compact `.z` copy and only fall back to LS_DOC for legacy browsers/sessions that never wrote
+// it. This is intentionally sync-only: the async IndexedDB row is consulted by the BOOT resolver
+// below, not by hot-path callers that cannot await.
+export function readLatestSavedRaw() {
+  try {
+    const packed = localStorage.getItem(LS_DOC_FALLBACK);
+    if (packed != null) {
+      const raw = decompressDoc(strToU8(packed, true));
+      if (raw != null) return raw;
+    }
+  } catch {}
+  try {
+    return localStorage.getItem(LS_DOC);
+  } catch {
+    return null;
+  }
+}
+
+function parseCandidateRaw(raw, version, source) {
+  const candidate = {
+    source,
+    raw: typeof raw === 'string' ? raw : null,
+    version: Number(version) || 0,
+    present: typeof raw === 'string' && raw.length > 0,
+    parseable: false,
+    renderable: false,
+    doc: null,
+  };
+  if (!candidate.present) return candidate;
+  try {
+    candidate.doc = JSON.parse(candidate.raw);
+    candidate.parseable = true;
+    candidate.renderable = isRenderableLocalDoc(candidate.doc);
+  } catch {}
+  return candidate;
+}
+
+function readLocalStorageCandidate() {
+  const version = readStoredVersion();
+  let raw = null;
+  try { raw = localStorage.getItem(LS_DOC); } catch {}
+  return parseCandidateRaw(raw, version, 'ls');
+}
+
+function readCompressedFallbackCandidate() {
+  const version = readStoredVersion();
+  let packed = null;
+  try { packed = localStorage.getItem(LS_DOC_FALLBACK); } catch {}
+  if (packed == null) return parseCandidateRaw(null, version, 'z');
+  let raw = null;
+  try { raw = decompressDoc(strToU8(packed, true)); } catch { raw = null; }
+  return parseCandidateRaw(raw, version, 'z');
+}
+
+function compareDocCandidates(a, b) {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  if (a.version !== b.version) return b.version - a.version;
+  if (a.renderable !== b.renderable) return a.renderable ? -1 : 1;
+  if (a.parseable !== b.parseable) return a.parseable ? -1 : 1;
+  if (a.present !== b.present) return a.present ? -1 : 1;
+  // Defense-in-depth for buggy legacy states: if an old build stamped LS_DOC_VER forward while the
+  // sync body stayed stale, an equal-version IDB row with DIFFERENT renderable bytes is the fresher
+  // candidate and must outrank the stale sync copy. Fresh `.z` still beats fresh `ls` below.
+  if (a.version === b.version && a.renderable && b.renderable && a.raw && b.raw && a.raw !== b.raw) {
+    if (a.source === 'idb' && b.source !== 'idb') return -1;
+    if (b.source === 'idb' && a.source !== 'idb') return 1;
+  }
+  const rank = { z: 3, ls: 2, idb: 1, none: 0 };
+  return (rank[b.source] || 0) - (rank[a.source] || 0);
+}
+
+// ── BOOT RESOLUTION (palau-v2 missing READ side) ───────────────────────────────────────────────
+// On reload the newest canonical doc may live in THREE places: the fat LS_DOC key, the compressed
+// `.z` key, or the async IndexedDB doc row. The version stamp in localStorage belongs to BOTH sync
+// copies (they are written under the same newVersion), while the IDB row carries its own `ver`.
+// Resolve ALL THREE, then choose the newest-by-version candidate; on ties prefer a present/parseable
+// doc over an absent/broken one, and prefer the synchronous local stores over IDB. Within the sync
+// pair we prefer `.z` over LS_DOC on a tie because `.z` is the copy that still lands when the fat
+// LS_DOC write was quota-skipped — exactly the stale-LS/fresh-.z bug this closes. NEVER throws.
+export async function resolveNewestCanonicalDoc() {
+  try {
+    const ls = readLocalStorageCandidate();
+    const z = readCompressedFallbackCandidate();
+    let idb = parseCandidateRaw(null, 0, 'idb');
+    try {
+      const rec = await idbReadDoc();
+      if (rec && typeof rec.raw === 'string') idb = parseCandidateRaw(rec.raw, rec.ver, 'idb');
+    } catch {}
+    const candidates = [ls, z, idb].sort(compareDocCandidates);
+    const newest = candidates[0] || parseCandidateRaw(null, 0, 'none');
+    return {
+      source: newest.source,
+      raw: newest.raw,
+      doc: newest.doc,
+      version: newest.version,
+      present: newest.present,
+      parseable: newest.parseable,
+      renderable: newest.renderable,
+      candidates: { ls, z, idb },
+    };
+  } catch {
+    const ls = parseCandidateRaw(null, 0, 'ls');
+    const z = parseCandidateRaw(null, 0, 'z');
+    const idb = parseCandidateRaw(null, 0, 'idb');
+    return {
+      source: 'none',
+      raw: null,
+      doc: null,
+      version: 0,
+      present: false,
+      parseable: false,
+      renderable: false,
+      candidates: { ls, z, idb },
+    };
+  }
+}
+
+function stampStoredVersion(version) {
+  const v = Math.floor(Number(version));
+  if (!Number.isFinite(v) || v <= 0) return 0;
+  try { localStorage.setItem(LS_DOC_VER, String(v) + '|' + TAB_ID); } catch {}
+  return v;
+}
+
+// Rehydrate LS_DOC from the resolved newest doc BEFORE render so every synchronous reader
+// (migrateStoredDoc, seedDoc, defaultReadLocal, snapshotDoc) sees the correct bytes. If the write
+// cannot fit, we still return the resolved in-memory doc so startup can seed/render it directly.
+// When the newest source is not LS_DOC we also advance this tab's base to that version so the first
+// autosave cannot mistake the recovered doc for an older base and stomp it. NEVER throws.
+export async function rehydrateLocalFromNewest(resolved = null) {
+  const newest = resolved || await resolveNewestCanonicalDoc();
+  const ls = newest?.candidates?.ls || parseCandidateRaw(null, 0, 'ls');
+  const canUse = !!(newest && newest.renderable && newest.raw);
+  let sync = {
+    zDurable: newest?.source === 'z',
+    lsDurable: newest?.source === 'ls',
+    syncDurable: newest?.source === 'z' || newest?.source === 'ls',
+    zReason: 'not-needed',
+    lsReason: 'not-needed',
+  };
+  if (canUse && newest.source === 'idb') {
+    try { sync = writeCanonicalStores(newest.raw, newest.version, { mirrorIDB: false }); }
+    catch { sync = { ...sync, zReason: 'setitem-threw', lsReason: 'setitem-threw', syncDurable: false, zDurable: false, lsDurable: false }; }
+  } else if (canUse && newest.source === 'z' && newest.raw !== ls.raw) {
+    let write = { ok: false, reason: 'not-needed' };
+    try { write = writeCanonicalRaw(newest.raw); } catch { write = { ok: false, reason: 'setitem-threw' }; }
+    sync = {
+      zDurable: true,
+      zReason: 'written',
+      lsDurable: !!write.ok,
+      lsReason: write.reason,
+      syncDurable: true,
+    };
+  }
+  if (canUse && newest.version > 0) {
+    // Advance THIS tab's base to the recovered version even when neither sync key could be refreshed.
+    // That keeps the first autosave from treating the recovered doc as stale and stomping it.
+    knownBaseVersion = Math.max(knownBaseVersion, newest.version);
+  }
+  return {
+    ...newest,
+    rehydrated: newest?.source === 'idb' ? !!sync.syncDurable : (newest?.source === 'z' && newest.raw !== ls.raw ? !!sync.lsDurable : false),
+    rehydratedOk: newest?.source === 'idb' ? !!sync.syncDurable : (newest?.source === 'z' ? !!sync.lsDurable || newest.raw === ls.raw : true),
+    rehydrateReason: newest?.source === 'idb'
+      ? (sync.syncDurable ? 'written' : (sync.lsReason !== 'not-needed' ? sync.lsReason : sync.zReason))
+      : (newest?.source === 'z' && newest.raw !== ls.raw ? sync.lsReason : 'not-needed'),
+    lsReady: newest?.source === 'ls' || !!sync.lsDurable,
+    syncDurable: !!sync.syncDurable,
+    syncReasons: { z: sync.zReason, ls: sync.lsReason },
+  };
+}
 
 // PUBLIC: raise the on-disk version stamp (and this tab's base) to AT LEAST `floor`. Used by the
 // cloud-sync reconcile when adopting / seeding a cloud doc that carries cloud version N: we set the
@@ -535,11 +725,41 @@ function notifySaveFailed(detail) {
   } catch {}
 }
 
+function notifySaveDegraded(detail) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wp-save-degraded', { detail }));
+    }
+  } catch {}
+}
+
+function downloadDocFallback(out) {
+  try {
+    if (typeof document === 'undefined') return false;
+    if (!out) return false;
+    const when = new Date().toISOString().replace(/[:.]/g, '-');
+    const stem = String(LS_DOC || 'script-doc').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '');
+    const blob = new Blob([out], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${stem || 'script-doc'}-recovery-${when}.json`;
+    document.body?.appendChild?.(a);
+    a.click?.();
+    a.remove?.();
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // DL-09 — guarded raw write of an already-serialized doc string to LS_DOC: quota-retry (evict oldest
 // recovery copies and retry) + READ-BACK INVARIANT (re-read, confirm byte-identical + parses). This
-// is the same durability core saveDoc uses, factored out so the MIGRATION persist can route through
-// it instead of a bare setItem (which had no read-back: a silent platform truncation would persist a
-// corrupt migrated doc as canonical and mark it migrated). Returns { ok, reason }. NEVER throws.
+// is the same loud never-silent durability core the MIGRATION persist needs, factored out so the
+// migration route can keep writing canonical LS_DOC with a read-back invariant instead of a bare
+// setItem (which had no read-back: a silent platform truncation would persist a corrupt migrated doc
+// as canonical and mark it migrated). Returns { ok, reason }. NEVER throws.
 function writeCanonicalRaw(out) {
   let wrote = false, lastErr = null;
   const evict = makeQuotaEscalator(); // fresh tier ladder for this write.
@@ -548,9 +768,7 @@ function writeCanonicalRaw(out) {
     catch (e) { lastErr = e; if (!evict()) break; }
   }
   if (!wrote) {
-    const quota = lastErr && (lastErr.name === 'QuotaExceededError' || lastErr.code === 22 ||
-      lastErr.code === 1014 || /quota/i.test(String(lastErr && lastErr.message)));
-    return { ok: false, reason: quota ? 'quota' : 'setitem-threw' };
+    return { ok: false, reason: isQuotaError(lastErr) ? 'quota' : 'setitem-threw' };
   }
   try {
     const readBack = localStorage.getItem(LS_DOC);
@@ -560,6 +778,153 @@ function writeCanonicalRaw(out) {
     return { ok: false, reason: 'invariant-unparseable' };
   }
   return { ok: true, reason: 'written' };
+}
+
+function writeCompressedFallbackRaw(out) {
+  let wrote = false;
+  let lastErr = null;
+  const evict = makeQuotaEscalator(); // fresh tier ladder for the `.z` write.
+  for (;;) {
+    try {
+      const gz = compressDoc(out);
+      if (!gz) throw new Error('compress-failed');
+      localStorage.setItem(LS_DOC_FALLBACK, strFromU8(gz, true));
+      wrote = true;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (!evict()) break;
+    }
+  }
+  let ok = false;
+  let reason = wrote ? 'written' : (isQuotaError(lastErr) ? 'quota' : (lastErr ? 'setitem-threw' : 'missing'));
+  if (wrote) {
+    try {
+      const readBack = localStorage.getItem(LS_DOC_FALLBACK);
+      const raw = readBack == null ? null : decompressDoc(strToU8(readBack, true));
+      if (raw == null) {
+        console.warn('[burma save invariant FAIL] compressed LS fallback read-back is unreadable');
+        reason = 'invariant-unparseable';
+      } else if (raw !== out) {
+        console.warn('[burma save invariant FAIL] compressed LS fallback read-back !== written bytes');
+        reason = 'invariant-mismatch';
+      } else {
+        ok = true;
+        reason = 'written';
+      }
+    } catch (e) {
+      console.warn('[burma save invariant FAIL] compressed LS fallback read-back threw', e);
+      reason = 'invariant-unparseable';
+    }
+  }
+  if (!ok) {
+    // Never leave a stale/garbled crash-belt behind to outrank the real canonical doc on the next
+    // readLatestSavedRaw()/resolver pass. A failed refresh means the old `.z` is dead weight now.
+    try { localStorage.removeItem(LS_DOC_FALLBACK); } catch {}
+  }
+  return { ok, reason };
+}
+
+function queueCanonicalIDBWrite(out, version) {
+  let accepted = false;
+  let promise = Promise.resolve({ ok: false });
+  try {
+    if (!idbAvailable()) return { accepted: false, promise };
+    accepted = true;
+    promise = Promise.resolve(idbPutDoc(out, version, TAB_ID)).catch(() => ({ ok: false }));
+  } catch {}
+  return { accepted, promise };
+}
+
+// Shared canonical-store write core for saveDoc + migration + boot rehydration from IDB. All three
+// stores carry the SAME raw bytes + version; the localStorage version key only advances when one of
+// the SYNCHRONOUS bodies actually landed, so LS_DOC_VER never advertises bytes that are not present.
+function writeCanonicalStores(out, version, opts = {}) {
+  const { mirrorIDB = true } = opts;
+  const z = writeCompressedFallbackRaw(out);
+  const ls = writeCanonicalRaw(out);
+  let idb = { accepted: false, promise: Promise.resolve({ ok: false }) };
+  if (mirrorIDB) idb = queueCanonicalIDBWrite(out, version);
+  if ((z.ok || ls.ok) && version > 0) stampStoredVersion(version);
+  return {
+    version,
+    zDurable: !!z.ok,
+    zReason: z.reason,
+    lsDurable: !!ls.ok,
+    lsReason: ls.reason,
+    syncDurable: !!(z.ok || ls.ok),
+    idbAccepted: !!idb.accepted,
+    idbPromise: idb.promise,
+  };
+}
+
+function verifyIDBOnlySave(out, version, idbPromise) {
+  Promise.resolve(idbPromise)
+    .then(async (put) => {
+      // A refused write (another tab holds an equal/newer canonical row) is a CONFLICT, not a drop:
+      // idbPutDoc tried to preserve this edit as a `.conflict` snapshot. If that snapshot LANDED,
+      // signal a recoverable conflict; if it did NOT (put.preserved === false), the edit is only on
+      // screen, so we must download it and word the banner honestly.
+      if (put && put.reason === 'conflict') return put.preserved ? 'conflict' : 'conflict-unpreserved';
+      if (!put || put.ok !== true || Number(put.ver) !== Number(version)) return false;
+      const rec = await idbReadDoc();
+      return (rec && rec.raw === out && Number(rec.ver) === Number(version)) ? true : false;
+    })
+    .then((res) => {
+      if (res === true) return;
+      if (res === 'conflict') {
+        notifySaveFailed({
+          kind: 'conflict',
+          message: 'another tab saved a newer version — your edit is kept as a conflict copy. Reload to reconcile.',
+        });
+        return;
+      }
+      if (res === 'conflict-unpreserved') {
+        try { downloadDocFallback(out); } catch {}
+        notifySaveFailed({
+          kind: 'conflict',
+          message: 'another tab holds a newer version and this edit could NOT be saved — it is only on screen. Export now.',
+        });
+        return;
+      }
+      try { downloadDocFallback(out); } catch {}
+      notifySaveFailed({
+        kind: 'blocked',
+        message: 'the recovery store did not confirm your last edit — export now.',
+      });
+    })
+    .catch(() => {});
+}
+
+// IDB-AWARE RESET BACKUP (#4). resetDoc must NEVER wipe Johnny's fills without a recoverable copy.
+// The sync-only readLatestSavedRaw() is blind to an IDB-only device (localStorage empty, the doc
+// living only in the IndexedDB row), so we ALSO consult idbReadDoc() and back that up before the
+// wipe. Returns true iff it is safe to proceed (a backup landed, or there was nothing to lose);
+// false means the caller MUST abort the reset.
+export async function ensureResetBackup() {
+  let saved = null;
+  try { saved = readLatestSavedRaw(); } catch {}
+  if (saved) {
+    let bak = null;
+    try { bak = snapshotDoc(); } catch {}
+    return !!bak;
+  }
+  // IDB-only device — the fills live only in the IndexedDB doc row. Back that exact doc up first.
+  let idbDoc = null;
+  try { idbDoc = await idbReadDoc(); } catch {}
+  if (idbDoc && idbDoc.raw) {
+    let bak = null;
+    try { bak = await idbPutSnapshot('bak', idbDoc.raw); } catch {}
+    return !!bak;
+  }
+  // idbReadDoc() came back empty — but that is INDISTINGUISHABLE between "genuinely nothing" and
+  // "could not read" (open blocked / txn error / a present row whose gz won't decompress). FAIL
+  // CLOSED: only allow the wipe when a discriminated probe POSITIVELY confirms the IDB doc row is
+  // absent. Any ambiguity (present-but-unreadable, or unknown) ABORTS the reset so we can never
+  // destroy an unread copy of Johnny's fills.
+  let probe = 'unknown';
+  try { probe = await idbDocProbe(); } catch { probe = 'unknown'; }
+  return probe === 'absent';
 }
 
 export function saveDoc(json) {
@@ -604,7 +969,7 @@ export function saveDoc(json) {
   const storedVersion = readStoredVersion();
   if (knownBaseVersion >= 0 && storedVersion > knownBaseVersion) {
     let newerRaw = null;
-    try { newerRaw = localStorage.getItem(LS_DOC); } catch {}
+    try { newerRaw = readLatestSavedRaw(); } catch {}
     const conflictKey = snapshotConflict(newerRaw);
     console.warn('[burma] cross-tab conflict — another tab has a newer doc (v' + storedVersion +
       ' > base v' + knownBaseVersion + '); refusing to overwrite. Newer doc preserved at', conflictKey);
@@ -623,76 +988,85 @@ export function saveDoc(json) {
   if (!sessionBackedUp) {
     sessionBackedUp = true;
     try {
-      const prior = localStorage.getItem(LS_DOC);
+      const prior = readLatestSavedRaw();
       if (prior) backupRaw(prior);
     } catch {}
   }
 
-  // STEP 2 — write the canonical doc, ESCALATING eviction on quota and retrying after each step so
-  // the live doc essentially never stays permanently stuck while any reclaimable space exists. The
-  // escalator frees, in order: the derived LS_BLOCKS dead-weight copy, then ALL .bak, then ALL
-  // .conflict, then ALL .corrupt — retrying the canonical write after each tier. We only give up
-  // (and fail loudly) when every tier is exhausted, i.e. there is genuinely nothing left to free.
-  let wrote = false;
-  let lastErr = null;
-  const evict = makeQuotaEscalator(); // fresh tier ladder for this save attempt.
-  for (;;) {
-    try {
-      localStorage.setItem(LS_DOC, out);
-      wrote = true;
-      break;
-    } catch (e) {
-      lastErr = e;
-      if (!evict()) break; // every reclaim tier exhausted — nothing left to free.
-    }
-  }
+  // The version pointer remains the monotonic source of truth. Compute it ONCE up front so the
+  // compressed localStorage crash-belt, the async IDB backstop, and the eventual LS_DOC_VER stamp
+  // all refer to the same version number.
+  const newVersion = Math.max(storedVersion, knownBaseVersion < 0 ? 0 : knownBaseVersion) + 1;
+  // ── DUAL-WRITE DURABILITY (palau-v2 reconciliation) ──────────────────────────────────────────
+  // The edit must land in AT LEAST ONE durable store, and the UI must only scream "SAVE FAILED"
+  // when it landed in NONE. We write, over the SAME `out` bytes + `newVersion`, three layers:
+  //
+  //   • LS_DOC_FALLBACK (`.z`) — a SMALL compressed crash-belt. Cheap to fit under localStorage's
+  //     ~5MB budget; the first synchronous copy we try. Its own quota escalator + read-back below.
+  //   • LS_DOC (the fat canonical key) — what EVERY read/seed path (seedDoc, hasUsableLocalDoc,
+  //     defaultReadLocal, migrateStoredDoc, snapshotDoc) reads synchronously. Without this the
+  //     write→read loop is broken and a reload renders the pre-edit doc. Its OWN quota escalator +
+  //     read-back invariant (writeCanonicalRaw). Writing this is what closes the reported data loss.
+  //   • IDB doc row (idbPutDoc) — a GB-scale async backstop. Catches the edit even when BOTH
+  //     localStorage writes are jammed by a genuinely-full origin, so the edit is still recoverable
+  //     on reload (main.jsx rehydrates from `.z`, and awaits idbReadDoc when `.z` didn't fit).
+  //
+  // "Durable" = `.z` landed OR LS_DOC landed OR IDB was queued (IDB available). We only fire the loud
+  // hard "your edits are NOT being saved" banner when NONE of the three caught the edit.
 
-  if (!wrote) {
-    const quota = lastErr && (lastErr.name === 'QuotaExceededError' || lastErr.code === 22 ||
-      lastErr.code === 1014 || /quota/i.test(String(lastErr && lastErr.message)));
-    console.warn('[burma] save FAILED — LS_DOC not written', lastErr);
+  // STEP 2a — compressed `.z` crash-belt, ESCALATING eviction on quota and retrying after each step.
+  // We store fflate's latin1/raw-binary string (`strFromU8(gz, true)`) rather than base64 because it
+  // is binary-safe AND materially smaller, which matters inside localStorage's ~5MB string budget.
+  const persisted = writeCanonicalStores(out, newVersion);
+  const zDurable = persisted.zDurable;
+  const zReason = persisted.zReason;
+  const lsDurable = persisted.lsDurable;
+  const idbDurable = persisted.idbAccepted;
+
+  // STEP 3 — DID THE EDIT LAND ANYWHERE DURABLE? If NOTHING caught it, this is the true data-loss
+  // condition: fire the loud hard banner. If SOMETHING caught it, the edit survives a reload — never
+  // scream a false "NOT being saved".
+  if (!zDurable && !lsDurable && !idbDurable) {
+    const invariantReason = persisted.lsReason.startsWith('invariant-') ? persisted.lsReason
+      : (zReason.startsWith('invariant-') ? zReason : '');
+    const quota = zReason === 'quota' || persisted.lsReason === 'quota';
+    console.warn('[burma] save FAILED — no durable store accepted the doc (.z, LS_DOC, and IDB all unavailable)');
+    try { downloadDocFallback(out); } catch {}
     notifySaveFailed({
-      kind: quota ? 'quota' : 'blocked',
-      message: quota
+      kind: invariantReason ? 'invariant' : (quota ? 'quota' : 'blocked'),
+      message: invariantReason
+        ? 'storage wrote bytes that did not read back cleanly — your edits are NOT being saved. Export now.'
+        : quota
         ? 'storage is full — your edits are NOT being saved. Export now.'
         : 'storage is blocked (private mode?) — your edits are NOT being saved. Export now.',
     });
-    return { ok: false, reason: quota ? 'quota' : 'setitem-threw' };
+    return { ok: false, reason: invariantReason || (quota ? 'quota' : 'blocked') };
   }
 
-  // STEP 3 — READ-BACK INVARIANT. Confirm the bytes actually landed. The string-equality check below
-  // IS the data-loss guard: it proves the stored bytes are byte-identical to `out`, and `out` is a
-  // value we just produced via JSON.stringify(json) — so equality already guarantees the stored bytes
-  // parse (they're a verbatim copy of valid JSON). PERF-4: the trailing JSON.parse(readBack) that used
-  // to follow was therefore provably redundant (it could only fire on bytes that EQUAL valid `out` yet
-  // fail to parse — impossible for a well-formed `out`) and re-parsed the whole ~167KB doc on every
-  // save. Dropped: zero loss of the guarantee, ~4ms/save saved that scaled linearly with doc size.
-  // (A garbled/truncated read-back still fails loudly here — garbled bytes !== `out`.) The getItem can
-  // still throw (storage blocked mid-call); the try/catch keeps that path a loud invariant failure.
-  try {
-    const readBack = localStorage.getItem(LS_DOC);
-    if (readBack !== out) {
-      console.warn('[burma save invariant FAIL] LS_DOC read-back !== written bytes');
-      notifySaveFailed({ kind: 'invariant', message: 'save verification failed — read-back mismatch' });
-      return { ok: false, reason: 'invariant-mismatch' };
-    }
-  } catch (e) {
-    console.warn('[burma save invariant FAIL] LS_DOC read-back threw', e);
-    notifySaveFailed({ kind: 'invariant', message: 'save verification failed — stored doc unreadable' });
-    return { ok: false, reason: 'invariant-unparseable' };
-  }
-
-  // STEP 4 — STAMP THE NEW VERSION. We just wrote LS_DOC durably; bump the monotonic version
-  // past whatever was on disk and record it as this tab's new base. The version stamp is what a
-  // sibling tab's storage listener sees (so it learns its own base went stale), and what the
-  // STEP 0 guard above compares against. A best-effort write: if the tiny version key can't be
-  // written the doc still landed (read-back already confirmed it), so we don't fail the save —
-  // we just keep this tab's base advanced so it never stomps its own just-written doc.
-  const newVersion = Math.max(storedVersion, knownBaseVersion < 0 ? 0 : knownBaseVersion) + 1;
+  // STEP 4 — STAMP THE NEW VERSION. The doc is durable in at least one store; bump the monotonic
+  // version past whatever was on disk and record it as this tab's new base. The stamp is what a
+  // sibling tab's storage listener sees (so it learns its base went stale) and what the STEP 0 guard
+  // compares against. ONLY the SYNCHRONOUS bodies may advance LS_DOC_VER: if neither `.z` nor LS_DOC
+  // landed, the tiny version key must NOT lie past the last sync body and trick a reload into taking a
+  // stale local doc over the fresher IDB row. THIS tab's base still advances either way so it never
+  // stomps its own just-written IDB copy on the next save.
   knownBaseVersion = newVersion;
-  try { localStorage.setItem(LS_DOC_VER, String(newVersion) + '|' + TAB_ID); } catch {}
 
-  // SUCCESS — let any save-status indicator flip back to "saved".
+  // DEGRADED-DURABLE HONESTY: the sync localStorage keys could NOT hold the edit (genuinely-full
+  // origin), but IDB caught it — so it is recoverable on reload, NOT lost. We do NOT fire the hard
+  // "NOT being saved" banner; instead we report a degraded-but-durable success (a soft signal a UI
+  // can surface as "saved to backup store"), and we do NOT fire the green wp-saved (the fast local
+  // copy honestly isn't there). This is the false-quota fix: durable, so no SAVE-FAILED scream.
+  if (!zDurable && !lsDurable) {
+    verifyIDBOnlySave(out, newVersion, persisted.idbPromise);
+    notifySaveDegraded({
+      kind: 'idb-only',
+      message: 'local storage is full — your edit is saved to the recovery store and will reload correctly. Export to be safe.',
+    });
+    return { ok: true, reason: 'idb-only', version: newVersion, degraded: true };
+  }
+
+  // SUCCESS — the fast synchronous copy landed; flip any save-status indicator back to "saved".
   try {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-saved'));
   } catch {}
@@ -701,9 +1075,14 @@ export function saveDoc(json) {
 
 // PUBLIC: take a backup snapshot of the current saved doc on demand (used by resetDoc before it
 // wipes LS_DOC, so a RESET can never silently destroy Johnny's fills — the snapshot survives).
+// palau-v2: back up the canonical NEWEST synchronous doc, not a bare LS_DOC read. readLatestSavedRaw
+// prefers the compressed `.z` crash-belt (which can be NEWER than LS_DOC when the fat LS_DOC write was
+// quota-skipped) and only falls back to LS_DOC — so a reset can't snapshot a stale copy while a fresher
+// one sits in `.z`. Boot rehydration already promotes an IDB-newer doc into LS_DOC/`.z` before this
+// runs, so the synchronous newest source here equals the true newest.
 export function snapshotDoc() {
   try {
-    const raw = localStorage.getItem(LS_DOC);
+    const raw = readLatestSavedRaw();
     if (!raw) return null;
     return backupRaw(raw);
   } catch {
@@ -717,7 +1096,7 @@ export function snapshotDoc() {
 export function migrateStoredDoc() {
   let raw;
   try {
-    raw = localStorage.getItem(LS_DOC);
+    raw = readLatestSavedRaw();
   } catch (e) {
     return { ok: false, reason: 'localStorage unavailable', error: String(e) };
   }
@@ -798,18 +1177,20 @@ export function migrateStoredDoc() {
     const node = PMNode.fromJSON(schema, migrated); // throws on shape/attr/content mismatch
     node.check();                                   // throws on any invalid content fit
 
-    // ── STEP 4: PERSIST — both gates green. Write the rowed doc back so the editor seeds it
-    //    cleanly (downstream ensureTableDoc becomes an idempotent no-op). DL-09: route through the
-    //    guarded write (quota-retry + read-back invariant) instead of a bare setItem — a silent
-    //    platform truncation would otherwise persist a corrupt migrated doc as canonical and mark
-    //    it migrated, and the next load would seed the truncated doc + autosave it forward. If the
-    //    write fails, do NOT set LS_MIGRATED so the migration RE-RUNS next load from the untouched
-    //    original/backup (the pre-migration backup is in bakKey). ──────────────────────────────
+    // ── STEP 4: PERSIST — both gates green. Write the migrated bytes back through the SAME
+    //    canonical multi-store core saveDoc uses, so `.z`, LS_DOC, and the IDB mirror stay aligned
+    //    and the readLatestSavedRaw()/resolver tie-breaks never see a fresh LS doc paired with a
+    //    stale crash-belt. If no SYNC body landed, do NOT set LS_MIGRATED — the boot path can still
+    //    recover from the backup / fresh write later, and we must never mark a half-persisted
+    //    migration complete. ────────────────────────────────────────────────────────────────────
     const out = JSON.stringify(migrated);
-    const w = writeCanonicalRaw(out);
-    if (!w.ok) {
-      return { ok: false, reason: 'migrated-write-failed (' + w.reason + ') — original/backup kept, marker NOT set', bakKey };
+    const newVersion = Math.max(readStoredVersion(), knownBaseVersion < 0 ? 0 : knownBaseVersion) + 1;
+    const w = writeCanonicalStores(out, newVersion);
+    if (!w.syncDurable) {
+      const why = w.zReason === 'quota' || w.lsReason === 'quota' ? 'quota' : (w.lsReason || w.zReason || 'blocked');
+      return { ok: false, reason: 'migrated-write-failed (' + why + ') — original/backup kept, marker NOT set', bakKey };
     }
+    knownBaseVersion = Math.max(knownBaseVersion, newVersion);
     try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
     return { ok: true, reason: 'migrated + validated', migrated: true, bakKey };
   } catch (e) {

@@ -1,3 +1,6 @@
+import { zlibSync, unzlibSync, strToU8, strFromU8 } from 'fflate';
+import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+
 // Burma Script Tool — INDEXEDDB-BACKED RECOVERY SNAPSHOT STORE (recovery-idb).
 //
 // THE PRODUCTION FAILURE THIS CLOSES
@@ -28,19 +31,58 @@
 // EVERY exported function NEVER throws and NEVER rejects with a value the caller must handle: the
 // async ones resolve to null / [] / false on any error (no IDB, blocked, quota, schema). Best-effort.
 
-const LS_DOC = 'wp01_burma_doc_v1';
-const CONFLICT_PREFIX = LS_DOC + '.conflict.';
-const BAK_PREFIX = LS_DOC + '.bak.';
-const CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+const LEGACY_BURMA_DOC = 'wp01_burma_doc_v1';
+let LS_DOC = LEGACY_BURMA_DOC;
+let DOC_KEY = LEGACY_BURMA_DOC;
+let CONFLICT_PREFIX = LS_DOC + '.conflict.';
+let BAK_PREFIX = LS_DOC + '.bak.';
+let CORRUPT_PREFIX = LS_DOC + '.corrupt.';
 
-const DB_NAME = 'wp01_burma_recovery';
-const DB_VERSION = 1;
+let DB_NAME = 'wp01_burma_recovery';
+const DB_VERSION = 2;
 const STORE = 'snapshots';
+const DOC_STORE = 'doc';
 
 // Bounds per kind — mirror migrate-doc.js's localStorage policy so the IDB recovery set stays sane.
 // (The IDB quota is hundreds of MB, so these are about keeping the recovery LIST short for the human,
 // not about reclaiming space the way the localStorage caps were.)
 const KEEP = { conflict: 4, bak: 3, corrupt: 2 };
+
+// Burma keeps the exact legacy IndexedDB database name so all existing recovery snapshots remain
+// discoverable. Other episodes derive their own DB names from their canonical DOC keys so their
+// snapshot/doc rows never collide with Burma or with each other.
+function deriveDbName(storage) {
+  try {
+    const doc = storage && storage.DOC ? String(storage.DOC) : LEGACY_BURMA_DOC;
+    if (doc === LEGACY_BURMA_DOC) return 'wp01_burma_recovery';
+    return doc.replace(/_doc_v1$/, '') + '_recovery';
+  } catch {
+    return 'wp01_burma_recovery';
+  }
+}
+
+// Keep the module's storage keys synchronized with the active episode. The listener fires
+// immediately on registration, so all exported helpers and live bindings reflect the current
+// episode before any caller attempts a read/write.
+function syncEpisode() {
+  try {
+    const storage = getEpisodeStorage();
+    LS_DOC = storage && storage.DOC ? String(storage.DOC) : LEGACY_BURMA_DOC;
+    DOC_KEY = LS_DOC;
+    DB_NAME = deriveDbName(storage);
+    CONFLICT_PREFIX = LS_DOC + '.conflict.';
+    BAK_PREFIX = LS_DOC + '.bak.';
+    CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+  } catch {
+    LS_DOC = LEGACY_BURMA_DOC;
+    DOC_KEY = LEGACY_BURMA_DOC;
+    DB_NAME = 'wp01_burma_recovery';
+    CONFLICT_PREFIX = LS_DOC + '.conflict.';
+    BAK_PREFIX = LS_DOC + '.bak.';
+    CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+  }
+}
+onEpisodeChange(syncEpisode);
 
 // Monotonic per-process sequence so two snapshots in the SAME millisecond never collide on key.
 // Mirrors migrate-doc.js / cloud-sync.js: fixed-width ms prefix dominates the lexical sort, the
@@ -103,6 +145,9 @@ function openDB(deps = {}) {
           os.createIndex('kind', 'kind', { unique: false });
           os.createIndex('ts', 'ts', { unique: false });
         }
+        if (!db.objectStoreNames.contains(DOC_STORE)) {
+          db.createObjectStore(DOC_STORE, { keyPath: 'key' });
+        }
       } catch { /* upgrade failure surfaces as an open error below */ }
     };
     req.onsuccess = (ev) => resolve(ev.target.result || null);
@@ -145,6 +190,163 @@ function withStore(db, mode, fallback, fn) {
       finish(fallback);
     }
   });
+}
+
+// Run `fn(store)` inside a transaction against the canonical compressed doc store. This is kept
+// separate from the snapshot helper because the transaction target is different, and preserving the
+// never-throw / close-on-complete belt matters more than being clever about reuse here.
+function withDocStore(db, mode, fallback, fn) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(fallback); return; }
+    let tx;
+    try {
+      tx = db.transaction(DOC_STORE, mode);
+    } catch {
+      try { db.close(); } catch {}
+      resolve(fallback);
+      return;
+    }
+    let result = fallback;
+    let settled = false;
+    const finish = (v) => {
+      if (settled) return;
+      settled = true;
+      try { db.close(); } catch {}
+      resolve(v);
+    };
+    tx.oncomplete = () => finish(result);
+    tx.onerror = () => finish(fallback);
+    tx.onabort = () => finish(fallback);
+    try {
+      const store = tx.objectStore(DOC_STORE);
+      fn(store, (v) => { result = v; });
+    } catch {
+      try { tx.abort(); } catch {}
+      finish(fallback);
+    }
+  });
+}
+
+// Compress/decompress the canonical doc synchronously so callers can use the same helpers inside
+// crash-belt code paths that cannot afford to await a worker or stream. Any failure resolves to null
+// rather than ever throwing into the save path.
+export function compressDoc(rawJsonString) {
+  try {
+    return zlibSync(strToU8(String(rawJsonString)));
+  } catch {
+    return null;
+  }
+}
+
+export function decompressDoc(gz) {
+  try {
+    if (!gz) return null;
+    const u8 = gz instanceof Uint8Array ? gz : new Uint8Array(gz);
+    return strFromU8(unzlibSync(u8));
+  } catch {
+    return null;
+  }
+}
+
+// Write exactly one canonical compressed doc row per episode. The key is the episode's DOC key, so
+// subsequent writes overwrite the same row instead of accumulating more quota pressure.
+export async function idbPutDoc(rawJsonString, ver, tab, deps = {}) {
+  try {
+    const gz = compressDoc(rawJsonString);
+    if (!gz) return { ok: false };
+    const db = await openDB(deps);
+    if (!db) return { ok: false };
+    const key = DOC_KEY;
+    const incomingVer = Number(ver) || 0;
+    const incomingTab = String(tab || '');
+    const record = { key, ver: incomingVer, ts: Date.now(), tab: incomingTab, gz };
+    // OPTIMISTIC-CONCURRENCY GUARD (#3 — cross-tab IDB-only clobber). In the quota-full IDB-only
+    // regime LS_DOC_VER never advances, so two tabs can compute the SAME version and blind-overwrite
+    // the single canonical DOC_KEY row. Read the current row first and REFUSE to stomp a DIFFERENT
+    // tab's equal-or-newer, different-bytes edit. The loser is preserved as a `.conflict` snapshot
+    // (below) so it is never silently lost. Same-tab progression and strictly-newer writes overwrite.
+    const outcome = await withDocStore(db, 'readwrite', { ok: false }, (store, done) => {
+      const getReq = store.get(key);
+      getReq.onsuccess = () => {
+        const cur = getReq.result || null;
+        if (cur && cur.gz !== gz && (Number(cur.ver) || 0) >= incomingVer && String(cur.tab || '') !== incomingTab) {
+          done({ ok: false, reason: 'conflict' });
+          return;
+        }
+        const putReq = store.put(record);
+        putReq.onsuccess = () => done({ ok: true, ver: incomingVer });
+        putReq.onerror = () => done({ ok: false });
+      };
+      getReq.onerror = () => done({ ok: false });
+    });
+    if (outcome && outcome.reason === 'conflict') {
+      // Preserve the refused (incoming) edit so it surfaces via the RecoveryBanner. Report whether
+      // that snapshot actually landed so the caller can word the banner honestly (kept vs on-screen-only).
+      let preserved = false;
+      try { preserved = !!(await idbPutSnapshot('conflict', rawJsonString, deps)); } catch {}
+      return { ok: false, reason: 'conflict', preserved };
+    }
+    return outcome || { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// Read the canonical compressed doc row for the active episode and hand callers the exact JSON
+// string back. Returning null on any corruption keeps this best-effort recovery path isolated from
+// the live save path's invariants.
+export async function idbReadDoc(deps = {}) {
+  try {
+    const db = await openDB(deps);
+    if (!db) return null;
+    const rec = await withDocStore(db, 'readonly', null, (store, done) => {
+      const req = store.get(DOC_KEY);
+      req.onsuccess = () => done(req.result || null);
+      req.onerror = () => done(null);
+    });
+    if (!rec) return null;
+    const raw = decompressDoc(rec.gz);
+    if (raw == null) return null;
+    return { raw, ver: Number(rec.ver) || 0, tab: rec.tab || '' };
+  } catch {
+    return null;
+  }
+}
+
+// Discriminated existence probe for the canonical doc row. idbReadDoc collapses "genuinely empty",
+// "open blocked/errored", and "row present but gz won't decompress" all to null — which is unsafe
+// for resetDoc's must-back-up gate. This distinguishes them so the gate can FAIL CLOSED on any
+// ambiguity and only wipe when the row is POSITIVELY confirmed absent. Returns 'present' | 'absent'
+// | 'unknown'. ('present' includes a row whose gz is corrupt — still something we must not destroy.)
+export async function idbDocProbe(deps = {}) {
+  try {
+    const db = await openDB(deps);
+    if (!db) return idbAvailable(deps) ? 'unknown' : 'absent';
+    return await withDocStore(db, 'readonly', 'unknown', (store, done) => {
+      const req = store.get(DOC_KEY);
+      req.onsuccess = () => done(req.result ? 'present' : 'absent');
+      req.onerror = () => done('unknown');
+    });
+  } catch {
+    return 'unknown';
+  }
+}
+
+// Best-effort delete of the canonical compressed doc row for the active episode. resetDoc uses this
+// so an intentional wipe cannot leave an IDB-only doc behind to be rehydrated on the next boot.
+// Resolves true iff the delete txn committed. NEVER throws.
+export async function idbDeleteDoc(deps = {}) {
+  try {
+    const db = await openDB(deps);
+    if (!db) return false;
+    return await withDocStore(db, 'readwrite', false, (store, done) => {
+      const delReq = store.delete(DOC_KEY);
+      delReq.onsuccess = () => done(true);
+      delReq.onerror = () => done(false);
+    });
+  } catch {
+    return false;
+  }
 }
 
 // Write a snapshot to IDB and prune that kind back to its KEEP bound. `kind` is one of
@@ -314,6 +516,6 @@ export function idbAvailable(deps = {}) {
 
 export {
   LS_DOC, CONFLICT_PREFIX, BAK_PREFIX, CORRUPT_PREFIX,
-  DB_NAME, DB_VERSION, STORE, KEEP,
+  DB_NAME, DB_VERSION, STORE, DOC_STORE, KEEP,
   snapshotKey, kindOf, snapshotTimestamp,
 };
