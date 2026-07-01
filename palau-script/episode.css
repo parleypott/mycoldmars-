@@ -348,3 +348,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ═══════════════ REMOVE the REC recording toggle (Johnny: "get rid of this recording status thing") ═══════════════ */
+.wp-page[data-episode="palau"] .wp-rec { display: none !important; }

@@ -100,8 +100,47 @@ export function timecodeLabel(attrs) {
   return tc || attrs?.rawTimecode || '';
 }
 
+function collapseTagWhitespace(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function dedupeRepeatedSpeaker(text) {
+  const clean = collapseTagWhitespace(text);
+  const parts = clean.split(' ');
+  const canon = (value) => collapseTagWhitespace(value).replace(/[:;,.]+$/g, '').toUpperCase();
+  for (let size = Math.floor(parts.length / 2); size >= 1; size -= 1) {
+    const left = parts.slice(0, size).join(' ');
+    const right = parts.slice(size).join(' ');
+    if (canon(left) && canon(left) === canon(right)) return right;
+  }
+  return clean;
+}
+
+function sequenceSpeakerLabel(attrs) {
+  const raw = String(attrs?.speaker || '');
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => collapseTagWhitespace(line.replace(/^[\s●•-]+/, '')))
+    .filter(Boolean);
+  const speaker = lines.length ? lines[lines.length - 1] : raw;
+  return dedupeRepeatedSpeaker(speaker);
+}
+
+// The sequence tag copies a REAL timecode only. timecodeLabel()'s rawTimecode fallback is the
+// first 200 chars of the raw SOT body (stored as timecode.raw by build-blocks.mjs), so a SOT with
+// NO parsed timecode fell back to its own body text — rendering "SPEAKER <whole quote>" beside the
+// speaker, which read as a doubled/mangled tag ("Expert Expert: “calcium…”"). The clean fix: the tag
+// (and its show-gate) key off the parsed `timecode` attr ONLY; a timecode-less SOT shows no tag.
+export function sequenceTimecode(attrs) {
+  const tc = attrs?.timecode;
+  if (tc && typeof tc === 'object') return collapseTagWhitespace(tc.tc || '');
+  return collapseTagWhitespace(tc || '');
+}
+
 export function sequenceTagText(attrs) {
-  return [attrs?.speaker || '', timecodeLabel(attrs)].filter(Boolean).join(' ').trim();
+  const tc = sequenceTimecode(attrs);
+  if (!tc) return '';
+  return [sequenceSpeakerLabel(attrs), tc].filter(Boolean).join(' ').trim();
 }
 
 // The SPINE: a 30px left rail. Knurled texture (CSS), a numbered cap (CSS counter colours
@@ -408,7 +447,7 @@ function directionNodeView({ node, editor, getPos }) {
   const showSequenceTag =
     isPalauSot &&
     !!String(a.speaker || '').trim() &&
-    !!timecodeLabel(a);
+    !!sequenceTimecode(a);
 
   const head = el('div', 'wp-dir-head', { contenteditable: 'false' });
   if (!isPalauChrome) {
@@ -421,7 +460,7 @@ function directionNodeView({ node, editor, getPos }) {
   const paintSequenceTag = (attrs) => {
     if (!seqTag) return;
     const text = sequenceTagText(attrs);
-    const tc = timecodeLabel(attrs);
+    const tc = sequenceTimecode(attrs);
     seqTag.textContent = text;
     seqTag.hidden = !text;
     syncNullableAttr(seqTag, 'data-tc', tc);

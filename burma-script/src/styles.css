@@ -294,7 +294,9 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34;
   text-decoration: line-through; text-decoration-color: rgba(63,107,52,.45); /* faint strike when found */
 }
-.wp-dhl[data-kind="animation"]{ background:#ccc2ea; border-color:#9a86c9; color:#3a2f5a; }   /* prominent purple chip, like the old ANIMATION tag */
+.wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }   /* 3d ANIMATION tag — purple chip, bright yellow bold text (Johnny's ref) */
+/* Redundant "DAY N" folded before its timecode chip (day-fold plugin) — hidden, not deleted. */
+.wp-day-hidden{ display:none; }
 .wp-dhl[data-kind="broll"]{ background:rgba(208,135,63,.16); border-color:#d0873f; color:#9a5410; }
 .wp-dhl[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; color:#4a463d; }
 

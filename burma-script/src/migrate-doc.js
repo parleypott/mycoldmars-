@@ -33,12 +33,12 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { DirectionMark } from './extensions/direction-chip.js';
-import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
+import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument } from './document-builder.js';
 import { isReadOnly } from './read-mode.js';
 import {
   idbPutSnapshot, idbPutDoc, idbReadDoc, idbDocProbe, idbAvailable, compressDoc, decompressDoc,
 } from './recovery-store.js';
-import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
 // PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
 // quota is hundreds of MB vs localStorage's ~5MB. The sync localStorage write that wraps each call to
@@ -590,6 +590,34 @@ function docPlainText(doc) {
     .join('\n')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function sourceComparableBlocks(blocks) {
+  return (blocks || []).map((block) => ({
+    type: block?.type || '',
+    title: block?.title || '',
+    text: block?.text || '',
+    genre: block?.genre || '',
+    voStatus: block?.voStatus || '',
+    done: !!block?.done,
+    lane: block?.lane || '',
+    pairId: block?.pairId || '',
+    flavor: block?.flavor || '',
+    timecode: {
+      tc: block?.timecode?.tc || '',
+      tcOut: block?.timecode?.tcOut || '',
+      day: block?.timecode?.day ?? null,
+    },
+  }));
+}
+
+function palauSourceRebuildCandidate(original) {
+  const episode = getEpisode();
+  if (episode?.id !== 'palau') return null;
+  const savedComparable = sourceComparableBlocks(docToBlocks(ensureTableDoc(original)));
+  const sourceComparable = sourceComparableBlocks(episode?.blocksData || []);
+  if (JSON.stringify(savedComparable) !== JSON.stringify(sourceComparable)) return null;
+  return ensureTableDoc(buildEditorDocument(episode?.blocksData || []));
 }
 
 // Best-effort timestamped backup of the raw saved string. Returns the backup key, or null if
@@ -1164,12 +1192,14 @@ export function migrateStoredDoc() {
     //    (a service-node demotion must force a rewrite even on an already-all-rows doc). ────────
     const demoted = demoteServiceNodes(original);
     const serviceDemoted = JSON.stringify(demoted) !== JSON.stringify(original);
-    const wrapped = ensureTableDoc(demoted);
+    const rebuiltFromSource = palauSourceRebuildCandidate(demoted);
+    const wrapped = rebuiltFromSource || ensureTableDoc(demoted);
+    const structureChanged = JSON.stringify(wrapped) !== JSON.stringify(demoted);
     const { doc: migrated, changed: additiveChanged } = applyAdditiveTransforms(wrapped);
 
     // If the doc was already all-rows AND nothing changed (no demotion, no additive), there is
     // genuinely nothing to do — set the marker and pass through without a rewrite.
-    if (allRows && !additiveChanged && !serviceDemoted) {
+    if (allRows && !additiveChanged && !serviceDemoted && !structureChanged) {
       try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
       return { ok: true, reason: 'already migrated; no changes', migrated: false, bakKey };
     }

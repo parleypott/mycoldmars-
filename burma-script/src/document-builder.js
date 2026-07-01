@@ -248,16 +248,20 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   if (!text) return;
   // A local "DAY N" inside this very fragment overrides the block/running context for chips
   // that follow it in the same fragment (so "shot DAY 3 02:00:00:00" tags as DAY 3).
-  let localDay = _ctxDay;
+  const opts = (arguments.length > 3 && arguments[3]) || null;
+  const suppressDay = !!opts?.suppressDay;
+  let localDay = suppressDay ? null : _ctxDay;
   let last = 0, m;
   const timecodeRe = activeInlineTimecodeRegex();
   while ((m = timecodeRe.exec(text)) !== null) {
     let bundledDay = null;
     if (m.index > last) {
       let seg = text.slice(last, m.index);
-      bundledDay = trailingDayStamp(seg);
-      const segDay = bundledDay ?? lastDayInText(seg);
-      if (segDay != null) localDay = segDay;
+      if (!suppressDay) {
+        bundledDay = trailingDayStamp(seg);
+        const segDay = bundledDay ?? lastDayInText(seg);
+        if (segDay != null) localDay = segDay;
+      }
       // PALAU: the timecode chip DISPLAYS "DAY N · …" from its day attr, so a literal "DAY N"
       // sitting right before the chip is a visible DUPLICATE (Johnny: "it should only be in the
       // chip"). Fold it INTO the chip — strip the trailing "DAY N" from the visible text. Burma
@@ -324,10 +328,8 @@ function inlineContent(rawText, type) {
         ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
         : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim());
     if (IS_PALAU && isBracket && PALAU_BRACKET_DURATION_RE.test(inner)) {
-      // Palau interview durations are editorial prose, not chips. Keep the literal "[4.8]"
-      // token on the page so the audit still sees it exactly while the surrounding IN/OUT
-      // stamps chip independently. Burma's bracketed [visual] tokens never hit this branch.
-      out.push({ type: 'text', text: tok });
+      // Palau interview durations are not readable prose; the IN/OUT stamps already carry the
+      // useful timing. Drop the visible "[4.8]" token so it can't leak beside the seq tag.
       last = m.index + tok.length;
       continue;
     }
@@ -335,7 +337,8 @@ function inlineContent(rawText, type) {
       // Palau SOT bodies use bare bracketed interview stamps ("[00:03:41]") that are NOT
       // visual-direction tokens. Route them through the same timecode-mark path as prose so
       // every SOT stamp becomes a wp-tc-tag copy chip, while Burma keeps its old [visual] path.
-      pushTextWithTimecodes(out, inner || tok);
+      // These interview stamps are NOT DAY-style shoot codes, so suppress the running DAY prefix.
+      pushTextWithTimecodes(out, inner || tok, null, { suppressDay: true });
       last = m.index + tok.length;
       continue;
     }
@@ -593,6 +596,59 @@ function pairedRow(pairId, saidNodes, shownNodes) {
   };
 }
 
+function isPalauEpisodeNow() {
+  try {
+    return getEpisode()?.id === 'palau';
+  } catch (_err) {
+    return false;
+  }
+}
+
+function rowBlocks(row) {
+  const blocks = [];
+  if (row?.type !== 'tableRow') return blocks;
+  for (const cell of row.content || []) {
+    if (cell?.type !== 'tableCell') continue;
+    for (const block of cell.content || []) blocks.push(block);
+  }
+  return blocks;
+}
+
+function rowHasVisibleWords(row) {
+  for (const block of rowBlocks(row)) {
+    if (block?.type === 'paragraph' && isEmptyPlaceholderPara(block)) continue;
+    if (nodeText(block).trim()) return true;
+  }
+  return false;
+}
+
+function splitPalauFullWidthRow(row) {
+  if (row?.type !== 'tableRow') return [row];
+  if ((row.content || []).length !== 1) return [row];
+  const cell = row.content[0];
+  if (cell?.type !== 'tableCell') return [row];
+  const blocks = (cell.content || []).filter(Boolean);
+  if (blocks.length <= 1) return [row];
+  // A stale Palau saved doc can stack multiple cartridges inside one full-width cell. Split each
+  // block back into its own top-level row so chapter/scene headers regain the fresh-build shape.
+  return blocks.map((block) => fullWidthRow(block));
+}
+
+function normalizePalauTableDoc(doc) {
+  if (!isPalauEpisodeNow() || !doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
+  const content = [];
+  for (const row of doc.content) {
+    const splitRows = row?.type === 'tableRow' ? splitPalauFullWidthRow(row) : [row];
+    for (const splitRow of splitRows) {
+      // Drop only rows that carry no visible words at all; this removes stray empty grid bands
+      // without touching any real script text or timecodes.
+      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow)) continue;
+      content.push(splitRow);
+    }
+  }
+  return { ...doc, content };
+}
+
 export function buildEditorDocument(blocks) {
   const list = (blocks || []).filter(Boolean);
   // Everything before the first chapter is pre-script author scaffolding. Flag the
@@ -678,11 +734,12 @@ export function ensureTableDoc(doc) {
   // neutral binBlocks FIRST — text-preserving — so no script content is lost on reload.
   doc = demoteServiceNodes(doc);
   const allRows = doc.content.length > 0 && doc.content.every((n) => n && n.type === 'tableRow');
-  if (allRows) return doc;
+  const rowed = allRows
+    ? doc
+    : { ...doc, content: doc.content.map((n) => (n && n.type === 'tableRow' ? n : fullWidthRow(n))) };
   // Mixed or flat — wrap any non-row top-level node into a full-width row (idempotent: a node
   // that is already a tableRow is kept as-is so a partially-migrated doc still normalises).
-  const content = doc.content.map((n) => (n && n.type === 'tableRow' ? n : fullWidthRow(n)));
-  return { ...doc, content };
+  return normalizePalauTableDoc(rowed);
 }
 
 // ---- legacy service-node demotion (text-preserving) ----------------------
