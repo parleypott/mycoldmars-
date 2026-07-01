@@ -17,12 +17,68 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
+import { getEpisode } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
   if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
   return n;
+}
+
+// Drag-to-reorder is a PALAU-only affordance. Gating it here keeps Burma's rack — and its
+// existing split/merge grip — byte-for-byte untouched: no drag handle is ever mounted, no
+// drag listeners ever attach, on a Burma row.
+function isPalauEpisode() {
+  try { return getEpisode()?.id === 'palau'; } catch (_e) { return false; }
+}
+
+// ---- ROW DRAG-TO-REORDER (PALAU) -----------------------------------------
+// A grip on each row's FAR-LEFT gutter (further out than the split/merge spine). Grab it and
+// drag a row up or down; on drop the dragged tableRow is MOVED to the new index in a SINGLE
+// ProseMirror transaction (delete the row, then insert the very same node object at the target).
+// docToBlocks() is order-based, so a reorder is perfectly lossless — same block count, every word
+// and timecode preserved. A drop-indicator hairline shows where the row will land.
+//
+// Module-scoped drag state: which row is in the air, and which row currently owns the indicator.
+let draggingRow = null;      // { fromPos } — top-level position just before the dragged row
+let indicatorDom = null;     // the row DOM currently showing a drop line
+
+function clearDropIndicator() {
+  if (indicatorDom) {
+    indicatorDom.classList.remove('wp-drop-before', 'wp-drop-after');
+    indicatorDom = null;
+  }
+}
+
+function setDropIndicator(dom, before) {
+  if (indicatorDom && indicatorDom !== dom) clearDropIndicator();
+  indicatorDom = dom;
+  dom.classList.toggle('wp-drop-before', before);
+  dom.classList.toggle('wp-drop-after', !before);
+}
+
+// Move the row at fromPos to sit before/after the row at targetPos — one lossless transaction.
+// Only ever reorders TOP-LEVEL rows (depth 0); nested rows (none in practice) are left alone.
+function moveRow(view, fromPos, targetPos, dropBefore) {
+  if (!view || fromPos == null || targetPos == null) return false;
+  const { state } = view;
+  if (state.doc.resolve(fromPos).depth !== 0) return false;
+  if (state.doc.resolve(targetPos).depth !== 0) return false;
+  const source = state.doc.nodeAt(fromPos);
+  const target = state.doc.nodeAt(targetPos);
+  if (!source || source.type.name !== 'tableRow') return false;
+  if (!target || target.type.name !== 'tableRow') return false;
+  const size = source.nodeSize;
+  const insertPos = dropBefore ? targetPos : targetPos + target.nodeSize;
+  // No-op when the drop lands inside the source row's own span (drop onto itself / its own edges).
+  if (insertPos >= fromPos && insertPos <= fromPos + size) return false;
+  const tr = state.tr;
+  tr.delete(fromPos, fromPos + size);
+  const mapped = tr.mapping.map(insertPos);
+  tr.insert(mapped, source);            // reuse the immutable node → nothing is lost
+  view.dispatch(tr.scrollIntoView());
+  return true;
 }
 
 // ---- SPLIT / MERGE TRANSACTIONS (THE GESTURE) ----------------------------
@@ -237,7 +293,7 @@ export const TableRow = Node.create({
         const split = (n.childCount || n.attrs.cols || 1) > 1;
         btn.textContent = split ? '⊞' : '⊟';
         btn.className = split ? 'wp-row-split is-merge' : 'wp-row-split is-split';
-        btn.title = split ? 'Merge columns back to one full-width row' : 'Split into said / shown columns';
+        btn.title = split ? 'Merge columns back to one full-width row' : 'Split into two columns';
         btn.setAttribute('aria-label', split ? 'merge row' : 'split row');
       };
       paintBtn(node);
@@ -254,12 +310,64 @@ export const TableRow = Node.create({
       spine.appendChild(btn);
       dom.appendChild(spine);
 
+      // ---- ROW DRAG HANDLE (PALAU ONLY) --------------------------------
+      // Far-left ⠿ grip. Hidden until row hover; grab to drag the whole row up/down. Kept
+      // strictly out of Burma so the split/merge spine is never touched there.
+      let handle = null;
+      if (isPalauEpisode()) {
+        handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
+        handle.textContent = '⠿';
+
+        handle.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+        handle.addEventListener('dragstart', (e) => {
+          const pos = typeof getPos === 'function' ? getPos() : null;
+          if (pos == null || editor.state.doc.resolve(pos).depth !== 0) { e.preventDefault(); return; }
+          draggingRow = { fromPos: pos };
+          try {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'wp-row');   // Firefox needs data set to drag
+            e.dataTransfer.setDragImage(dom, 14, 12);
+          } catch (_err) {}
+          dom.classList.add('wp-trow-dragging');
+          e.stopPropagation();   // keep ProseMirror's own drag machinery out of it
+        });
+        handle.addEventListener('dragend', () => {
+          dom.classList.remove('wp-trow-dragging');
+          clearDropIndicator();
+          draggingRow = null;
+        });
+
+        dom.addEventListener('dragover', (e) => {
+          if (!draggingRow) return;
+          e.preventDefault();
+          e.stopPropagation();
+          try { e.dataTransfer.dropEffect = 'move'; } catch (_err) {}
+          const rect = dom.getBoundingClientRect();
+          setDropIndicator(dom, (e.clientY - rect.top) < rect.height / 2);
+        });
+        dom.addEventListener('drop', (e) => {
+          if (!draggingRow) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const rect = dom.getBoundingClientRect();
+          const dropBefore = (e.clientY - rect.top) < rect.height / 2;
+          const targetPos = typeof getPos === 'function' ? getPos() : null;
+          const fromPos = draggingRow.fromPos;
+          clearDropIndicator();
+          dom.classList.remove('wp-trow-dragging');
+          draggingRow = null;
+          moveRow(editor.view, fromPos, targetPos, dropBefore);
+        });
+
+        dom.appendChild(handle);
+      }
+
       const content = el('div', 'wp-trow-cells');
       dom.appendChild(content);
       return {
         dom,
         contentDOM: content,
-        ignoreMutation: (m) => spine.contains(m.target),
+        ignoreMutation: (m) => spine.contains(m.target) || (handle && (handle === m.target || handle.contains(m.target))),
         update(updated) {
           if (updated.type.name !== 'tableRow') return false;
           paintCols(updated);

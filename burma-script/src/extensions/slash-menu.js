@@ -2,6 +2,7 @@ import { Extension, nodeInputRule } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
 import { isReadOnly } from '../read-mode.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
+import { getEpisode } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -24,6 +25,26 @@ function setDirectionMark(editor, range, kind) {
     .run();
 }
 
+// PALAU: /archive pops onto its OWN small-indented line. We delete the "/archive" text, split the
+// current textblock so the archive starts a fresh paragraph, then store the mark so the next typed
+// characters carry the red highlight. The paragraph-indent visual is applied by the checkbox
+// plugin's node decoration (leading-archive → .wp-archive-line), palau-gated there too. In Burma
+// the behavior is unchanged — archive stays an inline mark on the current line.
+function setArchiveMark(editor, range) {
+  const attrs = defaultDirectionMarkAttrs('archive');
+  const isPalau = getEpisode()?.id === 'palau';
+  if (!isPalau) {
+    return editor.chain().focus().deleteRange(range).setMark('directionMark', attrs).run();
+  }
+  return editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .splitBlock()
+    .setMark('directionMark', attrs)
+    .run();
+}
+
 function makeItem(title, aliases, run) {
   const aliasList = aliases || [];
   const haystack = [title, ...aliasList].map((s) => String(s).toLowerCase());
@@ -40,7 +61,8 @@ function makeItem(title, aliases, run) {
 }
 
 export const SLASH_ITEMS = [
-  makeItem('archive',   [],               (editor, range) => setDirectionMark(editor, range, 'archive')),
+  makeItem('archive',   [],               (editor, range) => setArchiveMark(editor, range)),
+  makeItem('oncam',     ['on cam', 'on cam to film'], (editor, range) => setDirectionMark(editor, range, 'oncam')),
   makeItem('factcheck', ['fc', 'source'], (editor, range) => setDirectionMark(editor, range, 'factcheck')),
   makeItem('animation', ['anim'],         (editor, range) => setDirectionMark(editor, range, 'animation')),
   makeItem('3d',        ['3d animation', 'threed'], (editor, range) => setDirectionMark(editor, range, '3d')),

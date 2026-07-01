@@ -22,6 +22,7 @@ import { DirectionMark } from './extensions/direction-chip.js';
 import { ChapterFrames } from './extensions/chapter-frames.js';
 import { DayFold } from './extensions/day-fold.js';
 import { SlashMenu } from './extensions/slash-menu.js';
+import { ConvertMenu } from './extensions/convert-menu.js';
 import { PasteSanitize } from './extensions/paste-sanitize.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
@@ -371,6 +372,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       ChapterFrames,
       DayFold,
       SlashMenu,
+      ConvertMenu,
       PasteSanitize,
     ],
     content: initial,

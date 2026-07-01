@@ -249,14 +249,21 @@
   border: 1px solid #d6cdb8;
   color: #6a6252;
 }
-/* Johnny's pick: the Palau chip shows ONLY the bracketed timecode — "[00:03:29]" — never a
-   "DAY N · " prefix and never the sequence name inline. The sequence lives once in the bold SOT
-   header and in the chip's `seq` attr (surfaced by the right-click picker). The brackets are CSS
-   ::before/::after, so the copyable text node stays the bare HH:MM:SS(:FF) — a click copies only
-   the code (padded to Premiere HH:MM:SS:FF in JS). Higher specificity than Burma's global
-   .wp-tc-tag[data-day]::before, so a Palau chip that carries a day still reads as just the code. */
-.wp-page[data-episode="palau"] .wp-tc-tag::before { content: "["; color: #a89f8a; }
-.wp-page[data-episode="palau"] .wp-tc-tag::after { content: "]"; color: #a89f8a; }
+/* Two chip forms on Palau, keyed off whether the chip carries a shooting DAY (#1):
+   • A DAY-style string-out chip (has data-day) folds the DAY INTO the chip — "DAY 4 · 00:38:59:02" —
+     so a loose "DAY 4 00:38:59:02" line reads its day from the chip and the plain "DAY 4" prefix is
+     removed (build-strip on fresh docs, DayFold on cached ones).
+   • A NAMED interview chip (no data-day) shows JUST the bracketed code — "[00:03:29]" — because the
+     bold inline sequence header already carries the name.
+   Brackets / the "DAY N · " prefix are CSS ::before/::after, so the copyable text node stays the bare
+   HH:MM:SS(:FF) — a click copies only the code (padded to Premiere HH:MM:SS:FF in JS). Higher
+   specificity than Burma's global .wp-tc-tag[data-day]::before, so Palau keeps its calm palette. */
+.wp-page[data-episode="palau"] .wp-tc-tag:not([data-day])::before { content: "["; color: #a89f8a; }
+.wp-page[data-episode="palau"] .wp-tc-tag:not([data-day])::after { content: "]"; color: #a89f8a; }
+.wp-page[data-episode="palau"] .wp-tc-tag[data-day]::before {
+  content: "DAY " attr(data-day) " · ";
+  color: #8a7c63; font-weight: 700; letter-spacing: .04em;
+}
 .wp-page[data-episode="palau"] .wp-tc-tag:hover { border-color: #b1a787; color: #3a382f; }
 .wp-page[data-episode="palau"] .wp-tc-tag.copied { border-color: #1f8a72; color: #1f8a72; }
 /* The block-type kind labels (DIRECTION / VO / etc.) go quiet grey — the frame + chips carry meaning. */
@@ -355,3 +362,52 @@
 
 /* ═══════════════ REMOVE the REC recording toggle (Johnny: "get rid of this recording status thing") ═══════════════ */
 .wp-page[data-episode="palau"] .wp-rec { display: none !important; }
+
+/* ═══════════════ DRAG-TO-REORDER ROWS (Palau) ═══════════════
+   A ⠿ grip in each row's FAR-LEFT gutter, further out than the split/merge spine (-26px).
+   Hidden until the row is hovered; grab it to drag the whole row up or down. Flat — no box,
+   no shadow — faint by default, the ONE orange accent when you reach for it. On drag a hairline
+   drop-indicator shows exactly where the row will land. */
+.wp-page[data-episode="palau"] .wp-row-drag {
+  position: absolute;
+  left: -50px;
+  top: 0;
+  width: 20px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--lane-lab);
+  opacity: 0;
+  cursor: grab;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity .14s var(--ease), color .14s var(--ease);
+}
+.wp-page[data-episode="palau"] .wp-trow:hover .wp-row-drag { opacity: .5; }
+.wp-page[data-episode="palau"] .wp-row-drag:hover { opacity: 1; color: var(--orange); }
+.wp-page[data-episode="palau"] .wp-row-drag:active { cursor: grabbing; }
+
+/* The row in the air reads a touch dimmed so the eye follows the drop line, not the ghost. */
+.wp-page[data-episode="palau"] .wp-trow.wp-trow-dragging { opacity: .5; }
+
+/* Drop-indicator hairline — a 2px orange rule at the top (before) or bottom (after) of the row
+   the cursor is over. Pure decoration, never intercepts pointer events. */
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-before::before,
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--orange);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 5;
+}
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-before::before { top: -2px; }
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-after::after { bottom: -2px; }

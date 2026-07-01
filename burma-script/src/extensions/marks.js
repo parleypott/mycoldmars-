@@ -294,15 +294,29 @@ function cleanSeqLabel(raw) {
   return lines.length ? lines[lines.length - 1] : '';
 }
 
+// A "real" sequence for the picker is EITHER a full interview slug (a date-coded name ending in a
+// colon — "20260311-James Porter - Interview:", "260328-02-108- TARO-TINA:") OR a shoot-day string-out
+// "DAY 1".."DAY 7". The parser leaves bare fragments lying around ("PORTER", "Expert", "20260311-James
+// Porter" with no "- Interview:", a doubled "DAY 2") — those are NOT sequences and must not clutter
+// the picker. Keep only the canonical forms.
+const DAY_SEQ_RE = /^DAY\s*[1-7]$/i;
+const FULL_INTERVIEW_RE = /^\d{6,}.*:$/;
+function isRealSequence(label) {
+  return DAY_SEQ_RE.test(label) || FULL_INTERVIEW_RE.test(label);
+}
+
 // Build a LIVE registry of every sequence in the doc for the Palau picker: the union of
-// (a) every sot/broll block's speaker and (b) every timecode mark's seq attr, deduped in doc order.
+// (a) every sot/broll block's speaker and (b) every timecode mark's seq attr. Deduped
+// case-insensitively and filtered to real sequences only, in doc order.
 function collectSequences(state) {
-  const seen = new Set();
+  const seen = new Set();   // case-insensitive dedupe key
   const out = [];
   const add = (raw) => {
     const label = cleanSeqLabel(raw);
-    if (!label || seen.has(label)) return;
-    seen.add(label);
+    if (!label || !isRealSequence(label)) return;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
     out.push(label);
   };
   state.doc.descendants((node) => {
@@ -461,11 +475,22 @@ export const TimecodeMark = Mark.create({
       // (NEVER "DAY null"). Preserved through parse/serialize so it round-trips.
       day: {
         default: null,
+        // Normalize to a clean integer on BOTH parse and render. Some Palau blocks stored the day as
+        // the string "DAY 4" (not the number 4), and an already-saved doc can carry that verbatim in a
+        // mark's attrs; a legacy Number("DAY 4") also yields NaN. Since the Palau chip now DISPLAYS
+        // "DAY N · " from data-day (CSS attr()), a dirty value would read "DAY DAY 4"/"DAY NaN". Pulling
+        // the digits here keeps data-day a bare integer for every doc — fresh or cached — at render
+        // time. Burma days are already integers (1|2|3), so this is byte-identical there.
         parseHTML: (el) => {
           const d = el.getAttribute('data-day');
-          return d ? Number(d) : null;
+          const n = d ? d.match(/\d+/)?.[0] : null;
+          return n != null ? Number(n) : null;
         },
-        renderHTML: (attrs) => (attrs.day != null ? { 'data-day': String(attrs.day) } : {}),
+        renderHTML: (attrs) => {
+          if (attrs.day == null) return {};
+          const n = String(attrs.day).match(/\d+/)?.[0];
+          return n != null ? { 'data-day': n } : {};
+        },
       },
       // The SEQUENCE this timecode belongs to — an interview/sequence NAME string
       // ("20260311-James Porter - Interview:") for a named SOT, or a "DAY N" string-out label for a

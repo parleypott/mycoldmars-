@@ -221,6 +221,46 @@ function cleanSeqName(raw) {
   return lines.length ? lines[lines.length - 1] : '';
 }
 
+// Coerce a DAY value to a clean integer. Some Palau blocks store timecode.day as the STRING
+// "DAY 4" (not the number 4); a bare 'DAY ' + day then produced "DAY DAY 4" in a chip's seq and a
+// string "DAY 4" in its data-day, so the "DAY N \u00b7 " chip prefix would have read "DAY DAY 4". This
+// normalizes 4 / "4" / "DAY 4" \u2192 4 (and anything without a digit \u2192 null) so the running day + seq
+// stay clean integers. Burma days are already numbers, so this is a no-op there.
+function dayToNumber(d) {
+  if (d == null) return null;
+  if (typeof d === 'number') return Number.isFinite(d) ? d : null;
+  const m = String(d).match(/\d+/);
+  return m ? Number(m[0]) : null;
+}
+
+// PALAU (#2) \u2014 render the SOT's sequence NAME bold INLINE at the head of the body prose so it flows
+// right before the timecodes + quote on the same line ("20260311-James Porter - Interview: [00:33:20]
+// just take it in\u2026"), instead of stripping it out to a separate stacked chrome row. We keep the name
+// in the body (it's already in the source text), find its first plain-text occurrence, and wrap just
+// that run in a bold mark; if the body somehow lacks it we prepend it bold so the sequence is always
+// labelled. DAY-style speakers ("DAY 4") are SKIPPED \u2014 those fold into the timecode chip via #1, they
+// are not a named header. Burma never calls this (IS_PALAU false).
+function boldSequenceName(nodes, speaker) {
+  const name = cleanSeqName(speaker);
+  if (!name || /^DAY\s*\d/i.test(name)) return nodes;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (n.type !== 'text' || (n.marks && n.marks.length)) continue;
+    const idx = n.text.indexOf(name);
+    if (idx === -1) continue;
+    const before = n.text.slice(0, idx);
+    const after = n.text.slice(idx + name.length);
+    const repl = [];
+    if (before) repl.push({ type: 'text', text: before });
+    repl.push({ type: 'text', text: name, marks: [{ type: 'bold' }] });
+    if (after) repl.push({ type: 'text', text: after });
+    nodes.splice(i, 1, ...repl);
+    return nodes;
+  }
+  nodes.unshift({ type: 'text', text: name + ' ', marks: [{ type: 'bold' }] });
+  return nodes;
+}
+
 function activeInlineTimecodeRegex() {
   const re = IS_PALAU ? PALAU_TIMECODE_RE_G : TIMECODE_RE_G;
   re.lastIndex = 0;
@@ -517,7 +557,12 @@ function blockToNode(b, opts) {
     case 'sot':
       {
         const quote = cleanQuote(bodyText(b));
-        const contentText = IS_PALAU ? stripPalauSotSpeaker(quote, b.speaker || '') : quote;
+        // PALAU (#2): keep the sequence NAME in the body and render it bold INLINE (flowing right
+        // before the timecodes + quote), rather than stripping it out to a separate chrome row. Burma
+        // keeps the plain quote unchanged.
+        const bodyNodes = IS_PALAU
+          ? boldSequenceName(inlineContent(quote, 'plain'), b.speaker || '')
+          : inlineContent(quote, 'plain');
       return {
         type: 'sotBlock',
         attrs: {
@@ -533,7 +578,7 @@ function blockToNode(b, opts) {
           done: !!b.done,
           flavor: b.flavor ?? null,
         },
-        content: [para(inlineContent(contentText, 'plain'))],
+        content: [para(bodyNodes)],
       };
       }
 
@@ -687,11 +732,11 @@ export function buildEditorDocument(blocks) {
   let runningDay = null;
   list.forEach((b, i) => {
     // Update the running day from this block's explicit DAY N (in its timecode or its text).
-    const blockDay = b?.timecode?.day ?? (() => {
+    const blockDay = dayToNumber(b?.timecode?.day ?? (() => {
       const src = (b.rawSource || b.text || b.title || '');
       const dm = String(src).match(DAY_BLOCK);
-      return dm ? Number(dm[1]) : null;
-    })();
+      return dm ? dm[1] : null;
+    })());
     if (blockDay != null) runningDay = blockDay;
     // Running SEQUENCE (Palau): a named SOT/broll carries its speaker as the sequence; anything else
     // (chapters, VO, day string-outs) falls back to the running DAY as "DAY N". This is what stops a

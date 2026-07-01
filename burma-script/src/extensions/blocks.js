@@ -444,12 +444,11 @@ function directionNodeView({ node, editor, getPos }) {
   const hasDone = Object.prototype.hasOwnProperty.call(node.type.spec.attrs || {}, 'done');
   const isPalauChrome = isPalauChromeEnabled();
   const isPalauSot = isPalauChrome && node.type.name === 'sotBlock';
-  // PALAU SEQUENCE HEADER (#5): the SOT's sequence NAME rendered bold/mono at the block start, like
-  // Johnny's reference "20260311-James Porter - Interview:". Shown for every named SOT — the header is
-  // the sequence name itself now, NOT a name+timecode tag, so it no longer gates on a hero timecode.
-  const showSequenceTag =
-    isPalauSot &&
-    !!String(a.speaker || '').trim();
+  // PALAU (#2): the SOT's sequence NAME now renders bold INLINE at the head of the body prose
+  // (document-builder.boldSequenceName) so it flows right before the timecodes + quote on the same
+  // line, instead of sitting in a separate stacked chrome row. So the head seq-tag is retired — the
+  // name is no longer its own paragraph. (The machinery below stays dormant behind this flag.)
+  const showSequenceTag = false;
 
   const head = el('div', 'wp-dir-head', { contenteditable: 'false' });
   if (!isPalauChrome) {
