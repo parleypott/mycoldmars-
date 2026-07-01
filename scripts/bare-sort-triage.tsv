@@ -37,3 +37,4 @@ scripts/sort-comparators.mjs	out	SAFE	sourceFiles() returns sorted file-path STR
 scripts/find-dynamic-regex.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-spread-overflow.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-negative-slice.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-naive-json-extract.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
