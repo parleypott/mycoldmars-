@@ -7,7 +7,16 @@ let activeEpisode = BURMA;
 const listeners = new Set();
 
 function notify() {
-  for (const listener of listeners) listener(activeEpisode);
+  // Isolate each listener: on an episode SWITCH every registered module recomputes its
+  // own localStorage keys here (syncStorageKeys / syncEpisodeKeys across recovery,
+  // migrate-doc, cloud-sync, Editor, Workshop, write-token, recovery-store). A bare loop
+  // lets ONE throwing listener strand every listener after it with stale keys pointed at
+  // the PREVIOUS episode — a cross-episode data-integrity hazard. Wrapping per-listener
+  // keeps the blast radius at the one bad module; the rest still resync. Mirrors the
+  // sibling listener notifier in translation/src/auth.js.
+  for (const listener of listeners) {
+    try { listener(activeEpisode); } catch (err) { console.warn('[episode-config] listener threw:', err); }
+  }
 }
 
 export function getEpisode() {
