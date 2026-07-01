@@ -14152,6 +14152,33 @@
         session.rafHandle = requestAnimationFrame(rafLoop);
       }
 
+      // Pure: resolve a click target (word index, or a character offset into
+      // the scene text) into a playback START TIME, using this scene's timed
+      // words. Extracted from loadAndPlay so click-to-read seek math can be
+      // unit-tested headless (see seek-resolution.test.mjs) — Henry taps a word
+      // and audio must start at THAT word, not linear-only. Returns `fallback`
+      // (the linear fromTime) when there's nothing to resolve or the chosen
+      // word has no usable start, so it degrades to normal playback.
+      function resolveSeekTime(words, { fromWord = null, fromChar = null } = {}, fallback = 0) {
+        if (!Array.isArray(words) || !words.length) return fallback;
+        let wi = -1;
+        if (fromWord != null) {
+          wi = Math.max(0, Math.min(words.length - 1, fromWord));
+        } else if (fromChar != null) {
+          wi = words.findIndex(w => fromChar >= (w.charStart ?? 0) && fromChar < (w.charEnd ?? 0));
+          if (wi < 0) { // nearest preceding word
+            wi = 0;
+            for (let i = 0; i < words.length; i++) {
+              if ((words[i].charStart ?? 0) <= fromChar) wi = i; else break;
+            }
+          }
+        }
+        if (wi < 0) return fallback;
+        const w = words[wi];
+        if (w && typeof w.start === 'number' && w.start >= 0) return w.start;
+        return fallback;
+      }
+
       async function loadAndPlay(sceneIdx, { fromTime = 0, fromWord = null, fromChar = null } = {}) {
         const myToken = ++session.token;
         const sc = session.scenes[sceneIdx];
@@ -14224,19 +14251,8 @@
         // Resolve a click target (word index or character offset in the
         // scene text) into a playback time, now that this scene's words
         // (with their start times + charStart/charEnd) are loaded.
-        if (fromWord != null && Array.isArray(sc.words) && sc.words.length) {
-          const w = sc.words[Math.max(0, Math.min(sc.words.length - 1, fromWord))];
-          if (w && typeof w.start === 'number' && w.start >= 0) fromTime = w.start;
-        } else if (fromChar != null && Array.isArray(sc.words) && sc.words.length) {
-          let wi = sc.words.findIndex(w => fromChar >= (w.charStart ?? 0) && fromChar < (w.charEnd ?? 0));
-          if (wi < 0) { // nearest preceding word
-            wi = 0;
-            for (let i = 0; i < sc.words.length; i++) {
-              if ((sc.words[i].charStart ?? 0) <= fromChar) wi = i; else break;
-            }
-          }
-          const w = sc.words[wi];
-          if (w && typeof w.start === 'number' && w.start >= 0) fromTime = w.start;
+        if (fromWord != null || fromChar != null) {
+          fromTime = resolveSeekTime(sc.words, { fromWord, fromChar }, fromTime);
         }
 
         // Start playing
