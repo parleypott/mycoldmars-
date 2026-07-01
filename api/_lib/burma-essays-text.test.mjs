@@ -410,5 +410,27 @@ eq(stripMarkdown('an *italic* word'), 'an italic word', 'GUARD: simple *italic* 
 eq(stripMarkdown('a __two word__ b'), 'a two word b', 'GUARD: simple __bold__ unchanged');
 eq(stripMarkdown('no emphasis here at all'), 'no emphasis here at all', 'GUARD: plain prose untouched');
 
+// ── GFM task-list checkboxes ("- [ ] todo" / "- [x] done") ──
+// The plain-bullet rule only eats the "- " marker, so the "[ ]" / "[x]" checkbox
+// survived and ElevenLabs read it ALOUD ("open bracket close bracket", "open
+// bracket x close bracket"). RED PROOF: stripMarkdownOLD (bullet rule only, no
+// task-list rule) leaves the bracket; the live stripMarkdown drops bullet + box.
+eq(stripMarkdownOLD('- [ ] Verify the border crossing'), '[ ] Verify the border crossing',
+   'RED: bullet-only strip leaks the "[ ]" checkbox into the audio');
+eq(stripMarkdown('- [ ] Verify the border crossing'), 'Verify the border crossing',
+   'FIX: unchecked task box dropped, task text kept');
+eq(stripMarkdown('- [x] Filed the report'), 'Filed the report', 'FIX: checked (x) task box dropped');
+eq(stripMarkdown('* [X] Uppercase X box'), 'Uppercase X box', 'FIX: * bullet + [X] uppercase box dropped');
+eq(stripMarkdown('  + [ ] indented task'), 'indented task', 'FIX: indented + task box dropped');
+eq(stripMarkdown('- [ ] one\n- [x] two\n- [ ] three'), 'one\ntwo\nthree',
+   'FIX: multi-line task list — every checkbox dropped, no lines merged');
+// REGRESSION GUARDS: a plain bullet is still just a bullet; a bracket link on a
+// bullet still becomes its link text; a bracket in PROSE (not a line-start box) is
+// untouched (the rule is scoped to a line-start bullet + single-char [ /x/X ] box).
+eq(stripMarkdown('- regular bullet'), 'regular bullet', 'GUARD: plain bullet unaffected by the task rule');
+eq(stripMarkdown('- [text](https://x.com) link'), 'text link', 'GUARD: bullet+link still resolves to link text');
+eq(stripMarkdown('I marked it [x] in the margin'), 'I marked it [x] in the margin',
+   'GUARD: a "[x]" mid-prose (no line-start bullet) is left intact');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -91,6 +91,14 @@ export function stripMarkdown(md) {
     // Scoped to lines that START with # so prose ending in " #" is untouched.
     .replace(/^(#+[ \t]+.*?)[ \t]+#+[ \t]*$/gm, '$1')
     .replace(/^#+\s*/gm, '')               // ATX headings (leading)
+    // GFM task-list items ("- [ ] todo", "- [x] done", "* [X] done"). Must run
+    // BEFORE the plain-bullet rule below: that rule only eats the "- " marker, so
+    // the "[ ]" / "[x]" checkbox survived and ElevenLabs read it ALOUD ("open
+    // bracket close bracket", "open bracket x close bracket") — the exact read-it-
+    // aloud failure this module exists to kill. Drop the bullet AND the checkbox,
+    // keep the task text. Uses [ \t] (not \s) so it never eats the trailing newline
+    // and merges lines. Scoped to a line-start bullet, so prose "[x]" is untouched.
+    .replace(/^[ \t]*[-*+][ \t]+\[[ xX]\][ \t]*/gm, '')  // task-list checkboxes
     // Bullet lists. CommonMark allows THREE bullet markers — -, *, AND + — so a
     // "+ point" list leaked its literal "+" into the audio (read aloud as "plus").
     .replace(/^\s*[-*+]\s+/gm, '')         // bullet lists (-, *, +)
