@@ -384,12 +384,9 @@ async function analyzeVideo(assetId, localPath, projectContext) {
 }
 
 // ── Google Docs script ingestion ──
-
-function extractDocId(url) {
-  const match = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-  if (!match) throw new Error(`Can't extract doc ID from: ${url}`);
-  return match[1];
-}
+// extractDocId is imported from ./google-docs-client.js (the canonical copy).
+// A local shadow used to live here — byte-identical, but it silently defeated
+// any hardening of the module copy. Consolidated onto the shared, tested export.
 
 async function fetchGoogleDocText(sourceRef) {
   const docId = extractDocId(sourceRef);
