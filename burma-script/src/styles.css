@@ -34,7 +34,7 @@
      plus the two faint lane tints. All warm/cream, all flat — never a gridline. */
   --rule:      #cdc6b4;  /* the ONE hairline between split columns */
   --said-tint: transparent;            /* LEFT / narration-VO lane — paper, no tint */
-  --shown-tint:rgba(110, 31, 26, .028);/* RIGHT / visual lane — faintest burgundy wash */
+  --shown-tint: transparent;           /* RIGHT / visual lane — paper, no tint */
   --lane-lab:  #6c685f;  /* column lane label (SAID / SHOWN) — L2: AA 4.5:1 on face */
 
   /* L2 — every label token that paints real (sub-18px) text must clear WCAG AA 4.5:1 against
@@ -258,6 +258,17 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    amber (this needs action, not patience). A strong burnt-orange with the inked border + a steadily
    pulsing mark so it reads as "do something" — the work is backed up, but you must reload to merge. */
 .wp-save-pill.is-cloud-conflict { background: #e8853a; color: #1f1d18; border-color: var(--ink); }
+.wp-dchip{ font-family:var(--mono); font-size:.78em; border:1.5px solid var(--ink); border-radius:5px; padding:1px 7px; margin:0 1px; cursor:pointer; user-select:none; white-space:normal; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+.wp-dchip[data-kind="archive"][data-status="needed"], .wp-dchip[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; }
+.wp-dchip[data-kind="archive"][data-status="found"], .wp-dchip[data-kind="factcheck"][data-status="sourced"]{ background:#d9e8d0; }
+.wp-dchip[data-kind="animation"]{ background:#ccc2ea; }
+.wp-dchip[data-kind="broll"]{ background:transparent; color:#d0873f; border-color:#d0873f; }
+.wp-dchip[data-kind="direction"]{ background:transparent; }
+.wp-dchip-break{ display:flex; align-items:center; gap:8px; margin:10px 0; color:var(--label-5); font-family:var(--mono); font-size:var(--chrome-size); letter-spacing:.2em; }
+.wp-dchip-break::before,.wp-dchip-break::after{ content:""; flex:1; height:1px; background:var(--rule); }
+.wp-slash-menu{ position:fixed; z-index:60; background:var(--face); border:1.5px solid var(--ink); border-radius:8px; padding:4px; box-shadow:none; font-family:var(--mono); font-size:12px; min-width:180px; }
+.wp-slash-item{ display:block; width:100%; padding:5px 9px; border:0; background:transparent; color:var(--ink); border-radius:5px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; }
+.wp-slash-item.is-active{ background:rgba(255,91,31,.14); }
 .wp-save-pill.is-cloud-conflict .wp-save-pill-mark { background: var(--ink); animation: wp-save-pulse 1.6s var(--ease) infinite; }
 /* READ-ONLY · SHARED VIEW — the calm badge that replaces the save pill in a `?read`/`?view` share.
    Nothing is saving, so it reads as a quiet label, not a status: neutral graphite mark on the resting
@@ -543,48 +554,16 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    The ONLY divider a row ever shows: a single 1px hairline between columns,
    painted on cells after the first. No outer border, no grid. */
 .wp-trow[data-cols="2"] .wp-trow-cells,
-.wp-trow[data-cols="3"] .wp-trow-cells { align-items: stretch; }
+.wp-trow[data-cols="3"] .wp-trow-cells { align-items: flex-start; }
+
+.wp-trow[data-cols="2"] .wp-tcell:first-child,
+.wp-trow[data-cols="3"] .wp-tcell:first-child { flex: 1.2 1 0; }
 
 .wp-tcell + .wp-tcell {
   border-left: 1px solid var(--rule);   /* the one hairline */
   margin-left: 22px;
   padding-left: 22px;
 }
-
-/* Subtle, tasteful lane distinction — still dead flat. SAID = bare paper;
-   SHOWN = the faintest burgundy wash (echoes the visual/SOT family) so the eye
-   reads "what's on screen" without a box, a border, or a shadow. */
-.wp-trow[data-cols="2"] .wp-tcell[data-role="said"],
-.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]  { background: var(--said-tint); }
-.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"],
-.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"] { background: var(--shown-tint); }
-
-/* Lane labels — JetBrains Mono, uppercase, one tracking. Only on SPLIT rows, and
-   only on the first row of a split run would be ideal, but per-cell is honest and
-   cheap; kept faint so it never competes with the orange accent. The ▍ tick on
-   SHOWN is the single orange accent that marks the visual lane. */
-.wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
-.wp-trow[data-cols="3"] .wp-tcell[data-role]::before {
-  font-family: var(--mono);
-  font-size: var(--chrome-size);
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--lane-lab);
-  display: block;
-  margin: 0 0 7px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.wp-trow[data-cols="2"] .wp-tcell[data-role="said"]::before,
-.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]::before  { content: "SAID · NARRATION"; }
-.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"]::before,
-.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"]::before {
-  content: "▍ SHOWN · VISUAL";
-  color: var(--orange);                 /* the ONE orange accent */
-}
-/* Full-width cells never show a lane label — they're not a split. */
-.wp-trow[data-cols="1"] .wp-tcell[data-role]::before,
-.wp-tcell[data-role="full"]::before { content: none; display: none; }
 
 /* In a split, stacked cartridges inside a cell keep their own 11px gaps; the
    last one's trailing margin is the row gap, same rhythm as full-width. */
@@ -1250,12 +1229,9 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-dir.is-done { opacity: 1 !important; }
-  /* TABLE LAYER in print: drop lane tints, keep the single hairline as black ink,
-     keep lane labels (in black, no orange) so SAID/SHOWN columns stay legible. */
+  /* TABLE LAYER in print: no fills, keep the single hairline as black ink. */
   .wp-tcell { background: none !important; }
   .wp-tcell + .wp-tcell { border-left: 1px solid #000 !important; margin-left: 14pt !important; padding-left: 14pt !important; }
-  .wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
-  .wp-trow[data-cols="3"] .wp-tcell[data-role]::before { color: #000 !important; }
 }
 
 /* ============================================================

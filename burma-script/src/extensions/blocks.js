@@ -13,8 +13,30 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { isReadOnly } from '../read-mode.js';
 import { getEpisode } from '../episode-config.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
+import { DirectionChip, DirectionBreak } from './direction-chip.js';
 
-const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null } });
+// WP-13 — reconstruction data lives in ATTRIBUTES, never in derived/decoration state, so a block
+// carries everything it needs to rebuild itself through a JSON (and clipboard) round-trip.
+//   • blockId   — stable identity. Deliberately has NO parseHTML: a clipboard paste of a copied
+//                 block must NOT resurrect a duplicate id (integrity-check asserts ids are unique);
+//                 JSON persistence (localStorage/cloud) is the identity home, paste mints a fresh id.
+//   • flavor    — per-block accent (episode `flavors`), round-trips via data-flavor.
+//   • chapterId — stable chapter membership. Today the chapter RUN is derived at render time by the
+//                 ChapterFrames decoration (chapter-frames.js); this attribute is the forward-compat
+//                 slot rec #23 asks for so a future flat-plus-attribute chapter model (rec #10) — or a
+//                 CRDT/merge layer — has a stable key to write to. Default null (unpopulated today),
+//                 round-trips via data-chapter-id, and is provably additive (existing docs get null).
+const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }, chapterId: { default: null } });
+
+// WP-09 — EXPLICIT marks allowlist per block node, replacing ProseMirror's allow-all default. The
+// live schema only registers these seven marks (the five Burma spans + StarterKit bold/italic), so
+// this list is COMPLETE — nothing a saved doc already carries is ever dropped (zero-loss). It is the
+// lossless-paste BACKSTOP behind transformPastedHTML (paste-sanitize.js): ProseMirror silently
+// conforms nonconforming content to the schema, so anything a paste smuggles past the sanitizer that
+// isn't one of these gets dropped rather than corrupting the block. Kept identical across every
+// script block so the rack is uniform. (Editor.jsx + migrate-doc.js both import these nodes, so the
+// allowlist stays in lockstep automatically — no second edit site to drift.)
+const MARKS_ALLOWLIST = 'timecode tkSpan factCheckSpan visualSpan trimSpan bold italic';
 
 // chapter genre → ACT tag shown top-right of a chapter cartridge body.
 const ACT_TAG_FALLBACK = { coldopen: 'HISTORY', history: 'HISTORY', ground: 'GROUND', inquiry: 'GROUND', latm: 'GROUND', other: '' };
@@ -55,10 +77,31 @@ function syncNullableAttr(dom, name, value) {
 
 function syncSharedDomAttrs(dom, attrs) {
   syncNullableAttr(dom, 'data-flavor', attrs?.flavor);
+  syncNullableAttr(dom, 'data-chapter-id', attrs?.chapterId);
+}
+
+function appendIfChildren(head, child) {
+  if (child && child.childNodes.length) head.push(child);
 }
 
 function sharedRenderAttrs(node, attrs) {
-  return maybeDataAttr(attrs, 'data-flavor', node.attrs.flavor);
+  let out = maybeDataAttr(attrs, 'data-flavor', node.attrs.flavor);
+  out = maybeDataAttr(out, 'data-chapter-id', node.attrs.chapterId);
+  return out;
+}
+
+function isPalauChromeEnabled() {
+  return getEpisode()?.id === 'palau';
+}
+
+export function timecodeLabel(attrs) {
+  const tc = attrs?.timecode;
+  if (tc && typeof tc === 'object') return tc.tc || '';
+  return tc || attrs?.rawTimecode || '';
+}
+
+export function sequenceTagText(attrs) {
+  return [attrs?.speaker || '', timecodeLabel(attrs)].filter(Boolean).join(' ').trim();
 }
 
 // The SPINE: a 30px left rail. Knurled texture (CSS), a numbered cap (CSS counter colours
@@ -360,9 +403,59 @@ function cartridge({ blockClass, dataAttr, node, editor, getPos, headChildren, b
 function directionNodeView({ node, editor, getPos }) {
   const a = node.attrs;
   const hasDone = Object.prototype.hasOwnProperty.call(node.type.spec.attrs || {}, 'done');
+  const isPalauChrome = isPalauChromeEnabled();
+  const isPalauSot = isPalauChrome && node.type.name === 'sotBlock';
+  const showSequenceTag =
+    isPalauSot &&
+    !!String(a.speaker || '').trim() &&
+    !!timecodeLabel(a);
 
   const head = el('div', 'wp-dir-head', { contenteditable: 'false' });
-  head.appendChild(Object.assign(el('span', 'wp-dir-kind'), { textContent: 'DIRECTION' }));
+  if (!isPalauChrome) {
+    head.appendChild(Object.assign(el('span', 'wp-dir-kind'), { textContent: 'DIRECTION' }));
+  }
+
+  let seqTag = null;
+  let seqTagTimer = null;
+  let cleanupSequenceTag = null;
+  const paintSequenceTag = (attrs) => {
+    if (!seqTag) return;
+    const text = sequenceTagText(attrs);
+    const tc = timecodeLabel(attrs);
+    seqTag.textContent = text;
+    seqTag.hidden = !text;
+    syncNullableAttr(seqTag, 'data-tc', tc);
+    seqTag.setAttribute('aria-label', text ? `copy sequence tag ${text}` : 'copy sequence tag');
+  };
+  if (showSequenceTag) {
+    seqTag = el('button', 'wp-seq-tag', {
+      type: 'button',
+      contenteditable: 'false',
+      title: 'Copy sequence tag',
+    });
+    const copySequenceTag = () => {
+      const cur = editor.state.doc.nodeAt(getPos());
+      const text = sequenceTagText(cur?.attrs || a);
+      if (!text) return;
+      navigator.clipboard?.writeText(text).catch(() => {});
+      seqTag.classList.remove('is-copied');
+      void seqTag.offsetWidth;
+      seqTag.classList.add('is-copied');
+      if (seqTagTimer) clearTimeout(seqTagTimer);
+      seqTagTimer = setTimeout(() => {
+        seqTagTimer = null;
+        seqTag?.classList.remove('is-copied');
+      }, 900);
+    };
+    seqTag.addEventListener('click', copySequenceTag);
+    paintSequenceTag(a);
+    head.appendChild(seqTag);
+    cleanupSequenceTag = () => {
+      seqTag.removeEventListener('click', copySequenceTag);
+      if (seqTagTimer) clearTimeout(seqTagTimer);
+      seqTagTimer = null;
+    };
+  }
 
   let done = null;
   if (hasDone) {
@@ -384,12 +477,19 @@ function directionNodeView({ node, editor, getPos }) {
     head.appendChild(done);
   }
 
-  const view = cartridge({ blockClass: 'wp-dir', dataAttr: 'data-direction', node, editor, getPos, headChildren: [head] });
+  const headChildren = [];
+  appendIfChildren(headChildren, head);
+  const view = cartridge({ blockClass: 'wp-dir', dataAttr: 'data-direction', node, editor, getPos, headChildren });
+  if (isPalauSot) {
+    view.dom.classList.add('wp-sot-cart');
+    view.dom.setAttribute('data-sot-signature', '1');
+  }
   if (hasDone) view.dom.setAttribute('data-done', a.done ? '1' : '0');
   return {
     ...view,
     update(updated) {
       if (updated.type.name !== node.type.name) return false;
+      paintSequenceTag(updated.attrs);
       if (hasDone) {
         view.dom.classList.toggle('is-done', !!updated.attrs.done);
         view.dom.setAttribute('data-done', updated.attrs.done ? '1' : '0');
@@ -397,6 +497,9 @@ function directionNodeView({ node, editor, getPos }) {
       }
       syncSharedDomAttrs(view.dom, updated.attrs);
       return true;
+    },
+    destroy() {
+      cleanupSequenceTag?.();
     },
   };
 }
@@ -406,6 +509,7 @@ export const ChapterBlock = Node.create({
   name: 'chapterBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
   defining: true,
   draggable: true,
   addAttributes() {
@@ -453,6 +557,7 @@ export const SceneBlock = Node.create({
   name: 'sceneBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
   defining: true,
   draggable: true,
   addAttributes() { return baseAttrs(); },
@@ -478,6 +583,8 @@ export const VoBlock = Node.create({
   name: 'voBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() {
     return { ...baseAttrs(), status: { default: 'todo' } };
@@ -493,8 +600,11 @@ export const VoBlock = Node.create({
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const status0 = node.attrs.status || 'todo';
+      const isPalauChrome = isPalauChromeEnabled();
       const head = el('div', 'wp-vo-head', { contenteditable: 'false' });
-      head.appendChild(Object.assign(el('span', 'wp-vo-kind'), { textContent: 'VO · NARRATION' }));
+      if (!isPalauChrome) {
+        head.appendChild(Object.assign(el('span', 'wp-vo-kind'), { textContent: 'VO · NARRATION' }));
+      }
 
       // REC control: word REC + 3-position pill (3 pips) + state label.
       // L6 — keyboard-operable: focusable in edit mode (read-only excluded) + Enter/Space cycles state.
@@ -530,7 +640,9 @@ export const VoBlock = Node.create({
       });
       head.appendChild(rec);
 
-      const view = cartridge({ blockClass: 'wp-vo', dataAttr: 'data-vo', node, editor, getPos, headChildren: [head] });
+      const headChildren = [];
+      appendIfChildren(headChildren, head);
+      const view = cartridge({ blockClass: 'wp-vo', dataAttr: 'data-vo', node, editor, getPos, headChildren });
       view.dom.setAttribute('data-status', status0);
       return {
         ...view,
@@ -552,6 +664,8 @@ export const OncamBlock = Node.create({
   name: 'oncamBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-oncam]' }]; },
@@ -571,6 +685,8 @@ export const SotBlock = Node.create({
   name: 'sotBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() {
     return {
@@ -601,6 +717,8 @@ export const BrollBlock = Node.create({
   name: 'brollBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() {
     return {
@@ -633,6 +751,8 @@ export const MontageBlock = Node.create({
   name: 'montageBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-montage]' }]; },
@@ -659,6 +779,9 @@ export const NoneBlock = Node.create({
   name: 'noneBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  // NOT defining: the `none` block is the transient "born" line meant to be converted into a real
+  // cartridge (or merged away) the instant the writer picks a type — it should NOT resist joins.
   draggable: true,
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-none]' }]; },
@@ -718,6 +841,8 @@ export const NoteBlock = Node.create({
   name: 'noteBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() { return { ...baseAttrs(), kind: { default: 'note' } }; },
   parseHTML() { return [{ tag: 'div[data-note]' }]; },
@@ -751,6 +876,8 @@ export const BinBlock = Node.create({
   name: 'binBlock',
   group: 'block',
   content: '(paragraph | bulletList | orderedList)+',
+  marks: MARKS_ALLOWLIST,
+  defining: true,
   draggable: true,
   addAttributes() { return { ...baseAttrs(), scaffold: { default: false } }; },
   parseHTML() { return [{ tag: 'div[data-bin]' }]; },
@@ -783,4 +910,5 @@ export const BinBlock = Node.create({
 export const BURMA_NODES = [
   ChapterBlock, SceneBlock, VoBlock, OncamBlock,
   SotBlock, BrollBlock, MontageBlock, NoneBlock, ScriptStart, NoteBlock, BinBlock,
+  DirectionChip, DirectionBreak,
 ];

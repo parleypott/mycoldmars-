@@ -17,10 +17,12 @@ const GENRE_MAP = {
 };
 
 const RIGHT_FLAVOR_MAP = {
-  liked: 'gold',
   animation: 'purple',
   straggler: 'pink',
 };
+
+const BRACKET_TIMECODE_RE = /\[(\d{2}:\d{2}:\d{2}(?::\d{2})?)\]/;
+const DAY_SOT_LEAD_RE = /^([\s●•\-–—]*)(DAY\s+(\d+))\s+(\d{2}:\d{2}:\d{2}(?::\d{2})?)(?=\s|$)([\s\S]*)$/i;
 
 function readRows() {
   const raw = readFileSync(INPUT_PATH, 'utf8');
@@ -88,8 +90,57 @@ export function buildTimecode(cellText, timecodes) {
   return timecode;
 }
 
+export function extractFullSotSpeaker(text, fallback = '') {
+  const source = text ?? '';
+  const hit = source.match(BRACKET_TIMECODE_RE);
+
+  if (!hit || hit.index == null) {
+    return fallback;
+  }
+
+  const lines = source
+    .slice(0, hit.index)
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim());
+
+  if (!lines.length) {
+    return fallback;
+  }
+
+  const label = lines[lines.length - 1].replace(/^[\s●-]+/, '');
+
+  if (!label.endsWith(':')) {
+    return fallback;
+  }
+
+  return label;
+}
+
+export function extractDaySotLead(text) {
+  const source = text ?? '';
+  const hit = source.match(DAY_SOT_LEAD_RE);
+
+  if (!hit) {
+    return null;
+  }
+
+  const lead = `DAY ${hit[3]}`;
+  // Fold out the "DAY n <timecode>" prefix, keeping any leading bullet/dash marker (hit[1])
+  // and the tail after the timecode (hit[5]). Trim each side and rejoin with a SINGLE space so
+  // the seam left by the removed "DAY n" can't produce a doubled space ("●  SOT:" → "● SOT:").
+  const leadMarker = (hit[1] || '').replace(/\s+$/, '');
+  const tail = (hit[5] || '').replace(/^[ \t\r\n]+/, '');
+  const remainder = [leadMarker, tail].filter(Boolean).join(' ');
+
+  return {
+    speaker: lead,
+    text: remainder || lead,
+  };
+}
+
 export function leftBlockFromCell(cell, pairId) {
-  const text = applyTrims(cell?.text ?? '', cell?.trims);
+  const rawSource = applyTrims(cell?.text ?? '', cell?.trims);
   const typeMap = {
     vo: 'vo',
     sot: 'sot',
@@ -99,8 +150,8 @@ export function leftBlockFromCell(cell, pairId) {
 
   const block = {
     type: typeMap[cell?.role] ?? 'vo',
-    text,
-    rawSource: text,
+    text: rawSource,
+    rawSource,
   };
 
   if (pairId) {
@@ -109,14 +160,16 @@ export function leftBlockFromCell(cell, pairId) {
     block.width = 'half';
   }
 
-  if (cell?.keyLine) {
-    block.flavor = 'yellow';
-  }
-
   if (block.type === 'sot') {
-    block.speaker = cell?.speaker ?? '';
+    const dayLead = extractDaySotLead(rawSource);
+    if (dayLead) {
+      block.text = dayLead.text;
+      block.speaker = dayLead.speaker;
+    } else {
+      block.speaker = extractFullSotSpeaker(rawSource, cell?.speaker ?? '');
+    }
     block.done = false;
-    block.timecode = buildTimecode(text, cell?.timecodes ?? []);
+    block.timecode = buildTimecode(rawSource, cell?.timecodes ?? []);
   }
 
   return block;
@@ -136,13 +189,9 @@ export function rightBlockFromCell(cell, pairId) {
     block.width = 'half';
   }
 
-  if (cell?.keyLine) {
-    block.flavor = 'yellow';
-  } else {
-    const flavor = RIGHT_FLAVOR_MAP[cell?.flavor];
-    if (flavor) {
-      block.flavor = flavor;
-    }
+  const flavor = RIGHT_FLAVOR_MAP[cell?.flavor];
+  if (flavor) {
+    block.flavor = flavor;
   }
 
   if (cell?.timecodes?.length) {

@@ -43,6 +43,24 @@ export function cleanQuote(text) {
   return clean(text);
 }
 
+export function stripPalauSotSpeaker(text, speaker) {
+  const source = text ?? '';
+  const label = speaker ?? '';
+
+  if (!source || !label) {
+    return source;
+  }
+
+  const at = source.indexOf(label);
+
+  if (at === -1) {
+    return source;
+  }
+
+  const eatSpace = source.charAt(at + label.length) === ' ' ? 1 : 0;
+  return source.slice(0, at) + source.slice(at + label.length + eatSpace);
+}
+
 // Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
 // unwrap the inline span scaffolding for display. nodeText/wrapToken re-wrap the marked
 // spans into literal '{tk …}' / '[visual …]' tokens so the live doc round-trips; but a
@@ -50,6 +68,7 @@ export function cleanQuote(text) {
 // keep the inner text. This is the INVERSE of inlineContent/wrapToken above — keep the two
 // in sync (guarded by the worklist-unwrap checks in integrity-check.ts).
 import { getEpisode } from './episode-config.js';
+import { directionChipText } from './extensions/direction-chip.js';
 
 export function stripSpanScaffolding(text) {
   if (!text) return '';
@@ -118,6 +137,13 @@ function formatTimecode(tc) {
 // and invisible in the other. \d{2} everywhere closes that divergence.
 const TIMECODE_RE = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/;
 const TIMECODE_RE_G = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/g;
+// Palau interview bodies preserve bracketed IN/OUT prose as HH:MM:SS (plus a separate [4.8]
+// duration token). Keep Burma's broadcast-only detector frozen above, then add a Palau-only
+// three-part detector here so Burma's chip path stays byte-identical when IS_PALAU is false.
+const TIMECODE3_RE_G = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}(?!:?\d)/g;
+const PALAU_TIMECODE_RE = /(?<!\d)(?<!\d:)(?:\d{2}:\d{2}:\d{2}:\d{2}|\d{2}:\d{2}:\d{2})(?!:?\d)/;
+const PALAU_TIMECODE_RE_G = /(?<!\d)(?<!\d:)(?:\d{2}:\d{2}:\d{2}:\d{2}|\d{2}:\d{2}:\d{2})(?!:?\d)/g;
+const PALAU_BRACKET_DURATION_RE = /^\d+(?:\.\d+)?$/;
 
 const BURMA_DAY_CLASS = '123';
 const BURMA_HEAD_ALTERNATION = 'COLD\\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO';
@@ -154,6 +180,16 @@ export function episodeHeadAlternation() {
 }
 
 const DAY_CLASS_SOURCE = episodeDayCharacterClass();
+// Compute the episode gate once beside the other episode-derived constants. This module is loaded
+// after episode selection in normal boot, so Palau can widen inline timecode parsing here while
+// Burma keeps the exact same broadcast-only regex path and rendered output it had before.
+const IS_PALAU = (() => {
+  try {
+    return getEpisode()?.id === 'palau';
+  } catch (_err) {
+    return false;
+  }
+})();
 const DAY_LOCAL = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
 const DAY_BLOCK = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
 const HEAD_ALTERNATION = episodeHeadAlternation();
@@ -165,6 +201,25 @@ const HEAD_BODY_SPLIT_RE = new RegExp(`^(${HEAD_ALTERNATION})(\\s*\\d+)?\\s*[.:�
 // headingNodes from the block's own day (sot/broll) or the nearest preceding DAY N. A bare module
 // variable is safe here because buildEditorDocument walks blocks strictly in order, single-threaded.
 let _ctxDay = null;
+
+function activeInlineTimecodeRegex() {
+  const re = IS_PALAU ? PALAU_TIMECODE_RE_G : TIMECODE_RE_G;
+  re.lastIndex = 0;
+  return re;
+}
+
+function hasInlineTimecode(text) {
+  if (!text) return false;
+  if (IS_PALAU) {
+    // Palau keeps [HH:MM:SS] interview in/out stamps inline. Check the dedicated 3-part form
+    // first so bracketed [00:03:41][4.8] yields a clean timecode chip and leaves [4.8] as prose,
+    // never as a merged 00:03:414.8 blob. Burma never touches this branch.
+    TIMECODE3_RE_G.lastIndex = 0;
+    if (TIMECODE3_RE_G.test(text)) return true;
+    return PALAU_TIMECODE_RE.test(text);
+  }
+  return TIMECODE_RE.test(text);
+}
 
 // Push `text` onto `out` as TipTap text nodes, splitting out EVERY embedded timecode into its
 // own node carrying the 'timecode' mark (a clickable copy-chip carrying the bare tc + the running
@@ -179,8 +234,8 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   // that follow it in the same fragment (so "shot DAY 3 02:00:00:00" tags as DAY 3).
   let localDay = _ctxDay;
   let last = 0, m;
-  TIMECODE_RE_G.lastIndex = 0;
-  while ((m = TIMECODE_RE_G.exec(text)) !== null) {
+  const timecodeRe = activeInlineTimecodeRegex();
+  while ((m = timecodeRe.exec(text)) !== null) {
     if (m.index > last) {
       const seg = text.slice(last, m.index);
       const dm = seg.match(DAY_LOCAL);
@@ -225,6 +280,7 @@ function inlineContent(rawText, type) {
 
     const isBrace = tok[0] === '{';
     const isTrim = tok[0] === '~';
+    const isBracket = tok[0] === '[';
     // A {…} brace token is EITHER a fact-check ask ({fc …}/{fact …}) or a {tk …} writing
     // ask. Sniff the keyword to route to the right mark — the two are visually distinct and
     // open the Workshop hub in different modes (fc → verify; tk → 5 options).
@@ -240,10 +296,26 @@ function inlineContent(rawText, type) {
       : (isBrace
         ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
         : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim());
+    if (IS_PALAU && isBracket && PALAU_BRACKET_DURATION_RE.test(inner)) {
+      // Palau interview durations are editorial prose, not chips. Keep the literal "[4.8]"
+      // token on the page so the audit still sees it exactly while the surrounding IN/OUT
+      // stamps chip independently. Burma's bracketed [visual] tokens never hit this branch.
+      out.push({ type: 'text', text: tok });
+      last = m.index + tok.length;
+      continue;
+    }
+    if (IS_PALAU && isBracket && hasInlineTimecode(inner)) {
+      // Palau SOT bodies use bare bracketed interview stamps ("[00:03:41]") that are NOT
+      // visual-direction tokens. Route them through the same timecode-mark path as prose so
+      // every SOT stamp becomes a wp-tc-tag copy chip, while Burma keeps its old [visual] path.
+      pushTextWithTimecodes(out, inner || tok);
+      last = m.index + tok.length;
+      continue;
+    }
     // Emit the span — but a timecode embedded INSIDE the span ("[… DAY 2 00:09:19:03]") gets
     // BOTH the span mark AND a timecode chip mark, so every timecode is clickable/copyable.
     const spanMark = { type: markType };
-    if (TIMECODE_RE.test(inner)) {
+    if (hasInlineTimecode(inner)) {
       pushTextWithTimecodes(out, inner || tok, [spanMark]);
     } else {
       out.push({ type: 'text', text: inner || tok, marks: [spanMark] });
@@ -389,6 +461,9 @@ function blockToNode(b, opts) {
       };
 
     case 'sot':
+      {
+        const quote = cleanQuote(bodyText(b));
+        const contentText = IS_PALAU ? stripPalauSotSpeaker(quote, b.speaker || '') : quote;
       return {
         type: 'sotBlock',
         attrs: {
@@ -404,8 +479,9 @@ function blockToNode(b, opts) {
           done: !!b.done,
           flavor: b.flavor ?? null,
         },
-        content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
+        content: [para(inlineContent(contentText, 'plain'))],
       };
+      }
 
     case 'broll':
       return {
@@ -718,6 +794,9 @@ export function nodeText(node) {
       // that's a span fragmented by a timecode chip, never two distinct adjacent spans.
       if (prev && spanType !== null && prev.span === spanType) prev.text += n.text;
       else pieces.push({ span: spanType, text: n.text });
+    }
+    if (n.type === 'directionChip') {
+      pieces.push({ span: null, text: directionChipText(n.attrs) });
     }
     if (n.content) n.content.forEach(walk);
   })(node);

@@ -169,6 +169,11 @@ export const TableRow = Node.create({
       cols: { default: 1 },
       pairId: {
         default: null,
+        // ProseMirror Node.toJSON() serializes every declared attr, so tableRow now writes
+        // `pairId: null` on bare rows. We keep the attr because paired rows need faithful
+        // round-trip identity, and the additive null is already covered as safe by the
+        // migration/round-trip suites (migrate-doc, document-builder, savedoc-invariant,
+        // doc-store, data-loss-round3, write-read-loop).
         parseHTML: (element) => element.getAttribute('data-pair-id') || null,
         renderHTML: (attributes) => (attributes.pairId ? { 'data-pair-id': attributes.pairId } : {}),
       },

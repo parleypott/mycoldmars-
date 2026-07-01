@@ -6,13 +6,15 @@
 // sans prose. A hidden OUTLINE panel slides out from the LEFT (default collapsed).
 
 import { render } from 'preact';
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, rehydrateLocalFromNewest, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, readLatestSavedRaw, ensureResetBackup, LS_DOC_FALLBACK, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly, docsDiffer, snapshotDocConflictAsync } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 import { captureWriteTokenFromUrl } from './write-token.js';
+import { requestPersistentStorage, pruneIfLowHeadroom } from './storage-persist.js';
+import { idbPruneGlobal } from './recovery-store.js';
 import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSnapshotAsync, snapshotToText, dismissSnapshot, dismissSnapshotAsync } from './recovery.js';
 import { idbDeleteDoc } from './recovery-store.js';
 import { getEpisode } from './episode-config.js';
@@ -766,6 +768,10 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     if (row) ed.view.dispatch(state.tr.insert(end, row).scrollIntoView());
   }
 
+  const handleEditorReady = useCallback((ed) => {
+    editorRef.current = ed;
+  }, []);
+
   const words = tel?.words || 0;
   const blocks = tel?.blocks || 0;
   const sot = tel?.sot || 0;
@@ -773,7 +779,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const scaffold = tel?.scaffold || 0;
 
   return (
-    <div class="wp-page" data-readonly={readOnly ? '' : undefined}>
+    <div class="wp-page" data-episode={EPISODE.id} data-readonly={readOnly ? '' : undefined}>
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
           touch nothing but CSS variables. Edit-only chrome below is what we strip. */}
@@ -831,7 +837,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
               readOnlyDoc={readOnlyDoc}
               recoveredDoc={recoveredDoc}
               onTelemetry={setTel}
-              onEditorReady={(ed) => { editorRef.current = ed; }}
+              onEditorReady={handleEditorReady}
             />
           </div>
 
@@ -966,6 +972,20 @@ async function startup() {
     render(<App readOnly readOnlyDoc={cloudDoc} />, el);
     return;
   }
+
+  // #2 — DURABILITY: opt this origin into PERSISTENT storage ONCE per load, and prune the recovery
+  // snapshots proactively if the quota is getting tight — BEFORE a save can throw QuotaExceededError,
+  // not after catching the wall. Both are fire-and-forget and NEVER throw: persist() denial degrades
+  // silently to best-effort (unchanged pre-#2 behavior), and the headroom prune only acts when the
+  // estimate API reports low headroom. Kept off the read-only path — a recipient's device must not
+  // request persistence for someone else's shared doc, and has no recovery store to prune.
+  requestPersistentStorage().then((r) => {
+    if (r && r.persisted) console.info('[burma] storage: persistent' + (r.already ? ' (already granted)' : ' (granted)'));
+    else console.info('[burma] storage: best-effort (persist ' + ((r && r.reason) || 'unavailable') + ') — degrading gracefully');
+  }).catch(() => {});
+  pruneIfLowHeadroom(() => idbPruneGlobal()).then((p) => {
+    if (p && p.low) console.info('[burma] storage headroom low (ratio ' + (p.ratio || 0).toFixed(2) + ') — pruned ' + p.pruned + ' recovery snapshot(s) before the wall');
+  }).catch(() => {});
 
   // BOOT READ SIDE (palau-v2) — recover the newest canonical doc BEFORE migration or render so a
   // quota-full edit parked in `.z`/IDB is the doc every downstream path reasons from on reload.

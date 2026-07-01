@@ -8,15 +8,19 @@
 // Block chrome (drag grip, copy/done/VO controls) is owned by each node's NodeView
 // (extensions/blocks.js) and dispatches real transactions — no centralized DOM shim.
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
 import { getMarkRange } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
+import { memo } from 'preact/compat';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
+import { ChapterFrames } from './extensions/chapter-frames.js';
+import { SlashMenu } from './extensions/slash-menu.js';
+import { PasteSanitize } from './extensions/paste-sanitize.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
@@ -162,7 +166,88 @@ export function telemetry(doc) {
   return { words, blocks, sot, done, scaffold, outline };
 }
 
-export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnlyDoc, recoveredDoc }) {
+function scheduleIdleTask(fn, timeout = 500) {
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    return { kind: 'idle', id: window.requestIdleCallback(fn, { timeout }) };
+  }
+  return {
+    kind: 'timeout',
+    id: setTimeout(() => fn({ didTimeout: false, timeRemaining: () => 0 }), timeout),
+  };
+}
+
+function cancelIdleTask(task) {
+  if (!task) return;
+  if (task.kind === 'idle' && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+    window.cancelIdleCallback(task.id);
+    return;
+  }
+  clearTimeout(task.id);
+}
+
+function selectionWrapperKey(editor) {
+  if (!editor) return 'off';
+  const keys = new Set();
+  const addPos = ($pos) => {
+    for (let d = $pos.depth; d > 0; d -= 1) {
+      if ($pos.node(d).type?.name === 'tableRow') {
+        keys.add(`row:${$pos.before(d)}`);
+        break;
+      }
+    }
+    for (let d = $pos.depth; d > 0; d -= 1) {
+      const node = $pos.node(d);
+      if (node?.attrs?.blockId) {
+        keys.add(`block:${node.attrs.blockId}`);
+        return;
+      }
+      if (node?.type?.name === 'scriptStart') {
+        keys.add(`script:${$pos.before(d)}`);
+        return;
+      }
+    }
+  };
+  addPos(editor.state.selection.$from);
+  addPos(editor.state.selection.$to);
+  return Array.from(keys).sort().join('|') || 'off';
+}
+
+function paintActiveSelectionWrappers(editor) {
+  // GUARD: editor.view is a throwing Proxy until the ProseMirror view mounts (isInitialized flips
+  // true). Reading `.dom` before then throws — so gate on isInitialized, never on `editor?.view?.dom`
+  // (that optional chain still trips the Proxy getter and throws).
+  if (!editor?.isInitialized) return;
+  const root = editor.view.dom;
+  if (!root) return;
+  const next = new Set();
+  const addHost = ($pos) => {
+    try {
+      const { node } = editor.view.domAtPos($pos.pos);
+      const start = node?.nodeType === 1 ? node : node?.parentElement;
+      const row = start?.closest?.('.wp-trow');
+      const block = start?.closest?.('.wp-cart, .wp-none, .wp-script-begins');
+      if (row) next.add(row);
+      if (block) next.add(block);
+    } catch {}
+  };
+  addHost(editor.state.selection.$from);
+  addHost(editor.state.selection.$to);
+  root.querySelectorAll('[data-pm-active-selection]').forEach((el) => {
+    if (!next.has(el)) el.removeAttribute('data-pm-active-selection');
+  });
+  next.forEach((el) => el.setAttribute('data-pm-active-selection', ''));
+}
+
+function clearActiveSelectionWrappers(editor) {
+  // GUARD: see paintActiveSelectionWrappers — `editor?.view?.dom` throws via the view Proxy before
+  // the view mounts, so gate on isInitialized instead of optional-chaining through `.view`.
+  if (!editor?.isInitialized) return;
+  editor.view.dom?.querySelectorAll?.('[data-pm-active-selection]')?.forEach((el) => {
+    el.removeAttribute('data-pm-active-selection');
+  });
+}
+
+export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnlyDoc, recoveredDoc }) {
   // READ-ONLY SHARE (read-only-share): frozen at mount. In read-only mode the editor is constructed
   // NON-editable and the ENTIRE persistence layer is short-circuited — no debounce, no flushSave, no
   // pagehide/visibility/storage listeners, no cloud push. A reader's browser has no code path that
@@ -177,6 +262,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
   // numbers don't need to update mid-burst — refreshing them when typing pauses is invisible to the
   // user and removes the only unbounded synchronous per-keystroke work. wp-dirty still fires instantly.
   const telTimer = useRef(null);
+  const telIdleTask = useRef(null);
 
   // The SINGLE canonical-write path. Cancels any pending debounce and writes the absolute latest
   // editor JSON through saveDoc (quota-aware retry + read-back invariant + loud failure). Used by
@@ -267,15 +353,34 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
         strike: false,
         // We own dropcursor/gapcursor below so we can Swiss-red the dropcursor.
         dropcursor: false, gapcursor: false,
+        // WP-12 — undo history tuning. depth 100 (not "infinite") caps the in-memory step stack;
+        // newGroupDelay 750ms coalesces a typing burst into ONE undo step so Cmd+Z rolls back a
+        // sentence, not a letter. The stack is session-only ProseMirror state — we persist ONLY
+        // editor.getJSON() (the doc), never the history, so it rebuilds fresh on every load and never
+        // adds to the storage pressure that caused the original quota crash.
+        history: { depth: 100, newGroupDelay: 750 },
       }),
       Dropcursor.configure({ color: '#d23b2c', width: 2 }),
       Gapcursor,
       ...BURMA_TABLE_NODES,
       ...BURMA_NODES,
       ...BURMA_MARKS,
+      ChapterFrames,
+      SlashMenu,
+      PasteSanitize,
     ],
     content: initial,
     autofocus: false,
+    // PERF-4 — the real per-keystroke win is `shouldRerenderOnTransaction: false`: ProseMirror
+    // mutates its own DOM in place without bouncing this component through React/Preact on every
+    // transaction. We deliberately DO NOT set `immediatelyRender: true`: under Preact that exposes
+    // the `editor` instance to child effects (BubbleMenu, selection painters) one commit BEFORE
+    // EditorContent mounts the ProseMirror view. Any `editor.view.dom` read in that window hits
+    // tiptap's view Proxy, which THROWS ("view is not available"), crashing the passive-effect flush
+    // and aborting the whole editor mount — no editor, no slash menu. Leaving immediatelyRender at
+    // its default (false) restores the known-good lifecycle: `editor` is null on the first render,
+    // so every child effect safely early-returns, and by the time it is non-null the view is mounted.
+    shouldRerenderOnTransaction: false,
     // READ-ONLY SHARE: construct the surface non-editable so the recipient cannot type, drag, or
     // delete. Combined with the short-circuited persistence below, the doc is structurally frozen.
     editable: !readOnly,
@@ -287,12 +392,20 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
     },
     onUpdate({ editor }) {
       // PERF-3/PERF-7/ux-10 — fire the cheap dirty event INSTANTLY (it's just a CustomEvent), but
-      // defer the expensive telemetry recompute (getJSON + word/outline walk) onto a trailing timer.
-      // No full-doc serialize or tree-walk happens on the synchronous keystroke path anymore.
+      // defer the expensive telemetry recompute (getJSON + word/outline walk) onto a trailing timer,
+      // then spend the actual full-doc walk inside requestIdleCallback (setTimeout fallback) so no
+      // word-count / outline rebuild shares the synchronous edit transaction.
       if (telTimer.current) clearTimeout(telTimer.current);
+      if (telIdleTask.current) {
+        cancelIdleTask(telIdleTask.current);
+        telIdleTask.current = null;
+      }
       telTimer.current = setTimeout(() => {
         telTimer.current = null;
-        onTelemetry?.(telemetry(editor.getJSON()));
+        telIdleTask.current = scheduleIdleTask(() => {
+          telIdleTask.current = null;
+          onTelemetry?.(telemetry(editor.getJSON()));
+        });
       }, 200);
       // READ-ONLY SHARE: a non-editable editor should never fire onUpdate, but guard anyway so NO
       // dirty/debounce/flush path can ever run in a reader's session. Telemetry above is harmless.
@@ -301,13 +414,26 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
       // save-status indicator can show "unsaved" between keystroke and the debounced write.
       window.dispatchEvent(new CustomEvent('wp-dirty'));
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      // Short debounce so the persisted copy is never more than a fraction of a second behind.
-      saveTimer.current = setTimeout(() => { flushRef.current(editor); }, 150);
+      // PERF-7 — keep the durable write OFF the hot keystroke path too. 300ms is still well inside
+      // the existing pagehide/visibility flush safety net, but halves the save churn during bursts.
+      saveTimer.current = setTimeout(() => { flushRef.current(editor); }, 300);
     },
     editorProps: {
       attributes: { class: 'wp-editor-content' },
     },
   });
+
+  const activeSelectionKey = useEditorState({
+    editor,
+    selector: (snapshot) => selectionWrapperKey(snapshot.editor),
+    equalityFn: Object.is,
+  }) || 'off';
+
+  useEffect(() => {
+    if (!editor) return;
+    paintActiveSelectionWrappers(editor);
+    return () => clearActiveSelectionWrappers(editor);
+  }, [editor, activeSelectionKey]);
 
   // The Workshop hub picks an option and asks us to INSERT it where the {TK}/{fc} marker
   // was — the marker dispatched its own {from,to} range, so we replace exactly that range
@@ -428,6 +554,8 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
     if (readOnly) return undefined;
     return () => {
       if (telTimer.current) { clearTimeout(telTimer.current); telTimer.current = null; }
+      if (telIdleTask.current) { cancelIdleTask(telIdleTask.current); telIdleTask.current = null; }
+      clearActiveSelectionWrappers(editor);
       flushRef.current(editor);
     };
   }, [editor]);
@@ -441,6 +569,6 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
       {!readOnly && <Workshop />}
     </>
   );
-}
+});
 
 export { docToBlocks };

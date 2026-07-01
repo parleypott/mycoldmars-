@@ -29,6 +29,14 @@ await p.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
 await p.waitForTimeout(1800);
 
 const data = await p.evaluate(() => {
+  // AUDIT NEUTRALIZE: content-visibility:auto skips offscreen layout, and innerText is
+  // layout-dependent, so an offscreen row would read as '' and false-fail the zero-loss diff.
+  // Force every row fully rendered for the measurement (this can only ADD content to what the
+  // audit sees, never hide any -- it cannot mask real loss). Read a layout prop to flush reflow.
+  const cvKill = document.createElement('style');
+  cvKill.textContent = '.wp-trow, [style*="content-visibility"] { content-visibility: visible !important; contain-intrinsic-size: auto !important; }';
+  document.documentElement.appendChild(cvKill);
+  void document.body.offsetHeight; // force synchronous reflow so innerText sees the now-rendered rows
   const pm = document.querySelector('.ProseMirror');
   const txt = pm ? pm.innerText : (document.body.innerText || '');
   // CELL-AWARE: a split row keeps "what's said" in the LEFT (role:said) cell and "what's

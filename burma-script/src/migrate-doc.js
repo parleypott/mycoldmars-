@@ -464,6 +464,10 @@ function buildSchema() {
       horizontalRule: false,
       strike: false,
       dropcursor: false, gapcursor: false,
+      // WP-12 — mirror Editor.jsx's history config. History is a plugin (not schema), so getSchema
+      // ignores it — but keeping the StarterKit config byte-identical to Editor.jsx honors this
+      // module's lockstep contract and prevents a future reader from thinking the two drifted.
+      history: { depth: 100, newGroupDelay: 750 },
     }),
     Dropcursor.configure({ color: '#d23b2c', width: 2 }),
     Gapcursor,
@@ -865,6 +869,10 @@ function verifyIDBOnlySave(out, version, idbPromise) {
       // idbPutDoc tried to preserve this edit as a `.conflict` snapshot. If that snapshot LANDED,
       // signal a recoverable conflict; if it did NOT (put.preserved === false), the edit is only on
       // screen, so we must download it and word the banner honestly.
+      // STALE-SAVE GUARD (#3) — idbPutDoc refused this write because a STRICTLY NEWER version of the
+      // same tab's doc already occupies the canonical row (two overlapping flushes resolved out of
+      // order). Nothing was lost: the newer content is durable. Treat as a benign success — no banner.
+      if (put && put.reason === 'stale') return true;
       if (put && put.reason === 'conflict') return put.preserved ? 'conflict' : 'conflict-unpreserved';
       if (!put || put.ok !== true || Number(put.ver) !== Number(version)) return false;
       const rec = await idbReadDoc();

@@ -21,7 +21,11 @@ export function BurmaBubbleMenu({ editor }) {
   const ref = useRef(null);
 
   useEffect(() => {
-    if (!editor) return;
+    // GUARD: editor.view is a throwing Proxy until the ProseMirror view mounts (isInitialized).
+    // With immediatelyRender the editor can reach this effect one commit before the view exists;
+    // reading editor.view.dom below would throw and crash the mount. Bail until initialized — the
+    // effect re-runs once `editor` is the mounted instance (immediatelyRender:false guarantees this).
+    if (!editor || !editor.isInitialized) return;
 
     const update = () => {
       const sel = editor.state.selection;
