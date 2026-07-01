@@ -411,3 +411,10 @@
 }
 .wp-page[data-episode="palau"] .wp-trow.wp-drop-before::before { top: -2px; }
 .wp-page[data-episode="palau"] .wp-trow.wp-drop-after::after { bottom: -2px; }
+
+/* ═══════════════ VIZ-CHIP BREATHING ROOM (Johnny: "give a little space so they don't smash") ═══════════════
+   Roomier line-height in the cell prose so stacked viz-tag chips (box-decoration-break inline pills)
+   get vertical air between lines instead of butting background-to-background; a hair of side gap too. */
+.wp-page[data-episode="palau"] .wp-tcell-content .wp-body,
+.wp-page[data-episode="palau"] .wp-cart:not(.wp-chapter) .wp-body { line-height: 1.9; }
+.wp-page[data-episode="palau"] .wp-dhl { margin: 0 1px; }
