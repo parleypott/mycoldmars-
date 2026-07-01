@@ -191,6 +191,8 @@ const IS_PALAU = (() => {
   }
 })();
 const DAY_LOCAL = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
+const DAY_LOCAL_G = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'ig');
+const DAY_TRAILING = new RegExp(`(\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b)\\s*$`, 'i');
 const DAY_BLOCK = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
 const HEAD_ALTERNATION = episodeHeadAlternation();
 const ACT_HEAD = new RegExp(`^(${HEAD_ALTERNATION})\\b`, 'i');
@@ -221,6 +223,20 @@ function hasInlineTimecode(text) {
   return TIMECODE_RE.test(text);
 }
 
+function lastDayInText(text) {
+  if (!text) return null;
+  DAY_LOCAL_G.lastIndex = 0;
+  let day = null;
+  let match;
+  while ((match = DAY_LOCAL_G.exec(text)) !== null) day = Number(match[1]);
+  return day;
+}
+
+function trailingDayStamp(text) {
+  const hit = String(text || '').match(DAY_TRAILING);
+  return hit ? Number(hit[2]) : null;
+}
+
 // Push `text` onto `out` as TipTap text nodes, splitting out EVERY embedded timecode into its
 // own node carrying the 'timecode' mark (a clickable copy-chip carrying the bare tc + the running
 // DAY) — ON TOP of any base marks the surrounding span supplies. This is what tags timecodes
@@ -236,13 +252,16 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   let last = 0, m;
   const timecodeRe = activeInlineTimecodeRegex();
   while ((m = timecodeRe.exec(text)) !== null) {
+    let bundledDay = null;
     if (m.index > last) {
       const seg = text.slice(last, m.index);
-      const dm = seg.match(DAY_LOCAL);
-      if (dm) localDay = Number(dm[1]);
+      bundledDay = trailingDayStamp(seg);
+      const segDay = bundledDay ?? lastDayInText(seg);
+      if (segDay != null) localDay = segDay;
       out.push({ type: 'text', text: seg, ...(baseMarks ? { marks: baseMarks } : {}) });
     }
-    const tcMark = { type: 'timecode', attrs: { tc: m[0], day: localDay ?? null } };
+    const tcAttrs = { tc: m[0], day: localDay ?? null, bundledDay: !!(IS_PALAU && bundledDay != null) };
+    const tcMark = { type: 'timecode', attrs: tcAttrs };
     out.push({ type: 'text', text: m[0], marks: baseMarks ? [...baseMarks, tcMark] : [tcMark] });
     last = m.index + m[0].length;
   }

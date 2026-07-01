@@ -11,6 +11,7 @@ function el(tag, cls, attrs) {
 }
 
 const chapterFramesKey = new PluginKey('chapterFrames');
+const CHAPTER_FRAMES_REBUILD = 'chapterFramesRebuild';
 const EMPTY_STATE = { signature: 'off', decorations: DecorationSet.empty };
 
 function isPalauEpisode() {
@@ -23,10 +24,24 @@ function firstBlockInRow(row) {
   return cell.firstChild || null;
 }
 
-function chapterGenreForRow(row) {
+function chapterRunStartForRow(row) {
   const block = firstBlockInRow(row);
-  if (!block || block.type?.name !== 'chapterBlock') return null;
-  return block.attrs?.genre || 'other';
+  if (!block) return null;
+  if (block.type?.name === 'chapterBlock') {
+    return { kind: 'chapter', genre: block.attrs?.genre || 'other' };
+  }
+  if (block.type?.name === 'sceneBlock') {
+    return { kind: 'scene', genre: 'other' };
+  }
+  return null;
+}
+
+function docHasRunStarts(doc) {
+  let found = false;
+  doc.forEach((row) => {
+    if (!found && row.type?.name === 'tableRow' && chapterRunStartForRow(row)) found = true;
+  });
+  return found;
 }
 
 function buildSignature(doc) {
@@ -37,8 +52,8 @@ function buildSignature(doc) {
       parts.push(`x${index}:${row.type?.name || 'unknown'}:${offset}`);
       return;
     }
-    const genre = chapterGenreForRow(row);
-    if (genre) parts.push(`${index}:${genre}`);
+    const start = chapterRunStartForRow(row);
+    if (start) parts.push(`${index}:${start.kind}:${start.genre}`);
   });
   return parts.join('|');
 }
@@ -53,11 +68,11 @@ function buildDecorations(doc) {
 
   doc.forEach((row, pos, index) => {
     if (row.type?.name !== 'tableRow') return;
-    const genre = chapterGenreForRow(row);
-    if (genre) {
+    const start = chapterRunStartForRow(row);
+    if (start) {
       nextChapterId += 1;
       currentChapterId = nextChapterId;
-      currentGenre = genre;
+      currentGenre = start.genre;
     }
     rows.push({
       index,
@@ -99,14 +114,15 @@ function createPluginState(doc) {
 }
 
 function readChapterRows(root) {
-  const seen = new Set();
+  const seenRuns = new Set();
   return Array.from(root.querySelectorAll('.wp-chframe-first')).flatMap((node) => {
     const runHost = node.matches('[data-chapter-run]')
       ? node
       : node.closest('[data-chapter-run]') || node.querySelector('[data-chapter-run]');
-    if (!runHost?.getAttribute('data-chapter-run') || seen.has(node)) return [];
-    seen.add(node);
-    return [node];
+    const runId = runHost?.getAttribute('data-chapter-run');
+    if (!runId || seenRuns.has(runId)) return [];
+    seenRuns.add(runId);
+    return [runHost];
   });
 }
 
@@ -131,9 +147,16 @@ function shortChapterClause(text) {
 function chapterTitleForRow(row, index) {
   const genreLabel = chapterGenreLabel(row.getAttribute('data-chapter-genre'));
   if (genreLabel) return genreLabel;
-  const text = row.querySelector('[data-chapter] .wp-body')?.textContent || row.querySelector('[data-chapter]')?.textContent || '';
+  const header = row.querySelector('[data-chapter], [data-scene]');
+  const text = header?.querySelector('.wp-body')?.textContent || header?.textContent || '';
   const short = shortChapterClause(text);
   return short || `Chapter ${index + 1}`;
+}
+
+function sidebarHostForView(editorView) {
+  if (typeof document === 'undefined') return null;
+  return editorView.dom.closest?.('.wp-page[data-episode="palau"]')
+    || document.querySelector('.wp-page[data-episode="palau"]');
 }
 
 function createSidebarView(editorView) {
@@ -141,20 +164,47 @@ function createSidebarView(editorView) {
     return { update() {}, destroy() {} };
   }
 
-  const host = editorView.dom.closest('.wp-page') || document.body;
   const dom = el('aside', 'wp-chapter-sidebar', { 'data-chapter-sidebar': '', contenteditable: 'false', 'aria-hidden': 'true' });
   const counter = el('div', 'wp-chapter-sidebar-count');
   const title = el('div', 'wp-chapter-sidebar-title');
   dom.appendChild(counter);
   dom.appendChild(title);
-  host.appendChild(dom);
 
+  let host = null;
   let rows = [];
   let rafId = 0;
   let destroyed = false;
+  let rebuildQueued = false;
+
+  const ensureHost = () => {
+    const nextHost = sidebarHostForView(editorView);
+    if (!nextHost) return false;
+    if (host !== nextHost || dom.parentNode !== nextHost) {
+      host = nextHost;
+      host.appendChild(dom);
+    }
+    return true;
+  };
+
+  const maybeForceRebuild = () => {
+    if (destroyed || rebuildQueued || !isPalauEpisode()) return;
+    const pluginState = chapterFramesKey.getState(editorView.state);
+    if (pluginState?.signature !== EMPTY_STATE.signature) return;
+    if (!docHasRunStarts(editorView.state.doc)) return;
+    rebuildQueued = true;
+    queueMicrotask(() => {
+      rebuildQueued = false;
+      if (destroyed || !isPalauEpisode()) return;
+      const currentState = chapterFramesKey.getState(editorView.state);
+      if (currentState?.signature !== EMPTY_STATE.signature) return;
+      if (!docHasRunStarts(editorView.state.doc)) return;
+      editorView.dispatch(editorView.state.tr.setMeta(CHAPTER_FRAMES_REBUILD, true));
+    });
+  };
 
   const paint = () => {
     if (destroyed) return;
+    if (!ensureHost()) return;
     if (!rows.length) {
       dom.hidden = true;
       counter.textContent = '';
@@ -182,6 +232,8 @@ function createSidebarView(editorView) {
   };
 
   const refreshRows = () => {
+    ensureHost();
+    maybeForceRebuild();
     rows = readChapterRows(editorView.dom);
     schedulePaint();
   };
@@ -198,7 +250,11 @@ function createSidebarView(editorView) {
   return {
     update(view, prevState) {
       if (prevState.doc !== view.state.doc) refreshRows();
-      else schedulePaint();
+      else {
+        ensureHost();
+        maybeForceRebuild();
+        schedulePaint();
+      }
     },
     destroy() {
       destroyed = true;
@@ -219,9 +275,13 @@ export const ChapterFrames = Extension.create({
         init: (_, state) => createPluginState(state.doc),
         apply(tr, pluginState) {
           if (!isPalauEpisode()) return pluginState === EMPTY_STATE ? pluginState : EMPTY_STATE;
-          if (!tr.docChanged) return pluginState;
+          const forceRebuild = tr.getMeta(CHAPTER_FRAMES_REBUILD) === true;
+          const shouldRecoverFromOff =
+            pluginState.signature === EMPTY_STATE.signature
+            && docHasRunStarts(tr.doc);
+          if (!tr.docChanged && !forceRebuild && !shouldRecoverFromOff) return pluginState;
           const signature = buildSignature(tr.doc);
-          if (signature === pluginState.signature) {
+          if (!forceRebuild && !shouldRecoverFromOff && signature === pluginState.signature) {
             const mapped = pluginState.decorations.map(tr.mapping, tr.doc);
             if (mapped === pluginState.decorations) return pluginState;
             return { ...pluginState, decorations: mapped };

@@ -266,6 +266,38 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-dchip[data-kind="direction"]{ background:transparent; }
 .wp-dchip-break{ display:flex; align-items:center; gap:8px; margin:10px 0; color:var(--label-5); font-family:var(--mono); font-size:var(--chrome-size); letter-spacing:.2em; }
 .wp-dchip-break::before,.wp-dchip-break::after{ content:""; flex:1; height:1px; background:var(--rule); }
+
+/* ── DIRECTION MARK (wp-dhl) — highlighter pen on the user's own typed text. ────────────────
+   Pure background wash, no labels, no borders. box-decoration-break:clone keeps the highlight
+   intact when a run wraps onto the next line. Colors follow Johnny's legend:
+     archive needed / factcheck todo   → RED    (#f2d4d4)
+     archive found  / factcheck sourced → GREEN  (#d9e8d0)
+     animation  → black text (#1a1a18) on warm grey (#e6e2d6) — "just have it be black"
+     broll      → orange text (#d0873f) + faint orange wash
+     direction  → barely-there warm neutral tint
+   FLAT: no shadows, no borders, no junk. */
+.wp-dhl{
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+.wp-dhl[data-kind="archive"][data-status="needed"],
+.wp-dhl[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; color:inherit; }
+.wp-dhl[data-kind="archive"][data-status="found"],
+.wp-dhl[data-kind="factcheck"][data-status="sourced"]{ background:#d9e8d0; color:inherit; }
+.wp-dhl[data-kind="animation"]{ background:#e6e2d6; color:#1a1a18; }
+.wp-dhl[data-kind="broll"]{ background:rgba(208,135,63,.12); color:#d0873f; }
+.wp-dhl[data-kind="direction"]{ background:rgba(58,56,47,.06); color:inherit; }
+
+/* Archive checkbox widget ☐/☑ — appears before each archive mark run */
+.wp-dhl-cb{
+  display:inline-block; cursor:pointer; user-select:none;
+  font-size:.85em; line-height:1; margin-right:2px; opacity:.75; vertical-align:baseline;
+  -webkit-user-select:none;
+}
+.wp-dhl-cb:hover{ opacity:1; }
+
 .wp-slash-menu{ position:fixed; z-index:60; background:var(--face); border:1.5px solid var(--ink); border-radius:8px; padding:4px; box-shadow:none; font-family:var(--mono); font-size:12px; min-width:180px; }
 .wp-slash-item{ display:block; width:100%; padding:5px 9px; border:0; background:transparent; color:var(--ink); border-radius:5px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; }
 .wp-slash-item.is-active{ background:rgba(255,91,31,.14); }

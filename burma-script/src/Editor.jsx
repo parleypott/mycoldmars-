@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
+import { DirectionMark } from './extensions/direction-chip.js';
 import { ChapterFrames } from './extensions/chapter-frames.js';
 import { SlashMenu } from './extensions/slash-menu.js';
 import { PasteSanitize } from './extensions/paste-sanitize.js';
@@ -365,6 +366,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       ...BURMA_TABLE_NODES,
       ...BURMA_NODES,
       ...BURMA_MARKS,
+      DirectionMark,
       ChapterFrames,
       SlashMenu,
       PasteSanitize,

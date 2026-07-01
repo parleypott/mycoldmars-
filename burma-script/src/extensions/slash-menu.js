@@ -1,7 +1,7 @@
 import { Extension, nodeInputRule } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
 import { isReadOnly } from '../read-mode.js';
-import { DirectionChip, directionChipCommand } from './direction-chip.js';
+import { defaultDirectionMarkAttrs } from './direction-chip.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -10,8 +10,18 @@ function el(tag, cls, attrs) {
   return n;
 }
 
-function insertDirectionBreak(editor) {
-  return editor.chain().focus().insertContent({ type: 'directionBreak' }).run();
+// Set the directionMark on the current cursor position (empty selection).
+// Deletes the slash-command range first so "/archive" text is removed, then
+// stores the mark as a ProseMirror stored mark — the NEXT typed characters inherit it.
+// With inclusive:true on the mark, typing continues to carry the highlight.
+function setDirectionMark(editor, range, kind) {
+  const attrs = defaultDirectionMarkAttrs(kind);
+  return editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .setMark('directionMark', attrs)
+    .run();
 }
 
 function makeItem(title, aliases, run) {
@@ -30,12 +40,12 @@ function makeItem(title, aliases, run) {
 }
 
 export const SLASH_ITEMS = [
-  makeItem('archive', [], (editor) => directionChipCommand(editor, 'archive')),
-  makeItem('factcheck', ['fc', 'source'], (editor) => directionChipCommand(editor, 'factcheck')),
-  makeItem('animation', ['anim'], (editor) => directionChipCommand(editor, 'animation')),
-  makeItem('broll', [], (editor) => directionChipCommand(editor, 'broll')),
-  makeItem('direction', [], (editor) => directionChipCommand(editor, 'direction')),
-  makeItem('break', [], (editor) => insertDirectionBreak(editor)),
+  makeItem('archive',   [],               (editor, range) => setDirectionMark(editor, range, 'archive')),
+  makeItem('factcheck', ['fc', 'source'], (editor, range) => setDirectionMark(editor, range, 'factcheck')),
+  makeItem('animation', ['anim'],         (editor, range) => setDirectionMark(editor, range, 'animation')),
+  makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),
+  makeItem('direction', [],               (editor, range) => setDirectionMark(editor, range, 'direction')),
+  makeItem('break',     [],               (editor, range) => editor.chain().focus().deleteRange(range).insertContent({ type: 'directionBreak' }).run()),
 ];
 
 function createSlashRenderer() {
@@ -162,9 +172,9 @@ export const SlashMenu = Extension.create({
         allowedPrefixes: null,
         allowSpaces: false,
         allow: () => !isReadOnly(),
+        // Pass both editor AND range to props.run so each item controls its own transaction.
         command: ({ editor, range, props }) => {
-          editor.chain().focus().deleteRange(range).run();
-          props.run(editor);
+          props.run(editor, range);
         },
         items: ({ query }) => SLASH_ITEMS.filter((item) => item.match(query)),
         render: () => createSlashRenderer(),

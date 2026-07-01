@@ -258,3 +258,93 @@
 /* The block-type kind labels (DIRECTION / VO / etc.) go quiet grey — the frame + chips carry meaning. */
 .wp-page[data-episode="palau"] .wp-cart-kind,
 .wp-page[data-episode="palau"] .wp-vo-kind { color: #9a917d; }
+
+/* ═══════════════ TABLE GRIDLINES (Johnny: "dividing lines like a table") ═══════════════
+   Every row inside a chapter frame gets a horizontal divider; two-column rows get a center
+   vertical divider — a real table grid, warm lines on cream like his Google Doc. */
+.wp-page[data-episode="palau"] .wp-trow.wp-chframe:not(.wp-chframe-last) {
+  border-bottom: 1px solid #cabfa8;
+}
+/* center vertical divider between the said|shown lanes (line down the middle of the table) */
+.wp-page[data-episode="palau"] .wp-trow[data-cols="2"] .wp-tcell:first-child,
+.wp-page[data-episode="palau"] .wp-trow[data-cols="3"] .wp-tcell:not(:last-child) {
+  border-right: 1px solid #cabfa8;
+}
+
+/* ═══════════════ REMOVE done-checkboxes everywhere (Johnny: "get rid of the check boxes") ═══════════════
+   The per-block "done/shot" toggle button is clutter — gone across the whole Palau script. */
+.wp-page[data-episode="palau"] .wp-done { display: none !important; }
+
+/* ═══════════════ CHAPTER AS A BOOK HEADER (not a numbered block) ═══════════════
+   Johnny: the chapter title should be "a big beautiful chapter header like the chapter of a book"
+   living INSIDE the frame — no number cap, no grip, no cartridge chrome — with a little subtext,
+   then the table starts after it. */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-spine,   /* number cap + drag grip */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-ch-kind, /* the "CH" label */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-cap-num { display: none; }
+
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter {
+  background: transparent;
+  border: 0;
+}
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-cart-body {
+  padding: 14px 10px 20px 4px;
+}
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-ch-head { border-bottom: 0; }
+
+/* The chapter TITLE — big, elegant, book-chapter serif. */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-body > p:first-child {
+  font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+  font-size: 33px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: #2a2720;
+  margin: 0 0 8px;
+}
+/* Everything after the title = quiet italic subtext (the director's note). */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-body > p:not(:first-child) {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 14.5px;
+  font-style: italic;
+  line-height: 1.45;
+  color: #7d7768;
+  margin: 0 0 3px;
+}
+/* Genre tag (MAP / EXPLAINER) — a small quiet uppercase mono eyebrow. */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-ch-tag {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .2em; color: #a89f8a;
+}
+
+/* ═══════════════ VERTICAL SCROLLING CHAPTER LABEL ═══════════════
+   Johnny: "some language typed vertically / rotated 90° along the left side that really faintly
+   says what chapter we're in and scrolls with me a little bit." Rotate the sticky sidebar to run
+   up the left gutter, very faint, current-chapter name only, updating as you scroll. */
+.wp-page[data-episode="palau"] .wp-chapter-sidebar {
+  left: 6px;
+  top: 0; bottom: 0;
+  height: 100vh;
+  width: 44px;
+  max-width: 44px;
+  transform: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wp-page[data-episode="palau"] .wp-chapter-sidebar-count { display: none; }
+.wp-page[data-episode="palau"] .wp-chapter-sidebar-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: rgba(74, 70, 58, .22);
+  white-space: nowrap;
+  max-height: 82vh;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

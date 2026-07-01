@@ -32,6 +32,7 @@ import { strToU8, strFromU8 } from 'fflate';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
+import { DirectionMark } from './extensions/direction-chip.js';
 import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
 import { isReadOnly } from './read-mode.js';
 import {
@@ -474,6 +475,7 @@ function buildSchema() {
     ...BURMA_TABLE_NODES,
     ...BURMA_NODES,
     ...BURMA_MARKS,
+    DirectionMark,
   ]);
 }
 
