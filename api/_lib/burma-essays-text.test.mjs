@@ -432,5 +432,30 @@ eq(stripMarkdown('- [text](https://x.com) link'), 'text link', 'GUARD: bullet+li
 eq(stripMarkdown('I marked it [x] in the margin'), 'I marked it [x] in the margin',
    'GUARD: a "[x]" mid-prose (no line-start bullet) is left intact');
 
+// ── Linked images ([![alt](img)](url)) and empty-text links ([](url)) ──
+// A linked image is an image wrapped in a link — a clickable photo/map, common in
+// essays. It carries NO readable text. The pre-fix code had only the plain image
+// rule + the link rule: the image rule ate the inner ![alt](img), leaving a "[]()"
+// husk (outer brackets + parens, URL gone) that the link rule couldn't touch (it
+// needs >=1 text char), so ElevenLabs read "open bracket close bracket open paren
+// close paren" ALOUD. RED PROOF: the pre-fix image+link pair leaves the husk.
+const stripLinkedImageOLD = (md) =>
+  md.replace(/!\[[^\]]*\]\([^)]+\)/g, '')      // images (pre-fix: runs first, eats the inner image)
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');  // inline links -> text (can't touch empty "[]")
+eq(stripLinkedImageOLD('[![Map of Burma](map.png)](https://example.com)'), '[](https://example.com)',
+   'RED: pre-fix image+link pair leaves a "[](url)" husk the TTS reads aloud');
+eq(stripMarkdown('[![Map of Burma](map.png)](https://example.com)'), '',
+   'FIX: linked image dropped whole — no husk reaches the audio');
+eq(stripMarkdown('A clickable photo: [![](a.jpg)](b.com) end.'), 'A clickable photo:  end.',
+   'FIX: empty-alt linked image dropped, incl. its protocol-less URL (b.com would leak otherwise)');
+eq(stripMarkdown('See [](https://example.com) here'), 'See  here',
+   'FIX: empty-text link ([](url)) dropped — no husk');
+// REGRESSION GUARDS: a normal link still resolves to its text; a plain image is
+// still removed; a normal image caption survives.
+eq(stripMarkdown('Read [the report](https://r.com) now.'), 'Read the report now.',
+   'GUARD: a normal [text](url) link still becomes its text');
+eq(stripMarkdown('![alone](x.png) stays gone'), 'stays gone',
+   'GUARD: a plain image is still removed on its own');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -51,8 +51,19 @@ export function stripMarkdown(md) {
     // by the TTS as the raw note. Strip before anything else.
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/`([^`]+)`/g, '$1')           // inline code
+    // Linked images ([![alt](img)](url)) — an image wrapped in a link. It carries
+    // NO readable text, so drop the whole construct. MUST run before the plain
+    // image rule below: otherwise that rule eats the inner ![alt](img) and leaves
+    // a "[]()" husk (the outer []() with the URL gone) that the TTS reads aloud as
+    // "open bracket close bracket open paren close paren". Common in essays as a
+    // clickable photo/map.
+    .replace(/\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)/g, '')
     .replace(/!\[[^\]]*\]\([^)]+\)/g, '')  // images
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // inline links -> link text
+    // Empty-text inline links ([](url)) — no readable text; drop entirely so the
+    // "[]()" husk never reaches the audio. The link rule above needs >=1 text char,
+    // so it skips these on its own.
+    .replace(/\[\]\([^)]*\)/g, '')
     // Reference-style link USE — [text][id] / [text][] -> keep the visible text, drop [id].
     .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
     // Footnote definition lines ([^id]: text) -> keep the text, drop the marker.
