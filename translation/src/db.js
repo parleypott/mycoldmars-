@@ -26,6 +26,7 @@ import { planProfileSearch, mergeProfileMatches } from './profile-search.js';
 import { lsGet, lsDelete, lsGetIndex } from './ls-index.js';
 import { matchesTusFingerprintKey } from './tus-fingerprint.js';
 import { fieldsToRow as mapFieldsToRow } from './fields-to-row.js';
+import { normalizeError } from './normalize-db-error.js';
 
 // Re-export so existing importers (e.g. upload/media-flow.js) keep their
 // `import { needsTranscode } from '../db.js'` path working after the pure
@@ -180,25 +181,7 @@ export function getStorageInfo() { return supabase ? 'remote' : 'unconfigured'; 
 // ============================================================
 // Error normalization
 // ============================================================
-function normalizeError(err, context) {
-  if (!err) return new Error('Unknown error');
-  // Supabase unique-constraint violation
-  if (err.code === '23505') {
-    const e = new Error(`Already exists: ${err.message || err.details || ''}`);
-    e.code = 'CONSTRAINT';
-    e.context = context;
-    return e;
-  }
-  // Postgres "no rows returned" from .single() — treat as NOT_FOUND
-  if (err.code === 'PGRST116') {
-    const e = new Error(context ? `${context}: not found` : 'Not found');
-    e.code = 'NOT_FOUND';
-    return e;
-  }
-  const e = new Error(err.message || String(err));
-  e.code = err.code;
-  return e;
-}
+// normalizeError now lives in ./normalize-db-error.js (pure + unit-tested).
 
 // ============================================================
 // Projects
