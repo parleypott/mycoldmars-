@@ -20,6 +20,8 @@
  * Run: bun src/crosstab-conflict.test.mjs   (auto-discovered by `bun run test`)
  */
 
+import { strToU8, strFromU8, unzlibSync } from 'fflate';
+
 // ---- shared browser shims (one localStorage = the shared origin store; window captures events) --
 const store = new Map();
 globalThis.localStorage = {
@@ -48,7 +50,22 @@ globalThis.CustomEvent = globalThis.CustomEvent || class { constructor(type, ini
 
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
+const LS_DOC_FALLBACK = LS_DOC + '.z';
 const CONFLICT_PREFIX = LS_DOC + '.conflict.';
+
+// saveDoc now writes the canonical doc BODY as a compressed (fflate zlib, latin1-packed) copy to the
+// small LS_DOC_FALLBACK key, NOT the fat uncompressed LS_DOC key — the whole point of the IDB/quota
+// fix. The cross-tab GUARD still keys off LS_DOC_VER (unchanged), so every version/refusal assertion
+// below is unaffected; only the "what doc body actually landed on disk" read-backs must decompress
+// the .z payload. This helper reads the persisted body the way the app's own read-back invariant does.
+const bodyOnDisk = () => {
+  const packed = store.get(LS_DOC_FALLBACK);
+  if (packed == null) return null;
+  let raw = null;
+  try { raw = strFromU8(unzlibSync(strToU8(packed, true))); } catch { return null; }
+  try { return JSON.parse(raw); } catch { return null; }
+};
+const bodyText = (doc) => doc?.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.text ?? null;
 
 // Two independent "tabs" — separate module instances, shared store.
 const TabA = await import('./migrate-doc.js?tab=A');
@@ -86,7 +103,7 @@ const resB = TabB.saveDoc(docWith('B-NEWER-EDITS'));
 ok(resB.ok, '2a. tab B save succeeds');
 eq(resB.version, 1, '2b. tab B save stamps version 1');
 eq(parseInt(localStorage.getItem(LS_DOC_VER), 10), 1, '2c. on-disk version is now 1');
-ok(JSON.parse(localStorage.getItem(LS_DOC)).content[0].content[0].content[0].content[0].content[0].text === 'B-NEWER-EDITS',
+ok(bodyText(bodyOnDisk()) === 'B-NEWER-EDITS',
   '2d. on-disk doc is B\'s newer edits');
 
 // Tab A is still on base v0. It now flushes its STALE in-memory doc (the eager-flush stomp path).
@@ -95,7 +112,7 @@ ok(!resA.ok, '3a. tab A stale save is REFUSED');
 eq(resA.reason, 'cross-tab-conflict', '3b. refusal reason is cross-tab-conflict');
 
 // B's doc is STILL on disk untouched — nothing was stomped.
-eq(JSON.parse(localStorage.getItem(LS_DOC)).content[0].content[0].content[0].content[0].content[0].text,
+eq(bodyText(bodyOnDisk()),
   'B-NEWER-EDITS', '3c. B\'s newer doc survived — A did NOT overwrite it');
 eq(parseInt(localStorage.getItem(LS_DOC_VER), 10), 1, '3d. on-disk version unchanged (still 1)');
 
@@ -121,7 +138,7 @@ eq(parseInt(localStorage.getItem(LS_DOC_VER), 10), 2, '6d. on-disk version is no
 // (B is now the stale tab — same guard protects A's v2 from B's v1-based stomp.)
 const resB2 = TabB.saveDoc(docWith('B-NOW-STALE'));
 ok(!resB2.ok && resB2.reason === 'cross-tab-conflict', '7. guard is symmetric — now B (stale) is refused');
-eq(JSON.parse(localStorage.getItem(LS_DOC)).content[0].content[0].content[0].content[0].content[0].text,
+eq(bodyText(bodyOnDisk()),
   'A-AFTER-RELOAD', '7b. A\'s v2 survived B\'s stale attempt');
 
 // ── fresh first-write: a brand-new origin (no prior doc) saves cleanly, stamps v1 ──────────────

@@ -3,8 +3,8 @@
  *
  * THE LIVE FAILURE: localStorage filled with full-size recovery snapshots (.bak/.conflict/.corrupt
  * @ ~167KB each) plus a derived LS_BLOCKS second copy. saveDoc's old quota loop freed ONE oldest
- * recovery copy per retry and never touched LS_BLOCKS at all, so the canonical LS_DOC write could
- * stay stuck while reclaimable space still existed → "SAVE FAILED".
+ * recovery copy per retry and never touched LS_BLOCKS at all, so even the compact compressed `.z`
+ * crash-belt write could stay stuck while reclaimable space still existed → "SAVE FAILED".
  *
  * THE FIX: saveDoc's quota retry now ESCALATES through reclaim tiers, retrying the canonical write
  * after each step, so the live doc essentially never stays permanently stuck while ANY reclaimable
@@ -21,31 +21,42 @@
  * Run: bun src/quota-escalation.test.mjs   (auto-discovered by run-tests.mjs)
  */
 
-// ── programmable localStorage shim: throws quota for LS_DOC until enough bytes are freed ─────────
+import { strToU8 } from 'fflate';
+import { decompressDoc } from './recovery-store.js';
+
+// ── programmable localStorage shim: throws quota for BOTH sync doc stores until enough keys are freed ─
 const store = new Map();
 class QuotaError extends Error { constructor() { super('quota'); this.name = 'QuotaExceededError'; } }
 
 const LS_DOC = 'wp01_burma_doc_v1';
+const LS_DOC_FALLBACK = LS_DOC + '.z';
 const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
 const LS_BLOCKS = 'wp01_burma_blocks_v1';
 const BAK_PREFIX = LS_DOC + '.bak.';
 const CONFLICT_PREFIX = LS_DOC + '.conflict.';
 const CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+const readSavedRaw = () => {
+  const packed = store.get(LS_DOC_FALLBACK);
+  return packed == null ? null : decompressDoc(strToU8(packed, true));
+};
 
-// The shim "fills up" when the number of stored keys exceeds `capacity`. Each LS_DOC write demands
-// room; while the store is over capacity the write throws QuotaExceededError. Evicting keys (which
-// the escalator does) brings the store back under capacity so a retry succeeds. This models the real
-// "lots of fat recovery snapshots hogging quota" condition without needing real byte accounting.
+// The shim "fills up" when the number of stored keys exceeds `capacity`. Each compressed `.z` write
+// demands room; while the store is over capacity the write throws QuotaExceededError. Evicting keys
+// (which the escalator does) brings the store back under capacity so a retry succeeds. This models
+// the real "lots of fat recovery snapshots hogging quota" condition without needing real byte
+// accounting.
 let capacity = Infinity;
 globalThis.localStorage = {
   get length() { return store.size; },
   key: (i) => Array.from(store.keys())[i] ?? null,
   getItem: (k) => (store.has(k) ? store.get(k) : null),
   setItem: (k, v) => {
-    if (k === LS_DOC) {
-      // Count the keys that AREN'T the doc itself (the doc slot is always allowed); if those exceed
-      // capacity, there's no room for the doc write yet.
-      const others = store.size - (store.has(LS_DOC) ? 1 : 0);
+    if (k === LS_DOC_FALLBACK || k === LS_DOC) {
+      // Count the keys that AREN'T either sync doc-body slot; once the disposable recovery keys are
+      // gone, both canonical bodies are allowed to land together.
+      const others = store.size
+        - (store.has(LS_DOC_FALLBACK) ? 1 : 0)
+        - (store.has(LS_DOC) ? 1 : 0);
       if (others > capacity) throw new QuotaError();
     }
     store.set(k, String(v));
@@ -117,7 +128,7 @@ const M = await import('./migrate-doc.js?qesc');
   ok(keysWith(CONFLICT_PREFIX).length === 0, '2d. the ENTIRE .conflict tier was sacrificed');
   ok(store.get(CORRUPT_PREFIX + '1700000003000-000000') === 'corrupt-keep',
     '2e. the .corrupt tier was never touched — escalation stopped as soon as the doc fit');
-  ok(JSON.parse(store.get(LS_DOC)).content[0].content[0].content[0].content[0].content[0].text
+  ok(JSON.parse(readSavedRaw()).content[0].content[0].content[0].content[0].content[0].text
     === 'SURVIVES-FULL-ESCALATION', '2f. the live doc actually persisted');
 }
 
@@ -159,7 +170,7 @@ const M = await import('./migrate-doc.js?qesc');
   ok(res.reason === 'quota', '4b. failure reason is quota');
   const ev = lastEvent('wp-save-failed');
   ok(ev && ev.detail?.kind === 'quota', '4c. a loud wp-save-failed kind=quota was raised');
-  ok(store.get(LS_DOC) == null, '4d. nothing half-written masquerading as saved');
+  ok(store.get(LS_DOC_FALLBACK) == null, '4d. nothing half-written masquerading as saved');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════

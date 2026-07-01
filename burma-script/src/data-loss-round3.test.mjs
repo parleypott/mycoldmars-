@@ -14,14 +14,20 @@
 
 const store = new Map();
 let truncateNextDocWrite = false;
+let truncateNextZWrite = false;
 globalThis.localStorage = {
   get length() { return store.size; },
   key: (i) => Array.from(store.keys())[i] ?? null,
   getItem: (k) => (store.has(k) ? store.get(k) : null),
   setItem: (k, v) => {
-    // DL-09 probe: simulate a silent platform TRUNCATION of the LS_DOC write (the exact failure the
-    // read-back invariant exists to catch) — store a mangled value, not what was asked.
+    // DL-09 probe: simulate a silent platform TRUNCATION of the fat LS_DOC write (the exact failure the
+    // read-back invariant exists to catch) — store a mangled value, not what was asked. Under the
+    // palau-v2 dual-write refactor this ALONE no longer fails the migration: the compressed `.z`
+    // crash-belt copy (key `wp01_burma_doc_v1.z`, untouched here) lands byte-complete, so the migration
+    // is durable and correctly reports success. The `truncateNextZWrite` shim lets a SEPARATE case break
+    // BOTH synchronous stores to prove the genuine all-sync-stores-fail path still fails loudly.
     if (truncateNextDocWrite && k === 'wp01_burma_doc_v1') { truncateNextDocWrite = false; store.set(k, String(v).slice(0, 10)); return; }
+    if (truncateNextZWrite && k === 'wp01_burma_doc_v1.z') { truncateNextZWrite = false; store.set(k, String(v).slice(0, 10)); return; }
     store.set(k, String(v));
   },
   removeItem: (k) => { store.delete(k); },
@@ -35,10 +41,12 @@ globalThis.CustomEvent = globalThis.CustomEvent || class { constructor(t, i) { t
 
 const md = await import('./migrate-doc.js?dl3');
 const {
-  saveDoc, syncBaseVersion, migrateStoredDoc, LS_MIGRATED,
+  saveDoc, syncBaseVersion, migrateStoredDoc, LS_MIGRATED, LS_DOC_FALLBACK, readLatestSavedRaw,
   setReloadingForReset, resetReloadingForReset, isReloadingForReset,
   resetSessionBackup, isSessionBackedUp,
 } = md;
+const { decompressDoc } = await import('./recovery-store.js');
+const { strToU8 } = await import('fflate');
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) pass++; else { fail++; console.log('FAIL ' + label); } };
@@ -60,7 +68,15 @@ const ok = (cond, label) => { if (cond) pass++; else { fail++; console.log('FAIL
   resetReloadingForReset();
 }
 
-// ── DL-09 — a silently-truncated migration write must NOT set the migrated marker ───────────────
+// ── DL-09 — DUAL-WRITE MIGRATION DURABILITY (palau-v2 semantics) ─────────────────────────────────
+// The refactor superseded the OLD single-store invariant ('a truncated LS_DOC write must FAIL the
+// migration'). migrateStoredDoc now persists through writeCanonicalStores, which writes the compressed
+// `.z` crash-belt AND the fat LS_DOC AND queues the IDB row. When ONLY the fat LS_DOC write is silently
+// truncated, the `.z` copy still lands byte-complete, so the migration is DURABLE — it correctly
+// reports success and sets LS_MIGRATED, and the complete migrated bytes live in `.z` (promoted back
+// into LS_DOC on the next boot via rehydrateLocalFromNewest's source==='z' branch). NO edit is lost.
+// This case asserts that CORRECT dual-write success semantics — the durability guarantee the refactor
+// actually provides — not the stale 'LS_DOC truncation fails the migration' invariant it replaced.
 {
   store.clear();
   resetReloadingForReset();
@@ -72,11 +88,52 @@ const ok = (cond, label) => { if (cond) pass++; else { fail++; console.log('FAIL
   };
   store.set('wp01_burma_doc_v1', JSON.stringify(flat));
   syncBaseVersion();
-  truncateNextDocWrite = true; // the STEP-4 persist will be silently truncated
+  truncateNextDocWrite = true; // the STEP-4 persist's fat LS_DOC write will be silently truncated
   const r = migrateStoredDoc();
-  ok(r.ok === false, 'DL-09a. migration reports failure when the persisted write is truncated');
-  ok(/write-failed/.test(r.reason || ''), 'DL-09b. failure reason names the write failure');
-  ok(store.get(LS_MIGRATED) !== '1', 'DL-09c. LS_MIGRATED NOT set after a failed migration write (re-runs next load)');
+  ok(r.ok === true && r.migrated === true,
+    'DL-09a. migration SUCCEEDS despite a truncated fat LS_DOC — the `.z` crash-belt is durable');
+  ok(store.get(LS_MIGRATED) === '1',
+    'DL-09b. LS_MIGRATED IS set — the migrated doc is durably persisted, no re-run needed');
+  // The `.z` copy must hold the COMPLETE migrated bytes (not the 10-char truncated LS_DOC).
+  let zRaw = null;
+  try {
+    const packed = store.get(LS_DOC_FALLBACK);
+    zRaw = packed != null ? decompressDoc(strToU8(packed, true)) : null;
+  } catch { zRaw = null; }
+  let zDoc = null;
+  try { zDoc = zRaw ? JSON.parse(zRaw) : null; } catch { zDoc = null; }
+  ok(zDoc && zDoc.type === 'doc' && Array.isArray(zDoc.content) && zDoc.content.length > 0,
+    'DL-09c. the `.z` copy holds the COMPLETE migrated doc (parses, all rows present)');
+  ok(Array.isArray(zDoc?.content) && zDoc.content.every((n) => n && n.type === 'tableRow'),
+    'DL-09d. the durable `.z` migrated doc is fully table-wrapped (the migration actually completed)');
+  // readLatestSavedRaw() (the canonical newest reader) returns the COMPLETE `.z` bytes, not the
+  // truncated LS_DOC — proving the boot resolver reasons from the durable copy, so no edit is lost.
+  const newest = readLatestSavedRaw();
+  ok(newest === zRaw && newest !== store.get('wp01_burma_doc_v1'),
+    'DL-09e. readLatestSavedRaw() prefers the complete `.z` copy over the truncated LS_DOC');
+}
+
+// ── DL-09f — GENUINE all-sync-stores-fail STILL fails loudly + does NOT mark migrated ────────────
+// The dual-write success above must NOT become a blanket "migration always succeeds". When BOTH
+// synchronous stores are broken (fat LS_DOC AND the `.z` crash-belt truncated), writeCanonicalStores
+// reports syncDurable===false and migrateStoredDoc must report failure and NOT set LS_MIGRATED, so the
+// migration re-runs next load rather than marking a half-persisted state complete.
+{
+  store.clear();
+  resetReloadingForReset();
+  const flat = {
+    type: 'doc',
+    content: [{ type: 'chapterBlock', attrs: { blockId: 'c2', genre: 'other' },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'CH TWO four five six' }] }] }],
+  };
+  store.set('wp01_burma_doc_v1', JSON.stringify(flat));
+  syncBaseVersion();
+  truncateNextDocWrite = true;
+  truncateNextZWrite = true; // break BOTH synchronous stores this time
+  const r = migrateStoredDoc();
+  ok(r.ok === false, 'DL-09f. migration FAILS when BOTH synchronous stores are truncated');
+  ok(/write-failed/.test(r.reason || ''), 'DL-09g. failure reason names the write failure');
+  ok(store.get(LS_MIGRATED) !== '1', 'DL-09h. LS_MIGRATED NOT set after an all-sync-fail migration (re-runs next load)');
 }
 
 // ── DL-8 — a programmatic adopt/seed saveDoc resets the session-backup latch ─────────────────────

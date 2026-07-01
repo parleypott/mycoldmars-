@@ -9,11 +9,12 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
-import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
-import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cloud-sync.js';
+import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, rehydrateLocalFromNewest, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, readLatestSavedRaw, ensureResetBackup, LS_DOC_FALLBACK, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
+import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly, docsDiffer, snapshotDocConflictAsync } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 import { captureWriteTokenFromUrl } from './write-token.js';
 import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSnapshotAsync, snapshotToText, dismissSnapshot, dismissSnapshotAsync } from './recovery.js';
+import { idbDeleteDoc } from './recovery-store.js';
 import { getEpisode } from './episode-config.js';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
@@ -413,6 +414,12 @@ function SaveStatus() {
     // and drop the red banner WITHOUT a manual reload. (Quota-failed + stale-recovery self-heal; the
     // genuine cross-tab/cloud CONFLICT stays sticky-until-reload — it's tracked separately in `cloud`.)
     const onSaved = () => { setState('saved'); setFailMsg(''); setSavedAt(Date.now()); };
+    // DEGRADED-DURABLE save (idb-only): fast localStorage was full so the edit landed ONLY in the
+    // IndexedDB backstop — durable + recovers on reload, but NOT proof storage healed, so unlike
+    // onSaved it must NOT clear a standing 'failed'. It only clears the transient 'saving' so the
+    // pill can never hang on "SAVING…" after a durable degraded save. (wp-save-degraded had no
+    // listener before — the pill hung indefinitely.)
+    const onDegraded = () => { setState((s) => (s === 'failed' ? s : 'saved')); setSavedAt(Date.now()); };
     const onFailed = (e) => {
       setState('failed');
       setFailMsg(e.detail?.message || 'your edits are NOT being saved.');
@@ -433,6 +440,7 @@ function SaveStatus() {
     const onCloudConflict = () => { setCloud('conflict'); setCloudConflict(true); };
     window.addEventListener('wp-dirty', onDirty);
     window.addEventListener('wp-saved', onSaved);
+    window.addEventListener('wp-save-degraded', onDegraded);
     window.addEventListener('wp-save-failed', onFailed);
     window.addEventListener('wp-stale-tab', onStale);
     window.addEventListener('wp-cloud-saved', onCloudSaved);
@@ -447,6 +455,7 @@ function SaveStatus() {
     return () => {
       window.removeEventListener('wp-dirty', onDirty);
       window.removeEventListener('wp-saved', onSaved);
+      window.removeEventListener('wp-save-degraded', onDegraded);
       window.removeEventListener('wp-save-failed', onFailed);
       window.removeEventListener('wp-stale-tab', onStale);
       window.removeEventListener('wp-cloud-saved', onCloudSaved);
@@ -701,7 +710,7 @@ function ReadOnlyBadge() {
   );
 }
 
-function App({ readOnly = false, readOnlyDoc = null }) {
+function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const [tel, setTel] = useState(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
@@ -712,21 +721,20 @@ function App({ readOnly = false, readOnlyDoc = null }) {
     if (icon && EPISODE.favicon) icon.setAttribute('href', EPISODE.favicon);
   }, []);
 
-  function resetDoc() {
+  async function resetDoc() {
     // SACRED #1 — never wipe Johnny's fills without a recoverable copy. Snapshot the current
     // saved doc to a timestamped backup BEFORE removing it. snapshotDoc returns null when the
     // backup could not be written (quota / private mode) — in that case ABORT the reset rather
     // than destroy fills with no recovery copy. Only wipe if we know the snapshot landed (or
-    // there was no saved doc to lose in the first place).
-    let saved = null;
-    try { saved = localStorage.getItem(LS_DOC); } catch {}
-    if (saved) {
-      let bak = null;
-      try { bak = snapshotDoc(); } catch {}
-      if (!bak) {
-        alert('RESET cancelled — could not back up your current script (storage full or blocked). Export first, then reset.');
-        return;
-      }
+    // there was no saved doc to lose in the first place). palau-v2 (#4): ensureResetBackup gates on
+    // the canonical NEWEST doc across ALL stores — sync `.z`/LS_DOC AND the async IndexedDB doc row —
+    // so an IDB-only device (localStorage empty, doc only in IDB) still gets a must-land backup
+    // before the wipe, instead of the sync-only reader seeing nothing and destroying the sole copy.
+    let okToProceed = true;
+    try { okToProceed = await ensureResetBackup(); } catch { okToProceed = false; }
+    if (!okToProceed) {
+      alert('RESET cancelled — could not back up your current script (storage full or blocked). Export first, then reset.');
+      return;
     }
     // DL-05 — arm the reset reload guard BEFORE we remove the doc + reload. The reload fires
     // pagehide/beforeunload → flushSave → saveDoc; without this flag that teardown flush would
@@ -734,10 +742,12 @@ function App({ readOnly = false, readOnlyDoc = null }) {
     // reset (and re-push it to cloud). flushSave + saveDoc both early-return while this is set.
     setReloadingForReset();
     try { localStorage.removeItem(LS_DOC); } catch {}
+    try { localStorage.removeItem(LS_DOC_FALLBACK); } catch {}
     // Clear the version + migration lineage too, so a (suppressed) resurrected write can't carry the
     // old version forward and a fresh-from-source doc re-runs migration cleanly on next load.
     try { localStorage.removeItem(LS_DOC_VER); } catch {}
     try { localStorage.removeItem(LS_MIGRATED); } catch {}
+    try { await idbDeleteDoc(); } catch {}
     location.reload();
   }
   function openExports() { window.dispatchEvent(new CustomEvent('wp-open-exports')); }
@@ -819,6 +829,7 @@ function App({ readOnly = false, readOnlyDoc = null }) {
             <BurmaEditor
               sourceBlocks={SOURCE_BLOCKS}
               readOnlyDoc={readOnlyDoc}
+              recoveredDoc={recoveredDoc}
               onTelemetry={setTel}
               onEditorReady={(ed) => { editorRef.current = ed; }}
             />
@@ -852,40 +863,29 @@ function App({ readOnly = false, readOnlyDoc = null }) {
   );
 }
 
-// SACRED #1 — SAFE MIGRATION (tbl-dim-migrate). Run ONCE before the editor mounts: back up
-// Johnny's saved doc, wrap pre-table flat blocks into full-width rows, validate (text-equality
-// + live-schema round-trip), and only persist the rowed doc on success — otherwise keep the
-// original untouched. Version-gated + idempotent, so a healthy doc is never re-wrapped. The
-// editor then seeds the already-migrated doc; its downstream ensureTableDoc is a clean no-op.
-//
-// READ-ONLY SHARE: migration WRITES to LS_DOC. A reader must never write, so we skip the whole
-// pass — the read-only seed comes from the cloud and is wrapped in-memory by ensureTableDoc. The
-// reader's own localStorage is left completely untouched.
-if (!isReadOnly()) try {
-  const r = migrateStoredDoc();
-  if (!r.ok) {
-    console.warn('[burma] safe migration held back original doc:', r.reason, r.error || '');
-    // If migration was held back for a STORAGE reason (can't back up / unavailable), storage is
-    // broken — every downstream autosave will fail too. Make that loud + visible up front rather
-    // than letting Johnny type into a doc that silently never persists.
-    if (/back up|unavailable/i.test(r.reason || '')) {
-      // STARTUP-BANNER RACE FIX: SaveStatus attaches its wp-save-failed listener on MOUNT, which
-      // happens during render() BELOW — so a wp-save-failed dispatched here (pre-render) is missed
-      // and the banner never shows. Stash the broken-storage state on a module flag that SaveStatus
-      // reads on mount, so the initial failure survives until the listener exists. (We still keep
-      // an event-style detail object so the flag and a live event carry identical shape.)
-      INITIAL_SAVE_FAILURE = {
-        kind: 'storage',
-        message: 'storage is full or blocked — your edits will NOT be saved.',
-      };
+function runStartupMigration() {
+  try {
+    const r = migrateStoredDoc();
+    if (!r.ok) {
+      console.warn('[burma] safe migration held back original doc:', r.reason, r.error || '');
+      // STARTUP-BANNER RACE FIX: SaveStatus mounts during render() below, so a pre-render event would
+      // be missed. Stash the broken-storage state here and let SaveStatus consume it on mount.
+      if (/back up|unavailable/i.test(r.reason || '')) {
+        INITIAL_SAVE_FAILURE = {
+          kind: 'storage',
+          message: 'storage is full or blocked — your edits will NOT be saved.',
+        };
+      }
+    } else if (r.migrated) {
+      console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');
     }
-  } else if (r.migrated) {
-    console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');
+    return r;
+  } catch (e) {
+    // Never let migration failure block the app — the editor's own ensureTableDoc still wraps at
+    // render time as a fallback, and the original saved doc was never overwritten.
+    console.warn('[burma] safe migration errored — original doc untouched:', e);
+    return { ok: false, reason: 'migration threw', error: String(e) };
   }
-} catch (e) {
-  // Never let migration failure block the app — the editor's own ensureTableDoc still wraps at
-  // render time as a fallback, and the original saved doc was never overwritten.
-  console.warn('[burma] safe migration errored — original doc untouched:', e);
 }
 
 // ── DOES THIS DEVICE HAVE A LOCAL DOC? ───────────────────────────────────────────────────────────
@@ -894,9 +894,12 @@ if (!isReadOnly()) try {
 // BEFORE the editor seeds (or the editor would seed from the bundled SOURCE — the reported bug).
 // "Present and parseable" — a corrupt/empty blob is treated as "no usable local doc" so the cloud
 // can still seed (seedDoc independently preserves the corrupt bytes to a .corrupt key, never loses).
-function hasUsableLocalDoc() {
+// readLatestSavedRaw() is the startup sync reader here too, so a fresher `.z` crash-belt counts as
+// "we have a local doc" even if LS_DOC itself is stale/empty after a quota-skipped fat write.
+function hasUsableLocalDoc(resolved = null) {
+  if (resolved?.renderable) return true;
   try {
-    const raw = localStorage.getItem(LS_DOC);
+    const raw = readLatestSavedRaw();
     if (!raw) return false;
     // CH-06 — single shared "renderable?" predicate (parseable + non-empty content). seedDoc and the
     // migrate base-gate use the SAME check, so "usable" means exactly one thing across startup.
@@ -964,12 +967,44 @@ async function startup() {
     return;
   }
 
-  if (hasUsableLocalDoc()) {
+  // BOOT READ SIDE (palau-v2) — recover the newest canonical doc BEFORE migration or render so a
+  // quota-full edit parked in `.z`/IDB is the doc every downstream path reasons from on reload.
+  let resolved = await rehydrateLocalFromNewest();
+  runStartupMigration();
+  // Migration may have rewritten the canonical bytes + version; resolve once more so the render
+  // fork, recovered seed override, and first reconcile all reason from the post-migration newest doc.
+  resolved = await rehydrateLocalFromNewest();
+  const recoveredDoc = resolved?.renderable && !resolved?.lsReady ? resolved.doc : null;
+  const recoveredRead = recoveredDoc ? () => ({
+    hasDoc: true,
+    version: resolved.version || 0,
+    doc: resolved.doc,
+  }) : null;
+  const recoveredDiffers = recoveredDoc ? (otherDoc) => docsDiffer(recoveredDoc, otherDoc) : null;
+  const recoveredSnapshot = recoveredDoc ? () => snapshotDocConflictAsync(recoveredDoc) : null;
+
+  if (hasUsableLocalDoc(resolved)) {
     // OFFLINE-FIRST (unchanged behaviour). Render immediately from the local doc — instant, never
     // blocked on the network — then reconcile against the cloud in the BACKGROUND. The only branch
     // that ever reloads is adopt-cloud (cloud strictly newer); keep-local / noop never reload.
-    render(<App />, el);
-    reconcileOnLoad({ saveDoc, primeVersionFloor })
+    //
+    // IDB-ONLY RECOVERED BOOT (palau-v2): when the resolver found the freshest doc in IDB but quota
+    // still blocked rehydrating LS_DOC/`.z`, recoveredRead feeds reconcile the recovered doc object
+    // directly, and these two injected helpers keep the adopt guard on that SAME recovered content:
+    // localDiffersFrom compares the recovered doc vs cloud, and snapshotConflict snapshots the
+    // recovered bytes themselves. Without this, readLatestSavedRaw() can only see stale/empty sync
+    // storage and the adopt path would diff/snapshot the wrong body on the exact quota-full reload.
+    render(<App recoveredDoc={recoveredDoc} />, el);
+    reconcileOnLoad({
+      saveDoc,
+      primeVersionFloor,
+      ...(recoveredRead ? {
+        readLocal: recoveredRead,
+        readLiveLocal: recoveredRead,
+        localDiffersFrom: recoveredDiffers,
+        snapshotConflict: recoveredSnapshot,
+      } : {}),
+    })
       .then((r) => {
         if (r?.shouldReload) {
           console.info('[burma] cloud sync: adopted', r.action, '(v' + r.version + ') — reloading to re-seed');
