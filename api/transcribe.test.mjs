@@ -18,6 +18,7 @@
 
 import {
   normalizeDeepgram,
+  normalizeWhisper,
   redactApiErrorText,
   extractFilenameFromUrl,
   buildDeepgramKeyterm,
@@ -276,6 +277,93 @@ eq(buildDeepgramKeyterm('  hello   world  '), 'hello world', 'leading/inner/trai
 const fiftyTwo = Array.from({ length: 52 }, (_, i) => `w${i}`).join(' ');
 eq(buildDeepgramKeyterm(fiftyTwo).split(' ').length, 50, 'caps at 50 words');
 eq(buildDeepgramKeyterm(fiftyTwo).split(' ')[0], 'w0', 'keeps the FIRST 50 words, not the last');
+
+// ───────────────────────── normalizeWhisper ─────────────────────────
+// The Whisper twin of normalizeDeepgram — the SECOND contract every Interpreter
+// export depends on when the provider is Whisper. It was inlined inside the async
+// runWhisper (so it could never be unit-tested) while its Deepgram sibling was
+// exhaustively locked; extracting it closes that asymmetry. Whisper has no
+// diarization → every segment is "Speaker 1", word speaker is null. No live bug
+// found — this is a LOCK: each assertion is mutation-proven to go RED on a regress.
+{
+  const wj = {
+    language: 'en',
+    duration: 12.5,
+    text: 'Hello world. How are you?',
+    segments: [
+      { text: ' Hello world. ', start: 0.1, end: 1.0 },
+      { text: 'How are you?', start: 1.2, end: 2.0 },
+    ],
+    words: [
+      { word: 'Hello', start: 0.1, end: 0.5 },
+      { word: 'world', start: 0.6, end: 1.0 },
+    ],
+  };
+  const r = normalizeWhisper(wj, null);
+  eq(r.provider, 'whisper', 'provider tag is whisper');
+  eq(r.language, 'en', 'language from whisper json');
+  eq(r.duration_seconds, 12.5, 'duration passed through');
+  eq(r.full_text, 'Hello world. How are you?', 'full_text from whisper text');
+  eq(r.segments.length, 2, 'two whisper segments → two segments');
+  eq(r.segments[0].index, 0, 'first segment index is 0');
+  eq(r.segments[0].number, 1, 'first segment number is 1 (1-based)');
+  eq(r.segments[1].number, 2, 'second segment number is 2');
+  eq(r.segments[0].speaker, 'Speaker 1', 'whisper has no diarization → Speaker 1');
+  eq(r.segments[1].speaker, 'Speaker 1', 'every whisper segment is Speaker 1');
+  eq(r.segments[0].original, 'Hello world.', 'segment text is trimmed');
+  eq(r.segments[0].start, 0.1, 'segment start passed through');
+  eq(r.segments[0].end, 1.0, 'segment end passed through');
+  eq(r.word_timings.length, 2, 'two word timings');
+  eq(r.word_timings[0].word, 'Hello', 'word timing word passed through');
+  eq(r.word_timings[0].speaker, null, 'whisper word speaker is null');
+}
+
+// language fallback: whisper json has no language → falls back to request language, then null.
+{
+  const r1 = normalizeWhisper({ text: 'x', segments: [], words: [] }, 'my');
+  eq(r1.language, 'my', 'no whisper language → request language used');
+  const r2 = normalizeWhisper({ text: 'x' }, null);
+  eq(r2.language, null, 'no whisper language and no request language → null');
+}
+
+// Missing segments/words fields degrade to [] (never throw). This mirrors the
+// old inline `|| []` MISSING-field guard.
+{
+  const r = normalizeWhisper({ text: 'only text' }, null);
+  eq(r.segments.length, 0, 'missing segments → [] (no throw)');
+  eq(r.word_timings.length, 0, 'missing words → [] (no throw)');
+  eq(r.full_text, 'only text', 'full_text still resolved when segments absent');
+}
+
+// Totally empty / null input must not throw and must degrade cleanly.
+{
+  const r = normalizeWhisper(null, null);
+  eq(r.segments.length, 0, 'null input → no segments, no throw');
+  eq(r.full_text, '', 'null input → empty full_text');
+  eq(r.duration_seconds, null, 'null input → null duration');
+  eq(r.provider, 'whisper', 'null input still tagged whisper');
+}
+
+// RED-proof / HARDENING: a NON-ARRAY segments field (a malformed Whisper reply)
+// must salvage to [] instead of throwing. The OLD inline form (`(x.segments || [])
+// .map`) would THROW here because a non-array is truthy and has no .map — the exact
+// crash normalizeDeepgram already guards for non-array `sentences`. The extracted
+// Array.isArray guard closes that gap.
+{
+  const throwsOnNonArray = (() => {
+    try { normalizeWhisper({ segments: 'oops', words: 'nope', text: 'ok' }, null); return false; }
+    catch { return true; }
+  })();
+  ok(!throwsOnNonArray, 'RED-proof: non-array segments/words salvage to [] (old inline .map would throw)');
+  const r = normalizeWhisper({ segments: 'oops', words: 'nope', text: 'ok' }, null);
+  eq(r.segments.length, 0, 'non-array segments → []');
+  eq(r.word_timings.length, 0, 'non-array words → []');
+}
+
+// RED-proof: if segment labels were ever emitted with a raw/blank speaker, this
+// catches drift. Whisper is always Speaker 1 (1-based, never "Speaker 0").
+ok(normalizeWhisper({ segments: [{ text: 'a', start: 0, end: 1 }] }).segments[0].speaker === 'Speaker 1',
+  'RED-proof: whisper segment speaker is the 1-based "Speaker 1" label');
 
 // ───────────────────────── report ─────────────────────────
 if (fail === 0) {

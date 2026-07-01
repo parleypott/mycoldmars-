@@ -188,6 +188,32 @@ export function normalizeDeepgram(dg) {
   };
 }
 
+// Pure normalization of a Whisper (verbose_json) response into the shared transcript shape.
+// Exported + kept side-effect-free so it can be mutation-locked exactly like its Deepgram sibling
+// (normalizeDeepgram). Whisper carries no diarization, so every segment is "Speaker 1" and word
+// timings get a null speaker. Guards mirror the Deepgram contract: a missing OR non-array
+// segments/words field degrades to [] (the old inline `.segments || []` form only caught a MISSING
+// field — a non-array would have thrown on .map); each segment's text is trimmed; language falls
+// back to the request language, then null. Byte-identical to the old inline map on every real
+// (array / missing) response; the only behavior change is the non-array case (throw → []), which
+// matches how normalizeDeepgram already salvages a non-array `sentences`.
+export function normalizeWhisper(whisperJson, language = null) {
+  const j = whisperJson || {};
+  const segs = Array.isArray(j.segments) ? j.segments : [];
+  const words = Array.isArray(j.words) ? j.words : [];
+  return {
+    provider: 'whisper',
+    language: j.language || language || null,
+    duration_seconds: j.duration || null,
+    full_text: j.text || '',
+    segments: segs.map((s, i) => ({
+      index: i, number: i + 1, speaker: 'Speaker 1',
+      start: s.start, end: s.end, original: (s.text || '').trim(),
+    })),
+    word_timings: words.map(w => ({ word: w.word, start: w.start, end: w.end, speaker: null })),
+  };
+}
+
 // ── Whisper ──────────────────────────────────────────────────────────
 async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
   let mediaBlob;
@@ -233,17 +259,7 @@ async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
   try { whisperJson = await whisperRes.json(); }
   catch { return { status: 502, body: err('whisper_bad_response', 'Whisper returned non-JSON') }; }
 
-  return { status: 200, body: {
-    provider: 'whisper',
-    language: whisperJson.language || language || null,
-    duration_seconds: whisperJson.duration || null,
-    full_text: whisperJson.text || '',
-    segments: (whisperJson.segments || []).map((s, i) => ({
-      index: i, number: i + 1, speaker: 'Speaker 1',
-      start: s.start, end: s.end, original: (s.text || '').trim(),
-    })),
-    word_timings: (whisperJson.words || []).map(w => ({ word: w.word, start: w.start, end: w.end, speaker: null })),
-  } };
+  return { status: 200, body: normalizeWhisper(whisperJson, language) };
 }
 
 // ── helpers ─────────────────────────────────────────────────────────
