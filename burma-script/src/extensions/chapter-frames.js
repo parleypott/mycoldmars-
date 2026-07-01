@@ -30,9 +30,9 @@ function chapterRunStartForRow(row) {
   if (block.type?.name === 'chapterBlock') {
     return { kind: 'chapter', genre: block.attrs?.genre || 'other' };
   }
-  if (block.type?.name === 'sceneBlock') {
-    return { kind: 'scene', genre: 'other' };
-  }
+  // Scenes do NOT start a new frame — a scene lives INSIDE its chapter's frame (Johnny's model:
+  // all the chapter's rows, scenes included, sit within the one big chapter frame). Only real
+  // chapterBlocks open a frame run.
   return null;
 }
 
