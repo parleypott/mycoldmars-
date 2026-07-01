@@ -275,7 +275,7 @@ const DIRECTION_WORDS = /\b(ON[\s-]?CAM|MONOLOGUE|WALK\s*AND\s*TALK|WALK\s*&\s*T
 // glued on ("HISTORY 2 BRITISH x walk and talk" → "HISTORY 2"). Keeps the dark cartridge
 // reading as a crisp section marker. The tail is NOT lost — chapterBody() emits it as a
 // paragraph under the heading (integrity fix: the chapter's body text reaches the page).
-function actLabel(title) {
+export function actLabel(title) {
   let t = clean(title).replace(/\s+/g, ' ').trim();
   const m = t.match(ACT_LABEL_RE);
   if (m) return m[0].toUpperCase().replace(/\s+/g, ' ').trim();
@@ -303,7 +303,7 @@ function bodyText(b) {
 // the rest (COLD OPEN's "Candidates: 1. DAY 2 … 02:32:21:22 …" notes, INQUIRY's theme list).
 // Strip the structural leading label ("CH:", "SCENE:") + the recognized act head off the front
 // of the FULL source text and return EVERYTHING after it as body prose — nothing dropped.
-function headBodySplit(rawTitle, headLabel) {
+export function headBodySplit(rawTitle, headLabel) {
   let t = clean(rawTitle).replace(/\s+/g, ' ').trim();
   // Peel the structural section markers the parser kept ("CH:", "⁃ SCENE:", "SCENE").
   t = t.replace(/^[⁃•‣·\s-]*CH\s*[:.]?\s*/i, '').replace(/^[⁃•‣·\s-]*SCENE\s*[:.]?\s*/i, '').trim();
@@ -319,7 +319,7 @@ function headBodySplit(rawTitle, headLabel) {
 // Decide what a parser-labelled `chapter` REALLY is.
 //   'chapter' → keep (true act divider; title will be clamped to the act label)
 //   'oncam'   → demote (it's narration / a directed on-cam beat, not a section)
-function reclassifyChapter(b) {
+export function reclassifyChapter(b) {
   const title = clean(b.title || '');
   const head = ACT_HEAD.test(title);
   const hasDirection = DIRECTION_WORDS.test(title);
