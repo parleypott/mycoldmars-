@@ -302,7 +302,7 @@ function readCompressedFallbackCandidate() {
   return parseCandidateRaw(raw, version, 'z');
 }
 
-function compareDocCandidates(a, b) {
+export function compareDocCandidates(a, b) {
   if (!a && !b) return 0;
   if (!a) return 1;
   if (!b) return -1;
