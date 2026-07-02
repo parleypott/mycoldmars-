@@ -88,6 +88,39 @@ eq(safeHref('plain text without a scheme'), 'plain text without a scheme', 'safe
 eq(safeHref('javascript:alert(1)'), null, 'safeHref dangerous scheme -> null');
 eq(safeHref('  https://e.com  '), 'https://e.com', 'safeHref trims surrounding whitespace');
 
+// ── balanced-paren URLs: Wikipedia disambiguation links keep their closing ) ──
+// LLM research output constantly cites URLs like …/Taiwan_(island). The old
+// link regex captured the URL as [^)]+ and stopped at the FIRST ')', truncating
+// the href (a broken/404 link) and leaking a stray ')' into the body text.
+{
+  const wiki = '[Taiwan](https://en.wikipedia.org/wiki/Taiwan_(island))';
+  const out = mdToHtml(wiki);
+  // RED PROOF: the old link transform truncates the href at the inner ')'
+  ok(/href="https:\/\/en\.wikipedia\.org\/wiki\/Taiwan_\(island"[ >]/.test(oldMd(wiki)),
+     'RED PROOF: old renderer truncates the href at the first )');
+  ok(/<\/a>\)/.test(oldMd(wiki)), 'RED PROOF: old renderer leaks a stray ) after the link');
+  // FIX: the closing paren is kept inside the href, nothing leaks after the link
+  ok(out.includes('href="https://en.wikipedia.org/wiki/Taiwan_(island)"'),
+     'FIX: balanced-paren href is complete (keeps the closing paren)');
+  ok(!/<\/a>\)/.test(out), 'FIX: no stray ) leaked into the body after the link');
+  ok(/>Taiwan<\/a>/.test(out), 'FIX: label unchanged');
+}
+// a paren mid-URL is preserved too
+ok(mdToHtml('[foo](https://e.com/a_(b)_c)').includes('href="https://e.com/a_(b)_c"'),
+   'mid-URL balanced paren preserved');
+// the balanced matcher must NOT over-consume into trailing prose or a next link
+{
+  const trail = mdToHtml('see [a](http://x.com) and (a note)');
+  ok(trail.includes('href="http://x.com"') && trail.includes('(a note)'),
+     'trailing (prose) after a link is not swallowed into the href');
+  const two = mdToHtml('[a](http://x.com) [b](http://y.com)');
+  ok(/href="http:\/\/x\.com"/.test(two) && /href="http:\/\/y\.com"/.test(two),
+     'two adjacent links: the first does not over-consume the second');
+}
+// a dangerous scheme whose payload has parens is STILL dropped (now fully captured)
+ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
+   'paren-bearing javascript: payload still dropped, no <a>');
+
 // ── ordered lists wrap in <ol> (regression: they used to render as orphan <li>) ──
 // The ordered-item -> <li> conversion used to run AFTER the <li>-run -> <ul> wrap,
 // so every numbered list emitted bare <li> with NO list container. RED PROOF: the

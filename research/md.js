@@ -47,7 +47,12 @@ export function mdToHtml(md) {
   html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+  // URL capture allows one level of balanced parens so Wikipedia-style
+  // disambiguation links — [Taiwan](…/Taiwan_(island)) — keep their closing
+  // paren in the href instead of truncating at the first ')' and leaking a
+  // stray ')' into the body text. `[^()]` still stops at an unmatched ')',
+  // so it never over-consumes into trailing prose or a following link.
+  html = html.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, url) => {
     const href = safeHref(url);
     return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
   });
