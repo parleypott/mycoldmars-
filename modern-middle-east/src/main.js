@@ -92,7 +92,7 @@ function applyTheme(name) {
     map.once('style.load', () => applyMapTheme(theme.map));
   }
 
-  localStorage.setItem('mme-theme', name);
+  try { localStorage.setItem('mme-theme', name); } catch {}
 }
 
 function applyMapTheme(m) {

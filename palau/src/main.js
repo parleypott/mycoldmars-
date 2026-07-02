@@ -1,5 +1,6 @@
 import mapboxgl from 'mapbox-gl';
 import './style.css';
+import { saveTheme } from './save-theme.js';
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
 
@@ -237,7 +238,9 @@ if (vibesBtn) {
   vibesBtn.addEventListener('click', () => {
     const idx = THEME_ORDER.indexOf(currentTheme);
     currentTheme = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
-    localStorage.setItem('palau-theme', currentTheme);
+    // Persist AFTER-safe: a Private-Browsing / quota throw here must never abort
+    // the visual swap below (else the button silently does nothing + desyncs).
+    saveTheme(localStorage, 'palau-theme', currentTheme);
 
     map.setStyle(THEMES[currentTheme].style, { diff: false });
     applyThemeUI(currentTheme);

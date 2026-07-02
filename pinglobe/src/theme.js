@@ -139,7 +139,7 @@ export function initThemes(map) {
       const idx = THEME_ORDER.indexOf(currentTheme);
       const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
       applyTheme(next);
-      localStorage.setItem('globe-theme', next);
+      try { localStorage.setItem('globe-theme', next); } catch {}
 
       // Juicy feedback — brief scale pulse
       btn.style.transform = 'scale(1.15)';

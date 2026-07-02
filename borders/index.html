@@ -525,7 +525,7 @@ function initBordersThemes() {
       const idx = BORDERS_THEME_ORDER.indexOf(currentBordersTheme);
       const next = BORDERS_THEME_ORDER[(idx + 1) % BORDERS_THEME_ORDER.length];
       applyBordersTheme(next);
-      localStorage.setItem('borders-theme', next);
+      try { localStorage.setItem('borders-theme', next); } catch {}
 
       // Juicy feedback — brief scale pulse
       btn.style.transform = 'scale(1.15)';
