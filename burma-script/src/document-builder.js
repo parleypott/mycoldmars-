@@ -137,7 +137,14 @@ export function buildDayCharacterClass(days) {
 
 function episodeDayCharacterClass() {
   try {
-    return buildDayCharacterClass(getEpisode()?.days);
+    const cls = buildDayCharacterClass(getEpisode()?.days);
+    // Validate IN THE MODULE SHAPE. DAY_LOCAL/DAY_BLOCK below compile `[${cls}]` into a
+    // char-class with a bare `new RegExp` — a class source with a regex-hostile char (a
+    // legacy/hand-edited/future episode `days` that slips past buildDayCharacterClass) would
+    // throw AT IMPORT and brick the whole document-builder. Test-compile here so a bad source
+    // degrades to the known-good Burma class instead of taking the editor down.
+    new RegExp(`\\bDAY\\s*([${cls}])\\b`, 'i');
+    return cls;
   } catch (_err) {
     return BURMA_DAY_CLASS;
   }
@@ -147,7 +154,15 @@ export function episodeHeadAlternation() {
   try {
     const heads = (getEpisode()?.genres || []).map((genre) => genre?.head).filter(Boolean);
     if (!heads.length) return BURMA_HEAD_ALTERNATION;
-    return [...heads, ...STRUCTURAL_HEAD_WORDS].join('|');
+    const alternation = [...heads, ...STRUCTURAL_HEAD_WORDS].join('|');
+    // Validate IN THE MODULE SHAPE. ACT_HEAD / ACT_LABEL_RE / HEAD_BODY_SPLIT_RE below each
+    // compile `^(${alternation})…` with a bare `new RegExp` — a single malformed `head`
+    // fragment in ANY episode config (a stray unbalanced paren/bracket, a bad quantifier)
+    // would throw AT IMPORT and brick the ENTIRE document-builder (the whole script editor)
+    // with no recovery. Test-compile here so a bad config degrades to the frozen, known-good
+    // Burma alternation instead of taking the editor down.
+    new RegExp(`^(${alternation})\\b`, 'i');
+    return alternation;
   } catch (_err) {
     return BURMA_HEAD_ALTERNATION;
   }

@@ -104,6 +104,22 @@ setEpisode(PALAU);
 setEpisode({ id: 'x', days: [1], genres: [{ id: 'other', head: null }], storage: {} });
 eq(episodeHeadAlternation(), BURMA_HEAD_ALTERNATION, 'headless episode → Burma fallback alternation');
 
+// ── BRICK-GUARD: a MALFORMED head fragment must NOT take down the editor ──────────────
+// The three module-level head regexes (ACT_HEAD / ACT_LABEL_RE / HEAD_BODY_SPLIT_RE) compile
+// `^(${episodeHeadAlternation()})…` with a bare `new RegExp` at IMPORT. Before the guard, a
+// single bad `head` in any episode config threw there and bricked the whole document-builder.
+// episodeHeadAlternation must test-compile its result and degrade to the Burma default.
+setEpisode({ id: 'bad', days: [1], genres: [{ id: 'x', head: 'GROUND(' }], storage: {} }); // unbalanced (
+eq(episodeHeadAlternation(), BURMA_HEAD_ALTERNATION, 'malformed head "GROUND(" → Burma fallback (no brick)');
+{
+  // The alternation it returns MUST compile in the exact module shape — the whole point.
+  let threw = false;
+  try { headRe(); } catch { threw = true; }
+  ok(!threw, 'headRe() built from a malformed-config episode still compiles (editor loads)');
+}
+setEpisode({ id: 'bad2', days: [1], genres: [{ id: 'x', head: '*BROKEN' }], storage: {} }); // leading quantifier
+eq(episodeHeadAlternation(), BURMA_HEAD_ALTERNATION, 'malformed head "*BROKEN" → Burma fallback (no brick)');
+
 // restore the default so import order can't leak a non-Burma episode into other suites
 setEpisode(BURMA);
 
