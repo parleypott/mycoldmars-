@@ -120,16 +120,29 @@ const THEME_ORDER = ['bold', 'monochrome', 'neon'];
 let currentTheme = 'bold';
 let mapRef = null;
 
+// Read the persisted theme name, degrading safely to `fallback` on ANY storage
+// failure. Blocked-storage contexts (Safari "Block All Cookies", Brave shields,
+// strict private mode) throw SecurityError even on the `localStorage` property
+// access itself — so the access happens INSIDE the try, not in a default arg
+// (`typeof localStorage` can throw too). A present-but-invalid saved value is
+// pruned. Injectable `store` keeps this pure + headless-testable. Sibling to the
+// already-guarded WRITE in the vibes handler below (this READ was the last
+// unguarded storage touch that could crash initThemes at boot).
+export function readSavedTheme(store, fallback = 'bold') {
+  try {
+    const s = store !== undefined ? store : localStorage;
+    const saved = s.getItem('globe-theme');
+    if (saved && THEMES[saved]) return saved;
+    if (saved != null) { try { s.removeItem('globe-theme'); } catch {} }
+  } catch {}
+  return fallback;
+}
+
 export function initThemes(map) {
   mapRef = map;
 
-  // Restore saved theme
-  const saved = localStorage.getItem('globe-theme');
-  if (saved && THEMES[saved]) {
-    currentTheme = saved;
-  } else if (saved) {
-    localStorage.removeItem('globe-theme');
-  }
+  // Restore saved theme (storage-failure-safe)
+  currentTheme = readSavedTheme();
   applyTheme(currentTheme);
 
   // VIBES button — cycles through themes
