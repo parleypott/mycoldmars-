@@ -17,3 +17,21 @@ export function saveTheme(store, key, value) {
     return false;
   }
 }
+
+// Crash-safe localStorage READ for the theme preference — the read-side sibling
+// of saveTheme. This value is read at MODULE TOP-LEVEL (main.js boot), so a raw
+// `localStorage.getItem` there throws SecurityError in blocked-storage contexts
+// (Safari "Block All Cookies", Brave shields, strict private mode) — which aborts
+// the whole module and the map never initializes: the entire page is dead. The
+// storage access lives INSIDE the try (not a default arg), an invalid saved value
+// is ignored, and any storage failure degrades to `fallback`. Injectable + pure,
+// so it's fully headless-testable. Mirrors pinglobe's readSavedTheme.
+export function readTheme(store, key, fallback, isValid = () => true) {
+  try {
+    const saved = store.getItem(key);
+    if (saved && isValid(saved)) return saved;
+  } catch {
+    /* blocked / throwing store — fall through to fallback */
+  }
+  return fallback;
+}

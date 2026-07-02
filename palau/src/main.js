@@ -1,6 +1,6 @@
 import mapboxgl from 'mapbox-gl';
 import './style.css';
-import { saveTheme } from './save-theme.js';
+import { saveTheme, readTheme } from './save-theme.js';
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
 
@@ -202,8 +202,7 @@ const THEMES = {
 };
 
 const THEME_ORDER = ['neon', 'realistic'];
-let currentTheme = localStorage.getItem('palau-theme') || 'neon';
-if (!THEMES[currentTheme]) currentTheme = 'neon';
+let currentTheme = readTheme(localStorage, 'palau-theme', 'neon', (t) => !!THEMES[t]);
 
 // ─── Create Map ───
 const map = new mapboxgl.Map({

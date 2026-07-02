@@ -513,7 +513,8 @@ function applyBordersTheme(name) {
 }
 
 function initBordersThemes() {
-  const saved = localStorage.getItem('borders-theme');
+  let saved = null;
+  try { saved = localStorage.getItem('borders-theme'); } catch {}
   if (saved && BORDERS_THEMES[saved]) {
     currentBordersTheme = saved;
   }

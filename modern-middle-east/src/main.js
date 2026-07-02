@@ -365,8 +365,11 @@ vibesBtn.addEventListener('click', () => {
   setTimeout(() => { vibesBtn.style.transform = ''; }, 150);
 });
 
-// Restore saved theme
-const saved = localStorage.getItem('mme-theme');
+// Restore saved theme — this read runs at module top-level, so a blocked/throwing
+// localStorage (Safari "Block All Cookies", Brave shields, strict private mode) would
+// abort the whole module and the map never inits. Guard the read like the write above.
+let saved = null;
+try { saved = localStorage.getItem('mme-theme'); } catch {}
 if (saved && THEMES[saved]) {
   map.on('style.load', () => applyTheme(saved));
 }
