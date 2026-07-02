@@ -305,6 +305,14 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     // if the cloud still equals this base — a concurrent device that advanced the cloud makes our push
     // 409 (→ latch + banner) instead of silently overwriting the newer doc. base<=0 → pushDoc omits it
     // (strictly-greater fallback), so the first save / an un-seeded tab is never broken.
+    // CAS-REGRESSION REVERT (2026-07-02): we intentionally DO NOT send baseForPush to pushDoc below,
+    // so the cloud write uses the known-good STRICTLY-GREATER rule, not eq.<base> compare-and-swap.
+    // Why: the load-time keep-local reconcile pushes this tab's local doc up WITHOUT advancing
+    // knownBaseVersion, so the first post-load edit's CAS base was stale → the cloud (already moved by
+    // that reconcile push) 409'd it → a FALSE "ANOTHER DEVICE" banner for a solo editor. Strictly-
+    // greater + the benign-conflict guard (handlePushResult) is the proven-quiet state. True CAS is a
+    // real hardening but needs knownBaseVersion to track every accepted cloud push first (a deeper,
+    // multi-tab-tested change). baseForPush stays computed for that future wiring + diagnostics.
     const baseForPush = getKnownBaseVersion();
     const json = editor.getJSON();
     const res = saveDoc(json); // handles its own loud failure + wp-saved on success.
@@ -343,7 +351,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       }
       if (pushVersion > 0) {
         try {
-          Promise.resolve(pushDoc(json, pushVersion, undefined, baseForPush))
+          Promise.resolve(pushDoc(json, pushVersion))
             .then((pr) => handlePushResult(pr, json))
             .catch(() => {});
         } catch {}
