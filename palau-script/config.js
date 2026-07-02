@@ -10,10 +10,10 @@ export const PALAU = {
   wordmark: 'WP·02',
   figLabel: 'fig.04 — REEF RACK',
   recoverPrefix: 'palau-recovered',
-  // LOCAL-ONLY: Palau saves to this device only (IndexedDB + compressed localStorage). No cloud
-  // sync at all — so the cloud-conflict "unsynced backup" banner can never appear and the save pill
-  // reads a calm "ALL CHANGES SAVED". (A real per-episode cloud endpoint is a future opt-in.)
-  localOnly: true,
+  // CLOUD-BACKED (Enterprise Wave 2): Palau now syncs to the shared per-project endpoint like every
+  // other script. It had no canonical cloud doc before (local-only), so the first load keep-locals and
+  // seeds the cloud from this device — the engine's keep-local rule protects the local doc throughout.
+  localOnly: false,
   accent: '#0c7d8c', // ocean teal
   days: [1, 2, 3, 4, 5, 6, 7], // Palau shoot spans 7 days
   sequences: [],
@@ -61,13 +61,11 @@ export const PALAU = {
     WRITE_TOKEN: 'script_palau_write_token_v1',
     DISMISSED: 'script_palau_recovery_dismissed_v1',
   },
-  // CLOUD DELIBERATELY LOCAL-FIRST ONLY for now. The shared /api/burma-script-doc endpoint hardcodes
-  // DOC_ID='wp01-burma' and ignores docId, so any write there would CLOBBER Burma's cloud row. Until a
-  // per-episode endpoint exists, Palau points at an inert same-origin path that 404s — the existing
-  // "table missing / API unreachable" offline machinery handles it gracefully (amber "cloud offline"
-  // pill), and local-first storage remains the data-loss-proof source of truth. TODO: real palau cloud.
+  // CLOUD (Enterprise Wave 2): the generalized per-project endpoint keyed by project 'palau' — the
+  // same login-gated table as every other script. Replaces the old inert '/api/__palau_cloud_disabled'
+  // 404 path now that a real multi-project endpoint exists.
   cloud: {
-    api: '/api/__palau_cloud_disabled',
+    api: '/api/script-doc?project=palau',
     docId: 'palau',
     tokenHeader: 'X-Palau-Write-Token',
     // No `tkApi` set — the Workshop {TK}/fact-check panel falls back to the engine default

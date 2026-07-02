@@ -45,7 +45,12 @@ export const BURMA = {
     DISMISSED: 'wp01.recovery.dismissed.v1',
   },
   cloud: {
-    api: '/api/burma-script-doc',
+    // CUT OVER to the generalized, login-gated per-project endpoint (Enterprise Wave 2). The new
+    // public.script_docs row for project 'burma' was re-synced byte-identical to the legacy
+    // burma_script_docs row at cutover (228 nodes, same version). The LEGACY endpoint + row are
+    // kept as a permanent untouched fallback — revert is a one-line change back to
+    // '/api/burma-script-doc'. Auth is now the signed-in JWT (no write token needed).
+    api: '/api/script-doc?project=burma',
     docId: 'wp01-burma',
     tokenHeader: 'X-Burma-Write-Token',
     // Workshop {TK}/fact-check endpoint. The engine falls back to '/api/burma-tk' when an
