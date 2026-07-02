@@ -20,7 +20,7 @@
 // resolves to KEEP LOCAL. Cloud only wins when it answers cleanly AND is strictly newer.
 
 import { isReadOnly } from './read-mode.js';
-import { pruneConflictSnapshots, resetSessionBackup, readLatestSavedRaw, isRenderableLocalDoc } from './migrate-doc.js';
+import { pruneConflictSnapshots, resetSessionBackup, readLatestSavedRaw, isRenderableLocalDoc, primeVersionFloor } from './migrate-doc.js';
 import { writeTokenHeaders } from './write-token.js';
 import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
 import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
@@ -457,6 +457,45 @@ export function handlePushResult(result, localDoc) {
     // to reconcile here; only a 409 ('stale') is a true divergence that strands a local edit.
     return { conflict: false };
   }
+  // FALSE-CONFLICT GUARD (self-conflict) — a 409 only proves "cloud version >= the version THIS push
+  // carried". It does NOT prove another device was involved, and two benign SINGLE-device cases were
+  // being escalated to the full two-device treatment (banner + conflict snapshots on every load,
+  // which also kept the "UNSYNCED BACKUP FOUND" recovery banner permanently fed):
+  //   (a) STEADY STATE: after any successful push, local version == cloud version. The load-time
+  //       keep-local reconcile then pushed that EQUAL version; the server's strictly-greater rule
+  //       refused it 409 — while handing back a cloud doc content-identical to ours.
+  //   (b) AUTOSAVE RACE: two rapid saves from THIS device push out of order; the newer save lands
+  //       first, the older push bounces 409 — against OUR OWN newer doc, already on disk here.
+  // The tell in both: the cloud doc the 409 handed back is content-identical to the doc we tried to
+  // push (a), or to the CURRENT live local doc (b). Nothing is stranded, nothing needs merging, no
+  // snapshot is worth burning. A REAL two-device conflict (their v11 content ≠ our v11 content)
+  // fails BOTH compares and still gets the full banner + snapshots below. Compares use the
+  // sorted-key canonical form (docsDiffer), so jsonb key-reordering from the Postgres round-trip
+  // can never masquerade as a real edit.
+  try {
+    const cloudDoc = result.doc;
+    const refusedMatchesCloud = localDoc != null && cloudDoc != null && !docsDiffer(localDoc, cloudDoc);
+    let liveMatchesCloud = false;
+    if (!refusedMatchesCloud && cloudDoc != null) {
+      let live = null;
+      try { live = defaultReadLocal(); } catch { live = null; }
+      liveMatchesCloud = !!(live && live.hasDoc && live.doc != null && !docsDiffer(live.doc, cloudDoc));
+    }
+    if (refusedMatchesCloud || liveMatchesCloud) {
+      const cv = toInt(result.version);
+      // Keep future save stamps ahead of the cloud so the next real edit's push is accepted
+      // first try (primeVersionFloor only ever raises; the equal-version case is a no-op).
+      try { primeVersionFloor(cv); } catch {}
+      // Honest pill: this exact content IS in the cloud (at v(cv)) — not a conflict, not offline.
+      emit(EVT_CLOUD_SAVED, { version: cv, benign: true });
+      try {
+        console.info('[burma] cloud push 409 was BENIGN (' +
+          (refusedMatchesCloud ? 'cloud content-identical to pushed doc' : 'our own newer save already landed') +
+          ') — cloud v' + cv + ' already holds this device\'s content. No conflict, no snapshot.');
+      } catch {}
+      return { conflict: false, benign: true, reason: refusedMatchesCloud ? 'content-identical' : 'own-newer-landed' };
+    }
+  } catch {}
   // A real two-device divergence. Snapshot BOTH sides before anything can overwrite either.
   // The SYNC localStorage write gives the banner an immediate recovery key to point Johnny at; the
   // fire-and-forget IDB mirror (Phase 3) parks the heavy ~167KB copy in IndexedDB too, so even a
@@ -647,6 +686,20 @@ export async function reconcileOnLoad(deps = {}) {
       try { live = readLive(); } catch {}
       const pushDocBody = (live && live.doc != null) ? live.doc : local.doc;
       const pushVer = (live && live.hasDoc) ? live.version : local.version;
+      // FALSE-CONFLICT GUARD at the source: in steady state (local version == cloud version AND
+      // content identical) there is NOTHING to push — the old code PUT the equal version anyway,
+      // the server's strictly-greater rule refused it 409 on EVERY page load, and that 409 was
+      // mis-read as a two-device conflict (banner + snapshot churn). Skip the no-op push entirely.
+      // A genuinely divergent equal-version doc (the real two-device tie) still pushes below and
+      // routes its 409 through handlePushResult, which now separates benign from real divergence.
+      if (cloud && cloud.ok === true && cloud.doc != null && pushDocBody != null &&
+          toInt(cloud.version) === toInt(pushVer) && !docsDiffer(pushDocBody, cloud.doc)) {
+        try {
+          console.info('[burma] cloud reconcile: keep-local — cloud already holds this exact ' +
+            'content at v' + toInt(pushVer) + '; nothing to push.');
+        } catch {}
+        return { action: 'keep-local', shouldReload: false, skippedPush: true };
+      }
       if (pushDocBody != null) {
         Promise.resolve(pushDoc(pushDocBody, pushVer))
           .then((res) => handlePushResult(res, pushDocBody))
