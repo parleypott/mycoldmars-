@@ -10,6 +10,10 @@ export const PALAU = {
   wordmark: 'WP·02',
   figLabel: 'fig.04 — REEF RACK',
   recoverPrefix: 'palau-recovered',
+  // LOCAL-ONLY: Palau saves to this device only (IndexedDB + compressed localStorage). No cloud
+  // sync at all — so the cloud-conflict "unsynced backup" banner can never appear and the save pill
+  // reads a calm "ALL CHANGES SAVED". (A real per-episode cloud endpoint is a future opt-in.)
+  localOnly: true,
   accent: '#0c7d8c', // ocean teal
   days: [1, 2, 3, 4, 5, 6, 7], // Palau shoot spans 7 days
   sequences: [],
@@ -26,17 +30,15 @@ export const PALAU = {
   ],
   // Color legend as filterable flavors. ids match the `flavor` values in palau-blocks.json.
   flavors: [
-    { id: 'gold',   label: 'LIKED B-ROLL', color: '#d9a400' },
     { id: 'purple', label: 'ANIMATION',    color: '#7a5cc0' },
     { id: 'pink',   label: 'STRAGGLER',    color: '#e0608f' },
-    { id: 'yellow', label: 'KEY LINE',     color: '#e8b400' },
   ],
   blocksData: scriptData.blocks || [],
   storage: {
-    DOC: 'script_palau_doc_v1',
-    DOC_VER: 'script_palau_doc_ver_v1',
-    MIGRATED: 'script_palau_doc_migrated_v2',
-    BLOCKS: 'script_palau_blocks_v1',
+    DOC: 'script_palau_doc_v2',
+    DOC_VER: 'script_palau_doc_ver_v2',
+    MIGRATED: 'script_palau_doc_migrated_v3',
+    BLOCKS: 'script_palau_blocks_v2',
     CTRL: 'script_palau_controls_v1',
     WORKSHOP: 'script_palau_workshop_v1',
     WS_WIDTH: 'script_palau_workshop_width_v1',

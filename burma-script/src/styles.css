@@ -34,7 +34,7 @@
      plus the two faint lane tints. All warm/cream, all flat — never a gridline. */
   --rule:      #cdc6b4;  /* the ONE hairline between split columns */
   --said-tint: transparent;            /* LEFT / narration-VO lane — paper, no tint */
-  --shown-tint:rgba(110, 31, 26, .028);/* RIGHT / visual lane — faintest burgundy wash */
+  --shown-tint: transparent;           /* RIGHT / visual lane — paper, no tint */
   --lane-lab:  #6c685f;  /* column lane label (SAID / SHOWN) — L2: AA 4.5:1 on face */
 
   /* L2 — every label token that paints real (sub-18px) text must clear WCAG AA 4.5:1 against
@@ -258,6 +258,99 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    amber (this needs action, not patience). A strong burnt-orange with the inked border + a steadily
    pulsing mark so it reads as "do something" — the work is backed up, but you must reload to merge. */
 .wp-save-pill.is-cloud-conflict { background: #e8853a; color: #1f1d18; border-color: var(--ink); }
+.wp-dchip{ font-family:var(--mono); font-size:.78em; border:1.5px solid var(--ink); border-radius:5px; padding:1px 7px; margin:0 1px; cursor:pointer; user-select:none; white-space:normal; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+.wp-dchip[data-kind="archive"][data-status="needed"], .wp-dchip[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; }
+.wp-dchip[data-kind="archive"][data-status="found"], .wp-dchip[data-kind="factcheck"][data-status="sourced"]{ background:#d9e8d0; }
+.wp-dchip[data-kind="animation"]{ background:#ccc2ea; }
+.wp-dchip[data-kind="broll"]{ background:transparent; color:#d0873f; border-color:#d0873f; }
+.wp-dchip[data-kind="direction"]{ background:transparent; }
+.wp-dchip-break{ display:flex; align-items:center; gap:8px; margin:10px 0; color:var(--label-5); font-family:var(--mono); font-size:var(--chrome-size); letter-spacing:.2em; }
+.wp-dchip-break::before,.wp-dchip-break::after{ content:""; flex:1; height:1px; background:var(--rule); }
+
+/* ── DIRECTION MARK (wp-dhl) — highlighter pen on the user's own typed text. ────────────────
+   Pure background wash, no labels, no borders. box-decoration-break:clone keeps the highlight
+   intact when a run wraps onto the next line. Colors follow Johnny's legend:
+     archive needed / factcheck todo   → RED    (#f2d4d4)
+     archive found  / factcheck sourced → GREEN  (#d9e8d0)
+     animation  → black text (#1a1a18) on warm grey (#e6e2d6) — "just have it be black"
+     broll      → orange text (#d0873f) + faint orange wash
+     direction  → barely-there warm neutral tint
+   FLAT: no shadows, no borders, no junk. */
+/* ALL viz direction reads as a BOLD CHIP (pill) — Johnny: "bold and chip-like not just plain
+   jane highlight". Border + radius + padding + bold weight; per-kind colour. box-decoration-break
+   keeps it a full chip if a run wraps. */
+.wp-dhl{
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border: 1.5px solid transparent;
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-weight: 700;
+  font-style: normal;   /* Johnny: not italic — upright chip text */
+}
+.wp-dhl[data-kind="archive"][data-status="needed"],
+.wp-dhl[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; border-color:#d79a9a; color:#7a2e2e; }
+.wp-dhl[data-kind="archive"][data-status="found"],
+.wp-dhl[data-kind="factcheck"][data-status="sourced"]{
+  background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34;
+  text-decoration: line-through; text-decoration-color: rgba(63,107,52,.45); /* faint strike when found */
+}
+/* /oncam ("on cam to film") — checkbox chip like archive, but a WARMER, DEEPER red (terracotta)
+   with a clearly different border so it never reads as archive's pinkish red at a glance. */
+.wp-dhl[data-kind="oncam"][data-status="needed"]{ background:#f4c2b0; border-color:#d97a52; color:#8a3316; }
+.wp-dhl[data-kind="oncam"][data-status="found"]{
+  background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34;
+  text-decoration: line-through; text-decoration-color: rgba(63,107,52,.45); /* same green-found as archive */
+}
+.wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#1a1a18; }   /* /animation — purple chip, BLACK text */
+.wp-dhl[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }           /* /3d — purple chip, bright YELLOW text */
+/* Redundant "DAY N" folded before its timecode chip (day-fold plugin) — hidden, not deleted. */
+.wp-day-hidden{ display:none; }
+.wp-dhl[data-kind="broll"]{ background:rgba(208,135,63,.16); border-color:#d0873f; color:#9a5410; }
+.wp-dhl[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; color:#4a463d; }
+
+/* Archive checkbox widget ☐/☑ — BIG + BOLD, before each archive run. */
+.wp-dhl-cb{
+  display:inline-block; cursor:pointer; user-select:none;
+  font-size:1.25em; font-weight:700; line-height:1; margin-right:6px; opacity:.9; vertical-align:-1px;
+  color:#a33; -webkit-user-select:none;
+}
+.wp-dhl[data-status="found"] + .wp-dhl-cb, .wp-dhl-cb{ }
+.wp-dhl-cb:hover{ opacity:1; }
+
+/* Empty-chip placeholder — the "little blank box" that appears the instant a /command + Enter
+   stores its mark, before any text is typed. Same per-kind chip colours (inherited from .wp-dhl
+   above), just an empty box held open by a min-width so it's visibly a chip. The ☐ checkbox for
+   archive/oncam sits in front via .wp-dhl-cb. Purely a cursor decoration — vanishes on first keystroke. */
+.wp-dhl-placeholder-wrap{ display:inline; user-select:none; -webkit-user-select:none; }
+.wp-dhl.wp-dhl-placeholder{
+  display:inline-block; min-width:1.6em; height:1em; vertical-align:-2px; opacity:.85;
+}
+
+/* Palau /archive line — an archive run that leads its own paragraph gets a small left indent so it
+   reads as an indented, checkable item. Applied as a node decoration (palau-gated) by the checkbox
+   plugin; Burma never receives this class, so its inline archives stay put. */
+.wp-archive-line{ margin-left:1.4em; }
+
+.wp-slash-menu{ position:fixed; z-index:60; background:var(--face); border:1.5px solid var(--ink); border-radius:8px; padding:4px; box-shadow:none; font-family:var(--mono); font-size:12px; min-width:180px; }
+.wp-slash-item{ display:block; width:100%; padding:5px 9px; border:0; background:transparent; color:var(--ink); border-radius:5px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; }
+.wp-slash-item.is-active{ background:rgba(255,91,31,.14); }
+
+/* SELECT → RIGHT-CLICK → CONVERT-TO-VIZ menu. Reuses .wp-slash-menu's flat/mono/bordered/no-shadow
+   premium look; adds a small header, a colour swatch per item that previews the chip colour, and a
+   min-width bump so the two-column (dot + label) rows breathe. Palau-only feature. */
+.wp-convert-menu{ min-width:184px; }
+.wp-convert-head{ padding:5px 9px 6px; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--label); }
+.wp-convert-item{ display:flex; align-items:center; gap:9px; }
+.wp-convert-label{ flex:1 1 auto; }
+.wp-convert-dot{ flex:0 0 auto; width:11px; height:11px; border-radius:3px; border:1.5px solid var(--ink); background:var(--face); }
+.wp-convert-dot[data-kind="archive"]{ background:#f2d4d4; border-color:#d79a9a; }
+.wp-convert-dot[data-kind="oncam"]{ background:#f4c2b0; border-color:#d97a52; }
+.wp-convert-dot[data-kind="factcheck"]{ background:#f2d4d4; border-color:#d79a9a; }
+.wp-convert-dot[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; }
+.wp-convert-dot[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; }
+.wp-convert-dot[data-kind="broll"]{ background:rgba(208,135,63,.28); border-color:#d0873f; }
+.wp-convert-dot[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; }
 .wp-save-pill.is-cloud-conflict .wp-save-pill-mark { background: var(--ink); animation: wp-save-pulse 1.6s var(--ease) infinite; }
 /* READ-ONLY · SHARED VIEW — the calm badge that replaces the save pill in a `?read`/`?view` share.
    Nothing is saving, so it reads as a quiet label, not a status: neutral graphite mark on the resting
@@ -543,48 +636,16 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    The ONLY divider a row ever shows: a single 1px hairline between columns,
    painted on cells after the first. No outer border, no grid. */
 .wp-trow[data-cols="2"] .wp-trow-cells,
-.wp-trow[data-cols="3"] .wp-trow-cells { align-items: stretch; }
+.wp-trow[data-cols="3"] .wp-trow-cells { align-items: flex-start; }
+
+.wp-trow[data-cols="2"] .wp-tcell:first-child,
+.wp-trow[data-cols="3"] .wp-tcell:first-child { flex: 1.2 1 0; }
 
 .wp-tcell + .wp-tcell {
   border-left: 1px solid var(--rule);   /* the one hairline */
   margin-left: 22px;
   padding-left: 22px;
 }
-
-/* Subtle, tasteful lane distinction — still dead flat. SAID = bare paper;
-   SHOWN = the faintest burgundy wash (echoes the visual/SOT family) so the eye
-   reads "what's on screen" without a box, a border, or a shadow. */
-.wp-trow[data-cols="2"] .wp-tcell[data-role="said"],
-.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]  { background: var(--said-tint); }
-.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"],
-.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"] { background: var(--shown-tint); }
-
-/* Lane labels — JetBrains Mono, uppercase, one tracking. Only on SPLIT rows, and
-   only on the first row of a split run would be ideal, but per-cell is honest and
-   cheap; kept faint so it never competes with the orange accent. The ▍ tick on
-   SHOWN is the single orange accent that marks the visual lane. */
-.wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
-.wp-trow[data-cols="3"] .wp-tcell[data-role]::before {
-  font-family: var(--mono);
-  font-size: var(--chrome-size);
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--lane-lab);
-  display: block;
-  margin: 0 0 7px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.wp-trow[data-cols="2"] .wp-tcell[data-role="said"]::before,
-.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]::before  { content: "SAID · NARRATION"; }
-.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"]::before,
-.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"]::before {
-  content: "▍ SHOWN · VISUAL";
-  color: var(--orange);                 /* the ONE orange accent */
-}
-/* Full-width cells never show a lane label — they're not a split. */
-.wp-trow[data-cols="1"] .wp-tcell[data-role]::before,
-.wp-tcell[data-role="full"]::before { content: none; display: none; }
 
 /* In a split, stacked cartridges inside a cell keep their own 11px gaps; the
    last one's trailing margin is the row gap, same rhythm as full-width. */
@@ -1083,6 +1144,10 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-bm-item:hover { background: var(--panel); }
 .wp-bm-item.is-current { color: var(--orange); font-weight: 700; }
 .wp-bm-sep { height: 1.5px; background: var(--ink); opacity: .12; margin: 5px 4px; }
+/* The Palau timecode menu is a SEQUENCE picker that can list every sequence in the doc (30+
+   interviews + DAY string-outs), so it must scroll rather than run off-screen. Burma's short
+   DAY 1/2/3 menu is well under this height, so the cap never clips it. */
+.wp-tcmenu { max-height: 60vh; overflow-y: auto; }
 .wp-bm-del { color: var(--red); }
 .wp-bm-del:hover { background: rgba(232,65,43,.08); }
 
@@ -1250,12 +1315,9 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-dir.is-done { opacity: 1 !important; }
-  /* TABLE LAYER in print: drop lane tints, keep the single hairline as black ink,
-     keep lane labels (in black, no orange) so SAID/SHOWN columns stay legible. */
+  /* TABLE LAYER in print: no fills, keep the single hairline as black ink. */
   .wp-tcell { background: none !important; }
   .wp-tcell + .wp-tcell { border-left: 1px solid #000 !important; margin-left: 14pt !important; padding-left: 14pt !important; }
-  .wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
-  .wp-trow[data-cols="3"] .wp-tcell[data-role]::before { color: #000 !important; }
 }
 
 /* ============================================================

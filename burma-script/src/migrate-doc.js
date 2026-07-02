@@ -32,12 +32,13 @@ import { strToU8, strFromU8 } from 'fflate';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
-import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
+import { DirectionMark } from './extensions/direction-chip.js';
+import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument } from './document-builder.js';
 import { isReadOnly } from './read-mode.js';
 import {
   idbPutSnapshot, idbPutDoc, idbReadDoc, idbDocProbe, idbAvailable, compressDoc, decompressDoc,
 } from './recovery-store.js';
-import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
 // PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
 // quota is hundreds of MB vs localStorage's ~5MB. The sync localStorage write that wraps each call to
@@ -94,6 +95,32 @@ export function isRenderableLocalDoc(rawOrParsed) {
     try { parsed = JSON.parse(rawOrParsed); } catch { return false; }
   }
   return !!(parsed && Array.isArray(parsed.content) && parsed.content.length);
+}
+
+// ── EMPTY-DOC CLOBBER GUARD helper (empty-over-nonempty) ────────────────────────────────────────
+// Structure-agnostic: walk ANY ProseMirror doc shape and collect every text node's text. We do NOT
+// route through docToBlocks here — that assumes the table spine and could read a legitimately-shaped
+// but non-table doc as empty. A raw recursive walk counts real characters wherever they live, so the
+// emptiness verdict can never be an artifact of doc shape. NEVER throws.
+function collectDocText(node) {
+  if (!node || typeof node !== 'object') return '';
+  let s = '';
+  if (node.type === 'text' && typeof node.text === 'string') s += node.text;
+  const kids = node.content;
+  if (Array.isArray(kids)) for (const k of kids) s += collectDocText(k);
+  return s;
+}
+
+// Does this doc (object or raw JSON string) contain ANY non-whitespace text? One real word → true.
+// A doc that is only empty rows/cells/paragraphs (exactly the Burma blank-out shape) → false.
+export function docHasAnyText(docOrRaw) {
+  try {
+    let doc = docOrRaw;
+    if (typeof docOrRaw === 'string') doc = JSON.parse(docOrRaw);
+    return collectDocText(doc).replace(/\s+/g, '').length > 0;
+  } catch {
+    return false;
+  }
 }
 
 // ── CROSS-TAB CONFLICT GUARD (crosstab-stale-overwrite) ────────────────────────────────────
@@ -464,12 +491,17 @@ function buildSchema() {
       horizontalRule: false,
       strike: false,
       dropcursor: false, gapcursor: false,
+      // WP-12 — mirror Editor.jsx's history config. History is a plugin (not schema), so getSchema
+      // ignores it — but keeping the StarterKit config byte-identical to Editor.jsx honors this
+      // module's lockstep contract and prevents a future reader from thinking the two drifted.
+      history: { depth: 100, newGroupDelay: 750 },
     }),
     Dropcursor.configure({ color: '#d23b2c', width: 2 }),
     Gapcursor,
     ...BURMA_TABLE_NODES,
     ...BURMA_NODES,
     ...BURMA_MARKS,
+    DirectionMark,
   ]);
 }
 
@@ -584,6 +616,34 @@ function docPlainText(doc) {
     .join('\n')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function sourceComparableBlocks(blocks) {
+  return (blocks || []).map((block) => ({
+    type: block?.type || '',
+    title: block?.title || '',
+    text: block?.text || '',
+    genre: block?.genre || '',
+    voStatus: block?.voStatus || '',
+    done: !!block?.done,
+    lane: block?.lane || '',
+    pairId: block?.pairId || '',
+    flavor: block?.flavor || '',
+    timecode: {
+      tc: block?.timecode?.tc || '',
+      tcOut: block?.timecode?.tcOut || '',
+      day: block?.timecode?.day ?? null,
+    },
+  }));
+}
+
+function palauSourceRebuildCandidate(original) {
+  const episode = getEpisode();
+  if (episode?.id !== 'palau') return null;
+  const savedComparable = sourceComparableBlocks(docToBlocks(ensureTableDoc(original)));
+  const sourceComparable = sourceComparableBlocks(episode?.blocksData || []);
+  if (JSON.stringify(savedComparable) !== JSON.stringify(sourceComparable)) return null;
+  return ensureTableDoc(buildEditorDocument(episode?.blocksData || []));
 }
 
 // Best-effort timestamped backup of the raw saved string. Returns the backup key, or null if
@@ -865,6 +925,10 @@ function verifyIDBOnlySave(out, version, idbPromise) {
       // idbPutDoc tried to preserve this edit as a `.conflict` snapshot. If that snapshot LANDED,
       // signal a recoverable conflict; if it did NOT (put.preserved === false), the edit is only on
       // screen, so we must download it and word the banner honestly.
+      // STALE-SAVE GUARD (#3) — idbPutDoc refused this write because a STRICTLY NEWER version of the
+      // same tab's doc already occupies the canonical row (two overlapping flushes resolved out of
+      // order). Nothing was lost: the newer content is durable. Treat as a benign success — no banner.
+      if (put && put.reason === 'stale') return true;
       if (put && put.reason === 'conflict') return put.preserved ? 'conflict' : 'conflict-unpreserved';
       if (!put || put.ok !== true || Number(put.ver) !== Number(version)) return false;
       const rec = await idbReadDoc();
@@ -982,6 +1046,48 @@ export function saveDoc(json) {
       byTab: readStoredVersionTab(),
     });
     return { ok: false, reason: 'cross-tab-conflict', conflictKey, storedVersion };
+  }
+
+  // STEP 0.5 — EMPTY-DOC CLOBBER GUARD (empty-over-nonempty). THE ROOT CAUSE of the Burma
+  // blank-out: an empty/near-empty doc got saved OVER the full script — locally, and (via the
+  // version bump that drives the cloud push in Editor.flushSave, which only pushes on res.ok) in
+  // the cloud too. Every other guard in this function keys on VERSION (cross-tab) or STORAGE HEALTH
+  // (quota / read-back); NONE looked at CONTENT, so a same-tab in-sequence autosave of a blanked
+  // editor sailed straight through and clobbered everything.
+  //
+  // The rule: a doc with ZERO text must NEVER be written over a stored doc that HAS text. That is
+  // the literal definition of a catastrophic clobber and is never what an autosave should persist.
+  // SAFE by construction:
+  //   • empty-over-empty / empty-over-absent (a brand-new project's very first save) → ALLOWED
+  //     (stored has no text, so nothing is being destroyed).
+  //   • ANY real text in the incoming doc (even one word) → ALLOWED (not our case).
+  //   • ONLY zero-text-over-has-text is refused. We park the empty attempt in a `.corrupt.<ts>`
+  //     recovery key (so a genuinely-intended blanking is still recoverable), leave the good doc
+  //     canonical, DO NOT bump the version and DO NOT fire wp-saved — so Editor.flushSave's
+  //     `if (res.ok)` gate never pushes the empty doc to the cloud. The reconcile keep-local push
+  //     also only ever reads the good local doc, so the cloud is protected on every path.
+  // A genuine "clear the whole script" still works — it goes through resetDoc, which is explicit,
+  // guarded, and snapshots first. This guard only catches the ACCIDENTAL empty autosave.
+  if (!docHasAnyText(json)) {
+    let storedRaw = null;
+    try { storedRaw = readLatestSavedRaw(); } catch {}
+    if (storedRaw && docHasAnyText(storedRaw)) {
+      let quarantineKey = null;
+      try {
+        quarantineKey = snapshotKey(CORRUPT_PREFIX);
+        localStorage.setItem(quarantineKey, out);
+        pruneByPrefix(CORRUPT_PREFIX, CORRUPT_KEEP);
+        mirrorSnapshotToIDB('corrupt', out);
+      } catch { quarantineKey = null; }
+      console.warn('[burma] empty-doc clobber guard — refusing to save a ZERO-text doc over a ' +
+        'non-empty script. Empty attempt parked at', quarantineKey, '— the good doc is untouched.');
+      notifySaveDegraded({
+        kind: 'empty-clobber-blocked',
+        message: 'that save was empty but your script still has content — the blank version was NOT saved over it. Reload to get your script back.',
+        quarantineKey,
+      });
+      return { ok: false, reason: 'empty-clobber-blocked', quarantineKey };
+    }
   }
 
   // STEP 1 — once-per-session snapshot of the prior good doc before we ever overwrite it.
@@ -1154,12 +1260,14 @@ export function migrateStoredDoc() {
     //    (a service-node demotion must force a rewrite even on an already-all-rows doc). ────────
     const demoted = demoteServiceNodes(original);
     const serviceDemoted = JSON.stringify(demoted) !== JSON.stringify(original);
-    const wrapped = ensureTableDoc(demoted);
+    const rebuiltFromSource = palauSourceRebuildCandidate(demoted);
+    const wrapped = rebuiltFromSource || ensureTableDoc(demoted);
+    const structureChanged = JSON.stringify(wrapped) !== JSON.stringify(demoted);
     const { doc: migrated, changed: additiveChanged } = applyAdditiveTransforms(wrapped);
 
     // If the doc was already all-rows AND nothing changed (no demotion, no additive), there is
     // genuinely nothing to do — set the marker and pass through without a rewrite.
-    if (allRows && !additiveChanged && !serviceDemoted) {
+    if (allRows && !additiveChanged && !serviceDemoted && !structureChanged) {
       try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
       return { ok: true, reason: 'already migrated; no changes', migrated: false, bakKey };
     }

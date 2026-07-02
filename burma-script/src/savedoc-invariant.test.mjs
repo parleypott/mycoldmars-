@@ -208,5 +208,76 @@ const doc = (text) => ({ type: 'doc', content: [
   ok(lastEvent('wp-saved') != null, '5c. wp-saved fired on success');
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// 6. EMPTY-DOC CLOBBER GUARD — the Burma blank-out root cause. A ZERO-text doc must NEVER be
+//    written over a stored doc that HAS text. The good doc stays canonical; the empty attempt is
+//    parked in a .corrupt.<ts> key; NO version bump, NO wp-saved (so Editor.flushSave won't push
+//    the empty doc to cloud); a soft wp-save-degraded kind:'empty-clobber-blocked' explains it.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+const emptyDoc = () => ({ type: 'doc', content: [
+  { type: 'tableRow', attrs: { cols: 1 }, content: [
+    { type: 'tableCell', attrs: { role: 'full' }, content: [
+      { type: 'paragraph' } ] } ] },
+] });
+const CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+const corruptKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(CORRUPT_PREFIX));
+{
+  store.clear(); events.length = 0;
+  ctl.quotaMode = 'none';
+  const M = await import('./migrate-doc.js?inv=6');
+  M.syncBaseVersion();
+  // Seed a real script first.
+  const seed = M.saveDoc(doc('MY-WHOLE-SCRIPT'));
+  ok(seed.ok, '6a. the non-empty script saves cleanly first');
+  const versionBefore = seed.version;
+  events.length = 0; // ignore the seed's wp-saved
+  // Now an accidental empty autosave tries to clobber it.
+  const res = M.saveDoc(emptyDoc());
+  ok(!res.ok, '6b. the empty save is REFUSED');
+  eq(res.reason, 'empty-clobber-blocked', '6c. reason is empty-clobber-blocked');
+  eq(JSON.parse(readSavedRaw()).content[0].content[0].content[0].content[0].content[0].text,
+    'MY-WHOLE-SCRIPT', '6d. the GOOD script is still canonical on disk — untouched');
+  ok(corruptKeys().length === 1, '6e. the empty attempt is parked in a .corrupt recovery key');
+  ok(lastEvent('wp-saved') == null, '6f. NO wp-saved fired (so flushSave will not push empty to cloud)');
+  const ev = lastEvent('wp-save-degraded');
+  ok(ev && ev.detail?.kind === 'empty-clobber-blocked', '6g. a soft wp-save-degraded explains the refusal');
+  eq(M.getKnownBaseVersion(), versionBefore, '6h. the version did NOT advance (nothing to push)');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// 7. EMPTY-OVER-ABSENT is ALLOWED — a brand-new project's very first save is legitimately empty
+//    and must go through (nothing is being destroyed). The guard only fires empty-OVER-nonempty.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+{
+  store.clear(); events.length = 0;
+  ctl.quotaMode = 'none';
+  const M = await import('./migrate-doc.js?inv=7');
+  M.syncBaseVersion();
+  const res = M.saveDoc(emptyDoc());
+  ok(res.ok, '7a. an empty first save (nothing stored yet) is ALLOWED');
+  ok(res.reason === 'saved', '7b. it persists normally');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// 8. ONE WORD IS ENOUGH — any real text passes the guard (only ZERO text is refused). A doc with a
+//    single word saved over a full script is a legitimate (if drastic) edit, not a clobber.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+{
+  store.clear(); events.length = 0;
+  ctl.quotaMode = 'none';
+  const M = await import('./migrate-doc.js?inv=8');
+  M.syncBaseVersion();
+  M.saveDoc(doc('THE-WHOLE-THING'));
+  const res = M.saveDoc(doc('x'));
+  ok(res.ok && res.reason === 'saved', '8a. a one-word doc over a full one is allowed (has text)');
+  eq(JSON.parse(readSavedRaw()).content[0].content[0].content[0].content[0].content[0].text,
+    'x', '8b. the one-word edit is what persisted');
+  // And the docHasAnyText predicate itself: empty shapes are empty, any text is not.
+  ok(M.docHasAnyText(doc('hi')) === true, '8c. docHasAnyText: real text → true');
+  ok(M.docHasAnyText(emptyDoc()) === false, '8d. docHasAnyText: empty rows/cells/paragraph → false');
+  ok(M.docHasAnyText({ type: 'doc', content: [] }) === false, '8e. docHasAnyText: no content → false');
+  ok(M.docHasAnyText('not json at all') === false, '8f. docHasAnyText: garbage string → false (never throws)');
+}
+
 console.log(`\nsavedoc-invariant: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

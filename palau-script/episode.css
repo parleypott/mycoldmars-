@@ -1,40 +1,420 @@
 /* ───────────────── PALAU episode palette ─────────────────
    Layered ON TOP of the shared Cartridges styles (burma-script/src/styles.css). Palau-only — never
-   loaded by Burma — so this file recolors chapters by GENRE and direction cartridges by FLAVOR
-   without any risk to the Burma tool. Flat only: solid colors, no shadows, no bevels. */
+   loaded by Burma — so this file keeps Palau calm, flat, and neutral without any risk to the Burma
+   tool. Flat only: solid colors, no shadows, no bevels. */
 
-/* GENRE — tint the numbered chapter cap so the six chapter kinds read at a glance. */
-.wp-chapter[data-genre="cold_open"] .wp-cap-num { background: #b0431f; color: #fff; }
-.wp-chapter[data-genre="map"]       .wp-cap-num { background: #2f6fb0; color: #fff; }
-.wp-chapter[data-genre="explainer"] .wp-cap-num { background: #7a5cc0; color: #fff; }
-.wp-chapter[data-genre="ground"]    .wp-cap-num { background: #1f8a72; color: #fff; }
-.wp-chapter[data-genre="montage"]   .wp-cap-num { background: #c2491a; color: #fff; }
-.wp-chapter[data-genre="ending"]    .wp-cap-num { background: #2a2a28; color: #fff; }
-
-/* FLAVOR — your color legend, as additive chrome on a direction/SOT cartridge:
-   a solid left accent bar + a recolored cap. gold = liked b-roll, purple = animation,
-   pink = straggler, yellow = key line. */
-[data-flavor="gold"],
-[data-flavor="purple"],
-[data-flavor="pink"],
-[data-flavor="yellow"] { position: relative; }
-
-[data-flavor="gold"]::before,
-[data-flavor="purple"]::before,
-[data-flavor="pink"]::before,
-[data-flavor="yellow"]::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
+.wp-page[data-episode="palau"] {
+  --palau-calm-cap: #3a382f;
+  --palau-calm-cap-text: #f3eee1;
+  --palau-calm-spine: repeating-linear-gradient(0deg, #d5cfbf, #d5cfbf 2px, #ece7db 2px, #ece7db 4px);
+  --palau-chapter-paper: #f5f0e3;
+  --palau-chapter-ink: #302d25;
+  --palau-sot-accent: #b88d52;
 }
-[data-flavor="gold"]::before   { background: #d9a400; }
-[data-flavor="purple"]::before { background: #7a5cc0; }
-[data-flavor="pink"]::before   { background: #e0608f; }
-[data-flavor="yellow"]::before { background: #e8b400; }
 
-[data-flavor="gold"]   .wp-cap-num { background: #d9a400; color: #1a1a18; }
-[data-flavor="purple"] .wp-cap-num { background: #7a5cc0; color: #fff; }
-[data-flavor="pink"]   .wp-cap-num { background: #e0608f; color: #fff; }
-[data-flavor="yellow"] .wp-cap-num { background: #e8b400; color: #1a1a18; }
+.wp-page[data-episode="palau"] .wp-chapter .wp-cap-num,
+.wp-page[data-episode="palau"] .wp-vo .wp-cap-num,
+.wp-page[data-episode="palau"] .wp-dir .wp-cap-num,
+.wp-page[data-episode="palau"] .wp-note .wp-cap-num,
+.wp-page[data-episode="palau"] .wp-montage .wp-cap-num {
+  background: var(--palau-calm-cap);
+  color: var(--palau-calm-cap-text);
+}
+
+.wp-page[data-episode="palau"] .wp-vo .wp-spine,
+.wp-page[data-episode="palau"] .wp-dir .wp-spine,
+.wp-page[data-episode="palau"] .wp-note .wp-spine,
+.wp-page[data-episode="palau"] .wp-montage .wp-spine {
+  background: var(--palau-calm-spine);
+}
+
+.wp-page[data-episode="palau"] .wp-vo-head {
+  justify-content: flex-end;
+}
+
+.wp-page[data-episode="palau"] .wp-vo .wp-rec {
+  opacity: 0;
+  transition: opacity .14s var(--ease), background .12s var(--ease), border-color .12s var(--ease), color .12s var(--ease);
+}
+
+.wp-page[data-episode="palau"] .wp-vo:hover .wp-rec,
+.wp-page[data-episode="palau"] .wp-vo:focus-within .wp-rec,
+.wp-page[data-episode="palau"] .wp-vo .wp-rec:focus-visible {
+  opacity: 1;
+}
+
+.wp-page[data-episode="palau"] .wp-chapter {
+  background: var(--palau-chapter-paper);
+  color: var(--palau-chapter-ink);
+}
+
+.wp-page[data-episode="palau"] .wp-chapter:hover {
+  background: #f2ecdf;
+}
+
+.wp-page[data-episode="palau"] .wp-chapter .wp-spine {
+  background: var(--palau-calm-spine);
+}
+
+.wp-page[data-episode="palau"] .wp-chapter .wp-cart-body,
+.wp-page[data-episode="palau"] .wp-chapter .wp-body,
+.wp-page[data-episode="palau"] .wp-chapter .wp-ch-kind,
+.wp-page[data-episode="palau"] .wp-chapter .wp-ch-tag {
+  color: var(--palau-chapter-ink);
+}
+
+.wp-page[data-episode="palau"] .wp-chapter .wp-grip {
+  color: #676353;
+}
+
+.wp-page[data-episode="palau"] .wp-sot-cart {
+  position: relative;
+}
+
+.wp-page[data-episode="palau"] .wp-sot-cart::after {
+  content: "SOT";
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: #8a7c63;
+  pointer-events: none;
+}
+
+.wp-page[data-episode="palau"] .wp-sot-cart .wp-cart-body {
+  box-shadow: inset 2px 0 0 var(--palau-sot-accent);
+}
+
+.wp-page[data-episode="palau"] .wp-sot-cart .wp-dir-head {
+  padding-right: 52px;
+}
+
+.wp-page[data-episode="palau"] .wp-trow[data-cols="2"] .wp-cart,
+.wp-page[data-episode="palau"] .wp-trow[data-cols="3"] .wp-cart {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+
+.wp-page[data-episode="palau"] .wp-trow[data-cols="2"] .wp-spine,
+.wp-page[data-episode="palau"] .wp-trow[data-cols="3"] .wp-spine {
+  display: none;
+}
+
+.wp-page[data-episode="palau"] .wp-trow[data-cols="2"] .wp-cart-body,
+.wp-page[data-episode="palau"] .wp-trow[data-cols="3"] .wp-cart-body {
+  padding: 2px 0;
+}
+
+.wp-page[data-episode="palau"] .wp-trow[data-cols="2"] .wp-sot-cart .wp-cart-body,
+.wp-page[data-episode="palau"] .wp-trow[data-cols="3"] .wp-sot-cart .wp-cart-body {
+  box-shadow: none;
+}
+
+/* PERF-6 — row windowing (content-visibility:auto) was here but is DISABLED: at ~200 blocks the
+   paint savings are negligible, and it hides offscreen text from BOTH Ctrl-F/find-in-page and the
+   innerText-based integrity audit (research rec #6 flagged testing find-in-page — it failed). For a
+   script where find-in-page matters this is the wrong trade now. Re-add ONLY when a doc genuinely
+   grows into the thousands of blocks, and pair it with a find-in-page-safe approach. The doc's words
+   were never lost (textContent intact); this only restores their visibility to the browser + audit. */
+
+/* ───────────────── PASS 3 · CHAPTER FRAMES ─────────────────
+   The chapter-frames PM plugin (burma-script/src/extensions/chapter-frames.js) tags each
+   consecutive same-chapter tableRow with data-chapter-run + data-chapter-genre and the class
+   flags wp-chframe / wp-chframe-first / -last / -mid. We draw the FRAME purely from those —
+   NO container node, NO overflow clipping (the integrity audit fails on a clipped cell). A frame
+   is a hairline box: side rails on every member row, a top edge on the first row, and a bottom
+   edge + rounded corners on the last row. The paper stays calm cream with one restrained dark
+   accent. */
+.wp-page[data-episode="palau"] {
+  --chframe-rule: #b1a787;             /* the frame walls — a clear warm border on cream */
+  --chframe-pad: 22px;                 /* inner breathing room L/R inside the frame */
+  --chframe-fill: rgba(58, 56, 47, .028); /* faint unifying wash across the WHOLE frame */
+  --chframe-band-ink: #3a382f;         /* calm dark header edge shared by every chapter */
+}
+
+/* Side rails on EVERY member row — the continuous vertical walls of the frame. margin:0 so
+   consecutive member rows sit FLUSH (no gap breaking the rails into segments); a faint neutral wash
+   unifies the whole run into one box; the cartridges inside get their own breathing via padding. */
+.wp-page[data-episode="palau"] .wp-trow.wp-chframe {
+  border-left: 2px solid var(--chframe-rule);
+  border-right: 2px solid var(--chframe-rule);
+  padding-left: var(--chframe-pad);
+  padding-right: var(--chframe-pad);
+  margin: 0;
+  background: var(--chframe-fill);
+}
+
+/* FIRST row — the calm HEADER EDGE (a bold flat 4px top border, NOT a shadow) + rounded top
+   corners. This is the "headed with the chapter title" cap of the box. */
+.wp-page[data-episode="palau"] .wp-trow.wp-chframe-first {
+  border-top: 4px solid var(--chframe-band-ink);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  padding-top: 6px;
+  margin-top: 30px;
+}
+
+/* LAST row — bottom wall + rounded bottom corners, closing the box. */
+.wp-page[data-episode="palau"] .wp-trow.wp-chframe-last {
+  border-bottom: 2px solid var(--chframe-rule);
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 10px;
+}
+
+/* A one-row chapter is first AND last — keep both radii. */
+.wp-page[data-episode="palau"] .wp-trow.wp-chframe-first.wp-chframe-last { border-radius: 14px; }
+
+/* ───────────────── PASS 3 · STICKY CHAPTER SIDEBAR ─────────────────
+   A calm mono marker pinned to the left gutter (fixed) showing "n / total" + the current chapter
+   title as you scroll. Quiet, small, pointer-events off so it never eats a click or steals layout
+   width from the document. Hidden by the JS (dom.hidden) when there are zero chapter frames. */
+.wp-page[data-episode="palau"] .wp-chapter-sidebar {
+  position: fixed;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  max-width: 132px;
+  pointer-events: none;
+  font-family: var(--mono);
+  color: #6c685f;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wp-page[data-episode="palau"] .wp-chapter-sidebar[hidden] { display: none; }
+.wp-page[data-episode="palau"] .wp-chapter-sidebar-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: #3a382f;
+  margin-bottom: 4px;
+}
+.wp-page[data-episode="palau"] .wp-chapter-sidebar-title {
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #7d7768;
+}
+/* On narrow viewports there's no gutter room — fold the sidebar away rather than overlap prose. */
+@media (max-width: 1180px) {
+  .wp-page[data-episode="palau"] .wp-chapter-sidebar { display: none; }
+}
+
+/* ───────────────── PASS 3 · SOT SEQUENCE TAG ─────────────────
+   Additive copy chip in the SOT head (blocks.js): "<sequence name> <timecode>" → click to copy.
+   Quiet mono pill on cream; a brief accent pulse on copy. The underlying prose/timecode chips are
+   untouched — this is chrome, not a replacement. */
+.wp-page[data-episode="palau"] .wp-seq-tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #2c2a24;
+  background: #f1ece0;
+  border: 1px solid #d9d2c2;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .12s var(--ease), border-color .12s var(--ease), color .12s var(--ease);
+}
+.wp-page[data-episode="palau"] .wp-seq-tag[hidden] { display: none; }
+.wp-page[data-episode="palau"] .wp-seq-tag:hover { background: #ece6d8; border-color: #cdc6b4; }
+.wp-page[data-episode="palau"] .wp-seq-tag:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+.wp-page[data-episode="palau"] .wp-seq-tag.is-copied {
+  background: #1f8a72;
+  border-color: #1f8a72;
+  color: #fff;
+}
+
+/* ───────────────── CALM PALETTE (Palau) ─────────────────
+   Johnny: "there are SO many colors, it's too much." Burma keeps its dark LCD + orange DAY chips;
+   Palau reads calm and google-docs-like, so inline timecodes become quiet cream chips with NO
+   orange. Color is now reserved only for the slash direction-chips
+   (archive/factcheck/animation/broll). */
+.wp-page[data-episode="palau"] .wp-tc-tag {
+  background: #f0ebe0;
+  border: 1px solid #d6cdb8;
+  color: #6a6252;
+}
+/* Two chip forms on Palau, keyed off whether the chip carries a shooting DAY (#1):
+   • A DAY-style string-out chip (has data-day) folds the DAY INTO the chip — "DAY 4 · 00:38:59:02" —
+     so a loose "DAY 4 00:38:59:02" line reads its day from the chip and the plain "DAY 4" prefix is
+     removed (build-strip on fresh docs, DayFold on cached ones).
+   • A NAMED interview chip (no data-day) shows JUST the bracketed code — "[00:03:29]" — because the
+     bold inline sequence header already carries the name.
+   Brackets / the "DAY N · " prefix are CSS ::before/::after, so the copyable text node stays the bare
+   HH:MM:SS(:FF) — a click copies only the code (padded to Premiere HH:MM:SS:FF in JS). Higher
+   specificity than Burma's global .wp-tc-tag[data-day]::before, so Palau keeps its calm palette. */
+.wp-page[data-episode="palau"] .wp-tc-tag:not([data-day])::before { content: "["; color: #a89f8a; }
+.wp-page[data-episode="palau"] .wp-tc-tag:not([data-day])::after { content: "]"; color: #a89f8a; }
+.wp-page[data-episode="palau"] .wp-tc-tag[data-day]::before {
+  content: "DAY " attr(data-day) " · ";
+  color: #8a7c63; font-weight: 700; letter-spacing: .04em;
+}
+.wp-page[data-episode="palau"] .wp-tc-tag:hover { border-color: #b1a787; color: #3a382f; }
+.wp-page[data-episode="palau"] .wp-tc-tag.copied { border-color: #1f8a72; color: #1f8a72; }
+/* The block-type kind labels (DIRECTION / VO / etc.) go quiet grey — the frame + chips carry meaning. */
+.wp-page[data-episode="palau"] .wp-cart-kind,
+.wp-page[data-episode="palau"] .wp-vo-kind { color: #9a917d; }
+
+/* ═══════════════ TABLE GRIDLINES (Johnny: "dividing lines like a table") ═══════════════
+   Every row inside a chapter frame gets a horizontal divider; two-column rows get a center
+   vertical divider — a real table grid, warm lines on cream like his Google Doc. */
+.wp-page[data-episode="palau"] .wp-trow.wp-chframe:not(.wp-chframe-last) {
+  border-bottom: 1px solid #cabfa8;
+}
+/* center vertical divider between the said|shown lanes (line down the middle of the table) */
+.wp-page[data-episode="palau"] .wp-trow[data-cols="2"] .wp-tcell:first-child,
+.wp-page[data-episode="palau"] .wp-trow[data-cols="3"] .wp-tcell:not(:last-child) {
+  border-right: 1px solid #cabfa8;
+}
+
+/* ═══════════════ REMOVE done-checkboxes everywhere (Johnny: "get rid of the check boxes") ═══════════════
+   The per-block "done/shot" toggle button is clutter — gone across the whole Palau script. */
+.wp-page[data-episode="palau"] .wp-done { display: none !important; }
+
+/* ═══════════════ CHAPTER AS A BOOK HEADER (not a numbered block) ═══════════════
+   Johnny: the chapter title should be "a big beautiful chapter header like the chapter of a book"
+   living INSIDE the frame — no number cap, no grip, no cartridge chrome — with a little subtext,
+   then the table starts after it. */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-spine,   /* number cap + drag grip */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-ch-kind, /* the "CH" label */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-cap-num { display: none; }
+
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter {
+  background: transparent;
+  border: 0;
+}
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-cart-body {
+  padding: 14px 10px 20px 4px;
+}
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-ch-head { border-bottom: 0; }
+
+/* The chapter TITLE — big, elegant, book-chapter serif. */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-body > p:first-child {
+  font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+  font-size: 33px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: #2a2720;
+  margin: 0 0 8px;
+}
+/* Everything after the title = quiet italic subtext (the director's note). */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-body > p:not(:first-child) {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 14.5px;
+  font-style: italic;
+  line-height: 1.45;
+  color: #7d7768;
+  margin: 0 0 3px;
+}
+/* Genre tag (MAP / EXPLAINER) — a small quiet uppercase mono eyebrow. */
+.wp-page[data-episode="palau"] .wp-chframe-first .wp-chapter .wp-ch-tag {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .2em; color: #a89f8a;
+}
+
+/* ═══════════════ VERTICAL SCROLLING CHAPTER LABEL ═══════════════
+   Johnny: "some language typed vertically / rotated 90° along the left side that really faintly
+   says what chapter we're in and scrolls with me a little bit." Rotate the sticky sidebar to run
+   up the left gutter, very faint, current-chapter name only, updating as you scroll. */
+.wp-page[data-episode="palau"] .wp-chapter-sidebar {
+  left: 6px;
+  top: 0; bottom: 0;
+  height: 100vh;
+  width: 44px;
+  max-width: 44px;
+  transform: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wp-page[data-episode="palau"] .wp-chapter-sidebar-count { display: none; }
+.wp-page[data-episode="palau"] .wp-chapter-sidebar-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: rgba(74, 70, 58, .22);
+  white-space: nowrap;
+  max-height: 82vh;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ═══════════════ REMOVE the REC recording toggle (Johnny: "get rid of this recording status thing") ═══════════════ */
+.wp-page[data-episode="palau"] .wp-rec { display: none !important; }
+
+/* ═══════════════ DRAG-TO-REORDER ROWS (Palau) ═══════════════
+   A ⠿ grip in each row's FAR-LEFT gutter, further out than the split/merge spine (-26px).
+   Hidden until the row is hovered; grab it to drag the whole row up or down. Flat — no box,
+   no shadow — faint by default, the ONE orange accent when you reach for it. On drag a hairline
+   drop-indicator shows exactly where the row will land. */
+.wp-page[data-episode="palau"] .wp-row-drag {
+  position: absolute;
+  left: -50px;
+  top: 0;
+  width: 20px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--lane-lab);
+  opacity: 0;
+  cursor: grab;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity .14s var(--ease), color .14s var(--ease);
+}
+.wp-page[data-episode="palau"] .wp-trow:hover .wp-row-drag { opacity: .5; }
+.wp-page[data-episode="palau"] .wp-row-drag:hover { opacity: 1; color: var(--orange); }
+.wp-page[data-episode="palau"] .wp-row-drag:active { cursor: grabbing; }
+
+/* The row in the air reads a touch dimmed so the eye follows the drop line, not the ghost. */
+.wp-page[data-episode="palau"] .wp-trow.wp-trow-dragging { opacity: .5; }
+
+/* Drop-indicator hairline — a 2px orange rule at the top (before) or bottom (after) of the row
+   the cursor is over. Pure decoration, never intercepts pointer events. */
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-before::before,
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--orange);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 5;
+}
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-before::before { top: -2px; }
+.wp-page[data-episode="palau"] .wp-trow.wp-drop-after::after { bottom: -2px; }
+
+/* ═══════════════ VIZ-CHIP BREATHING ROOM (Johnny: "give a little space so they don't smash") ═══════════════
+   Roomier line-height in the cell prose so stacked viz-tag chips (box-decoration-break inline pills)
+   get vertical air between lines instead of butting background-to-background; a hair of side gap too. */
+.wp-page[data-episode="palau"] .wp-tcell-content .wp-body,
+.wp-page[data-episode="palau"] .wp-cart:not(.wp-chapter) .wp-body { line-height: 1.9; }
+.wp-page[data-episode="palau"] .wp-dhl { margin: 0 1px; }

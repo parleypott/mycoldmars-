@@ -48,6 +48,14 @@ const DOC_STORE = 'doc';
 // not about reclaiming space the way the localStorage caps were.)
 const KEEP = { conflict: 4, bak: 3, corrupt: 2 };
 
+// #21 — SNAPSHOT GC: DOUBLE-CAP by both COUNT and AGE, whichever is tighter, pruned oldest-first.
+// The per-kind KEEP caps above bound each KIND; these two bound the store GLOBALLY as a backstop so
+// an uncapped-in-aggregate snapshot pile can never itself become the "storage full" cause (the exact
+// failure class that triggered the original crash). GLOBAL_MAX_SNAPSHOTS caps the TOTAL rows; anything
+// older than MAX_SNAPSHOT_AGE_MS is dropped regardless of count. Applied after every snapshot write.
+const GLOBAL_MAX_SNAPSHOTS = 20;
+const MAX_SNAPSHOT_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 // Burma keeps the exact legacy IndexedDB database name so all existing recovery snapshots remain
 // discoverable. Other episodes derive their own DB names from their canonical DOC keys so their
 // snapshot/doc rows never collide with Burma or with each other.
@@ -269,9 +277,21 @@ export async function idbPutDoc(rawJsonString, ver, tab, deps = {}) {
       const getReq = store.get(key);
       getReq.onsuccess = () => {
         const cur = getReq.result || null;
-        if (cur && cur.gz !== gz && (Number(cur.ver) || 0) >= incomingVer && String(cur.tab || '') !== incomingTab) {
-          done({ ok: false, reason: 'conflict' });
-          return;
+        if (cur && cur.gz !== gz) {
+          const curVer = Number(cur.ver) || 0;
+          const sameTab = String(cur.tab || '') === incomingTab;
+          // STALE-SAVE GUARD (#3) — a late async save carrying a STRICTLY OLDER version than the row
+          // already present must never overwrite it. This is the same-tab out-of-order case: two
+          // overlapping flushes (e.g. the 300ms debounce write and a pagehide/visibilitychange
+          // teardown flush) fire idbPutDoc back-to-back and their async puts resolve in the WRONG
+          // order, so the older doc lands last and rewinds the row. The newer content is already
+          // durable here, so the older one is a benign no-op: dropped SILENTLY — no `.conflict`
+          // snapshot and no banner, because nothing was lost (a strictly-newer version supersedes it).
+          if (sameTab && curVer > incomingVer) { done({ ok: false, reason: 'stale' }); return; }
+          // CROSS-TAB CLOBBER (existing behavior, unchanged) — a DIFFERENT tab's equal-or-newer edit
+          // sits in the single canonical row. Refuse and preserve THIS tab's refused edit as a
+          // `.conflict` snapshot (below) so it surfaces via the RecoveryBanner and is never lost.
+          if (!sameTab && curVer >= incomingVer) { done({ ok: false, reason: 'conflict' }); return; }
         }
         const putReq = store.put(record);
         putReq.onsuccess = () => done({ ok: true, ver: incomingVer });
@@ -370,6 +390,9 @@ export async function idbPutSnapshot(kind, raw, deps = {}) {
     if (wrote) {
       // Best-effort prune of this kind; failure to prune never invalidates the write.
       await idbPruneKind(kind, KEEP[kind], deps);
+      // #21 — then apply the GLOBAL age + count double-cap across ALL kinds so the aggregate
+      // snapshot pile is bounded, not just each kind independently. Best-effort; never blocks.
+      await idbPruneGlobal(deps);
     }
     return wrote;
   } catch {
@@ -494,6 +517,55 @@ export async function idbPruneKind(kind, keep, deps = {}) {
   }
 }
 
+// #21 — GLOBAL snapshot GC across ALL kinds: cap by BOTH count (GLOBAL_MAX_SNAPSHOTS) AND age
+// (MAX_SNAPSHOT_AGE_MS), oldest-first, whichever bound is tighter. This is the aggregate backstop the
+// per-kind idbPruneKind can't provide: it drops anything past 7 days OUTRIGHT (stale recovery copies
+// are worthless), then trims the surviving set down to the newest GLOBAL_MAX_SNAPSHOTS. `nowMs` is
+// injectable so a headless test can age snapshots deterministically; production passes nothing and it
+// reads Date.now(). Resolves to the number of records dropped (0 on any error). NEVER throws.
+export async function idbPruneGlobal(deps = {}, nowMs) {
+  try {
+    const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const db = await openDB(deps);
+    if (!db) return 0;
+    return await withStore(db, 'readwrite', 0, (store, done) => {
+      const rows = [];
+      const cursorReq = store.openCursor();
+      cursorReq.onsuccess = (ev) => {
+        const cursor = ev.target.result;
+        if (cursor) {
+          const v = cursor.value || {};
+          const k = v.key;
+          if (k) rows.push({ key: k, ts: Number(v.ts) || snapshotTimestamp(k) });
+          cursor.continue();
+          return;
+        }
+        // Oldest-first, so a COUNT trim slices off the head (the stalest rows).
+        rows.sort((a, b) => a.ts - b.ts);
+        const drop = new Set();
+        // AGE cap — anything older than the max age is dropped regardless of how few rows remain.
+        for (const r of rows) { if (now - r.ts > MAX_SNAPSHOT_AGE_MS) drop.add(r.key); }
+        // COUNT cap — of what's left after the age cull, keep only the newest GLOBAL_MAX_SNAPSHOTS.
+        const survivors = rows.filter((r) => !drop.has(r.key));
+        const overflow = survivors.length - GLOBAL_MAX_SNAPSHOTS;
+        for (let i = 0; i < overflow; i++) drop.add(survivors[i].key); // survivors already oldest-first
+        const keys = [...drop];
+        if (keys.length === 0) { done(0); return; }
+        let removed = 0;
+        let pending = keys.length;
+        for (const dk of keys) {
+          const delReq = store.delete(dk);
+          delReq.onsuccess = () => { removed++; if (--pending === 0) done(removed); };
+          delReq.onerror = () => { if (--pending === 0) done(removed); };
+        }
+      };
+      cursorReq.onerror = () => done(0);
+    });
+  } catch {
+    return 0;
+  }
+}
+
 // IDBKeyRange.only(kind) for the kind index lookup — resolved from deps (mock) or the global. Returns
 // undefined when no key-range constructor is available, in which case openCursor() does a full scan
 // and idbPruneKind filters in JS (the fallback path above).
@@ -517,5 +589,6 @@ export function idbAvailable(deps = {}) {
 export {
   LS_DOC, CONFLICT_PREFIX, BAK_PREFIX, CORRUPT_PREFIX,
   DB_NAME, DB_VERSION, STORE, DOC_STORE, KEEP,
+  GLOBAL_MAX_SNAPSHOTS, MAX_SNAPSHOT_AGE_MS,
   snapshotKey, kindOf, snapshotTimestamp,
 };

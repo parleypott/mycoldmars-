@@ -12,7 +12,7 @@
 const FRAMING_STORE = 'reef_framing_v1';
 const KILL_STORE = 'reef_killed_v2';
 const S_MIN = 1.0, S_DEF = 1.5, S_MAX = 3.0;
-const FPS = 12;                       // 12 images/sec — the loop's hard-cut rate
+let FPS = 5;                          // images/sec — set from the player's live speed on open
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 let cancelFlag = false;
@@ -294,7 +294,10 @@ async function exportGIF(frames) {
 }
 
 // ---- public api -------------------------------------------------------------
-export function openMenu() { show(); }
+export function openMenu(opts) {
+  if (opts && Number.isFinite(opts.fps)) FPS = clamp(Math.round(opts.fps), 1, 24);
+  show();
+}
 window.addEventListener('keydown', (e) => {
   if (ui && ui.style.display !== 'none' && e.key === 'Escape') { e.preventDefault(); hide(); }
 });

@@ -192,8 +192,38 @@ function makeMockIDB() {
 const store = await import('./recovery-store.js');
 const {
   idbPutSnapshot, idbListSnapshots, idbReadSnapshot, idbDeleteSnapshot, idbPruneKind, idbAvailable,
+  idbPruneGlobal, idbPutDoc, idbReadDoc,
   CONFLICT_PREFIX, BAK_PREFIX, CORRUPT_PREFIX, KEEP,
+  GLOBAL_MAX_SNAPSHOTS, MAX_SNAPSHOT_AGE_MS, DB_NAME, DB_VERSION,
 } = store;
+
+// Seed raw snapshot rows straight into the mock store (bypassing idbPutSnapshot's per-kind + global
+// auto-prune) so the GLOBAL count/age caps can be exercised with more rows than the per-kind caps
+// would ever allow to accumulate. The store is created lazily by openDB's v2 upgrade on first open.
+function seedRows(deps, rows) {
+  return new Promise((resolve) => {
+    const req = deps.indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result;
+      if (!db.objectStoreNames.contains('snapshots')) {
+        const os = db.createObjectStore('snapshots', { keyPath: 'key' });
+        os.createIndex('kind', 'kind', { unique: false });
+        os.createIndex('ts', 'ts', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('doc')) db.createObjectStore('doc', { keyPath: 'key' });
+    };
+    req.onsuccess = (ev) => {
+      const db = ev.target.result;
+      const tx = db.transaction('snapshots', 'readwrite');
+      const os = tx.objectStore('snapshots');
+      for (const r of rows) os.put(r);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    };
+    req.onerror = () => resolve();
+  });
+}
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; } else { fail++; console.log(`FAIL ${label}`); } };
@@ -316,6 +346,73 @@ function freshDeps() {
   ok((await idbPutSnapshot('conflict', '', deps)) === null, '9a. empty raw → null (nothing written)');
   ok((await idbPutSnapshot('bogus-kind', DOC('x'), deps)) === null, '9b. unknown kind → null');
   eq((await idbListSnapshots(deps)).length, 0, '9c. nothing was written for the bad inputs');
+}
+
+/* ── 10 (#21): GLOBAL age cap — snapshots older than MAX_SNAPSHOT_AGE_MS are pruned outright ── */
+{
+  const deps = freshDeps();
+  await idbPutSnapshot('bak', DOC('fresh-1'), deps);
+  await idbPutSnapshot('conflict', DOC('fresh-2'), deps);
+  eq((await idbListSnapshots(deps)).length, 2, '10a. two fresh snapshots present');
+  // With a normal now, nothing is stale → nothing pruned.
+  eq(await idbPruneGlobal(deps), 0, '10b. fresh snapshots survive a normal-now global prune');
+  eq((await idbListSnapshots(deps)).length, 2, '10c. both still present after fresh prune');
+  // Fast-forward `now` past the 7-day window → BOTH are older than the age cap → both dropped.
+  const future = Date.now() + MAX_SNAPSHOT_AGE_MS + 60_000;
+  const dropped = await idbPruneGlobal(deps, future);
+  eq(dropped, 2, '10d. age cap drops every snapshot older than 7 days');
+  eq((await idbListSnapshots(deps)).length, 0, '10e. store empty after the age cull');
+}
+
+/* ── 11 (#21): GLOBAL count cap — the store is trimmed to GLOBAL_MAX_SNAPSHOTS, oldest-first ── */
+{
+  const deps = freshDeps();
+  const N = GLOBAL_MAX_SNAPSHOTS + 6; // seed 6 over the cap
+  const base = 1_700_000_000_000;
+  const rows = [];
+  for (let i = 0; i < N; i++) {
+    // Strictly increasing ts (all well within 7 days of each other) so ordering is unambiguous and
+    // the age cap does NOT fire — this isolates the COUNT cap.
+    const ts = base + i * 1000;
+    rows.push({ key: BAK_PREFIX + ts + '-000000', kind: 'bak', ts, raw: DOC('seed-' + i) });
+  }
+  await seedRows(deps, rows);
+  eq((await idbListSnapshots(deps)).length, N, '11a. seeded N > GLOBAL_MAX rows directly');
+  // Prune with `now` pinned just after the newest seed so NOTHING is age-stale — only the count cap acts.
+  const dropped = await idbPruneGlobal(deps, base + N * 1000);
+  eq(dropped, N - GLOBAL_MAX_SNAPSHOTS, '11b. count cap dropped exactly the overflow');
+  const left = await idbListSnapshots(deps);
+  eq(left.length, GLOBAL_MAX_SNAPSHOTS, '11c. exactly GLOBAL_MAX_SNAPSHOTS kept');
+  // The survivors are the NEWEST ones (highest ts); the oldest seeds were dropped.
+  const survivingTs = left.map((s) => s.ts).sort((a, b) => a - b);
+  ok(survivingTs[0] === base + 6 * 1000, '11d. the 6 OLDEST snapshots were the ones pruned');
+}
+
+/* ── 12 (#3): STALE-SAVE GUARD in idbPutDoc — a same-tab STRICTLY-OLDER version can't rewind the row,
+      but a different tab's equal-or-newer edit still raises a conflict (existing behavior intact) ── */
+{
+  const deps = freshDeps();
+  const A1 = JSON.stringify({ type: 'doc', content: [{ type: 'text', text: 'edit at v5' }] });
+  const A0 = JSON.stringify({ type: 'doc', content: [{ type: 'text', text: 'older edit, v4' }] });
+  const B1 = JSON.stringify({ type: 'doc', content: [{ type: 'text', text: 'other tab at v5' }] });
+
+  const r1 = await idbPutDoc(A1, 5, 'tabA', deps);
+  ok(r1 && r1.ok === true && r1.ver === 5, '12a. tabA writes v5 → ok');
+
+  // Same tab, STRICTLY OLDER version (a late out-of-order flush) → refused as benign 'stale', NOT a conflict.
+  const r2 = await idbPutDoc(A0, 4, 'tabA', deps);
+  ok(r2 && r2.ok === false && r2.reason === 'stale', '12b. same-tab older version refused as stale (not conflict)');
+  const after = await idbReadDoc(deps);
+  ok(after && after.ver === 5 && after.raw === A1, '12c. the newer v5 row is intact — stale write did NOT rewind it');
+  // A stale refusal must NOT manufacture a .conflict snapshot (nothing was lost).
+  eq((await idbListSnapshots(deps)).filter((s) => s.kind === 'conflict').length, 0, '12d. no conflict snapshot for a benign stale drop');
+
+  // Different tab, equal version, different bytes → still a real conflict (preserved), unchanged.
+  const r3 = await idbPutDoc(B1, 5, 'tabB', deps);
+  ok(r3 && r3.ok === false && r3.reason === 'conflict', '12e. cross-tab equal-version clobber still raises conflict');
+  ok((await idbListSnapshots(deps)).some((s) => s.kind === 'conflict' && s.raw === B1), '12f. the refused cross-tab edit is preserved as a conflict snapshot');
+  const still = await idbReadDoc(deps);
+  ok(still && still.ver === 5 && still.raw === A1, '12g. the canonical row still holds tabA v5 after the cross-tab refusal');
 }
 
 console.log(`\nrecovery-store: ${pass} passed, ${fail} failed`);

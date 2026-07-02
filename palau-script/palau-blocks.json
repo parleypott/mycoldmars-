@@ -107,8 +107,7 @@
       "rawSource": "3d: Wide of Coral zooming in",
       "lane": "shown",
       "pairId": "pair_palau_15",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
       "id": "vo_palau_17_167171",
@@ -126,8 +125,7 @@
       "rawSource": "3d: Wide of Coral zooming in",
       "lane": "shown",
       "pairId": "pair_palau_16",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
       "id": "vo_palau_19_z32963",
@@ -145,8 +143,7 @@
       "rawSource": "3d zooming in focus on the polyp",
       "lane": "shown",
       "pairId": "pair_palau_17",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
       "id": "vo_palau_21_11p39c",
@@ -174,14 +171,14 @@
       "rawSource": "It ISSS the ALgea…"
     },
     {
-      "id": "sot_palau_24_1nuzpr",
+      "id": "sot_palau_24_wbd716",
       "type": "sot",
       "text": "EXPERTS SAY\n\n● 20260311-James Porter - Interview: [00:03:29] this alga lives inside the flesh of the coral, and it feeds the coral [00:03:36][7.3]",
       "rawSource": "EXPERTS SAY\n\n● 20260311-James Porter - Interview: [00:03:29] this alga lives inside the flesh of the coral, and it feeds the coral [00:03:36][7.3]",
       "lane": "said",
       "pairId": "pair_palau_20",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -221,11 +218,11 @@
       "flavor": "purple"
     },
     {
-      "id": "sot_palau_28_fw2tqr",
+      "id": "sot_palau_28_19m77r",
       "type": "sot",
       "text": "Dr Porter:\n\n20260311-James Porter - Interview: [00:04:30] It just has the plants living inside itself. Think of it as if you had a salad bar living in you, and whenever you wanted a salad, Would you just go out in the sun and... Sunbathed for a while. [00:04:42][12.6]",
       "rawSource": "Dr Porter:\n\n20260311-James Porter - Interview: [00:04:30] It just has the plants living inside itself. Think of it as if you had a salad bar living in you, and whenever you wanted a salad, Would you just go out in the sun and... Sunbathed for a while. [00:04:42][12.6]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -236,11 +233,11 @@
       }
     },
     {
-      "id": "sot_palau_29_1cxwdt",
+      "id": "sot_palau_29_8l7jnn",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:04:17] corals ~~kind of~~ liberated themselves from ~~one important source of their food, which is~~ the requirement to get sustenance from plants. It just has the plants living inside itself [00:04:33][15.1]",
       "rawSource": "20260311-James Porter - Interview: [00:04:17] corals ~~kind of~~ liberated themselves from ~~one important source of their food, which is~~ the requirement to get sustenance from plants. It just has the plants living inside itself [00:04:33][15.1]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -270,11 +267,11 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_32_3keh03",
+      "id": "sot_palau_32_1vohd7",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:03:37] it also helps deposit its limestone skeleton [00:03:41][4.8]",
       "rawSource": "20260311-James Porter - Interview: [00:03:37] it also helps deposit its limestone skeleton [00:03:41][4.8]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -285,11 +282,11 @@
       }
     },
     {
-      "id": "sot_palau_33_mae12b",
+      "id": "sot_palau_33_vqmdaf",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:03:44] our bones are calcium phosphate but coral's bones are calcium carbonate. [00:03:50][6.0]",
       "rawSource": "20260311-James Porter - Interview: [00:03:44] our bones are calcium phosphate but coral's bones are calcium carbonate. [00:03:50][6.0]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -446,8 +443,7 @@
       "rawSource": "ONCAM +\n3d timelapse of the coral reef",
       "lane": "shown",
       "pairId": "pair_palau_34",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
       "id": "oncam_palau_48_10yqe0",
@@ -469,11 +465,11 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_50_15ar5m",
+      "id": "sot_palau_50_1vbwxy",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:03:50] that limestone then is deposited underneath the coral, so the coral is always growing towards the light. [00:03:58][8.2]",
       "rawSource": "20260311-James Porter - Interview: [00:03:50] that limestone then is deposited underneath the coral, so the coral is always growing towards the light. [00:03:58][8.2]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -504,14 +500,14 @@
       "rawSource": "GR1. Entering the Coral"
     },
     {
-      "id": "sot_palau_54_193vhy",
+      "id": "sot_palau_54_xiq0qy",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:33:20] just take it in as a a cacophony that is also a symphony of life. This is the beauty of the natural world revealed in its finest way. [00:33:33][13.1]",
       "rawSource": "20260311-James Porter - Interview: [00:33:20] just take it in as a a cacophony that is also a symphony of life. This is the beauty of the natural world revealed in its finest way. [00:33:33][13.1]",
       "lane": "said",
       "pairId": "pair_palau_40",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -543,14 +539,14 @@
       "rawSource": "SPLASH DAY 4 00:42:57:02\n\nUnder water. JH exploring the ree\n\n\n\nBreath…music swells with beauty and wonder"
     },
     {
-      "id": "sot_palau_57_149w25",
+      "id": "sot_palau_57_7hcgzi",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:24:52] Almost all of the 500 species of corals found in the Pacific are found in Palao, [00:24:59][7.0]",
       "rawSource": "20260311-James Porter - Interview: [00:24:52] Almost all of the 500 species of corals found in the Pacific are found in Palao, [00:24:59][7.0]",
       "lane": "said",
       "pairId": "pair_palau_42",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -570,14 +566,14 @@
       "width": "half"
     },
     {
-      "id": "sot_palau_59_5dl85y",
+      "id": "sot_palau_59_14npzr",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:32:54] These master architects have designed the most beautiful structures. Found anywhere in the world [00:33:00][6.8]",
       "rawSource": "20260311-James Porter - Interview: [00:32:54] These master architects have designed the most beautiful structures. Found anywhere in the world [00:33:00][6.8]",
       "lane": "said",
       "pairId": "pair_palau_43",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -597,11 +593,11 @@
       "width": "half"
     },
     {
-      "id": "sot_palau_61_rueihn",
+      "id": "sot_palau_61_1odc89",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:32:14] you are going to see everything. ~~And you're gonna see everything~~ all at once. ~~And what this means is that~~ your mind will be overwhelmed with a kaleidoscope of ~~fish and invertebrates and~~ life forms that you can't possibly put a name on, with spectacular colors that you have never seen before. Not even in a neon sign. [00:32:40][26.0]",
       "rawSource": "20260311-James Porter - Interview: [00:32:14] you are going to see everything. ~~And you're gonna see everything~~ all at once. ~~And what this means is that~~ your mind will be overwhelmed with a kaleidoscope of ~~fish and invertebrates and~~ life forms that you can't possibly put a name on, with spectacular colors that you have never seen before. Not even in a neon sign. [00:32:40][26.0]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -618,14 +614,14 @@
       "rawSource": "BREATH"
     },
     {
-      "id": "sot_palau_63_10wbwl",
+      "id": "sot_palau_63_1fj9i6",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:04:46] I mean, corals have been around for 400 million years and they have built the one environment on earth where the living things can be seen from outer space [00:04:56][10.3]",
       "rawSource": "20260311-James Porter - Interview: [00:04:46] I mean, corals have been around for 400 million years and they have built the one environment on earth where the living things can be seen from outer space [00:04:56][10.3]",
       "lane": "said",
       "pairId": "pair_palau_46",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -646,14 +642,14 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_65_jagc56",
+      "id": "sot_palau_65_drgrt2",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:14:23] coral reefs as solid structures are physical barriers to extreme waves, the damage that might be caused by a hurricane or a tsunami. [00:14:36][12.9]",
       "rawSource": "20260311-James Porter - Interview:\n[00:14:23] coral reefs as solid structures are physical barriers to extreme waves, the damage that might be caused by a hurricane or a tsunami. [00:14:36][12.9]",
       "lane": "said",
       "pairId": "pair_palau_47",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -674,14 +670,14 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_67_15k2ws",
+      "id": "sot_palau_67_isvonm",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:14:51] hese are buffers to the violence of ocean waves. [00:14:55][3.9]",
       "rawSource": "20260311-James Porter - Interview:\n[00:14:51] hese are buffers to the violence of ocean waves. [00:14:55][3.9]",
       "lane": "said",
       "pairId": "pair_palau_48",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -725,14 +721,14 @@
       "rawSource": "JH continues under water diving"
     },
     {
-      "id": "sot_palau_72_xmxj8u",
+      "id": "sot_palau_72_hd5voq",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:12:40] Ninety …[00:12:37] nations… [] have coral reefs inside their territorial boundaries. The U.S. Is no exception",
       "rawSource": "20260311-James Porter - Interview:\n[00:12:40] Ninety …[00:12:37] nations… [] have coral reefs inside their territorial boundaries. The U.S. Is no exception",
       "lane": "said",
       "pairId": "pair_palau_51",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -780,11 +776,11 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_76_1p3dao",
+      "id": "sot_palau_76_18w3a6",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:13:09] Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit. [00:13:21][12.1]",
       "rawSource": "20260311-James Porter - Interview:\n[00:13:09] Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit. [00:13:21][12.1]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -795,14 +791,14 @@
       }
     },
     {
-      "id": "sot_palau_77_1j9ofz",
+      "id": "sot_palau_77_1uv58z",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:09:02] only only one percent of the surface of the ocean, actually a little bit less, and yet there are 25 percent of all marine plant and animal species are found in this little one percent. [00:09:16][13.6]",
       "rawSource": "20260311-James Porter - Interview:\n[00:09:02] only only one percent of the surface of the ocean, actually a little bit less, and yet there are 25 percent of all marine plant and animal species are found in this little one percent. [00:09:16][13.6]",
       "lane": "said",
       "pairId": "pair_palau_54",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -819,18 +815,17 @@
       "rawSource": "More Diving B roll",
       "lane": "shown",
       "pairId": "pair_palau_54",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
-      "id": "sot_palau_79_1cw190",
+      "id": "sot_palau_79_1sk96g",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:07:29] coral reefs achieve their biological diversity by the inclusion of the natural world, not the exclusion of it. And what that buys you is 400 million years of evolution. And I think we humans should learn something from coral reefs. [00:07:45][16.1]",
       "rawSource": "20260311-James Porter - Interview:\n[00:07:29] coral reefs achieve their biological diversity by the inclusion of the natural world, not the exclusion of it. And what that buys you is 400 million years of evolution. And I think we humans should learn something from coral reefs. [00:07:45][16.1]",
       "lane": "said",
       "pairId": "pair_palau_55",
       "width": "half",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -847,8 +842,7 @@
       "rawSource": "More Diving B roll",
       "lane": "shown",
       "pairId": "pair_palau_55",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
       "id": "oncam_palau_81_1s3tak",
@@ -908,8 +902,7 @@
       "rawSource": "3d shows Palau without any water",
       "lane": "shown",
       "pairId": "pair_palau_59",
-      "width": "half",
-      "flavor": "gold"
+      "width": "half"
     },
     {
       "id": "vo_palau_88_19tiw9",
@@ -995,11 +988,11 @@
       "rawSource": "EX 2. Warming Ocean"
     },
     {
-      "id": "sot_palau_99_qhu8tf",
+      "id": "sot_palau_99_4zid6v",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:11:11] It keeps getting warmer and warmer and warm So the problem there is that this elevated temperature? Kills the algae so we're see we're back back to symbiodinium And when it kills the algae that starves the coral because it's lost its salad bar and It bleaches white and the reason coral reefs bleach is what we've called it is you can when the algae die You can see through the flesh of the call to the white limestone skeleton underneath and If that bleached condition stays for too long the corals will die. [00:11:53][42.2]",
       "rawSource": "20260311-James Porter - Interview:\n[00:11:11] It keeps getting warmer and warmer and warm So the problem there is that this elevated temperature? Kills the algae so we're see we're back back to symbiodinium And when it kills the algae that starves the coral because it's lost its salad bar and It bleaches white and the reason coral reefs bleach is what we've called it is you can when the algae die You can see through the flesh of the call to the white limestone skeleton underneath and If that bleached condition stays for too long the corals will die. [00:11:53][42.2]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1010,11 +1003,11 @@
       }
     },
     {
-      "id": "sot_palau_100_j8urv1",
+      "id": "sot_palau_100_1ix8dp",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:12:01] You'll lose your city. I mean, coral's built the buildings, and you don't have them anymore. Everything suffers when a coral reef bleaches and dies. I mean we're talking about this biodiversity and all this productivity, and all of that begins to die. So the consequences are huge. [00:12:28][27.5]",
       "rawSource": "20260311-James Porter - Interview:\n[00:12:01] You'll lose your city. I mean, coral's built the buildings, and you don't have them anymore. Everything suffers when a coral reef bleaches and dies. I mean we're talking about this biodiversity and all this productivity, and all of that begins to die. So the consequences are huge. [00:12:28][27.5]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1025,11 +1018,11 @@
       }
     },
     {
-      "id": "sot_palau_101_1qr1m7",
+      "id": "sot_palau_101_173alk",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:12:34] There are a hundred and eighty sovereign nations on earth. Ninety of them have coral reefs inside their territorial boundaries. The U.S. Is no exception. We have Hawaii and Florida. [00:12:48][13.2]",
       "rawSource": "20260311-James Porter - Interview:\n[00:12:34] There are a hundred and eighty sovereign nations on earth. Ninety of them have coral reefs inside their territorial boundaries. The U.S. Is no exception. We have Hawaii and Florida. [00:12:48][13.2]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1040,11 +1033,11 @@
       }
     },
     {
-      "id": "sot_palau_102_rquv5n",
+      "id": "sot_palau_102_5ujie7",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:12:56] where half a billion people. Rely exclusively on coral reefs as their sole source of protein and income. Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit. [00:13:21][25.4]",
       "rawSource": "20260311-James Porter - Interview:\n[00:12:56] where half a billion people. Rely exclusively on coral reefs as their sole source of protein and income. Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit. [00:13:21][25.4]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1055,11 +1048,11 @@
       }
     },
     {
-      "id": "sot_palau_103_lahayb",
+      "id": "sot_palau_103_1am74a",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:16:21] Coral skeletons are made of limestone and limestone is dissolved by acid. [00:16:29][8.0]",
       "rawSource": "20260311-James Porter - Interview:\n[00:16:21] Coral skeletons are made of limestone and limestone is dissolved by acid. [00:16:29][8.0]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1070,11 +1063,11 @@
       }
     },
     {
-      "id": "sot_palau_104_x7k0md",
+      "id": "sot_palau_104_10njgz",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:16:52] The pH of Coca-Cola is 2.5. Now car battery acid is 1.0, but Coca-cola is 2,5. Pretty acid stuff. Drinking water has a pH of 7. What happens when we pump CO2 into a soft drink, it acidifies the soft drink. So the pH in Coca-Cola of 2.5 is not because of the Coca-Cola's secret formula, it's simply because of CO2. And what's happening is we are turning the oceans into Coca-cola. [00:17:27][35.9]",
       "rawSource": "20260311-James Porter - Interview:\n[00:16:52] The pH of Coca-Cola is 2.5. Now car battery acid is 1.0, but Coca-cola is 2,5. Pretty acid stuff. Drinking water has a pH of 7. What happens when we pump CO2 into a soft drink, it acidifies the soft drink. So the pH in Coca-Cola of 2.5 is not because of the Coca-Cola's secret formula, it's simply because of CO2. And what's happening is we are turning the oceans into Coca-cola. [00:17:27][35.9]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1085,11 +1078,11 @@
       }
     },
     {
-      "id": "sot_palau_105_6cz0z5",
+      "id": "sot_palau_105_a0bar9",
       "type": "sot",
       "text": "20260311-James Porter - Interview:\n[00:18:54] some of the low islands in the Pacific, like the Maldives and Karabas. When sea level rise occurs, and that's because the warming on land melts glaciers and sea level rises, they're going to lose their whole country. Palau has some areas that are almost 900 feet tall, so it's doubtful that they're going to loose their territorial integrity, but their reefs are not going to be able to keep up with the onslaught of ocean warming and ocean acidification. [00:19:27][33.7]",
       "rawSource": "20260311-James Porter - Interview:\n[00:18:54] some of the low islands in the Pacific, like the Maldives and Karabas. When sea level rise occurs, and that's because the warming on land melts glaciers and sea level rises, they're going to lose their whole country. Palau has some areas that are almost 900 feet tall, so it's doubtful that they're going to loose their territorial integrity, but their reefs are not going to be able to keep up with the onslaught of ocean warming and ocean acidification. [00:19:27][33.7]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1145,11 +1138,11 @@
       "width": "half"
     },
     {
-      "id": "sot_palau_112_1dxvz1",
+      "id": "sot_palau_112_1o1krt",
       "type": "sot",
-      "text": "DAY 4 02:56:50:15\nlike human bodies. A lot of these organisms are very sensitive to small changes in the temperature. So like human bodies, like human bodies, there is extreme sensitivity to temperature shifts to these ecosystems. So a few years ago, this lake had millions and millions of these jellyfish.",
+      "text": "like human bodies. A lot of these organisms are very sensitive to small changes in the temperature. So like human bodies, like human bodies, there is extreme sensitivity to temperature shifts to these ecosystems. So a few years ago, this lake had millions and millions of these jellyfish.",
       "rawSource": "DAY 4 02:56:50:15\nlike human bodies. A lot of these organisms are very sensitive to small changes in the temperature. So like human bodies, like human bodies, there is extreme sensitivity to temperature shifts to these ecosystems. So a few years ago, this lake had millions and millions of these jellyfish.",
-      "speaker": "",
+      "speaker": "DAY 4",
       "done": false,
       "timecode": {
         "day": "DAY 4",
@@ -1180,11 +1173,11 @@
       "rawSource": "Scene: Sinking Neighborhood"
     },
     {
-      "id": "sot_palau_115_un3l09",
+      "id": "sot_palau_115_1j3t7c",
       "type": "sot",
-      "text": "DAY 5 00:00:07:02 “we’re now descending to a neighborhood…”",
+      "text": "“we’re now descending to a neighborhood…”",
       "rawSource": "DAY 5 00:00:07:02 “we’re now descending to a neighborhood…”",
-      "speaker": "",
+      "speaker": "DAY 5",
       "done": false,
       "timecode": {
         "day": "DAY 5",
@@ -1194,11 +1187,11 @@
       }
     },
     {
-      "id": "sot_palau_116_1lrb7t",
+      "id": "sot_palau_116_110gs9",
       "type": "sot",
       "text": "260327-02-106- LEGISLATOR:\n[00:02:12] I mean, I'm no expert,\nbut we can actually see with our\nown eyes that something's happening\nand it's rising. [00:02:18][6.2]",
       "rawSource": "260327-02-106- LEGISLATOR:\n[00:02:12] I mean, I'm no expert,\nbut we can actually see with our\nown eyes that something's happening\nand it's rising. [00:02:18][6.2]",
-      "speaker": "260327-02-106- LEGISLATOR",
+      "speaker": "260327-02-106- LEGISLATOR:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1228,11 +1221,11 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_119_51stw3",
+      "id": "sot_palau_119_1snkuu",
       "type": "sot",
       "text": "●​ 260327-02-106- LEGISLATOR:\n[00:11:01] At first it was\nlike it's calm, it's natural,\nbut now it's more constant.\n[00:11:06][5.2]\n●​ 260327-02-106-\nLEGISLATOR-NEIGHBOR:\n[00:17:15] Maybe every year.\nEvery year they're going to be\nwasting the time. It goes\nhigher? Yeah. More of a high\n[00:17:23][8.4]\n●​ Talking to local\n○​ 260327-02-106-\nLEGISLATOR: [00:17:23]\nIt's going to be a whole\nnew story. It's\nchanging. Higher and\nhigher. [00:17:28][4.6]\n○​ 260327-02-106-\nLEGISLATOR-JOHNNY:\n[00:17:28] And how does\nthat affect your home or\nyour or this community?\n[00:17:36][7.2]\n○​ 260327-02-106-\nLEGISLATOR-NEIGHBOR:\n[00:17:37] I don't know,\nmaybe very soon we're\ngonna move out. Yeah,\nyeah, yeah. There's no\nchoice. [00:17:43][6.5]\n●​ 260327-02-106- LEGISLATOR:\n[00:26:42] their homes, they\nlike their homes. They're\ngenerational homes. Their\nfamilies used to stay here.\nAnd now they're staying here\nand there's nothing we can do\nin fighting the tide, I mean\nthe tide rise [00:26:59][16.8]",
       "rawSource": "●​ 260327-02-106- LEGISLATOR:\n[00:11:01] At first it was\nlike it's calm, it's natural,\nbut now it's more constant.\n[00:11:06][5.2]\n●​ 260327-02-106-\nLEGISLATOR-NEIGHBOR:\n[00:17:15] Maybe every year.\nEvery year they're going to be\nwasting the time. It goes\nhigher? Yeah. More of a high\n[00:17:23][8.4]\n●​ Talking to local\n○​ 260327-02-106-\nLEGISLATOR: [00:17:23]\nIt's going to be a whole\nnew story. It's\nchanging. Higher and\nhigher. [00:17:28][4.6]\n○​ 260327-02-106-\nLEGISLATOR-JOHNNY:\n[00:17:28] And how does\nthat affect your home or\nyour or this community?\n[00:17:36][7.2]\n○​ 260327-02-106-\nLEGISLATOR-NEIGHBOR:\n[00:17:37] I don't know,\nmaybe very soon we're\ngonna move out. Yeah,\nyeah, yeah. There's no\nchoice. [00:17:43][6.5]\n●​ 260327-02-106- LEGISLATOR:\n[00:26:42] their homes, they\nlike their homes. They're\ngenerational homes. Their\nfamilies used to stay here.\nAnd now they're staying here\nand there's nothing we can do\nin fighting the tide, I mean\nthe tide rise [00:26:59][16.8]",
-      "speaker": "",
+      "speaker": "​ 260327-02-106- LEGISLATOR:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1250,11 +1243,11 @@
       "rawSource": "SCENE: Rangers"
     },
     {
-      "id": "sot_palau_121_1f5q8q",
+      "id": "sot_palau_121_15ze9i",
       "type": "sot",
-      "text": "DAY 3 00:00:00:12 “hey! Youtuber! Nice ot meet you etc”\nDAY 3 00:00:24:21 showing the map of how they protect it",
+      "text": "“hey! Youtuber! Nice ot meet you etc”\nDAY 3 00:00:24:21 showing the map of how they protect it",
       "rawSource": "DAY 3 00:00:00:12 “hey! Youtuber! Nice ot meet you etc”\nDAY 3 00:00:24:21 showing the map of how they protect it",
-      "speaker": "",
+      "speaker": "DAY 3",
       "done": false,
       "timecode": {
         "day": "DAY 3",
@@ -1280,7 +1273,6 @@
       "type": "sot",
       "text": "DAY 3 20260325-0843-GH016622  RANGER:\n“So people we've got a lot of people that stay close to the mangroves before. Now they're moving up to higher ground because it's really it's really rising over. It's coming through the front door. It's coming to the front door. Yeah I know people that where I stayed up on the max tide, it's on their front door. There's water in the front that's usually you're walking on saltwater to get in your car. Nearly. That's concerning. Yeah. So there's there's a lot of ways that we can do it. We can, put a wall protective, but we don't want to, you know, we want to let Mother Nature do what you got to do. Now, we'll do our best to give you back.",
       "rawSource": "DAY 3 20260325-0843-GH016622  RANGER:\n“So people we've got a lot of people that stay close to the mangroves before. Now they're moving up to higher ground because it's really it's really rising over. It's coming through the front door. It's coming to the front door. Yeah I know people that where I stayed up on the max tide, it's on their front door. There's water in the front that's usually you're walking on saltwater to get in your car. Nearly. That's concerning. Yeah. So there's there's a lot of ways that we can do it. We can, put a wall protective, but we don't want to, you know, we want to let Mother Nature do what you got to do. Now, we'll do our best to give you back.",
-      "flavor": "yellow",
       "speaker": "RANGER",
       "done": false,
       "timecode": {
@@ -1333,11 +1325,11 @@
       }
     },
     {
-      "id": "sot_palau_128_1oq0j0",
+      "id": "sot_palau_128_1agut6",
       "type": "sot",
-      "text": "DAY 3 00:36:01:21 RANGER points flash light “that island used to have a big beach of sand and now due to tide rise its all gone”",
+      "text": "RANGER points flash light “that island used to have a big beach of sand and now due to tide rise its all gone”",
       "rawSource": "DAY 3 00:36:01:21 RANGER points flash light “that island used to have a big beach of sand and now due to tide rise its all gone”",
-      "speaker": "RANGER",
+      "speaker": "DAY 3",
       "done": false,
       "timecode": {
         "day": "DAY 3",
@@ -1386,11 +1378,11 @@
       "width": "half"
     },
     {
-      "id": "sot_palau_133_phryzp",
+      "id": "sot_palau_133_xyz77p",
       "type": "sot",
       "text": "260328-02-107- TOMMY: [00:11:18] this is not the Palau that we grew up in. Definitely not the same Palau. ~~For one thing, the environment is a very different thing.~~ It's still beautiful, it's still plentiful, but not as beautiful and not as plentifull as before. As a fisherman, you notice that. You know the fish population is down. The fish sizes are down. You have to fish further away from shore to catch fish nowadays. [00:12:03][45.7]",
       "rawSource": "260328-02-107- TOMMY: [00:11:18] this is not the Palau that we grew up in. Definitely not the same Palau. ~~For one thing, the environment is a very different thing.~~ It's still beautiful, it's still plentiful, but not as beautiful and not as plentifull as before. As a fisherman, you notice that. You know the fish population is down. The fish sizes are down. You have to fish further away from shore to catch fish nowadays. [00:12:03][45.7]",
-      "speaker": "TOMMY",
+      "speaker": "260328-02-107- TOMMY:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1401,11 +1393,11 @@
       }
     },
     {
-      "id": "sot_palau_134_374uf1",
+      "id": "sot_palau_134_ijm2u5",
       "type": "sot",
       "text": "260328-02-107- TOMMY: [01:22:01] you cannot predict the tide anymore. We used to know with the moon and the wind, we need to know, but not anymore. [01:22:09][8.2]",
       "rawSource": "260328-02-107- TOMMY: [01:22:01] you cannot predict the tide anymore. We used to know with the moon and the wind, we need to know, but not anymore. [01:22:09][8.2]",
-      "speaker": "TOMMY",
+      "speaker": "260328-02-107- TOMMY:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1458,11 +1450,11 @@
       "width": "half"
     },
     {
-      "id": "sot_palau_139_1egmet",
+      "id": "sot_palau_139_12yh94",
       "type": "sot",
       "text": "260328-02-108- TARO-TINA: [00:46:47] ~~that is the bread.~~ In your culture, you would say ~~that's the wheat, the bread, without the bread without whatever that makes the~~ bread that's your, that's to staple. So taro is our staple, [00:47:03][16.4]",
       "rawSource": "260328-02-108- TARO-TINA: [00:46:47] ~~that is the bread.~~ In your culture, you would say ~~that's the wheat, the bread, without the bread without whatever that makes the~~ bread that's your, that's to staple. So taro is our staple, [00:47:03][16.4]",
-      "speaker": "TARO-TINA",
+      "speaker": "260328-02-108- TARO-TINA:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1473,14 +1465,14 @@
       }
     },
     {
-      "id": "sot_palau_140_1p0j6b",
+      "id": "sot_palau_140_116dcw",
       "type": "sot",
       "text": "260328-02-108- TARO-TINA: [00:49:59] Women are the taro growers. [00:50:03][3.9]",
       "rawSource": "260328-02-108- TARO-TINA: [00:49:59] Women are the taro growers. [00:50:03][3.9]",
       "lane": "said",
       "pairId": "pair_palau_105",
       "width": "half",
-      "speaker": "TARO-TINA",
+      "speaker": "260328-02-108- TARO-TINA:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1501,11 +1493,11 @@
       "flavor": "pink"
     },
     {
-      "id": "sot_palau_142_rng23m",
+      "id": "sot_palau_142_1edyzd",
       "type": "sot",
       "text": "260328-02-108- TARO-TINA: [00:46:24] ~~the true Tarot, the purple one is because of its value in our cultural ceremonies.~~ So in any cultural ceremonies there must be taro. [00:46:36][11.8]",
       "rawSource": "260328-02-108- TARO-TINA: [00:46:24] ~~the true Tarot, the purple one is because of its value in our cultural ceremonies.~~ So in any cultural ceremonies there must be taro. [00:46:36][11.8]",
-      "speaker": "TARO-TINA",
+      "speaker": "260328-02-108- TARO-TINA:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1516,11 +1508,11 @@
       }
     },
     {
-      "id": "sot_palau_143_1cjhyu",
+      "id": "sot_palau_143_1p7j6w",
       "type": "sot",
       "text": "260328-02-108- TARO-TINA: [00:50:46] hat's another revenue for women for taro. Because once you have taro flower, you can make spaghetti, you can have dinner rolls, pancakes, waffles, whatever. They also, you can also make taro soy sauce. And taro wine. [00:51:02][15.7]",
       "rawSource": "260328-02-108- TARO-TINA: [00:50:46] hat's another revenue for women for taro. Because once you have taro flower, you can make spaghetti, you can have dinner rolls, pancakes, waffles, whatever. They also, you can also make taro soy sauce. And taro wine. [00:51:02][15.7]",
-      "speaker": "TARO-TINA",
+      "speaker": "260328-02-108- TARO-TINA:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1531,11 +1523,11 @@
       }
     },
     {
-      "id": "sot_palau_144_1nqbrg",
+      "id": "sot_palau_144_xnzmnz",
       "type": "sot",
       "text": "260328-02-108- TARO-JOHNNY: [00:51:04] It really is a magical crop. Yeah. [00:51:05][1.4]",
       "rawSource": "260328-02-108- TARO-JOHNNY: [00:51:04] It really is a magical crop. Yeah. [00:51:05][1.4]",
-      "speaker": "TARO-JOHNNY",
+      "speaker": "260328-02-108- TARO-JOHNNY:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1594,12 +1586,11 @@
       "width": "half"
     },
     {
-      "id": "sot_palau_151_1n71jk",
+      "id": "sot_palau_151_a0sraz",
       "type": "sot",
       "text": "260328-02-107- TOMMY: [00:10:03] ~~The sea level now is also reaching the taro patches, the farming areas where people rely on their livelihoods and what they farm. And if you happen to live in a low lying atoll surrounded by ocean and~~ the tide is rapidly rising to a level now that it floods the tarot patches, salt water will not help you maintain a livelihood. [00:10:34][31.0]",
       "rawSource": "260328-02-107- TOMMY: [00:10:03] ~~The sea level now is also reaching the taro patches, the farming areas where people rely on their livelihoods and what they farm. And if you happen to live in a low lying atoll surrounded by ocean and~~ the tide is rapidly rising to a level now that it floods the tarot patches, salt water will not help you maintain a livelihood. [00:10:34][31.0]",
-      "flavor": "yellow",
-      "speaker": "TOMMY",
+      "speaker": "260328-02-107- TOMMY:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1610,11 +1601,11 @@
       }
     },
     {
-      "id": "sot_palau_152_11cjkv",
+      "id": "sot_palau_152_1ac3ar",
       "type": "sot",
       "text": "260328-02-108- TARO-TINA: [00:52:18] when the sea level rises, the sea-level rise, they would intrude into the coastal taro fields [00:52:24][6.0]",
       "rawSource": "260328-02-108- TARO-TINA: [00:52:18] when the sea level rises, the sea-level rise, they would intrude into the coastal taro fields [00:52:24][6.0]",
-      "speaker": "TARO-TINA",
+      "speaker": "260328-02-108- TARO-TINA:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1625,11 +1616,11 @@
       }
     },
     {
-      "id": "sot_palau_153_xw8kum",
+      "id": "sot_palau_153_1v0dg1",
       "type": "sot",
       "text": "260328-02-108- TARO-JOHNNY: [00:52:24] What does that do to the patches? [00:52:26][1.5]",
       "rawSource": "260328-02-108- TARO-JOHNNY: [00:52:24] What does that do to the patches? [00:52:26][1.5]",
-      "speaker": "TARO-JOHNNY",
+      "speaker": "260328-02-108- TARO-JOHNNY:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1640,11 +1631,11 @@
       }
     },
     {
-      "id": "sot_palau_154_622i96",
+      "id": "sot_palau_154_pg6sd3",
       "type": "sot",
       "text": "260328-02-108- TARO-TINA: [00:52:27] It would kill the taro.",
       "rawSource": "260328-02-108- TARO-TINA: [00:52:27] It would kill the taro.",
-      "speaker": "TARO-TINA",
+      "speaker": "260328-02-108- TARO-TINA:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1862,11 +1853,11 @@
       "rawSource": "VO: while this research is promising there are some scientists who think this is a futile effort"
     },
     {
-      "id": "sot_palau_182_zvk3cl",
+      "id": "sot_palau_182_0u0euh",
       "type": "sot",
       "text": "SOTs from researchers\n\n20260311-James Porter - Interview: [00:31:22] When we try to influence the genome of a coral for survival, at one level, that's a good thing. We're trying to get it to survive in a changing world. On the other hand, we are doing something which is called assisted evolution, where we are assisting it to live in a world that we have changed. Assisted evolution is just highfalutin term for playing God. Are we really qualified to do that? [00:32:06][44.6]",
       "rawSource": "SOTs from researchers\n\n20260311-James Porter - Interview: [00:31:22] When we try to influence the genome of a coral for survival, at one level, that's a good thing. We're trying to get it to survive in a changing world. On the other hand, we are doing something which is called assisted evolution, where we are assisting it to live in a world that we have changed. Assisted evolution is just highfalutin term for playing God. Are we really qualified to do that? [00:32:06][44.6]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1901,11 +1892,11 @@
       "rawSource": "Map marine protected area"
     },
     {
-      "id": "sot_palau_187_4j4uk3",
+      "id": "sot_palau_187_3b3p7b",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:25:21] Palau has one of the largest marine preserves in the world. They have a shark preserve which is 230,000 square miles. Now that's larger than the size of Texas. And that preserve exists today because of what the Palauan people did to preserve their fisheries and their environment. [00:25:45][23.1]",
       "rawSource": "20260311-James Porter - Interview: [00:25:21] Palau has one of the largest marine preserves in the world. They have a shark preserve which is 230,000 square miles. Now that's larger than the size of Texas. And that preserve exists today because of what the Palauan people did to preserve their fisheries and their environment. [00:25:45][23.1]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,
@@ -1954,11 +1945,11 @@
       "rawSource": "ENDING"
     },
     {
-      "id": "sot_palau_192_1n3fwm",
+      "id": "sot_palau_192_fteujb",
       "type": "sot",
       "text": "20260311-James Porter - Interview: [00:22:58] We must protect the environment in order to protect ourselves. [00:23:03][4.6]",
       "rawSource": "20260311-James Porter - Interview: [00:22:58] We must protect the environment in order to protect ourselves. [00:23:03][4.6]",
-      "speaker": "20260311-James Porter",
+      "speaker": "20260311-James Porter - Interview:",
       "done": false,
       "timecode": {
         "day": null,

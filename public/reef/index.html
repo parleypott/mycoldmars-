@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<base href="/reef/">
 <title>reef</title>
 <style>
   :root { color-scheme: dark; }
@@ -114,7 +115,7 @@
   <div id="ctrl">
     <button id="prev" title="previous frame (←)">⏮</button>
     <button id="slower" title="slower (↓)">−</button>
-    <span class="fps mono" id="fps">12 fps</span>
+    <span class="fps mono" id="fps">5 fps</span>
     <button id="faster" title="faster (↑)">+</button>
     <button id="next" title="next frame (→)">⏭</button>
     <span class="sep"></span>
@@ -239,7 +240,7 @@ const url = (f) => `frames/${f.file}`;
 
 let cache = [], ready = [], order = [];
 let pos = 0, curIdx = null, visible = 0;
-let playing = true, interval = 1000 / 12, timer = null;
+let playing = true, interval = 1000 / 5, timer = null;
 const BUFFER_TO_START = 8;
 
 const isKilled = (i) => killed.has(frameKey(FRAMES[i]));
@@ -397,7 +398,7 @@ async function openExport() {
   if (!playing) {} // exporting works from any state; it reads saved framing, not live transform
   try {
     if (!exportMod) exportMod = await import('./export.js');
-    exportMod.openMenu();
+    exportMod.openMenu({ fps: Math.round(1000 / interval) });   // bake at the speed you're watching
   } catch (err) { console.error('export load failed', err); }
 }
 document.getElementById('export').addEventListener('click', (e) => { e.stopPropagation(); openExport(); });
@@ -426,7 +427,7 @@ window.addEventListener('keydown', (e) => {
   }
   order = [...FRAMES.keys()];
   if (!FRAMES.length) { els.boot.querySelector('div').textContent = 'no frames'; return; }
-  setSpeed(12);
+  setSpeed(5);
   preload();
 })();
 </script>

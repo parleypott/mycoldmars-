@@ -20,6 +20,8 @@ import {
   hash6,
   applyTrims,
   buildTimecode,
+  extractFullSotSpeaker,
+  extractDaySotLead,
   leftBlockFromCell,
   rightBlockFromCell,
 } from './build-blocks.mjs';
@@ -90,6 +92,39 @@ eq(emptyTc.ambiguous, true, 'no timecodes → ambiguous');
 const bigTc = buildTimecode('Z'.repeat(500), [{ kind: 'in', tc: '00:00:01', day: 1 }]);
 eq(bigTc.raw.length, 200, 'raw is truncated to 200 chars');
 
+// ── extractFullSotSpeaker: recover the full sequence label before the first [tc] ─────────
+eq(
+  extractFullSotSpeaker('EXPERTS SAY\n\n● 20260311-James Porter - Interview: [00:03:29] quote', 'James'),
+  '20260311-James Porter - Interview:',
+  'extracts the last non-empty pre-timecode label after stripping a leading bullet',
+);
+eq(
+  extractFullSotSpeaker('Dr Porter:\n\n20260311-James Porter - Interview: [00:04:30] quote', 'James'),
+  '20260311-James Porter - Interview:',
+  'uses the last non-empty pre-timecode line when an editorial label sits above it',
+);
+eq(
+  extractFullSotSpeaker('PORTER “calcium carbonate”', 'PORTER'),
+  'PORTER',
+  'falls back when there is no bracketed timecode label to recover',
+);
+
+deep(
+  extractDaySotLead('DAY 4 02:56:50:15\nlike human bodies...'),
+  { speaker: 'DAY 4', text: 'like human bodies...' },
+  'extractDaySotLead folds a DAY-style lead into speaker + stripped body',
+);
+deep(
+  extractDaySotLead('● DAY 2 00:47:04:16 SOT: “protect this lake”'),
+  { speaker: 'DAY 2', text: '● SOT: “protect this lake”' },
+  'extractDaySotLead preserves leading bullets while stripping the DAY/timecode prefix',
+);
+eq(
+  extractDaySotLead('PORTER: [00:03:29] quote'),
+  null,
+  'extractDaySotLead ignores non-DAY SOTs',
+);
+
 // ── leftBlockFromCell: role→type map, said-lane pairing, sot speaker/timecode ──────────
 deep(
   leftBlockFromCell({ role: 'vo', text: 'hello' }, ''),
@@ -106,19 +141,36 @@ eq(pairedLeft.lane, 'said', 'paired left → lane "said"');
 eq(pairedLeft.pairId, 'pair_palau_5', 'paired left carries the pairId');
 eq(pairedLeft.width, 'half', 'paired left → half width');
 
-// keyLine flags the yellow flavor
-eq(leftBlockFromCell({ role: 'vo', text: 'x', keyLine: true }, '').flavor, 'yellow',
-   'keyLine → yellow flavor');
+// keyLine no longer paints a flavor; the prose survives, but the block stays neutral.
+eq('flavor' in leftBlockFromCell({ role: 'vo', text: 'x', keyLine: true }, ''), false,
+   'keyLine left cell → no flavor key');
 
 // a sot cell carries speaker, an unstarted done flag, and a built timecode
 const sot = leftBlockFromCell(
-  { role: 'sot', text: 'quote', speaker: 'James', timecodes: [{ kind: 'in', tc: '00:03:29', day: null }] },
+  {
+    role: 'sot',
+    text: 'Dr Porter:\n\n20260311-James Porter - Interview: [00:03:29] quote',
+    speaker: 'James',
+    timecodes: [{ kind: 'in', tc: '00:03:29', day: null }],
+  },
   '',
 );
 eq(sot.type, 'sot', 'sot role → sot block');
-eq(sot.speaker, 'James', 'sot carries the speaker');
+eq(sot.speaker, '20260311-James Porter - Interview:', 'sot derives the full sequence speaker');
 eq(sot.done, false, 'sot starts not-done');
 eq(sot.timecode.tc, '00:03:29', 'sot gets a built timecode');
+
+const daySot = leftBlockFromCell(
+  {
+    role: 'sot',
+    text: 'DAY 4 02:56:50:15\nlike human bodies...',
+    timecodes: [{ kind: 'in', tc: '02:56:50:15', day: 4 }],
+  },
+  '',
+);
+eq(daySot.speaker, 'DAY 4', 'DAY-style sot promotes DAY n into speaker');
+eq(daySot.text, 'like human bodies...', 'DAY-style sot strips the duplicated DAY/timecode lead from the body');
+eq(daySot.rawSource, 'DAY 4 02:56:50:15\nlike human bodies...', 'DAY-style sot keeps rawSource intact for source regeneration');
 // trims applied to sot text too
 eq(leftBlockFromCell({ role: 'vo', text: 'cut me now', trims: ['cut me'] }, '').text,
    '~~cut me~~ now', 'applyTrims runs on the left cell text');
@@ -133,16 +185,15 @@ const pairedRight = rightBlockFromCell({ text: 'x' }, 'pair_palau_5');
 eq(pairedRight.lane, 'shown', 'paired right → lane "shown"');
 eq(pairedRight.width, 'half', 'paired right → half width');
 
-// flavor map: liked→gold, animation→purple, straggler→pink
-eq(rightBlockFromCell({ text: 'x', flavor: 'liked' }, '').flavor, 'gold', 'flavor liked → gold');
+// flavor map: animation→purple, straggler→pink; liked/keyLine now stay neutral
+eq('flavor' in rightBlockFromCell({ text: 'x', flavor: 'liked' }, ''), false,
+   'flavor liked → neutral (no flavor key)');
 eq(rightBlockFromCell({ text: 'x', flavor: 'animation' }, '').flavor, 'purple', 'flavor animation → purple');
 eq(rightBlockFromCell({ text: 'x', flavor: 'straggler' }, '').flavor, 'pink', 'flavor straggler → pink');
 eq('flavor' in rightBlockFromCell({ text: 'x', flavor: 'nope' }, ''), false,
    'unknown flavor → no flavor key');
-// keyLine yellow WINS over the flavor map. MUTATION CANARY: if the else-branch ran anyway,
-// a liked+keyLine cell would come back "gold" instead of "yellow".
-eq(rightBlockFromCell({ text: 'x', keyLine: true, flavor: 'liked' }, '').flavor, 'yellow',
-   'keyLine yellow overrides the flavor map');
+eq('flavor' in rightBlockFromCell({ text: 'x', keyLine: true, flavor: 'liked' }, ''), false,
+   'keyLine + liked → neutral (no flavor key)');
 // timecode only when the cell actually carries timecodes
 eq('timecode' in rightBlockFromCell({ text: 'x' }, ''), false, 'no timecodes → no timecode key');
 eq(rightBlockFromCell({ text: 'x', timecodes: [{ kind: 'in', tc: '00:09:19', day: 2 }] }, '').timecode.tc,
