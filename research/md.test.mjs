@@ -165,6 +165,25 @@ ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
      || /line three<\/code><\/pre><\/p>/.test(fullOldMd('```\nline one\n\nline three\n```')),
      'RED PROOF: old renderer split the fence across the blank line');
 }
+{
+  // a fenced block's language INFO STRING (```json / ```bash / ```c++) is metadata,
+  // never code — it must NOT render as a stray first line inside the <pre>.
+  const j = mdToHtml('Here:\n\n```json\n{ "a": 1 }\n```');
+  ok(/<pre><code>\{ "a": 1 \}<\/code><\/pre>/.test(j), 'FIX: ```json language hint stripped, only code renders');
+  ok(!/>json/.test(j), 'FIX: the word "json" does not leak into the code block');
+  const b = mdToHtml('```bash\nls -la\n```');
+  ok(/<pre><code>ls -la<\/code><\/pre>/.test(b), 'FIX: ```bash hint stripped');
+  const cpp = mdToHtml('```c++\nint x;\n```');
+  ok(/<pre><code>int x;<\/code><\/pre>/.test(cpp), 'FIX: ```c++ hint stripped (+/# are valid info-string chars)');
+  // a plain ``` fence (no language) is byte-identical to before — first line is empty
+  ok(/<pre><code>code line<\/code><\/pre>/.test(mdToHtml('```\ncode line\n```')), 'plain fence unchanged (empty info string)');
+  // a first line that is REAL code (carries spaces/punctuation) is NOT an info string — keep it
+  const inlineFirst = mdToHtml('```const a = 1;\nconst b = 2;```');
+  ok(/const a = 1;\nconst b = 2;/.test(inlineFirst), 'code-shaped first line is preserved, not eaten as an info string');
+  // RED PROOF: the old renderer left the language word inside the code block
+  ok(/<pre><code>json\n\{ "a": 1 \}<\/code><\/pre>/.test(fullOldMd('```json\n{ "a": 1 }\n```')),
+     'RED PROOF: old renderer leaked the "json" language word as the first code line');
+}
 
 // ── ordered lists wrap in <ol> (regression: they used to render as orphan <li>) ──
 // The ordered-item -> <li> conversion used to run AFTER the <li>-run -> <ul> wrap,

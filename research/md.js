@@ -35,6 +35,24 @@ export function safeHref(raw) {
   return null;
 }
 
+// Turn the raw content captured between a ```…``` pair into the code that renders
+// inside <pre><code>. CommonMark treats the text on the OPENING fence line (the
+// "info string" — almost always a bare language hint like `json`/`bash`/`ts`) as
+// metadata, never as code, but the block regex captures it along with the body.
+// So when the content spans multiple lines AND the first line is a bare language
+// token (letters/digits/+#._-, or empty for a plain ``` fence), drop that line —
+// otherwise every ```json / ```bash block would render its language word as a
+// stray first line of code. A first line that carries spaces or punctuation is
+// real code, not an info string, so it is kept untouched. Then trim the rest,
+// matching the prior behavior for the no-info-string case byte-for-byte.
+function fenceCode(c) {
+  const nl = c.indexOf('\n');
+  if (nl !== -1 && /^[A-Za-z0-9+#._-]*$/.test(c.slice(0, nl).trim())) {
+    return c.slice(nl + 1).trim();
+  }
+  return c.trim();
+}
+
 export function mdToHtml(md) {
   if (!md) return '';
   let html = esc(md);
@@ -51,7 +69,7 @@ export function mdToHtml(md) {
   // carry no ) * # [ ` — so a stub passes every transform below intact.
   const stash = [];
   const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
-  html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${c.trim()}</code></pre>`));
+  html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
   html = html.replace(/^###### (.*)$/gm, '<h6>$1</h6>');
   html = html.replace(/^##### (.*)$/gm, '<h5>$1</h5>');
