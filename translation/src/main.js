@@ -6,6 +6,7 @@ import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.
 import { fmtShortTimecode } from './short-timecode.js';
 import { escapeHtml } from './html-escape.js';
 import { initialsOf } from './initials.js';
+import { relativeAgo } from './relative-ago.js';
 import { enrichSegmentRefs } from './segment-ref.js';
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
@@ -2509,17 +2510,6 @@ function openColorPicker() {
       }
     });
   });
-}
-
-function relativeAgo(ms) {
-  const sec = Math.round(ms / 1000);
-  if (sec < 5) return 'just now';
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min} min ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  return `${Math.round(hr / 24)}d ago`;
 }
 
 function refreshSavedLabel() {
