@@ -17,6 +17,7 @@ import { requestPersistentStorage, pruneIfLowHeadroom } from './storage-persist.
 import { idbPruneGlobal } from './recovery-store.js';
 import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSnapshotAsync, snapshotToText, dismissSnapshot, dismissSnapshotAsync } from './recovery.js';
 import { idbDeleteDoc } from './recovery-store.js';
+import { restoreSnapshot } from './restore.js';
 import { getEpisode } from './episode-config.js';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
@@ -428,6 +429,9 @@ function savedPillLabel(state, cloud) {
   // this device hasn't merged, so we must NOT claim "saved to cloud". Says reload, plainly.
   if (cloud === 'conflict') return 'NEWER VERSION ON CLOUD · RELOAD';
   if (state === 'saving') return 'SAVING…';
+  // PENDING: the local save landed (work is safe here), but the cloud PUT is still in flight. Say so
+  // honestly — never a premature green "SAVED TO CLOUD" while the push hasn't confirmed.
+  if (cloud === 'syncing') return 'SYNCING TO CLOUD…';
   if (cloud === 'cloud') return 'SAVED TO CLOUD';
   if (cloud === 'offline') return 'SAVED ON THIS DEVICE · CLOUD OFFLINE';
   return 'ALL CHANGES SAVED';
@@ -481,6 +485,9 @@ function SaveStatus() {
     // false reassurance this fix removes. Conflict is sticky until the page reloads (fresh state).
     const onCloudSaved = () => setCloud((c) => (c === 'conflict' ? c : 'cloud'));
     const onCloudOffline = () => setCloud((c) => (c === 'conflict' ? c : 'offline'));
+    // PENDING: a cloud PUT started. Show amber "SYNCING TO CLOUD…" until it confirms (wp-cloud-saved),
+    // goes offline (wp-cloud-offline), or conflicts. Never override a sticky conflict.
+    const onCloudSaving = () => setCloud((c) => (c === 'conflict' ? c : 'syncing'));
     // The two-device divergence. Sticky red-ish state: cloud := 'conflict', surface the reload banner.
     const onCloudConflict = () => { setCloud('conflict'); setCloudConflict(true); };
     window.addEventListener('wp-dirty', onDirty);
@@ -488,6 +495,7 @@ function SaveStatus() {
     window.addEventListener('wp-save-degraded', onDegraded);
     window.addEventListener('wp-save-failed', onFailed);
     window.addEventListener('wp-stale-tab', onStale);
+    window.addEventListener('wp-cloud-saving', onCloudSaving);
     window.addEventListener('wp-cloud-saved', onCloudSaved);
     window.addEventListener('wp-cloud-offline', onCloudOffline);
     window.addEventListener('wp-cloud-conflict', onCloudConflict);
@@ -503,6 +511,7 @@ function SaveStatus() {
       window.removeEventListener('wp-save-degraded', onDegraded);
       window.removeEventListener('wp-save-failed', onFailed);
       window.removeEventListener('wp-stale-tab', onStale);
+      window.removeEventListener('wp-cloud-saving', onCloudSaving);
       window.removeEventListener('wp-cloud-saved', onCloudSaved);
       window.removeEventListener('wp-cloud-offline', onCloudOffline);
       window.removeEventListener('wp-cloud-conflict', onCloudConflict);
@@ -567,7 +576,7 @@ function SaveStatus() {
         </div>
       )}
       <div
-        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}${cloud === 'conflict' ? ' is-cloud-conflict' : ''}`}
+        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}${state === 'saved' && cloud === 'syncing' ? ' is-cloud-syncing' : ''}${cloud === 'conflict' ? ' is-cloud-conflict' : ''}`}
         role="status"
         aria-live="polite"
       >
@@ -662,6 +671,7 @@ function RecoveryBanner() {
     try { return scanRecoverySnapshots(); } catch { return []; }
   });
   const [expanded, setExpanded] = useState(false);
+  const [restoring, setRestoring] = useState(null); // key of the snapshot currently being restored
 
   // SELF-HEALING (phase-4): the snapshot set was scanned ONCE at mount, so after the snapshots that
   // filled the quota were recovered/pruned/dismissed the banner lingered until a full reload (Johnny
@@ -717,6 +727,32 @@ function RecoveryBanner() {
     } catch {}
   }
 
+  // RESTORE THIS VERSION — put a backed-up version back on screen, SAFELY. restoreSnapshot() backs up
+  // the CURRENT live doc FIRST (so this can never cost Johnny what's on screen), then adopts the chosen
+  // snapshot through the canonical saveDoc path and reloads so the editor re-seeds from it. A confirm
+  // step guards the (reversible, but disruptive) reload.
+  async function restoreOne(snap) {
+    const yes = typeof window !== 'undefined' && typeof window.confirm === 'function'
+      ? window.confirm('Restore this version? Your current copy is backed up first.')
+      : true;
+    if (!yes) return;
+    setRestoring(snap.key);
+    let result = null;
+    try { result = await restoreSnapshot(snap); } catch { result = { ok: false, reason: 'error' }; }
+    // restoreSnapshot reloads the page on success, so we only reach here on failure/abort.
+    setRestoring(null);
+    if (!result || !result.ok) {
+      const why = result && result.reason === 'backup-failed'
+        ? 'could not back up your current copy first (storage is full) — nothing was changed. Free up space, then try again.'
+        : result && result.reason === 'snapshot-unreadable'
+          ? 'that backup could not be read. Try DOWNLOAD .TXT instead.'
+          : 'restore did not complete — your current copy is unchanged.';
+      try {
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: why } }));
+      } catch {}
+    }
+  }
+
   const n = snaps.length;
   return (
     <div class="wp-recovery-banner" role="status" aria-live="polite">
@@ -737,6 +773,12 @@ function RecoveryBanner() {
             <li key={snap.key} class="wp-recovery-item">
               <span class="wp-recovery-when">{relTime(snap.ts)}</span>
               <span class="wp-recovery-size">~{Math.max(1, Math.round(snap.bytes / 1024))} KB</span>
+              <button
+                class="wp-recovery-act is-restore"
+                disabled={restoring === snap.key}
+                onClick={() => restoreOne(snap)}
+                title="Put this version back on screen — your current copy is backed up first"
+              >{restoring === snap.key ? 'RESTORING…' : 'RESTORE THIS VERSION'}</button>
               <button class="wp-recovery-act" onClick={() => downloadOne(snap)}>DOWNLOAD .TXT</button>
               <button class="wp-recovery-act is-quiet" onClick={() => dismissOne(snap)} title="I've saved what I need — hide this">DISMISS</button>
             </li>

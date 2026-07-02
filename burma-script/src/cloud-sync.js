@@ -60,6 +60,10 @@ function conflictKey() {
 const EVT_CLOUD_SAVED = 'wp-cloud-saved';
 const EVT_CLOUD_OFFLINE = 'wp-cloud-offline';
 const EVT_CLOUD_CONFLICT = 'wp-cloud-conflict';
+// wp-cloud-saving — a cloud PUT is IN FLIGHT. Fired right before the fetch so the pill can show an
+// honest amber "SYNCING TO CLOUD…" pending state instead of a premature green "SAVED TO CLOUD".
+// Resolves to one of the three terminal events above once the PUT settles.
+const EVT_CLOUD_SAVING = 'wp-cloud-saving';
 
 function emit(type, detail) {
   try {
@@ -156,6 +160,10 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
     return { ok: false, skipped: true };
   }
   try {
+    // PENDING (honest save pill): a real cloud PUT is about to go out. The read-only + skip guards
+    // above have already returned, so reaching here means a genuine push is in flight — tell the pill
+    // so it shows amber "SYNCING TO CLOUD…" and only goes green on the confirmed wp-cloud-saved below.
+    emit(EVT_CLOUD_SAVING, { version: toInt(version) });
     // SHARE-SAFETY (server-side write gate): carry the device-held write token so a server configured
     // with BURMA_WRITE_TOKEN accepts THIS device's push. A `?read` recipient's browser has no token in
     // localStorage, so writeTokenHeaders() is empty and the server rejects their (hand-crafted) PUT 401.

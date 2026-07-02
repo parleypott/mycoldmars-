@@ -35,5 +35,31 @@ ok('action button is clickable', /\.wp-save-pill-act[^}]*pointer-events:\s*auto/
 ok('failed pill dodges dock when workshop open', /body\[data-workshop-open\]\s+\.wp-save-pill\.is-failed[^}]*(right:\s*auto|left:)/.test(css));
 ok('Workshop flags body when dock open', /data-workshop-open/.test(ws));
 
+// ── Enterprise Wave 1 #3 — HONEST SAVE PILL: a "SYNCING TO CLOUD…" pending state ──────────────────
+// The pill could read "SAVED TO CLOUD" while a cloud PUT was still in flight (or had failed). It now
+// shows an amber "SYNCING TO CLOUD…" from wp-cloud-saving until the confirmed wp-cloud-saved flips it
+// green. This checks the wiring end to end: the event is emitted, listened for, labeled, and styled.
+const cloudSync = readFileSync(join(here, 'cloud-sync.js'), 'utf8');
+
+// 1) cloud-sync emits wp-cloud-saving right before the PUT (before the fetch that returns wp-cloud-saved).
+ok('cloud-sync defines the wp-cloud-saving event', /wp-cloud-saving/.test(cloudSync));
+{
+  // The pending event must fire before the PUT that (on success) fires wp-cloud-saved. Compare
+  // against the PUT method literal — not `fetchImpl(API`, which also appears earlier in fetchCloud().
+  const savingAt = cloudSync.indexOf('emit(EVT_CLOUD_SAVING');
+  const putAt = cloudSync.indexOf("method: 'PUT'");
+  ok('pending event is emitted BEFORE the fetch PUT', savingAt > 0 && putAt > 0 && savingAt < putAt);
+}
+
+// 2) SaveStatus listens for it and maps it to a distinct amber "syncing" cloud state, not green.
+ok('main listens for wp-cloud-saving', /addEventListener\('wp-cloud-saving'/.test(main));
+ok('pending never overrides a sticky conflict', /onCloudSaving = \(\) => setCloud\(\(c\) => \(c === 'conflict' \? c : 'syncing'\)\)/.test(main));
+ok('pending state has its own honest label', /cloud === 'syncing'[\s\S]{0,60}SYNCING TO CLOUD/.test(main));
+// green "SAVED TO CLOUD" is only reachable via the confirmed cloud state, never the syncing one.
+ok("green label still gated on cloud === 'cloud'", /cloud === 'cloud'[\s\S]{0,40}SAVED TO CLOUD/.test(main));
+// 3) the pill carries the is-cloud-syncing class only in the saved+syncing state, and CSS styles it.
+ok('pill gets is-cloud-syncing class', /is-cloud-syncing/.test(main));
+ok('CSS styles the syncing pill (amber pulse)', /\.wp-save-pill\.is-cloud-syncing/.test(css));
+
 console.log(`save-pill-actionable: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

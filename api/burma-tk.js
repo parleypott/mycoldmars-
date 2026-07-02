@@ -13,10 +13,50 @@
 // the model writes in Johnny's voice and at the right altitude — not generic filler.
 
 import { readJsonBody } from './_lib/read-json-body.js';
+import { checkAccess, readHeader } from './_lib/access.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
 const MODEL = 'claude-sonnet-4-5-20250929';
+
+// ── Per-identity rate limit (in-memory token bucket) ──────────────────────────────────────────────
+// burma-tk calls Anthropic on EVERY hit, so even an authenticated-but-scripted caller could run up
+// real cost. This caps the burst + sustained rate PER identity (the caller's JWT when present, else
+// their IP). Edge keeps the module alive across requests in the same instance, so this is BEST-EFFORT
+// per-instance — same posture as access.js's JWT cache. It blunts abuse without any external store.
+// Limit: a burst of RL_BURST requests, refilling RL_PER_MIN per minute. Documented, not perfect: a
+// distributed spray across many edge instances is not fully bounded — that would need a shared KV.
+const RL_BURST = 20;
+const RL_PER_MIN = 20;
+const RL_MAX_KEYS = 1000;
+const _buckets = new Map(); // key -> { tokens, last }
+
+export function rateLimitCheck(key, now = Date.now()) {
+  // Bound the map (drop oldest half) so a spray of distinct identities can't grow it unbounded.
+  if (_buckets.size > RL_MAX_KEYS) {
+    let drop = Math.floor(RL_MAX_KEYS / 2);
+    for (const k of _buckets.keys()) { if (drop-- <= 0) break; _buckets.delete(k); }
+  }
+  let b = _buckets.get(key);
+  if (!b) { b = { tokens: RL_BURST, last: now }; _buckets.set(key, b); }
+  const refill = ((now - b.last) / 60000) * RL_PER_MIN;
+  b.tokens = Math.min(RL_BURST, b.tokens + refill);
+  b.last = now;
+  if (b.tokens < 1) {
+    return { allowed: false, retryAfter: Math.max(1, Math.ceil((1 - b.tokens) / (RL_PER_MIN / 60))) };
+  }
+  b.tokens -= 1;
+  return { allowed: true };
+}
+
+// Identity for the bucket: the caller's Bearer JWT (per-user) when present, else their forwarded IP.
+export function identityKey(req) {
+  const auth = readHeader(req, 'authorization');
+  const m = /Bearer\s+(\S+)/i.exec(auth || '');
+  if (m) return 'jwt:' + m[1].slice(0, 64);
+  const fwd = readHeader(req, 'x-forwarded-for') || readHeader(req, 'x-real-ip') || '';
+  return 'ip:' + (String(fwd).split(',')[0].trim() || 'unknown');
+}
 
 // Force structured JSON out of the model via a single tool the model MUST call. This is
 // far more reliable than asking it to "return JSON" in prose and then regex-scraping.
@@ -101,6 +141,14 @@ export default async function handler(req) {
     return json({ error: 'POST only' }, 405);
   }
 
+  // SIGN-IN GATE (audit finding M): burma-tk was unauthenticated — anyone could hit it and burn
+  // Anthropic tokens. Require the SAME gate the app uses (valid x-access-code OR a verified Supabase
+  // Bearer JWT). The Workshop UI sends the Bearer via the library gate.js fetch interceptor, so the
+  // request/response shape is UNCHANGED for logged-in callers. In dev (ACCESS_CODE unset) checkAccess
+  // returns null and this is a no-op, exactly as the other gated endpoints behave.
+  const denied = await checkAccess(req);
+  if (denied) return denied;
+
   // Shared safe body read: malformed JSON OR a non-object body (a JSON literal
   // `null`, number, string, array) is a clean 400, never an unhandled 500 — the
   // null-body crash class fixed across the research-* endpoints (was: `body.mode`
@@ -117,6 +165,16 @@ export default async function handler(req) {
   if (!marker) return json({ error: 'marker required' }, 400);
   // Cost guard — mirror research-claude.js. Cap the marker length too.
   if (marker.length > 1200) return json({ error: 'marker too long' }, 413);
+
+  // RATE LIMIT — only genuine, validated requests (which are the ones that would call Anthropic) count
+  // against the bucket; cheap 400/405/413 rejects above do not consume tokens. Keyed per identity.
+  const rl = rateLimitCheck(identityKey(req));
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ error: 'rate limited', message: 'Too many requests — slow down and try again shortly.' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY not set on server' }, 500);

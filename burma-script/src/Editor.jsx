@@ -24,8 +24,10 @@ import { DayFold } from './extensions/day-fold.js';
 import { SlashMenu } from './extensions/slash-menu.js';
 import { ConvertMenu } from './extensions/convert-menu.js';
 import { PasteSanitize } from './extensions/paste-sanitize.js';
+import { FindReplace } from './extensions/find-replace.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
+import { FindReplacePanel } from './FindReplace.jsx';
 import { Workshop } from './Workshop.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
@@ -374,6 +376,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       SlashMenu,
       ConvertMenu,
       PasteSanitize,
+      // Find & Replace is a decoration-only plugin (adds NO schema) + editor commands. Safe to load
+      // in read-only sessions too — the panel that drives it is edit-only (gated below), and its
+      // replace commands refuse when the editor is non-editable.
+      FindReplace,
     ],
     content: initial,
     autofocus: false,
@@ -572,6 +578,8 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       {/* READ-ONLY SHARE: the BubbleMenu (TK/visual/bold marks) and Workshop dock are edit-only
           chrome — omit them entirely so a reader gets a calm, clean reading surface. */}
       {!readOnly && <BurmaBubbleMenu editor={editor} />}
+      {/* Find & Replace panel — Cmd/Ctrl+F opens it. Edit-only chrome, like the bubble menu. */}
+      {!readOnly && <FindReplacePanel editor={editor} />}
       {!readOnly && <Workshop />}
     </>
   );

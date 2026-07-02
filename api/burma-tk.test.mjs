@@ -19,7 +19,7 @@
 // a null body and the handler rejects, failing these cases).
 
 import assert from 'node:assert';
-import handler, { tkPrompt, fcPrompt } from './burma-tk.js';
+import handler, { tkPrompt, fcPrompt, rateLimitCheck, identityKey } from './burma-tk.js';
 
 // The valid-marker path would reach the Anthropic fetch; unset the key so the handler
 // stops at the apiKey guard (500 'not set') BEFORE any network call — proving it runs
@@ -126,6 +126,46 @@ for (const bad of [null, 42, 'a string', [1, 2, 3], true]) {
   ok('tk vs fc prompts differ', tkPrompt(args) !== fcPrompt(args));
   ok('tk prompt does NOT mention web_search', !tkPrompt(args).includes('web_search'));
   ok('fc prompt does NOT call emit_options', !fcPrompt(args).includes('emit_options'));
+}
+
+// ---- Enterprise Wave 1 #5: SIGN-IN GATE (audit finding M) ----
+// burma-tk was unauthenticated. It now runs checkAccess. In dev (ACCESS_CODE unset) it's a no-op —
+// that's the mode every case above ran in. With ACCESS_CODE set, an unauth'd request is 401, and a
+// request carrying the correct x-access-code passes the gate (and stops later at the apiKey guard).
+{
+  const withHeaders = (headers, body = { marker: 'valid marker text' }) => ({
+    method: 'POST', headers, json: async () => body,
+  });
+  process.env.ACCESS_CODE = 'sekret';
+  try {
+    const denied = await handler(withHeaders({})); // no code, no bearer
+    ok('gated: no access code -> 401', denied.status === 401);
+    const okReq = await handler(withHeaders({ 'x-access-code': 'sekret' }));
+    ok('gated: correct x-access-code passes gate (reaches apiKey guard -> 500)', okReq.status === 500);
+    const wrong = await handler(withHeaders({ 'x-access-code': 'nope' }));
+    ok('gated: wrong x-access-code -> 401', wrong.status === 401);
+  } finally {
+    delete process.env.ACCESS_CODE; // restore dev mode so nothing downstream is affected
+  }
+}
+
+// ---- Enterprise Wave 1 #5: RATE LIMIT (token bucket) ----
+{
+  const key = 'test-key-' + Math.random().toString(36).slice(2);
+  const t0 = 1_000_000;
+  let denied = 0, allowed = 0;
+  for (let i = 0; i < 25; i++) {
+    const r = rateLimitCheck(key, t0); // same instant → no refill
+    if (r.allowed) allowed++; else denied++;
+  }
+  ok('rate limit: first 20 (burst) allowed', allowed === 20);
+  ok('rate limit: the rest denied', denied === 5);
+  ok('rate limit: denied carries a Retry-After hint', rateLimitCheck(key, t0).retryAfter >= 1);
+  // Tokens refill over time — a minute later the bucket is full again.
+  ok('rate limit: refills after a minute', rateLimitCheck(key, t0 + 60_000).allowed === true);
+  // Identity keying: a Bearer JWT keys per-user; otherwise per forwarded IP.
+  ok('identityKey: uses the Bearer token', identityKey({ headers: { authorization: 'Bearer abc.def.ghi' } }).startsWith('jwt:'));
+  ok('identityKey: falls back to IP', identityKey({ headers: { 'x-forwarded-for': '9.9.9.9, 1.1.1.1' } }) === 'ip:9.9.9.9');
 }
 
 console.log(`burma-tk: ${pass} passed, ${fail} failed`);

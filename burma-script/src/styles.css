@@ -352,12 +352,61 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-convert-dot[data-kind="broll"]{ background:rgba(208,135,63,.28); border-color:#d0873f; }
 .wp-convert-dot[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; }
 .wp-save-pill.is-cloud-conflict .wp-save-pill-mark { background: var(--ink); animation: wp-save-pulse 1.6s var(--ease) infinite; }
+/* SYNCING TO CLOUD… — the honest pending state. The LOCAL save already landed (work is safe on this
+   device); the cloud PUT is in flight. Neutral amber with a subtly pulsing mark so it reads as "in
+   progress", never as the false-green "SAVED TO CLOUD". Flips to is-cloud (green) only on the
+   confirmed wp-cloud-saved event. */
+.wp-save-pill.is-cloud-syncing { background: #f7eccf; }
+.wp-save-pill.is-cloud-syncing .wp-save-pill-mark { background: #c9962c; animation: wp-save-pulse 1.4s var(--ease) infinite; }
 /* READ-ONLY · SHARED VIEW — the calm badge that replaces the save pill in a `?read`/`?view` share.
    Nothing is saving, so it reads as a quiet label, not a status: neutral graphite mark on the resting
    frame, same flat pill shell as the others so it sits right in the chrome family. */
 .wp-save-pill.is-readonly { background: var(--frame); border-color: var(--ink); }
 .wp-save-pill.is-readonly .wp-save-pill-mark { background: var(--label-3); }
 @keyframes wp-save-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* ---- FIND & REPLACE — the edit-only search panel + match highlights. Cmd/Ctrl+F opens it. Flat,
+   mono, no shadow — same chrome family as the save pill and recovery banner. Docked top-right so it
+   never covers the left reading rail or the block spine. ---- */
+.wp-find {
+  position: fixed; top: 14px; right: 18px; z-index: 520;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 10px;
+  padding: 8px 10px; min-width: 340px;
+}
+.wp-find-row { display: flex; align-items: center; gap: 6px; }
+.wp-find-lab {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--label-3); width: 34px; flex: none;
+}
+.wp-find-input {
+  flex: 1 1 auto; min-width: 0;
+  background: #fff; border: 1.5px solid var(--ink); border-radius: 6px;
+  padding: 5px 8px; font-family: var(--mono); font-size: 12px; color: var(--ink);
+}
+.wp-find-input:focus-visible { outline: 2px solid var(--ep-accent); outline-offset: 1px; }
+.wp-find-count {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .04em; color: var(--label-3);
+  white-space: nowrap; min-width: 52px; text-align: right;
+}
+.wp-find-case, .wp-find-nav, .wp-find-close, .wp-find-act {
+  font-family: var(--mono); font-weight: 700; letter-spacing: .06em; cursor: pointer;
+  background: #fff; border: 1.5px solid var(--ink); color: var(--ink); border-radius: 6px;
+  line-height: 1; user-select: none;
+}
+.wp-find-case { font-size: 11px; padding: 4px 7px; }
+.wp-find-case.is-on { background: var(--ink); color: var(--frame); }
+.wp-find-nav { font-size: 14px; padding: 2px 8px; }
+.wp-find-close { font-size: 14px; padding: 2px 8px; border-color: transparent; background: transparent; }
+.wp-find-close:hover { background: #f3efe2; }
+.wp-find-act { font-size: 10px; text-transform: uppercase; padding: 5px 9px; }
+.wp-find-case:hover, .wp-find-nav:not(:disabled):hover, .wp-find-act:not(:disabled):hover { background: #f3efe2; }
+.wp-find-nav:disabled, .wp-find-act:disabled { opacity: .4; cursor: default; }
+
+/* Match highlights — a calm tint on every hit, the accent on the CURRENT one. Decoration-only:
+   these ride on top of the text, they do NOT change the doc. */
+.wp-find-hit { background: rgba(201, 150, 44, .28); border-radius: 2px; }
+.wp-find-hit.is-current { background: var(--ep-accent); color: #fff; border-radius: 2px; }
 
 /* READ-ONLY SHARE — structurally hide edit-only chrome that lives inside the editor surface (the per-
    block drag grips). The grip's click handler is also gated in code; this makes the rail read clean and
@@ -435,6 +484,11 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-recovery-act:hover { background: #f3efe2; color: #2f6f57; }
 .wp-recovery-act.is-quiet { border-color: rgba(243,239,226,.45); opacity: .8; }
 .wp-recovery-act.is-quiet:hover { opacity: 1; }
+/* RESTORE THIS VERSION — the primary action. Filled so it reads as the recommended move, distinct
+   from the quieter DOWNLOAD/DISMISS. Backs up the live doc first, so it's safe to make prominent. */
+.wp-recovery-act.is-restore { background: #f3efe2; color: #1f1d18; border-color: #f3efe2; }
+.wp-recovery-act.is-restore:hover { background: #fff; color: #1f1d18; border-color: #fff; }
+.wp-recovery-act.is-restore:disabled { opacity: .55; cursor: default; }
 
 /* ============================================================
    MASTHEAD (feature A) — the script's name, big + bold, the page headline
