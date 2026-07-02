@@ -4359,6 +4359,77 @@ tr.dimmed-speaker { opacity: 0.35; }
   gap: var(--np-space-3);
 }
 
+/* Process transcript — big pressable hero at the top of the bank.
+   Glows and breathes slowly + subtly so it reads as the primary action
+   without shouting. Motion is disabled while disabled and for users who
+   prefer reduced motion. */
+.ws-process-hero {
+  margin: var(--np-space-6) 0 var(--np-space-8);
+}
+.ws-process-hero-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 22px var(--np-space-6);
+  border: 1px solid var(--np-ink);
+  border-radius: 3px;
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  cursor: pointer;
+  transition: transform 220ms var(--np-ease-out),
+              background 220ms var(--np-ease),
+              border-color 220ms var(--np-ease),
+              box-shadow 320ms var(--np-ease);
+  animation: ws-process-pulse 4.2s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+.ws-process-hero-label {
+  font-family: var(--np-font-sans);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ws-process-hero-sub {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 230, 0.55);
+}
+.ws-process-hero-btn:hover {
+  background: var(--np-red);
+  border-color: var(--np-red);
+  transform: translateY(-1px);
+}
+.ws-process-hero-btn:active {
+  transform: translateY(0) scale(0.995);
+}
+.ws-process-hero-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  background: var(--np-ink);
+  animation: none;
+  box-shadow: none;
+}
+@keyframes ws-process-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(221, 44, 30, 0.0),
+                0 0 16px 0 rgba(221, 44, 30, 0.10);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(221, 44, 30, 0.06),
+                0 0 34px 4px rgba(221, 44, 30, 0.28);
+    transform: scale(1.012);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-process-hero-btn { animation: none; }
+}
+
 .ws-processing {
   padding: var(--np-space-12) var(--np-space-6);
   text-align: center;

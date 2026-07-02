@@ -86,6 +86,13 @@ export function mountWorkshop(container, opts) {
           </button>` : ''}
         </div>
 
+        <div class="ws-process-hero">
+          <button class="ws-process-hero-btn" data-act="process" ${state.themes.length === 0 ? 'disabled' : ''}>
+            <span class="ws-process-hero-label">Process transcript</span>
+            <span class="ws-process-hero-sub">${state.themes.length === 0 ? 'Add a theme to begin' : 'Read the transcript through your themes'}</span>
+          </button>
+        </div>
+
         ${state.error ? `<div class="ws-error">${escapeHtml(state.error)}</div>` : ''}
 
         ${state.detecting
@@ -100,9 +107,6 @@ export function mountWorkshop(container, opts) {
                 </button>
               </li>
             </ol>
-            <div class="ws-bank-actions">
-              <button class="np-button np-button--primary" data-act="process" ${state.themes.length === 0 ? 'disabled' : ''}>Process transcript</button>
-            </div>
           `}
       </div>
     `;
@@ -349,14 +353,19 @@ export function mountWorkshop(container, opts) {
           <span class="ws-bite-tc">${tc}</span>
           <span class="ws-bite-speaker">${escapeHtml(speaker)}</span>
           ${bite.label ? `<span class="ws-bite-label">${escapeHtml(bite.label)}</span>` : ''}
-          <button class="ws-zap" data-act="zap" title="Propose a tighter cut" aria-label="Zap this soundbite">
+          <button class="ws-zap" data-act="zap" title="Craft a shorter, tighter version of this soundbite" aria-label="Shorten this soundbite">
             ${zap?.status === 'loading'
               ? `<span class="ws-zap-spin" aria-hidden="true"></span>`
               : `<svg class="ws-zap-bolt" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                  <path d="M9.2 1 3 9h4l-1.2 6L13 7H8.6z" fill="currentColor"/>
+                  <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="3.3" cy="3.5" r="1.9"/>
+                    <circle cx="3.3" cy="12.5" r="1.9"/>
+                    <line x1="5" y1="4.7" x2="13.5" y2="12.6"/>
+                    <line x1="5" y1="11.3" x2="13.5" y2="3.4"/>
+                  </g>
                 </svg>`
             }
-            <span class="ws-zap-label">${zap?.status === 'loading' ? 'Zapping…' : 'Zap'}</span>
+            <span class="ws-zap-label">${zap?.status === 'loading' ? 'Shortening…' : 'Shorten'}</span>
           </button>
         </div>
         <div class="ws-bite-text">
