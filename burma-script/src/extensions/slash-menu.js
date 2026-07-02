@@ -2,7 +2,7 @@ import { Extension, nodeInputRule } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
 import { isReadOnly } from '../read-mode.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
-import { getEpisode } from '../episode-config.js';
+import { episodeFlag } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -25,14 +25,15 @@ function setDirectionMark(editor, range, kind) {
     .run();
 }
 
-// PALAU: /archive pops onto its OWN small-indented line. We delete the "/archive" text, split the
-// current textblock so the archive starts a fresh paragraph, then store the mark so the next typed
-// characters carry the red highlight. The paragraph-indent visual is applied by the checkbox
-// plugin's node decoration (leading-archive → .wp-archive-line), palau-gated there too. In Burma
-// the behavior is unchanged — archive stays an inline mark on the current line.
+// archiveOwnLine flag (Palau opts in): /archive pops onto its OWN small-indented line. We delete
+// the "/archive" text, split the current textblock so the archive starts a fresh paragraph, then
+// store the mark so the next typed characters carry the red highlight. The paragraph-indent visual
+// is applied by the checkbox plugin's node decoration (leading-archive → .wp-archive-line), gated
+// on the same flag there too. In Burma the behavior is unchanged — archive stays an inline mark on
+// the current line.
 function setArchiveMark(editor, range) {
   const attrs = defaultDirectionMarkAttrs('archive');
-  const isPalau = getEpisode()?.id === 'palau';
+  const isPalau = episodeFlag('archiveOwnLine');
   if (!isPalau) {
     return editor.chain().focus().deleteRange(range).setMark('directionMark', attrs).run();
   }

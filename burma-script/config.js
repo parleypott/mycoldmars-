@@ -20,6 +20,9 @@ export const BURMA = {
     { id: 'other', label: '', head: null },
   ],
   flavors: [],
+  // Engine feature flags (read via episodeFlag in episode-config.js). Burma opts into NONE —
+  // empty object keeps every Palau-era affordance off, exactly as before the flag system.
+  features: {},
   blocksData: scriptData.blocks || [],
   storage: {
     DOC: 'wp01_burma_doc_v1',
@@ -36,5 +39,8 @@ export const BURMA = {
     api: '/api/burma-script-doc',
     docId: 'wp01-burma',
     tokenHeader: 'X-Burma-Write-Token',
+    // Workshop {TK}/fact-check endpoint. The engine falls back to '/api/burma-tk' when an
+    // episode omits this, but Burma pins it explicitly.
+    tkApi: '/api/burma-tk',
   },
 };

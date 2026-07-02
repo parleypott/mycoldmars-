@@ -34,6 +34,22 @@ export const PALAU = {
     { id: 'pink',   label: 'STRAGGLER',    color: '#e0608f' },
   ],
   blocksData: scriptData.blocks || [],
+  // Engine feature flags (read via episodeFlag in episode-config.js). These replace the old
+  // hardcoded `id === 'palau'` gates in the shared engine — every Palau-era affordance is ON
+  // here so Palau behaves exactly as it did before the flag system. Burma sets none of these.
+  features: {
+    chipChrome: true,                  // blocks.js — chip-style block chrome
+    chapterFrames: true,               // chapter-frames.js — chapter frame decorations + sidebar
+    rowDragReorder: true,              // table.js — row drag-to-reorder grip
+    convertMenu: true,                 // convert-menu.js — right-click convert-selection menu
+    archiveOwnLine: true,              // slash-menu.js + direction-chip.js — /archive pops its own indented line
+    dayFold: true,                     // day-fold.js — fold literal "DAY N" preceding a chip
+    sequencePicker: true,              // marks.js — right-click chip menu picks SEQUENCE (not DAY)
+    palauTimecodes: true,              // document-builder.js — 3-part/bracket timecodes, bundled-day strip, seq context
+    inlineSotName: true,               // document-builder.js — SOT sequence name bold INLINE in body
+    normalizeTableRows: true,          // document-builder.js — split stacked full-width rows on load
+    rebuildFromSourceWhenPristine: true, // migrate-doc.js — rebuild doc from source blocks when byte-pristine
+  },
   storage: {
     DOC: 'script_palau_doc_v2',
     DOC_VER: 'script_palau_doc_ver_v2',
@@ -54,5 +70,7 @@ export const PALAU = {
     api: '/api/__palau_cloud_disabled',
     docId: 'palau',
     tokenHeader: 'X-Palau-Write-Token',
+    // No `tkApi` set — the Workshop {TK}/fact-check panel falls back to the engine default
+    // ('/api/burma-tk'), which is what Palau has always hit.
   },
 };

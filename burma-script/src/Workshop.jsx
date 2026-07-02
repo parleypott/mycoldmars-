@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import RESEARCH from '../tk-research.json';
-import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 
 let LS_WS_WIDTH = '';
 let LS_WORKSHOP = '';
@@ -167,7 +167,9 @@ export function Workshop() {
     setLoading(true); setError('');
     if (mode === 'tk') { setOptions([]); setVetted(false); } else setVerdict(null);
     try {
-      const res = await fetch('/api/burma-tk', {
+      // Endpoint is configurable per episode (cloud.tkApi); every current episode uses the
+      // shared burma-tk backend, so that stays the default.
+      const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, marker: span.text, block: span.block, context: span.context }),

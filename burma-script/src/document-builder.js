@@ -67,7 +67,7 @@ export function stripPalauSotSpeaker(text, speaker) {
 // producer reading a checklist shouldn't see that markup. Strip the braces/brackets and
 // keep the inner text. This is the INVERSE of inlineContent/wrapToken above — keep the two
 // in sync (guarded by the worklist-unwrap checks in integrity-check.ts).
-import { getEpisode } from './episode-config.js';
+import { getEpisode, episodeFlag } from './episode-config.js';
 import { directionChipText } from './extensions/direction-chip.js';
 
 export function stripSpanScaffolding(text) {
@@ -139,7 +139,7 @@ const TIMECODE_RE = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/;
 const TIMECODE_RE_G = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/g;
 // Palau interview bodies preserve bracketed IN/OUT prose as HH:MM:SS (plus a separate [4.8]
 // duration token). Keep Burma's broadcast-only detector frozen above, then add a Palau-only
-// three-part detector here so Burma's chip path stays byte-identical when IS_PALAU is false.
+// three-part detector here so Burma's chip path stays byte-identical when palauTimecodes is off.
 const TIMECODE3_RE_G = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}(?!:?\d)/g;
 const PALAU_TIMECODE_RE = /(?<!\d)(?<!\d:)(?:\d{2}:\d{2}:\d{2}:\d{2}|\d{2}:\d{2}:\d{2})(?!:?\d)/;
 const PALAU_TIMECODE_RE_G = /(?<!\d)(?<!\d:)(?:\d{2}:\d{2}:\d{2}:\d{2}|\d{2}:\d{2}:\d{2})(?!:?\d)/g;
@@ -195,16 +195,11 @@ export function episodeHeadAlternation() {
 }
 
 const DAY_CLASS_SOURCE = episodeDayCharacterClass();
-// Compute the episode gate once beside the other episode-derived constants. This module is loaded
-// after episode selection in normal boot, so Palau can widen inline timecode parsing here while
-// Burma keeps the exact same broadcast-only regex path and rendered output it had before.
-const IS_PALAU = (() => {
-  try {
-    return getEpisode()?.id === 'palau';
-  } catch (_err) {
-    return false;
-  }
-})();
+// The timecode-behavior gate is the episode's `palauTimecodes` feature flag, read LIVE at every
+// consumer via episodeFlag (the old module-frozen IS_PALAU const could silently freeze to the
+// wrong episode if this module was imported before episode selection). Flagged episodes widen
+// inline timecode parsing while Burma keeps the exact same broadcast-only regex path and rendered
+// output it had before.
 const DAY_LOCAL = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'i');
 const DAY_LOCAL_G = new RegExp(`\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b`, 'ig');
 const DAY_TRAILING = new RegExp(`(\\bDAY\\s*([${DAY_CLASS_SOURCE}])\\b)\\s*$`, 'i');
@@ -221,7 +216,7 @@ let _ctxDay = null;
 
 // Running SEQUENCE context for the timecode chip's `seq` attr (Palau). Threaded per-block exactly
 // like _ctxDay: a named SOT/broll contributes its speaker as the sequence, a loose day-based block
-// contributes "DAY N". Burma never sets this (IS_PALAU false) so its chips carry no seq. Single-
+// contributes "DAY N". Burma never sets this (palauTimecodes off) so its chips carry no seq. Single-
 // threaded, in document order, so a bare module variable is safe (mirrors _ctxDay).
 let _ctxSeq = null;
 
@@ -254,7 +249,7 @@ function dayToNumber(d) {
 // in the body (it's already in the source text), find its first plain-text occurrence, and wrap just
 // that run in a bold mark; if the body somehow lacks it we prepend it bold so the sequence is always
 // labelled. DAY-style speakers ("DAY 4") are SKIPPED \u2014 those fold into the timecode chip via #1, they
-// are not a named header. Burma never calls this (IS_PALAU false).
+// are not a named header. Burma never calls this (inlineSotName off).
 function boldSequenceName(nodes, speaker) {
   const name = cleanSeqName(speaker);
   if (!name || /^DAY\s*\d/i.test(name)) return nodes;
@@ -277,14 +272,14 @@ function boldSequenceName(nodes, speaker) {
 }
 
 function activeInlineTimecodeRegex() {
-  const re = IS_PALAU ? PALAU_TIMECODE_RE_G : TIMECODE_RE_G;
+  const re = episodeFlag('palauTimecodes') ? PALAU_TIMECODE_RE_G : TIMECODE_RE_G;
   re.lastIndex = 0;
   return re;
 }
 
 function hasInlineTimecode(text) {
   if (!text) return false;
-  if (IS_PALAU) {
+  if (episodeFlag('palauTimecodes')) {
     // Palau keeps [HH:MM:SS] interview in/out stamps inline. Check the dedicated 3-part form
     // first so bracketed [00:03:41][4.8] yields a clean timecode chip and leaves [4.8] as prose,
     // never as a merged 00:03:414.8 blob. Burma never touches this branch.
@@ -325,7 +320,7 @@ function pushTextWithTimecodes(out, text, baseMarks) {
   let localDay = suppressDay ? null : _ctxDay;
   // The chip's sequence identity does NOT depend on suppressDay (which only hides the DAY display):
   // a Palau interview stamp is still part of its interview sequence. Burma leaves _ctxSeq null.
-  const localSeq = IS_PALAU ? _ctxSeq : null;
+  const localSeq = episodeFlag('palauTimecodes') ? _ctxSeq : null;
   let last = 0, m;
   const timecodeRe = activeInlineTimecodeRegex();
   while ((m = timecodeRe.exec(text)) !== null) {
@@ -337,17 +332,17 @@ function pushTextWithTimecodes(out, text, baseMarks) {
         const segDay = bundledDay ?? lastDayInText(seg);
         if (segDay != null) localDay = segDay;
       }
-      // PALAU: the timecode chip DISPLAYS "DAY N · …" from its day attr, so a literal "DAY N"
-      // sitting right before the chip is a visible DUPLICATE (Johnny: "it should only be in the
-      // chip"). Fold it INTO the chip — strip the trailing "DAY N" from the visible text. Burma
-      // (IS_PALAU false) keeps its literal DAY prefix unchanged.
-      if (IS_PALAU && bundledDay != null) {
+      // palauTimecodes flag: the timecode chip DISPLAYS "DAY N · …" from its day attr, so a
+      // literal "DAY N" sitting right before the chip is a visible DUPLICATE (Johnny: "it should
+      // only be in the chip"). Fold it INTO the chip — strip the trailing "DAY N" from the visible
+      // text. Burma (flag off) keeps its literal DAY prefix unchanged.
+      if (episodeFlag('palauTimecodes') && bundledDay != null) {
         seg = seg.replace(DAY_TRAILING, '');
         if (seg && !/\s$/.test(seg)) seg += ' ';
       }
       if (seg) out.push({ type: 'text', text: seg, ...(baseMarks ? { marks: baseMarks } : {}) });
     }
-    const tcAttrs = { tc: m[0], day: localDay ?? null, bundledDay: !!(IS_PALAU && bundledDay != null) };
+    const tcAttrs = { tc: m[0], day: localDay ?? null, bundledDay: !!(episodeFlag('palauTimecodes') && bundledDay != null) };
     if (localSeq != null) tcAttrs.seq = localSeq; // Palau only — Burma omits the key entirely.
     const tcMark = { type: 'timecode', attrs: tcAttrs };
     out.push({ type: 'text', text: m[0], marks: baseMarks ? [...baseMarks, tcMark] : [tcMark] });
@@ -406,13 +401,13 @@ function inlineContent(rawText, type) {
       : (isBrace
         ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
         : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim());
-    if (IS_PALAU && isBracket && PALAU_BRACKET_DURATION_RE.test(inner)) {
+    if (episodeFlag('palauTimecodes') && isBracket && PALAU_BRACKET_DURATION_RE.test(inner)) {
       // Palau interview durations are not readable prose; the IN/OUT stamps already carry the
       // useful timing. Drop the visible "[4.8]" token so it can't leak beside the seq tag.
       last = m.index + tok.length;
       continue;
     }
-    if (IS_PALAU && isBracket && hasInlineTimecode(inner)) {
+    if (episodeFlag('palauTimecodes') && isBracket && hasInlineTimecode(inner)) {
       // Palau SOT bodies use bare bracketed interview stamps ("[00:03:41]") that are NOT
       // visual-direction tokens. Route them through the same timecode-mark path as prose so
       // every SOT stamp becomes a wp-tc-tag copy chip, while Burma keeps its old [visual] path.
@@ -575,7 +570,7 @@ function blockToNode(b, opts) {
         // PALAU (#2): keep the sequence NAME in the body and render it bold INLINE (flowing right
         // before the timecodes + quote), rather than stripping it out to a separate chrome row. Burma
         // keeps the plain quote unchanged.
-        const bodyNodes = IS_PALAU
+        const bodyNodes = episodeFlag('inlineSotName')
           ? boldSequenceName(inlineContent(quote, 'plain'), b.speaker || '')
           : inlineContent(quote, 'plain');
       return {
@@ -681,11 +676,9 @@ function pairedRow(pairId, saidNodes, shownNodes) {
 }
 
 function isPalauEpisodeNow() {
-  try {
-    return getEpisode()?.id === 'palau';
-  } catch (_err) {
-    return false;
-  }
+  // normalizeTableRows flag — the ONE transform here that rewrites a SAVED doc on load. Must be
+  // read LIVE, and must stay OFF for Burma (Burma's config sets no flags).
+  return episodeFlag('normalizeTableRows');
 }
 
 function rowBlocks(row) {
@@ -756,7 +749,7 @@ export function buildEditorDocument(blocks) {
     // Running SEQUENCE (Palau): a named SOT/broll carries its speaker as the sequence; anything else
     // (chapters, VO, day string-outs) falls back to the running DAY as "DAY N". This is what stops a
     // James-Porter interview chip from defaulting to a DAY — it becomes the interview's own sequence.
-    if (IS_PALAU) {
+    if (episodeFlag('palauTimecodes')) {
       const spk = (b.type === 'sot' || b.type === 'broll') ? cleanSeqName(b.speaker) : '';
       const blockSeq = spk || (runningDay != null ? 'DAY ' + runningDay : null);
       setContextSeq(blockSeq);

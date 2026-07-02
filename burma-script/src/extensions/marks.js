@@ -15,7 +15,7 @@ import { Plugin } from '@tiptap/pm/state';
 import { contiguousMarkRun } from './mark-run.js';
 import { isReadOnly } from '../read-mode.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
-import { getEpisode } from '../episode-config.js';
+import { getEpisode, episodeFlag } from '../episode-config.js';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
 // workshop event. Returns true if a span was hit (so PM stops default handling).
@@ -279,9 +279,10 @@ function patchTimecodeAt(view, pos, patch) {
   return true;
 }
 
-// Is the live episode Palau? The right-click menu becomes a SEQUENCE picker there (Burma keeps DAY).
+// Does the live episode use the SEQUENCE picker (`sequencePicker` flag — Palau opts in)?
+// The right-click menu becomes a SEQUENCE picker there (Burma keeps DAY).
 function isPalauEpisode() {
-  try { return getEpisode()?.id === 'palau'; } catch { return false; }
+  return episodeFlag('sequencePicker');
 }
 
 // Normalize a speaker/seq string to a single clean line (drop leading bullets, collapse whitespace)
@@ -385,7 +386,7 @@ function openTimecodeMenu(view, pos, anchorRect) {
     makeItemKeyActivatable(addNew);
     menu.appendChild(addNew);
   } else {
-    [1, 2, 3].forEach((d) => addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
+    (getEpisode()?.days || [1, 2, 3]).forEach((d) => addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
     addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
   }
 

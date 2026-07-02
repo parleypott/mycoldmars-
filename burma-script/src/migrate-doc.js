@@ -38,7 +38,7 @@ import { isReadOnly } from './read-mode.js';
 import {
   idbPutSnapshot, idbPutDoc, idbReadDoc, idbDocProbe, idbAvailable, compressDoc, decompressDoc,
 } from './recovery-store.js';
-import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+import { getEpisode, getEpisodeStorage, onEpisodeChange, episodeFlag } from './episode-config.js';
 
 // PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
 // quota is hundreds of MB vs localStorage's ~5MB. The sync localStorage write that wraps each call to
@@ -638,8 +638,8 @@ function sourceComparableBlocks(blocks) {
 }
 
 function palauSourceRebuildCandidate(original) {
+  if (!episodeFlag('rebuildFromSourceWhenPristine')) return null;
   const episode = getEpisode();
-  if (episode?.id !== 'palau') return null;
   const savedComparable = sourceComparableBlocks(docToBlocks(ensureTableDoc(original)));
   const sourceComparable = sourceComparableBlocks(episode?.blocksData || []);
   if (JSON.stringify(savedComparable) !== JSON.stringify(sourceComparable)) return null;

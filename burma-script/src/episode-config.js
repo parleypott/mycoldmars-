@@ -37,6 +37,14 @@ export function getEpisodeStorage() {
   return getEpisode().storage;
 }
 
+// Feature-flag read for the active episode's `features` object. Replaces the old hardcoded
+// `getEpisode()?.id === 'palau'` gates — episodes opt into engine features via config instead
+// of the engine special-casing an id. Always read LIVE (never freeze at module init) and
+// default to OFF for configs that carry no features object (e.g. brand-new library projects).
+export function episodeFlag(name) {
+  try { return !!(getEpisode()?.features?.[name]); } catch { return false; }
+}
+
 export function onEpisodeChange(listener) {
   if (typeof listener !== 'function') throw new Error('onEpisodeChange requires a function');
   listeners.add(listener);

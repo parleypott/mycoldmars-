@@ -1,7 +1,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import { getEpisode } from '../episode-config.js';
+import { episodeFlag } from '../episode-config.js';
 
 // DAY DE-DUPE (render layer). The build-time fold in document-builder strips a literal "DAY N"
 // sitting right before a timecode for FRESH seeds — but the tool persists the built ProseMirror
@@ -14,7 +14,7 @@ const dayFoldKey = new PluginKey('dayFold');
 const DAY_BEFORE = /(\bDAY\s*\d+\b)[ \t]*$/i;
 
 function isPalau() {
-  try { return getEpisode()?.id === 'palau'; } catch (_e) { return false; }
+  return episodeFlag('dayFold');
 }
 
 function buildDayFoldDecorations(doc) {

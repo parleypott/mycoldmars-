@@ -1,7 +1,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
-import { getEpisode } from '../episode-config.js';
+import { episodeFlag } from '../episode-config.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
 
 // ── SELECT → RIGHT-CLICK → CONVERT-TO-VIZ ────────────────────────────────────────────────────
@@ -159,8 +159,9 @@ export const ConvertMenu = Extension.create({
         props: {
           handleDOMEvents: {
             contextmenu: (view, event) => {
-              // Palau-gated: Burma keeps its native right-click untouched.
-              if (getEpisode()?.id !== 'palau') return false;
+              // Gated on the `convertMenu` feature flag (Palau opts in): Burma keeps its
+              // native right-click untouched.
+              if (!episodeFlag('convertMenu')) return false;
               if (isReadOnly()) return false;
               // Only convert a real, non-empty text selection. Empty selection → let the timecode
               // chip's sequence menu and the browser's native menu run as before.

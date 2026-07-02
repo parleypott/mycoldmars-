@@ -17,7 +17,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
-import { getEpisode } from '../episode-config.js';
+import { episodeFlag } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -26,11 +26,11 @@ function el(tag, cls, attrs) {
   return n;
 }
 
-// Drag-to-reorder is a PALAU-only affordance. Gating it here keeps Burma's rack — and its
-// existing split/merge grip — byte-for-byte untouched: no drag handle is ever mounted, no
-// drag listeners ever attach, on a Burma row.
+// Drag-to-reorder is gated by the episode's `rowDragReorder` feature flag (Palau opts in).
+// Gating it here keeps Burma's rack — and its existing split/merge grip — byte-for-byte
+// untouched: no drag handle is ever mounted, no drag listeners ever attach, on a Burma row.
 function isPalauEpisode() {
-  try { return getEpisode()?.id === 'palau'; } catch (_e) { return false; }
+  return episodeFlag('rowDragReorder');
 }
 
 // ---- ROW DRAG-TO-REORDER (PALAU) -----------------------------------------

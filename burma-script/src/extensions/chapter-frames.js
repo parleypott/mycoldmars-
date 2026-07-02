@@ -1,7 +1,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import { getEpisode } from '../episode-config.js';
+import { getEpisode, episodeFlag } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -15,7 +15,7 @@ const CHAPTER_FRAMES_REBUILD = 'chapterFramesRebuild';
 const EMPTY_STATE = { signature: 'off', decorations: DecorationSet.empty };
 
 function isPalauEpisode() {
-  return getEpisode()?.id === 'palau';
+  return episodeFlag('chapterFrames');
 }
 
 function firstBlockInRow(row) {
@@ -155,8 +155,8 @@ function chapterTitleForRow(row, index) {
 
 function sidebarHostForView(editorView) {
   if (typeof document === 'undefined') return null;
-  return editorView.dom.closest?.('.wp-page[data-episode="palau"]')
-    || document.querySelector('.wp-page[data-episode="palau"]');
+  return editorView.dom.closest?.('.wp-page[data-episode]')
+    || document.querySelector('.wp-page[data-episode]');
 }
 
 function createSidebarView(editorView) {

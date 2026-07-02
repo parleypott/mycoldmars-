@@ -11,7 +11,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { isReadOnly } from '../read-mode.js';
-import { getEpisode } from '../episode-config.js';
+import { getEpisode, episodeFlag } from '../episode-config.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 import { DirectionChip, DirectionBreak } from './direction-chip.js';
 
@@ -91,7 +91,7 @@ function sharedRenderAttrs(node, attrs) {
 }
 
 function isPalauChromeEnabled() {
-  return getEpisode()?.id === 'palau';
+  return episodeFlag('chipChrome');
 }
 
 export function timecodeLabel(attrs) {

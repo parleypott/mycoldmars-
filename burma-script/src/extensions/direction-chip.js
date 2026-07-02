@@ -2,7 +2,7 @@ import { Node, Mark } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { isReadOnly } from '../read-mode.js';
-import { getEpisode } from '../episode-config.js';
+import { episodeFlag } from '../episode-config.js';
 
 export const DIRECTION_CHIP_KINDS = ['archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction'];
 
@@ -126,10 +126,11 @@ function buildCheckboxDecorations(state) {
   const runs = findCheckboxMarkRuns(state.doc, markType);
   if (!runs.length) return DecorationSet.empty;
 
-  // Palau-only: an archive run that leads its paragraph gets a small left indent so it reads as
-  // its own indented, checkable line. Gated on the active episode id so Burma renders byte-for-byte
-  // as before (its inline archives never shift). oncam is never indented — only archive owes it.
-  const isPalau = getEpisode()?.id === 'palau';
+  // archiveOwnLine flag (Palau opts in): an archive run that leads its paragraph gets a small left
+  // indent so it reads as its own indented, checkable line. Gated on the same flag as the slash-menu
+  // side so Burma renders byte-for-byte as before (its inline archives never shift). oncam is never
+  // indented — only archive owes it.
+  const isPalau = episodeFlag('archiveOwnLine');
   const decos = [];
 
   runs.forEach(({ from, to, kind, status }) => {
