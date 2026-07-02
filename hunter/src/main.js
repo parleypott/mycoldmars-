@@ -3,6 +3,7 @@ import { SCENE_TEMPORAL_GAP_MINUTES, extractDateFromClipName, extractCameraId, g
 import { formatTc, formatDuration } from './format-tc.js';
 import { byAnalysisRecencyDesc } from './feed-sort.js';
 import { normalizeKeepability } from './keepability.js';
+import { sceneStatus, sceneConfidence } from './scene-confidence.js';
 import { filterAndSortCorpus } from './corpus-filter.js';
 import { buildCorpusCsv } from './csv-export.js';
 import { classifySequence } from './sequence-classify.js';
@@ -1168,8 +1169,8 @@ function renderScenesTab(units, signal) {
   // Assign status to scenes based on keepability
   const enriched = scenes.map((s, i) => {
     const k = normalizeKeepability(s.avgKeep);
-    const status = k != null && k >= 7 ? 'accepted' : k != null && k >= 5 ? 'refined' : 'proposed';
-    const confidence = k != null ? Math.min(95, Math.round(k + Math.random() * 5)) : Math.round(50 + Math.random() * 30);
+    const status = sceneStatus(k);
+    const confidence = sceneConfidence(k);
     return { ...s, status, confidence, index: i };
   });
 
