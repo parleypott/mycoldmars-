@@ -1,0 +1,31 @@
+# utf16-byte-cap-triage.tsv — verdicts for find-utf16-byte-cap.mjs
+#
+# Each row: FILE <TAB> SNIPPET-KEY (whitespace-stripped) <TAB> STATUS <TAB> REASON
+# STATUS = SAFE (judged a non-bug) | BUG (open, needs a real byte measure).
+# A byte-cap comparison NOT listed here reads as NEW and fails `--check`.
+#
+# THE QUESTION for each site: can the string whose `.length` is compared to the
+# byte cap hold NON-ASCII characters?
+#   • base64 / hex / ASCII-only  → .length == byte count → SAFE
+#   • JSON blob / user text / transcript / prompt → must use Buffer.byteLength,
+#     TextEncoder().encode(s).length, new Blob([s]).size, or (localStorage) *2 → else BUG
+#
+# All current sites measure a base64 data-URL string (`dataBase64`), which is pure
+# ASCII, so char count EQUALS byte count. Several carry a `* 1.4` slack factor for
+# the base64→binary expansion ratio — that is the correct budget for the inline-image
+# wire cost, not a UTF-16 mistake. The historical BUGS in this class (Westchester
+# state-sync, Nile-flights, snapshot vault, commentbank corpus) measured JSON/text
+# blobs and have all been migrated to real byte measures, so they no longer appear
+# as `.length` comparisons here.
+api/_lib/gemini-image-ref.js	dataBase64.length>maxBytes*1.4	SAFE	base64 data-URL is ASCII → char count == byte count; *1.4 is the base64→binary slack
+api/analyze-render.js	img.dataBase64.length>8*1024*1024*1.4	SAFE	base64 data-URL is ASCII → char count == byte count; *1.4 base64 slack
+api/nano-banana.js	ref.dataBase64.length>MAX_REF_BYTES*1.4	SAFE	base64 data-URL is ASCII → char count == byte count; *1.4 base64 slack
+api/qss-cast.js	dataBase64.length>MAX_IMAGE_BYTES*1.4	SAFE	base64 data-URL is ASCII → char count == byte count; *1.4 base64 slack
+api/qss-stories.js	im.dataBase64.length<=MAX_INLINE_IMG_BYTES	SAFE	base64 data-URL is ASCII → char count == byte count
+api/qss-stories.js	v.dataBase64.length<=MAX_INLINE_IMG_BYTES	SAFE	base64 data-URL is ASCII → char count == byte count
+api/qss-stories.js	totalBytes+v.dataBase64.length<=MAX_TOTAL_BYTES	SAFE	base64 data-URL is ASCII; totalBytes accumulates base64 char counts
+api/qss-stories.js	dataBase64.length<=MAX_IMAGE_BYTES	SAFE	base64 data-URL is ASCII → char count == byte count
+api/qss-stories.js	dataBase64.length>MAX_IMAGE_BYTES	SAFE	base64 data-URL is ASCII → char count == byte count
+api/qss-stories.js	totalBytes+dataBase64.length>MAX_TOTAL_BYTES	SAFE	base64 data-URL is ASCII; totalBytes accumulates base64 char counts
+api/walden-design.js	p.dataBase64.length<8*1024*1024*1.4	SAFE	base64 data-URL is ASCII → char count == byte count; *1.4 base64 slack
+api/walden-design.js	ref.dataBase64.length>MAX_REF_BYTES*1.4	SAFE	base64 data-URL is ASCII → char count == byte count; *1.4 base64 slack

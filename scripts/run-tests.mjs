@@ -167,7 +167,15 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // OPPOSITE of "keep the last N"), silently defeating a cap. Hand-fixed ≥3× (QSS
 // loved-aware variation cap, prune-variations, Gemini chat window). Ledger-backed
 // (scripts/negative-slice-triage.tsv): --check fails only on a NEW unguarded one.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs'].flatMap((s) =>
+//
+// find-utf16-byte-cap flags a BYTE-denominated cap compared against a string's
+// `.length` — the "UTF-16 code units masquerading as bytes" trap where a non-Latin
+// (Burmese/Chinese/emoji) payload encodes to 2–4× as many real bytes as `.length`
+// reports, silently UNDER-enforcing a storage/wire/DB cap. Hand-fixed ≥4× (Westchester
+// state-sync, Nile-flights, snapshot vault, commentbank corpus). Ledger-backed
+// (scripts/utf16-byte-cap-triage.tsv): base64/ASCII strings are SAFE (char == byte);
+// --check fails only on a NEW cap measured against a non-ASCII-capable `.length`.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
