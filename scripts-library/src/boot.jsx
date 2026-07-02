@@ -105,6 +105,12 @@ async function openProject(row) {
     touchProject(row.id); // float recently-opened to the top of the library
     await import('../../burma-script/src/main.jsx');
     injectLibraryBackbar();
+    // PRESENCE (Wave 2): show who else is in this project. Fire-and-forget from the library layer so the
+    // engine files stay UNCHANGED. Pass the cloud id when we have it, else the slug — the endpoint
+    // resolves either. A local-only project (no cloud row) resolves to an empty list and renders nothing.
+    import('./presence.js')
+      .then((m) => m.startPresence(row.cloudId || row.slug))
+      .catch(() => {});
   } finally {
     // The engine mounts synchronously after import; give it a beat to paint,
     // then lift the veil so there's no blank flash between veil and script.

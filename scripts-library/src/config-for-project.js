@@ -72,6 +72,18 @@ export function configForProject(row) {
   const ns = `script_${id}`;
   const title = String(row.title || 'Untitled Script').trim() || 'Untitled Script';
 
+  // CLOUD-BACKED (Wave 2): a new project created online has a REAL cloud project row (its id is the
+  // cloud UUID), so it gets a real cloud doc on /api/script-doc?project=<id>. The engine's existing
+  // cloud-sync (fetchCloud/pushDoc read config.cloud.api) then GET/PUTs against the generalized
+  // endpoint automatically — no engine change. Auth is the signed-in JWT injected by gate.js's fetch
+  // interceptor, so there is no per-device write token to provision (tokenHeader is inert here).
+  //
+  // OFFLINE FALLBACK: a project created while the API was unreachable carries a `local_`-prefixed id
+  // (project-store.createProject's fallback). Its id can't resolve server-side, so we keep it
+  // localOnly — the calm "ALL CHANGES SAVED" pill, no cloud/offline/conflict churn — exactly as
+  // before. It stays device-local until a future re-sync gives it a cloud row.
+  const isCloudBacked = !String(id).startsWith('local_');
+
   return {
     id,
     title,
@@ -85,7 +97,9 @@ export function configForProject(row) {
     genres: DEFAULT_GENRES,
     flavors: [],
     blocksData: [], // empty starter — the engine builds an empty doc on first open
-    localOnly: true, // no cloud; calm "ALL CHANGES SAVED" pill, no conflict banner
+    // Cloud-backed projects get the real cloud lifecycle (SAVING / SAVED TO CLOUD / offline / conflict
+    // pill states). Offline-created local projects stay calm-local.
+    localOnly: !isCloudBacked,
     storage: {
       DOC: `${ns}_doc_v1`,
       DOC_VER: `${ns}_doc_ver_v1`,
@@ -97,12 +111,15 @@ export function configForProject(row) {
       WRITE_TOKEN: `${ns}_write_token_v1`,
       DISMISSED: `${ns}_recovery_dismissed_v1`,
     },
-    // Inert same-origin path that 404s — the engine's offline machinery handles it
-    // gracefully and localOnly suppresses the cloud-conflict UI entirely.
+    // Cloud-backed: the generalized per-project doc endpoint (login-gated, compare-and-swap, append-only
+    // revisions). Offline-local: an inert same-origin path that 404s — the engine's offline machinery
+    // handles it gracefully and localOnly suppresses the cloud-conflict UI entirely.
     cloud: {
-      api: '/api/__script_cloud_disabled',
+      api: isCloudBacked
+        ? `/api/script-doc?project=${encodeURIComponent(id)}`
+        : '/api/__script_cloud_disabled',
       docId: id,
-      tokenHeader: 'X-Script-Write-Token',
+      tokenHeader: 'X-Script-Write-Token', // unused for new projects — auth is the JWT
     },
   };
 }

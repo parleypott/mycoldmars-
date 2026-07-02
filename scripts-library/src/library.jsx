@@ -20,6 +20,8 @@ import {
   restoreProject,
   purgeProject,
   findById,
+  syncFromCloud,
+  PROJECTS_CHANGED_EVENT,
 } from './project-store.js';
 import { configForProject, storageKeysForConfig, recoveryDbNameForConfig } from './config-for-project.js';
 import { relativeTimeFrom, trashDaysLeft } from './library-time.js';
@@ -56,6 +58,18 @@ function LibraryApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // CLOUD SYNC (Wave 2): the cache paints instantly (the useMemos below read it synchronously); in the
+  // BACKGROUND, pull the shared cloud project list and merge it in so a teammate's projects appear. The
+  // merge fires PROJECTS_CHANGED_EVENT when the cache changed → refresh() re-reads the cache. Fully
+  // resilient: if the API is unreachable syncFromCloud is a no-op and the cached view stays. Runs once
+  // on mount; the event listener also catches optimistic write read-backs (rename/trash/restore).
+  useEffect(() => {
+    const onChanged = () => refresh();
+    window.addEventListener(PROJECTS_CHANGED_EVENT, onChanged);
+    syncFromCloud().catch(() => {});
+    return () => window.removeEventListener(PROJECTS_CHANGED_EVENT, onChanged);
+  }, [refresh]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const active = useMemo(() => activeProjects(), [tick]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,10 +82,19 @@ function LibraryApp() {
     return rows.filter((r) => String(r.title || '').toLowerCase().includes(q));
   }, [query, view, active, trashed]);
 
-  const onNew = useCallback(() => {
-    const row = createProject('Untitled Script');
-    openSlug(row.slug);
-  }, []);
+  const [creating, setCreating] = useState(false);
+  const onNew = useCallback(async () => {
+    if (creating) return;
+    setCreating(true);
+    // createProject is CLOUD-FIRST now (awaits the cloud row so the project has a real cloud id + doc).
+    // On success open it; on any failure it falls back to a local-only row and still opens — never blocks.
+    try {
+      const row = await createProject('Untitled Script');
+      openSlug(row.slug);
+    } finally {
+      setCreating(false);
+    }
+  }, [creating]);
 
   const startRename = useCallback((row) => {
     setEditingId(row.id);

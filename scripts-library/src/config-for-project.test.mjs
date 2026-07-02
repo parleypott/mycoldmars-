@@ -74,7 +74,7 @@ const SHARED_FAVICON = '../burma-script/favicon.svg';
 {
   const a = configForProject({ id: 'local_aaa', title: 'Alpha' });
   eq(a.storage.DOC, 'script_local_aaa_doc_v1', 'new: DOC namespaced off row id');
-  eq(a.localOnly, true, 'new: localOnly (calm saved pill, no conflict UI)');
+  eq(a.localOnly, true, 'new (offline local_ id): localOnly (calm saved pill, no conflict UI)');
   eq(a.recoverPrefix, 'alpha-recovered', 'new: recoverPrefix slugged from title');
   // All nine storage slots must live under the id namespace — no bare/global key.
   const keys = storageKeysForConfig(a);
@@ -86,6 +86,28 @@ const SHARED_FAVICON = '../burma-script/favicon.svg';
   const keysA = new Set(keys);
   const overlap = storageKeysForConfig(c).filter((k) => keysA.has(k));
   eq(overlap.length, 0, 'ISOLATION: two new projects (even same title) share no storage keys');
+}
+
+// ── 2b. CLOUD-BACKED NEW PROJECT (Wave 2) — a real cloud id (UUID) gets the cloud doc lifecycle ──
+// A project created online carries the cloud UUID as its id. It must NOT be localOnly, and its
+// cloud.api must point at the generalized per-project endpoint keyed by that id — so the engine's
+// unmodified cloud-sync GET/PUTs land on /api/script-doc?project=<id>. Burma/Palau are untouched by
+// this branch (they're LEGACY, handled above); this is only the new-project path.
+{
+  const uuid = '267bb0ec-215c-45bb-9a18-c2c5d4a68ef5';
+  const cb = configForProject({ id: uuid, title: 'Cloud Script' });
+  eq(cb.localOnly, false, 'cloud-backed new: NOT localOnly (real cloud pill states)');
+  eq(cb.cloud.api, `/api/script-doc?project=${encodeURIComponent(uuid)}`,
+     'cloud-backed new: cloud.api targets the generalized per-project endpoint by id');
+  eq(cb.storage.DOC, `script_${uuid}_doc_v1`, 'cloud-backed new: doc namespace still isolated off the id');
+}
+
+// A `local_`-prefixed id (offline-created project) STAYS localOnly with the inert cloud path — the
+// offline fallback must never point cloud-sync at a project id the server can't resolve.
+{
+  const off = configForProject({ id: 'local_offline9', title: 'Offline' });
+  eq(off.localOnly, true, 'offline local_ id: stays localOnly');
+  eq(off.cloud.api, '/api/__script_cloud_disabled', 'offline local_ id: inert cloud path (no bad ?project=)');
 }
 
 // Missing id degrades to a stable 'script' namespace rather than throwing.
