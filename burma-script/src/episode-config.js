@@ -48,6 +48,13 @@ export function episodeFlag(name) {
 export function onEpisodeChange(listener) {
   if (typeof listener !== 'function') throw new Error('onEpisodeChange requires a function');
   listeners.add(listener);
-  listener(activeEpisode);
+  // Isolate the INITIAL invocation too (same posture as notify()). Seven modules register at
+  // bootstrap via a top-level onEpisodeChange(...) call, each firing its listener once here. Left
+  // bare, a listener that throws on this first call (e.g. a locked-down/private-browsing localStorage
+  // access — the class the theme-toggle fixes closed) would propagate out and ABORT the registrant's
+  // module evaluation, cascading up the import graph to a white-screened editor — a strictly worse
+  // blast radius than notify()'s sibling-stranding. Wrapping keeps the failure at the one bad module:
+  // the registrant still gets its unsubscribe handle and stays registered for future switches.
+  try { listener(activeEpisode); } catch (err) { console.warn('[episode-config] listener threw:', err); }
   return () => listeners.delete(listener);
 }

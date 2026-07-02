@@ -103,6 +103,39 @@ console.warn = (...args) => {
   offB();
 }
 
+// ─────────────── the INITIAL invocation is isolated too (bootstrap resilience) ───────────────
+// onEpisodeChange fires the listener ONCE on registration. Seven modules do this at module-load
+// (top-level). A listener that throws on that first call must NOT propagate out of onEpisodeChange
+// — otherwise it aborts the registrant's module evaluation and can white-screen the whole editor.
+// Mutation proof: revert line 51 to a bare `listener(activeEpisode)` and the first two assertions
+// here go RED (the throw escapes onEpisodeChange).
+{
+  warnCount = 0;
+  let off, threw = false;
+  const boomOnRegister = () => { throw new Error('boom-on-register'); };
+  try { off = onEpisodeChange(boomOnRegister); } catch { threw = true; }
+
+  ok(!threw, 'onEpisodeChange did not propagate a throw from the immediate (registration) call');
+  ok(typeof off === 'function', 'the registrant STILL received a working unsubscribe handle');
+  ok(warnCount === 1, 'exactly one isolation warning was logged for the throwing initial call');
+
+  // The throwing listener is still registered, so a later switch broadcasts to it — and notify()'s
+  // own isolation must keep a sibling firing despite it. This proves registration completed.
+  const sawSibling = [];
+  const offSibling = onEpisodeChange(() => {}); // immediate call: no-op, harmless
+  let live2 = false;
+  const sibling = () => { if (live2) sawSibling.push(true); };
+  const offSibling2 = onEpisodeChange(sibling);
+  live2 = true;
+  warnCount = 0;
+  setEpisode(BURMA); // broadcasts to boomOnRegister (throws→isolated) + sibling
+  ok(sawSibling.length === 1, 'a later switch still reaches a healthy sibling despite the registered thrower');
+  ok(warnCount === 1, 'the registered thrower re-threw on the switch and was isolated (one warning)');
+
+  if (typeof off === 'function') off();
+  offSibling(); offSibling2();
+}
+
 console.warn = realWarn;
 
 if (fail) {
