@@ -38,7 +38,21 @@ export function safeHref(raw) {
 export function mdToHtml(md) {
   if (!md) return '';
   let html = esc(md);
-  html = html.replace(/```([\s\S]*?)```/g, (_, c) => `<pre><code>${c.trim()}</code></pre>`);
+  // Pull code out FIRST and replace each span with an inert sentinel, so its
+  // literal content survives the heading/bold/italic/link/list transforms below
+  // instead of being mangled by them. Without this, a fenced block that shows
+  // example markdown ('# title', '- item', '**x**') rendered a real <h1>/<li>/
+  // <strong>, and inline code like `[x](y)` became a LIVE clickable <a> — code
+  // spans must render verbatim. Keeping code stashed THROUGH the paragraph split
+  // also stops a blank line inside a fenced block from being split apart. The
+  // real code text is restored at the very end.
+  // The sentinel wraps the stash index in private-use code points (U+E000 /
+  // U+E001) that no markdown transform (and esc()) emits or matches, and that
+  // carry no ) * # [ ` — so a stub passes every transform below intact.
+  const stash = [];
+  const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
+  html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${c.trim()}</code></pre>`));
+  html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
   html = html.replace(/^###### (.*)$/gm, '<h6>$1</h6>');
   html = html.replace(/^##### (.*)$/gm, '<h5>$1</h5>');
   html = html.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
@@ -56,7 +70,6 @@ export function mdToHtml(md) {
     const href = safeHref(url);
     return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
   });
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
   // Ordered items get a distinct <oli> marker so the wrap pass below can emit a
   // numbered <ol> rather than a bulleted <ul> — and, critically, so they get
@@ -73,5 +86,10 @@ export function mdToHtml(md) {
       return `<p>${block.replace(/\n/g, '<br>')}</p>`;
     })
     .join('\n');
+  // Restore the stashed code spans, then unwrap a standalone fenced block that
+  // the paragraph pass wrapped as a lone <p> (a <pre> is block-level and must
+  // not nest inside <p> — this reproduces the pre-stash output exactly).
+  html = html.replace(/\uE000(\d+)\uE001/g, (_, i) => stash[Number(i)]);
+  html = html.replace(/<p>(<pre><code>[\s\S]*?<\/code><\/pre>)<\/p>/g, '$1');
   return html;
 }

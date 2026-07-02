@@ -121,6 +121,51 @@ ok(mdToHtml('[foo](https://e.com/a_(b)_c)').includes('href="https://e.com/a_(b)_
 ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
    'paren-bearing javascript: payload still dropped, no <a>');
 
+// ── code spans render VERBATIM (regression: their content used to be mangled) ──
+// Code was transformed into <pre>/<code> but its inner text still flowed through
+// every LATER transform, so a fenced block showing example markdown rendered a
+// real <h1>/<li>/<strong>, and inline code like `[x](y)` became a LIVE clickable
+// <a>. Now code is stashed to an inert sentinel before those passes and restored
+// after, so it renders literally. fullOldMd (below) reproduces the old bug for
+// the RED proofs.
+{
+  const fence = 'Here is code:\n\n```\n- not a list\n# not a heading\n**not bold**\nvisit [x](y)\n```';
+  const out = mdToHtml(fence);
+  // FIX: nothing inside the fenced block was turned into a tag
+  ok(out.includes('# not a heading') && !/<h1>/.test(out), 'fenced: # line is literal, not an <h1>');
+  ok(out.includes('- not a list') && !/<li>/.test(out), 'fenced: - line is literal, not an <li>');
+  ok(out.includes('**not bold**') && !/<strong>/.test(out), 'fenced: ** is literal, not <strong>');
+  ok(out.includes('visit [x](y)') && !/<a /.test(out), 'fenced: [x](y) is literal, not a live <a>');
+  // RED PROOF: the old renderer mangled all four inside the code block
+  const oldFence = fullOldMd(fence);
+  ok(/<h1>not a heading<\/h1>/.test(oldFence), 'RED PROOF: old renderer emits <h1> inside the code block');
+  ok(/<a [^>]*>x<\/a>/.test(oldFence), 'RED PROOF: old renderer emits a live <a> inside the code block');
+}
+{
+  // inline code containing a link pattern must stay literal, NOT become a real link
+  const out = mdToHtml('use `[label](https://evil.example)` verbatim');
+  ok(/<code>\[label\]\(https:\/\/evil\.example\)<\/code>/.test(out), 'FIX: inline code with a link pattern is literal');
+  ok(!/<a /.test(out), 'FIX: inline code does not produce a real <a>');
+  ok(/<a [^>]*>label<\/a>/.test(fullOldMd('use `[label](https://evil.example)` verbatim')),
+     'RED PROOF: old renderer turned inline code into a live link');
+}
+{
+  // a standalone fenced block is block-level: rendered <pre> must NOT nest in <p>
+  const out = mdToHtml('intro\n\n```\ncode\n```\n\noutro');
+  ok(/<pre><code>code<\/code><\/pre>/.test(out), 'standalone fence renders a <pre>');
+  ok(!/<p><pre>/.test(out), 'standalone fence is not wrapped in <p>');
+  ok(/<p>intro<\/p>/.test(out) && /<p>outro<\/p>/.test(out), 'surrounding prose still becomes paragraphs');
+}
+{
+  // a blank line INSIDE a fenced block must not split the block into two paragraphs
+  const out = mdToHtml('```\nline one\n\nline three\n```');
+  ok(/<pre><code>line one\n\nline three<\/code><\/pre>/.test(out), 'FIX: blank line inside a fence stays inside the <pre>');
+  ok(!/<p>/.test(out), 'FIX: an internal blank line does not spawn a stray <p>');
+  ok(/<pre><code>line one<\/code>/.test(fullOldMd('```\nline one\n\nline three\n```')) === false
+     || /line three<\/code><\/pre><\/p>/.test(fullOldMd('```\nline one\n\nline three\n```')),
+     'RED PROOF: old renderer split the fence across the blank line');
+}
+
 // ── ordered lists wrap in <ol> (regression: they used to render as orphan <li>) ──
 // The ordered-item -> <li> conversion used to run AFTER the <li>-run -> <ul> wrap,
 // so every numbered list emitted bare <li> with NO list container. RED PROOF: the
