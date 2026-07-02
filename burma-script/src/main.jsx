@@ -63,7 +63,20 @@ const SCHEMES = [
 
 const SIZE_MIN = 14, SIZE_MAX = 22;
 const LEAD_MIN = 1.3, LEAD_MAX = 2.0;
-const DEFAULTS = { size: 16, lead: 1.62, font: 'newsreader', scheme: 'sepia', collapsed: false };
+
+// ACCENT — the ONE hardware accent for this script (the drop-line, the reach-for-it grip, the
+// copy pulse). One per script by default (Burma orange, Palau teal — each config declares it),
+// but user-tunable here: a row of presets + a native colour picker for "any colour I like". Drives
+// --ep-accent on .wp-page. Persisted per-episode in LS_CTRL like every other reading setting.
+const ACCENT_PRESETS = [
+  '#ff5b1f', // burma orange
+  '#0c7d8c', // palau teal
+  '#2f6fb0', // blue
+  '#1f8a72', // green
+  '#b0431f', // rust
+  '#7a5cc0', // violet
+];
+const DEFAULTS = { size: 16, lead: 1.62, font: 'newsreader', scheme: 'sepia', accent: EPISODE.accent, collapsed: false };
 
 function loadCtrl() {
   try {
@@ -150,11 +163,13 @@ function ControlUnit({ outlineOpen }) {
     const chrome = Math.max(11, 11 + (s.size - SIZE_MIN) * 0.5);
     page.style.setProperty('--chrome-size', chrome.toFixed(2) + 'px');
     page.style.setProperty('--chrome-size-sm', Math.max(10, chrome - 1).toFixed(2) + 'px');
+    // ACCENT — the one hardware accent for this script, user-tunable, defaults to EPISODE.accent.
+    page.style.setProperty('--ep-accent', s.accent || EPISODE.accent);
     page.setAttribute('data-scheme', s.scheme);
     // mirror scheme onto <html> so the body/overscroll area re-skins too
     document.documentElement.setAttribute('data-scheme', s.scheme);
     try { localStorage.setItem(LS_CTRL, JSON.stringify(s)); } catch {}
-  }, [s.font, s.size, s.lead, s.scheme, s.collapsed]);
+  }, [s.font, s.size, s.lead, s.scheme, s.accent, s.collapsed]);
 
   const set = (patch) => setS((prev) => ({ ...prev, ...patch }));
   const cycleFont = (dir) => {
@@ -226,6 +241,31 @@ function ControlUnit({ outlineOpen }) {
                 <span class="wp-scheme-dot" style={{ background: sc.ink }} />
               </button>
             ))}
+          </div>
+        </div>
+
+        <div class="wp-control-row col">
+          <span class="wp-control-rowlab">ACCENT</span>
+          <div class="wp-accent-grid">
+            {ACCENT_PRESETS.map((hex) => (
+              <button
+                key={hex}
+                class={`wp-accent-sw${(s.accent || '').toLowerCase() === hex.toLowerCase() ? ' is-active' : ''}`}
+                title={hex}
+                aria-label={`Accent ${hex}`}
+                aria-pressed={(s.accent || '').toLowerCase() === hex.toLowerCase()}
+                style={{ background: hex }}
+                onClick={() => set({ accent: hex })}
+              />
+            ))}
+            <label class="wp-accent-custom" title="Custom accent colour">
+              <input
+                type="color"
+                value={s.accent || EPISODE.accent}
+                onInput={(e) => set({ accent: e.currentTarget.value })}
+                aria-label="Custom accent colour"
+              />
+            </label>
           </div>
         </div>
       </div>

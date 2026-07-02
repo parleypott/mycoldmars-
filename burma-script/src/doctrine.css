@@ -1,0 +1,367 @@
+/* ══════════════════════ THE SHARED SCRIPT DOCTRINE ══════════════════════
+   ONE design language for every episode of the WP script engine (Burma, Palau,
+   Library previews, and any future script). Palau is the north star: a calm,
+   flat, book-like page — light chapter headers, cream timecode chips, a quiet
+   table grid, no REC toggles, no shouting kind-labels.
+
+   This file used to live scoped inside palau-script/episode.css as
+   `.wp-page[data-episode="palau"] …` rules. It has been lifted here, the
+   episode scope DROPPED, and every hard-coded colour repainted through the
+   `--ep-*` variable contract below — so each script only has to declare its
+   own accent (and inherit its own scheme) and the doctrine follows.
+
+   Loaded by EVERY page (burma-script, palau-script, scripts-library) right
+   after burma-script/src/styles.css, so it always wins the cascade at equal
+   specificity. FLAT IS STILL LAW: solid colours, no bevels, no drop shadows.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────── THE VARIABLE CONTRACT ─────────────────────────
+   Base defaults derive from the active COLOR SCHEME tokens (set on .wp-page by
+   THE CONTROL UNIT) so all six schemes — including dark 'slate' — adapt without
+   painting cream chips onto a dark page. The warm PALAU values are then pinned
+   for the light 'book' schemes (cream + sepia), which is where both Burma and
+   Palau default (DEFAULTS.scheme = 'sepia'), so Palau renders byte-identical to
+   its old episode.css and Burma inherits the same warm book look. --ep-accent is
+   set per script by main.jsx (Burma #ff5b1f, Palau #0c7d8c) and is user-tunable
+   in the style hub. */
+.wp-page {
+  --ep-accent:               var(--orange);
+  --ep-cap:                  #3a382f;              /* unified calm cap fill (works light + dark) */
+  --ep-cap-text:             #f3eee1;
+  --ep-spine:                var(--grip-grad);     /* scheme-derived knurl */
+  --ep-chapter-paper:        var(--face);          /* scheme-derived → dark on slate */
+  --ep-chapter-paper-hover:  var(--face-hover);
+  --ep-chapter-ink:          var(--body);
+  --ep-chapter-subtext:      var(--label-2);
+  --ep-frame-rule:           var(--rule);          /* chapter-frame walls */
+  --ep-frame-fill:           rgba(120, 110, 80, .04);
+  --ep-frame-band:           var(--ink);           /* chapter-frame header edge */
+  --ep-grid-rule:            var(--rule);          /* table gridlines */
+  --ep-sot-accent:           var(--label-2);       /* SOT inset rail */
+  --ep-sot-label:            var(--label-2);       /* "SOT" corner tag */
+  --ep-chip-bg:              var(--panel);         /* timecode chip */
+  --ep-chip-border:          var(--rule);
+  --ep-chip-text:            var(--mono-body);
+  --ep-chip-hover-border:    var(--ink);
+  --ep-chip-hover-text:      var(--ink);
+  --ep-chip-bracket:         var(--label-2);       /* the [ ] around a no-day chip */
+  --ep-chip-day:             var(--label);         /* the "DAY N · " prefix */
+  --ep-copied:               #1f8a72;              /* the one green "copied" pulse */
+  --ep-kind-label:           var(--label-2);       /* quiet block-type labels */
+  --ep-sidebar-ink:          var(--label-3);       /* scrolling chapter marker */
+  --ep-display-serif:        'Newsreader', Georgia, serif;
+}
+
+/* WARM PALAU NORTH-STAR — the light "book" schemes. These exact values reproduce
+   palau-script/episode.css so Palau stays byte-identical and Burma gets the book. */
+.wp-page[data-scheme="cream"],
+.wp-page[data-scheme="sepia"] {
+  --ep-cap:                  #3a382f;
+  --ep-cap-text:             #f3eee1;
+  --ep-spine:                repeating-linear-gradient(0deg, #d5cfbf, #d5cfbf 2px, #ece7db 2px, #ece7db 4px);
+  --ep-chapter-paper:        #f5f0e3;
+  --ep-chapter-paper-hover:  #f2ecdf;
+  --ep-chapter-ink:          #302d25;
+  --ep-chapter-subtext:      #7d7768;
+  --ep-frame-rule:           #b1a787;
+  --ep-frame-fill:           rgba(58, 56, 47, .028);
+  --ep-frame-band:           #3a382f;
+  --ep-grid-rule:            #cabfa8;
+  --ep-sot-accent:           #b88d52;
+  --ep-sot-label:            #8a7c63;
+  --ep-chip-bg:              #f0ebe0;
+  --ep-chip-border:          #d6cdb8;
+  --ep-chip-text:            #6a6252;
+  --ep-chip-hover-border:    #b1a787;
+  --ep-chip-hover-text:      #3a382f;
+  --ep-chip-bracket:         #a89f8a;
+  --ep-chip-day:             #8a7c63;
+  --ep-kind-label:           #9a917d;
+  --ep-sidebar-ink:          #6c685f;
+}
+
+/* ───────────────────────── CALM SPINE ─────────────────────────
+   Every block's knurled spine reads the unified --ep-spine (styles.css owns the
+   base .wp-spine; this repaints the block-type spines Palau used to override). */
+.wp-vo .wp-spine,
+.wp-dir .wp-spine,
+.wp-note .wp-spine,
+.wp-montage .wp-spine,
+.wp-chapter .wp-spine {
+  background: var(--ep-spine);
+}
+
+/* ───────────────────────── QUIET KIND-LABELS ─────────────────────────
+   The block-type labels (DIRECTION / VO / MONTAGE / NOTE / BIN / SCENE) go quiet
+   — the frame + chips carry meaning now. (episode.css keyed .wp-cart-kind, a DEAD
+   selector no NodeView emits; fixed here to the real kind classes. Scaffold NOTE
+   labels keep their gold via a higher-specificity styles.css rule.) */
+.wp-dir-kind,
+.wp-vo-kind,
+.wp-mtg-kind,
+.wp-note-kind,
+.wp-bin-kind,
+.wp-sc-kind {
+  color: var(--ep-kind-label);
+}
+
+/* ───────────────────────── VO HEAD ─────────────────────────
+   With the VO label + REC hidden, the head collapses to the right (styles.css
+   flips justify to flex-end so any stray control hugs the edge). Nothing more
+   needed here. */
+
+/* ───────────────────────── HIDE REC + DONE ─────────────────────────
+   Johnny: "get rid of this recording status thing" + "get rid of the check
+   boxes." The REC pill and per-block done toggle are hidden across every script.
+   Reversible chrome only — the NodeView still writes status/done data; it's just
+   not painted. (Burma also drops the VO/DIRECTION labels via the chipChrome flag
+   in the NodeView.) */
+.wp-rec  { display: none !important; }
+.wp-done { display: none !important; }
+
+/* ───────────────────────── SOT CORNER TAG ─────────────────────────
+   A quiet "SOT" mono tag pinned top-right of a sound-on-tape direction, plus a
+   thin accent rail down its body. */
+.wp-sot-cart { position: relative; }
+.wp-sot-cart::after {
+  content: "SOT";
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--ep-sot-label);
+  pointer-events: none;
+}
+.wp-sot-cart .wp-cart-body { box-shadow: inset 2px 0 0 var(--ep-sot-accent); }
+.wp-sot-cart .wp-dir-head { padding-right: 52px; }
+
+/* ───────────────────────── SPLIT-ROW = FLAT TABLE CELLS ─────────────────────────
+   In a said|shown split the cartridge chrome (border, spine, box) melts away so
+   the two lanes read as plain table cells inside the chapter grid, not nested
+   boxes. */
+.wp-trow[data-cols="2"] .wp-cart,
+.wp-trow[data-cols="3"] .wp-cart {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+.wp-trow[data-cols="2"] .wp-spine,
+.wp-trow[data-cols="3"] .wp-spine { display: none; }
+.wp-trow[data-cols="2"] .wp-cart-body,
+.wp-trow[data-cols="3"] .wp-cart-body { padding: 2px 0; }
+.wp-trow[data-cols="2"] .wp-sot-cart .wp-cart-body,
+.wp-trow[data-cols="3"] .wp-sot-cart .wp-cart-body { box-shadow: none; }
+
+/* ───────────────────────── CHAPTER FRAMES ─────────────────────────
+   The chapter-frames plugin (extensions/chapter-frames.js) tags each run of
+   same-chapter rows with wp-chframe / -first / -last. We draw the FRAME purely
+   from those classes — NO container node, NO overflow clipping (the integrity
+   audit fails on a clipped cell). A frame is a hairline box: side rails on every
+   member row, a bold flat header edge on the first, a bottom edge + rounded
+   corners on the last. Calm paper, one restrained dark band. */
+.wp-trow.wp-chframe {
+  border-left: 2px solid var(--ep-frame-rule);
+  border-right: 2px solid var(--ep-frame-rule);
+  padding-left: 22px;
+  padding-right: 22px;
+  margin: 0;
+  background: var(--ep-frame-fill);
+}
+.wp-trow.wp-chframe-first {
+  border-top: 4px solid var(--ep-frame-band);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  padding-top: 6px;
+  margin-top: 30px;
+}
+.wp-trow.wp-chframe-last {
+  border-bottom: 2px solid var(--ep-frame-rule);
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 10px;
+}
+.wp-trow.wp-chframe-first.wp-chframe-last { border-radius: 14px; }
+
+/* Horizontal gridlines — every member row (but the last) gets a divider, so a
+   chapter reads like a table. The vertical centre divider is the shared
+   styles.css hairline (.wp-tcell + .wp-tcell), now painted with --ep-grid-rule;
+   we do NOT double it here. */
+.wp-trow.wp-chframe:not(.wp-chframe-last) {
+  border-bottom: 1px solid var(--ep-grid-rule);
+}
+
+/* ───────────────────────── CHAPTER = A BOOK HEADER ─────────────────────────
+   The chapter title is "a big beautiful chapter header like the chapter of a
+   book" living INSIDE the frame — no number cap, no grip, no cartridge chrome —
+   with a little subtext, then the table starts after it. */
+.wp-chframe-first .wp-chapter .wp-spine,
+.wp-chframe-first .wp-chapter .wp-ch-kind,
+.wp-chframe-first .wp-chapter .wp-cap-num { display: none; }
+
+.wp-chframe-first .wp-chapter {
+  background: transparent;
+  border: 0;
+}
+.wp-chframe-first .wp-chapter .wp-cart-body { padding: 14px 10px 20px 4px; }
+.wp-chframe-first .wp-chapter .wp-ch-head { border-bottom: 0; }
+
+/* The chapter TITLE — big, elegant, book-chapter serif. */
+.wp-chframe-first .wp-chapter .wp-body > p:first-child {
+  font-family: var(--ep-display-serif);
+  font-size: 33px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: var(--ep-chapter-ink);
+  margin: 0 0 8px;
+  text-transform: none;
+}
+/* Everything after the title = quiet italic subtext (the director's note). */
+.wp-chframe-first .wp-chapter .wp-body > p:not(:first-child) {
+  font-family: var(--ep-display-serif);
+  font-size: 14.5px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: var(--ep-chapter-subtext);
+  margin: 0 0 3px;
+}
+/* Genre tag (MAP / EXPLAINER / COLD OPEN) — a small quiet uppercase mono eyebrow. */
+.wp-chframe-first .wp-chapter .wp-ch-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .2em;
+  color: var(--ep-chapter-subtext);
+}
+
+/* ───────────────────────── SCROLLING CHAPTER LABEL ─────────────────────────
+   A faint mono marker pinned to the left gutter, running vertically up the page,
+   showing the current chapter as you scroll. pointer-events off so it never eats
+   a click or steals layout width. Hidden by the plugin when there are no frames.  */
+.wp-chapter-sidebar {
+  position: fixed;
+  left: 6px;
+  top: 0; bottom: 0;
+  height: 100vh;
+  width: 44px;
+  max-width: 44px;
+  z-index: 40;
+  pointer-events: none;
+  font-family: var(--mono);
+  color: var(--ep-sidebar-ink);
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wp-chapter-sidebar[hidden] { display: none; }
+.wp-chapter-sidebar-count { display: none; }
+.wp-chapter-sidebar-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: rgba(74, 70, 58, .22);
+  white-space: nowrap;
+  max-height: 82vh;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* On narrow viewports there's no gutter room — fold it away rather than overlap prose. */
+@media (max-width: 1180px) {
+  .wp-chapter-sidebar { display: none; }
+}
+
+/* ───────────────────────── SOT SEQUENCE TAG ─────────────────────────
+   Additive copy chip in the SOT head: "<sequence name> <timecode>" → click to
+   copy. A quiet mono pill; a brief accent pulse on copy. (Palau-only feature —
+   inert on scripts that don't emit it.) */
+.wp-seq-tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #2c2a24;
+  background: #f1ece0;
+  border: 1px solid #d9d2c2;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .12s var(--ease), border-color .12s var(--ease), color .12s var(--ease);
+}
+.wp-seq-tag[hidden] { display: none; }
+.wp-seq-tag:hover { background: #ece6d8; border-color: #cdc6b4; }
+.wp-seq-tag:focus-visible { outline: 2px solid var(--ep-accent); outline-offset: 1px; }
+.wp-seq-tag.is-copied {
+  background: var(--ep-copied);
+  border-color: var(--ep-copied);
+  color: #fff;
+}
+
+/* ───────────────────────── DRAG-TO-REORDER ROWS ─────────────────────────
+   A ⠿ grip in each row's far-left gutter; grab it to drag the whole row. Flat,
+   faint by default, the ONE accent when reached for. (Palau-only feature — the
+   grip is only emitted when rowDragReorder is on.) */
+.wp-row-drag {
+  position: absolute;
+  left: -50px;
+  top: 0;
+  width: 20px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--lane-lab);
+  opacity: 0;
+  cursor: grab;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity .14s var(--ease), color .14s var(--ease);
+}
+.wp-trow:hover .wp-row-drag { opacity: .5; }
+.wp-row-drag:hover { opacity: 1; color: var(--ep-accent); }
+.wp-row-drag:active { cursor: grabbing; }
+.wp-trow.wp-trow-dragging { opacity: .5; }
+.wp-trow.wp-drop-before::before,
+.wp-trow.wp-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ep-accent);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 5;
+}
+.wp-trow.wp-drop-before::before { top: -2px; }
+.wp-trow.wp-drop-after::after { bottom: -2px; }
+
+/* ───────────────────────── CELL PROSE BREATHING ROOM ─────────────────────────
+   Roomier line-height inside table cells so stacked viz-tag chips get vertical
+   air. Reads calc(--doc-lead + 0.28) so THE CONTROL UNIT's LEAD knob still moves
+   it (episode.css hard-coded 1.9 and disabled the knob; default 1.62 → 1.90, so
+   the untouched look is preserved but the knob works again). */
+.wp-tcell-content .wp-body,
+.wp-cart:not(.wp-chapter) .wp-body { line-height: calc(var(--doc-lead) + 0.28); }
+.wp-dhl { margin: 0 1px; }

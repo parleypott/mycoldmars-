@@ -642,7 +642,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-trow[data-cols="3"] .wp-tcell:first-child { flex: 1.2 1 0; }
 
 .wp-tcell + .wp-tcell {
-  border-left: 1px solid var(--rule);   /* the one hairline */
+  border-left: 1px solid var(--ep-grid-rule);   /* the ONE centre divider (doctrine table grid) */
   margin-left: 22px;
   padding-left: 22px;
 }
@@ -708,32 +708,34 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-body li { margin: 2px 0; }
 .wp-body li p { margin: 0; }
 
-/* per-kind cap colour */
-.wp-vo      .wp-cap-num { background: var(--blue); }
-/* DIRECTION (#3) — sot/broll/oncam/bin all share ONE neutral cap colour. No type-specific
-   orange/burgundy/blue badge any more; a direction block is a direction block. */
-.wp-dir     .wp-cap-num { background: var(--ink); }
-.wp-note    .wp-cap-num { background: var(--yellow); color: var(--note-text); }
+/* per-kind cap colour — UNIFIED to the doctrine's one calm cap (--ep-cap). No type-specific
+   blue/teal/yellow badge any more; the frame + chips carry meaning. SCENE + BIN keep their own
+   caps (Palau's calm-cap set never covered them). */
+.wp-vo      .wp-cap-num { background: var(--ep-cap); color: var(--ep-cap-text); }
+/* DIRECTION (#3) — sot/broll/oncam/bin all share ONE neutral cap colour. */
+.wp-dir     .wp-cap-num { background: var(--ep-cap); color: var(--ep-cap-text); }
+.wp-note    .wp-cap-num { background: var(--ep-cap); color: var(--ep-cap-text); }
 .wp-scene   .wp-cap-num { background: var(--ink); }
-.wp-montage .wp-cap-num { background: var(--teal); }
+.wp-montage .wp-cap-num { background: var(--ep-cap); color: var(--ep-cap-text); }
 .wp-bin     .wp-cap-num { background: var(--label-3); }
 
-/* ---- CHAPTER — inverted dark cartridge ---- */
-.wp-chapter { background: var(--ch-ink); }
+/* ---- CHAPTER — light "book" cartridge (doctrine north-star). The book-header serif treatment
+   for framed chapters lives in doctrine.css; these are the base chapter tokens, now light. ---- */
+.wp-chapter { background: var(--ep-chapter-paper); color: var(--ep-chapter-ink); }
 /* ux-07 — fine-pointer only (see .wp-cart): no hover tint on touch/trackpad-scroll. */
-@media (hover: hover) and (pointer: fine) { .wp-chapter:hover { background: #232320; } }
-.wp-chapter .wp-spine { background: var(--grip-grad-dark); }
-.wp-chapter .wp-cap-num { background: var(--ivory); color: #23211b; }
-.wp-chapter .wp-grip { color: #5a594f; }
-.wp-chapter .wp-cart-body { padding: 12px 15px; color: var(--ch-text); position: relative; }
+@media (hover: hover) and (pointer: fine) { .wp-chapter:hover { background: var(--ep-chapter-paper-hover); } }
+/* .wp-chapter .wp-spine handled by doctrine.css (--ep-spine) */
+.wp-chapter .wp-cap-num { background: var(--ep-cap); color: var(--ep-cap-text); }
+.wp-chapter .wp-grip { color: var(--ep-chapter-subtext); }
+.wp-chapter .wp-cart-body { padding: 12px 15px; color: var(--ep-chapter-ink); position: relative; }
 .wp-ch-head { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 6px; }
-.wp-ch-kind { font-size: var(--chrome-size); letter-spacing: .16em; color: rgba(243,241,234,.53); }
+.wp-ch-kind { font-size: var(--chrome-size); letter-spacing: .16em; color: var(--ep-kind-label); }
 /* genre ACT tag — pinned top-right (it sits AFTER the content in DOM order for clean reading
    order + audit contiguity, so position it visually back at the top-right of the cartridge). */
-.wp-ch-tag { position: absolute; top: 12px; right: 15px; font-size: var(--chrome-size); letter-spacing: .16em; color: var(--ivory); }
+.wp-ch-tag { position: absolute; top: 12px; right: 15px; font-size: var(--chrome-size); letter-spacing: .16em; color: var(--ep-chapter-subtext); }
 .wp-chapter .wp-body {
   font-family: var(--mono); font-size: 18px; font-weight: 800; letter-spacing: .02em;
-  color: var(--ch-text); line-height: 1.18; text-transform: none;
+  color: var(--ep-chapter-ink); line-height: 1.18; text-transform: none;
   /* NO line-clamp — this is an editable script; every word of the cold open
      (and any long chapter note) must stay visible. */
   overflow-wrap: anywhere;
@@ -758,7 +760,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-scene .wp-body p { margin: 0; }
 
 /* ---- VO — blue cap + REC toggle + prose ---- */
-.wp-vo-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; gap: 12px; }
+.wp-vo-head { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 7px; gap: 12px; }
 .wp-vo-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
 
 .wp-rec {
@@ -805,7 +807,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* ---- NOTE — yellow cap, tinted cartridge ---- */
 .wp-note { background: var(--note-fill); }
 @media (hover: hover) and (pointer: fine) { .wp-note:hover { background: var(--note-fill-hover); } }
-.wp-note .wp-spine { background: var(--grip-grad-note); }
+/* .wp-note .wp-spine handled by doctrine.css (--ep-spine) */
 .wp-note .wp-grip { color: #b8a24a; }
 .wp-note-head { margin-bottom: 5px; }
 .wp-note-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: var(--note-lab); text-transform: uppercase; }
@@ -930,21 +932,26 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* TIMECODE chip — the integrity copy-tag. EVERY embedded HH:MM:SS:FF becomes a small
    clickable tag (mirrors the {tk} chip + the SOT LCD): flat, mono, hairline, tabular digits.
    Click copies the code. Recessed LCD fill so it reads as a hardware timecode window inline. */
+/* CALM CREAM CHIP (doctrine north-star). Johnny: "there are SO many colours, it's too much."
+   The timecode chip is a quiet cream pill via the --ep-chip-* contract (no dark LCD, no orange). */
 .wp-tc-tag {
   font-family: var(--mono); font-size: .78em; font-variant-numeric: tabular-nums;
-  background: var(--lcd-bg); border: 1.5px solid var(--ink); border-radius: 5px;
-  padding: 1px 6px; margin: 0 1px; color: var(--ivory); letter-spacing: .04em;
+  background: var(--ep-chip-bg); border: 1px solid var(--ep-chip-border); border-radius: 5px;
+  padding: 1px 6px; margin: 0 1px; color: var(--ep-chip-text); letter-spacing: .04em;
   white-space: nowrap; cursor: pointer; user-select: none;
   transition: border-color .14s var(--ease), color .14s var(--ease);
 }
-/* DAY folded into the chip (#2): when data-day is known the chip reads "DAY N · HH:MM:SS:FF"
-   with the DAY prominent (orange, bold); when day is null it shows just the timecode behind a
-   plain ▸ marker (NEVER "DAY null"). The bare HH:MM:SS:FF is the chip's real text node — a
-   click copies ONLY that code, never the DAY prefix (the prefix is CSS-generated, uncopyable). */
-.wp-tc-tag::before { content: "▸ "; color: var(--orange); font-size: .85em; }
-.wp-tc-tag[data-day]::before { content: "DAY " attr(data-day) " · "; font-weight: 700; letter-spacing: .06em; }
-.wp-tc-tag:hover { border-color: var(--orange); color: #fff; }
-.wp-tc-tag.copied { border-color: var(--orange); color: var(--orange); }
+/* Two chip forms, keyed off whether the chip carries a shooting DAY:
+   • NO data-day → a bracketed interview code "[HH:MM:SS]".
+   • data-day    → the DAY folded in: "DAY N · HH:MM:SS:FF".
+   The bare HH:MM:SS(:FF) is the chip's real text node — a click copies ONLY that code; the
+   brackets / DAY prefix are CSS-generated (::before/::after) and uncopyable. Exactly ONE ::before
+   wins per chip (the :not([data-day]) and [data-day] selectors are mutually exclusive). */
+.wp-tc-tag:not([data-day])::before { content: "["; color: var(--ep-chip-bracket); }
+.wp-tc-tag:not([data-day])::after  { content: "]"; color: var(--ep-chip-bracket); }
+.wp-tc-tag[data-day]::before { content: "DAY " attr(data-day) " · "; color: var(--ep-chip-day); font-weight: 700; letter-spacing: .04em; }
+.wp-tc-tag:hover { border-color: var(--ep-chip-hover-border); color: var(--ep-chip-hover-text); }
+.wp-tc-tag.copied { border-color: var(--ep-copied); color: var(--ep-copied); }
 /* Keep the chip legible against the lighter direction prose. */
 .wp-dir .wp-tc-tag { font-size: .82em; }
 
@@ -1087,6 +1094,29 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-scheme-sw.is-active { border-width: 2.5px; }
 .wp-scheme-dot { width: 6px; height: 6px; border-radius: 50%; opacity: 0; transition: opacity .12s; }
 .wp-scheme-sw.is-active .wp-scheme-dot { opacity: 1; }
+
+/* ── ACCENT PICKER — mirrors the scheme flipper: a row of solid preset swatches + a native
+   colour input for any hue. Sets --ep-accent per script (Burma orange, Palau teal by default). ── */
+.wp-accent-grid { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.wp-accent-sw {
+  width: 26px; height: 26px; border: 1.5px solid var(--ink); border-radius: 6px; cursor: pointer;
+  padding: 0; transition: transform .12s var(--ease);
+}
+.wp-accent-sw:hover { transform: translateY(-1px); }
+.wp-accent-sw.is-active { border-width: 2.5px; }
+.wp-accent-custom {
+  width: 26px; height: 26px; border: 1.5px dashed var(--ink); border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
+  background:
+    conic-gradient(from 0deg, #ff5b1f, #f5c518, #1f8a72, #2f6fb0, #7a5cc0, #ff5b1f);
+  transition: transform .12s var(--ease);
+}
+.wp-accent-custom:hover { transform: translateY(-1px); }
+/* the native swatch chrome is ugly — shrink+hide it so only the rainbow tile shows as the target. */
+.wp-accent-custom input[type="color"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; cursor: pointer;
+}
 
 /* ── COLLAPSED — the TE knob icon ── */
 .wp-control-knobicon {
