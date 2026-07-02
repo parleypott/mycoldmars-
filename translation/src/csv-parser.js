@@ -143,8 +143,28 @@ export function findKeywordCol(cols, kw) {
 }
 
 /**
- * Parse Happy Scribe semicolon-delimited CSV.
- * Expected header: Number;Speaker;Start time;End time;Duration;Text
+ * Resolve a timecode column: try the keyword detector first (keeps Happy Scribe's
+ * "Start time" / "End time" resolving exactly as before), then fall back to an
+ * EXACT-match alias list. This is what lets a raw Trint export — whose timecode
+ * columns are named "In" / "Out" — load with zero manual header surgery.
+ *
+ * Exact equality is mandatory for the aliases: "in" and "out" are ubiquitous
+ * substrings (a loose `includes` would let "Duration"→ no, but "Point"/"Outline"/
+ * "Origin"-style headers collide). `c === 'in'` can only ever match a column
+ * literally named "In", so it is collision-proof by construction.
+ */
+export function pickTimecodeCol(cols, keyword, aliases) {
+  const byKeyword = findKeywordCol(cols, keyword);
+  if (byKeyword !== -1) return byKeyword;
+  return cols.findIndex(c => aliases.includes(c));
+}
+
+/**
+ * Parse a transcript CSV. Two native shapes load with no header surgery:
+ *   • Happy Scribe (semicolon): Number;Speaker;Start time;End time;Duration;Text
+ *   • Trint (comma):            In,Out,Duration,Text,Speaker,Status
+ * Delimiter and column names are both auto-detected; Trint's In/Out map to
+ * start/end and its Status column is ignored.
  */
 export function parseCSV(text) {
   // Strip UTF-8 BOM (Excel-Windows and some Happy Scribe exports prepend
@@ -175,14 +195,17 @@ export function parseCSV(text) {
 
   const numIdx = cols.findIndex(c => c === 'number' || c === '#');
   const speakerIdx = cols.findIndex(c => c === 'speaker' || c === 'speaker name' || c === 'name');
-  const startIdx = findKeywordCol(cols, 'start');
-  const endIdx = findKeywordCol(cols, 'end');
+  // "start"/"end" cover Happy Scribe ("Start time"/"End time"); the alias lists
+  // cover Trint's native export ("In"/"Out") plus a few common variants, so a
+  // straight-from-Trint CSV loads with no header renaming.
+  const startIdx = pickTimecodeCol(cols, 'start', ['in', 'in time', 'tc in', 'timecode in', 'start time']);
+  const endIdx = pickTimecodeCol(cols, 'end', ['out', 'out time', 'tc out', 'timecode out', 'end time']);
   const durationIdx = findKeywordCol(cols, 'duration');
   const textIdx = cols.findIndex(c => c === 'text' || c === 'content');
 
   if (textIdx === -1) throw new Error('Could not find "Text" column in CSV');
-  if (startIdx === -1) throw new Error('Could not find "Start time" column in CSV');
-  if (endIdx === -1) throw new Error('Could not find "End time" column in CSV');
+  if (startIdx === -1) throw new Error('Could not find "Start time" (or Trint "In") column in CSV');
+  if (endIdx === -1) throw new Error('Could not find "End time" (or Trint "Out") column in CSV');
 
   const segments = [];
 

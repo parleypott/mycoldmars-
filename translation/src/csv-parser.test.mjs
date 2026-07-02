@@ -245,6 +245,25 @@ eq(parseSequenceInfo('NO DATE HERE').dateFilmed, null, 'date: no leading 6-digit
   eq(chatSegs[1].end, '0:00:04,000', 'e2e: second row End timecode intact');
 }
 
+// ── Trint native export: comma-delimited, "In"/"Out"/"Status" columns ──
+// The exact shape Trint's "Export CSV" produces. Must load with no header
+// renaming: In→start, Out→end, Speaker/Text/Duration matched as usual, Status
+// ignored. Multi-sentence quoted cells (with internal commas) stay intact.
+{
+  const trint =
+    'In,Out,Duration,Text,Speaker,Status\n' +
+    '00:00:00.030,00:00:07.930,00:00:07.900,"I\'m done flying. Nice to meet you, really.",JOHNNY,edited\n' +
+    '00:00:08.130,00:00:13.329,00:00:05.199,Delighted let me ask you a question.,JAMES,not-edited';
+  const segs = parseCSV(trint);
+  eq(segs.length, 2, 'trint: two segments');
+  eq(segs[0].start, '00:00:00.030', 'trint: In → start');
+  eq(segs[0].end, '00:00:07.930', 'trint: Out → end');
+  eq(segs[0].speaker, 'JOHNNY', 'trint: speaker');
+  eq(segs[0].text, "I'm done flying. Nice to meet you, really.", 'trint: quoted cell with internal comma intact');
+  eq(segs[1].start, '00:00:08.130', 'trint: second row In');
+  eq(segs[1].end, '00:00:13.329', 'trint: second row Out');
+}
+
 console.log(fail === 0
   ? `PASS — all ${pass} csv-parser cases correct`
   : `\n${fail} FAILED, ${pass} passed`);
