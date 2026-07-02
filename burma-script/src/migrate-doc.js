@@ -97,6 +97,32 @@ export function isRenderableLocalDoc(rawOrParsed) {
   return !!(parsed && Array.isArray(parsed.content) && parsed.content.length);
 }
 
+// ── EMPTY-DOC CLOBBER GUARD helper (empty-over-nonempty) ────────────────────────────────────────
+// Structure-agnostic: walk ANY ProseMirror doc shape and collect every text node's text. We do NOT
+// route through docToBlocks here — that assumes the table spine and could read a legitimately-shaped
+// but non-table doc as empty. A raw recursive walk counts real characters wherever they live, so the
+// emptiness verdict can never be an artifact of doc shape. NEVER throws.
+function collectDocText(node) {
+  if (!node || typeof node !== 'object') return '';
+  let s = '';
+  if (node.type === 'text' && typeof node.text === 'string') s += node.text;
+  const kids = node.content;
+  if (Array.isArray(kids)) for (const k of kids) s += collectDocText(k);
+  return s;
+}
+
+// Does this doc (object or raw JSON string) contain ANY non-whitespace text? One real word → true.
+// A doc that is only empty rows/cells/paragraphs (exactly the Burma blank-out shape) → false.
+export function docHasAnyText(docOrRaw) {
+  try {
+    let doc = docOrRaw;
+    if (typeof docOrRaw === 'string') doc = JSON.parse(docOrRaw);
+    return collectDocText(doc).replace(/\s+/g, '').length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // ── CROSS-TAB CONFLICT GUARD (crosstab-stale-overwrite) ────────────────────────────────────
 // Two open tabs share localStorage. The durable-flush work (pagehide / visibilitychange) made
 // the loss path WORSE: switching away from a stale tab now eagerly flushes its old in-memory
@@ -1020,6 +1046,48 @@ export function saveDoc(json) {
       byTab: readStoredVersionTab(),
     });
     return { ok: false, reason: 'cross-tab-conflict', conflictKey, storedVersion };
+  }
+
+  // STEP 0.5 — EMPTY-DOC CLOBBER GUARD (empty-over-nonempty). THE ROOT CAUSE of the Burma
+  // blank-out: an empty/near-empty doc got saved OVER the full script — locally, and (via the
+  // version bump that drives the cloud push in Editor.flushSave, which only pushes on res.ok) in
+  // the cloud too. Every other guard in this function keys on VERSION (cross-tab) or STORAGE HEALTH
+  // (quota / read-back); NONE looked at CONTENT, so a same-tab in-sequence autosave of a blanked
+  // editor sailed straight through and clobbered everything.
+  //
+  // The rule: a doc with ZERO text must NEVER be written over a stored doc that HAS text. That is
+  // the literal definition of a catastrophic clobber and is never what an autosave should persist.
+  // SAFE by construction:
+  //   • empty-over-empty / empty-over-absent (a brand-new project's very first save) → ALLOWED
+  //     (stored has no text, so nothing is being destroyed).
+  //   • ANY real text in the incoming doc (even one word) → ALLOWED (not our case).
+  //   • ONLY zero-text-over-has-text is refused. We park the empty attempt in a `.corrupt.<ts>`
+  //     recovery key (so a genuinely-intended blanking is still recoverable), leave the good doc
+  //     canonical, DO NOT bump the version and DO NOT fire wp-saved — so Editor.flushSave's
+  //     `if (res.ok)` gate never pushes the empty doc to the cloud. The reconcile keep-local push
+  //     also only ever reads the good local doc, so the cloud is protected on every path.
+  // A genuine "clear the whole script" still works — it goes through resetDoc, which is explicit,
+  // guarded, and snapshots first. This guard only catches the ACCIDENTAL empty autosave.
+  if (!docHasAnyText(json)) {
+    let storedRaw = null;
+    try { storedRaw = readLatestSavedRaw(); } catch {}
+    if (storedRaw && docHasAnyText(storedRaw)) {
+      let quarantineKey = null;
+      try {
+        quarantineKey = snapshotKey(CORRUPT_PREFIX);
+        localStorage.setItem(quarantineKey, out);
+        pruneByPrefix(CORRUPT_PREFIX, CORRUPT_KEEP);
+        mirrorSnapshotToIDB('corrupt', out);
+      } catch { quarantineKey = null; }
+      console.warn('[burma] empty-doc clobber guard — refusing to save a ZERO-text doc over a ' +
+        'non-empty script. Empty attempt parked at', quarantineKey, '— the good doc is untouched.');
+      notifySaveDegraded({
+        kind: 'empty-clobber-blocked',
+        message: 'that save was empty but your script still has content — the blank version was NOT saved over it. Reload to get your script back.',
+        quarantineKey,
+      });
+      return { ok: false, reason: 'empty-clobber-blocked', quarantineKey };
+    }
   }
 
   // STEP 1 — once-per-session snapshot of the prior good doc before we ever overwrite it.
