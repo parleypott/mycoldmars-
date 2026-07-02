@@ -175,6 +175,22 @@ async function apiPatch(cloudId, fields) {
   } catch { return null; }
 }
 
+// HARD DELETE a cloud project row — the true multi-user purge (gone for ALL teammates, not just a local
+// tombstone). Resolves to true on a 2xx, false on any failure (offline / 403 protected / unknown). NEVER
+// throws — the caller has already removed the row locally and tombstoned it, so a failed cloud delete just
+// means the row stays for other devices until a retry; THIS device is already consistent.
+async function apiDelete(cloudId) {
+  try {
+    const res = await fetch(`${API}?id=${encodeURIComponent(cloudId)}`, { method: 'DELETE' });
+    return !!(res && res.ok);
+  } catch { return false; }
+}
+
+// Seeded, precious projects that must never be hard-deleted (mirrors PROTECTED_SLUGS in
+// api/script-projects.js). The server refuses these with 403 too — this is the belt-and-suspenders
+// client guard so we don't even fire a doomed DELETE for burma/palau.
+const PROTECTED_SLUGS = new Set(['burma', 'palau']);
+
 // ── cloud → cache MERGE (row by row; never a whole-list clobber) ────────────────────────────────────
 
 /**
@@ -368,15 +384,27 @@ function reconcileCloudRow(localId, cloudRow) {
 }
 
 /**
- * Purge a trashed project for good: drop the index row AND its local doc keys + IndexedDB recovery DB.
- * storageKeys/dbName are passed in by the caller (derived from configForProject) so this store stays
- * free of engine imports. Best-effort: a failed key/db delete never blocks removing the row. The
- * project's cloudId is tombstoned so a background sync can't resurrect it on THIS device (true
- * multi-user cloud-purge is a later wave — there is no destructive cloud DELETE in this one).
+ * Purge a trashed project for good: drop the index row AND its local doc keys + IndexedDB recovery DB,
+ * AND — now — hard-delete the shared cloud row so the project is gone for ALL teammates, not just a local
+ * tombstone. storageKeys/dbName are passed in by the caller (derived from configForProject) so this store
+ * stays free of engine imports. Best-effort: a failed key/db delete never blocks removing the row.
+ *
+ * Cloud purge: fired in the BACKGROUND (fire-and-forget) via the DELETE route, which cascades the doc +
+ * full revision history + presence. The cloudId is ALSO tombstoned so that even if the cloud DELETE is
+ * unreachable right now, a background sync can't resurrect the row on THIS device — the local fallback
+ * keeps this device consistent while the server-side removal catches up. The seeded burma/palau projects
+ * are NEVER hard-deleted (guarded here AND server-side); they can still be trashed/hidden locally.
  */
 export function purgeProject(id, { storageKeys = [], dbName = null } = {}) {
   const target = readIndex().find((r) => r && r.id === id);
-  if (target && target.cloudId) addPurged(target.cloudId);
+  // Fire the true multi-user cloud DELETE first (background) — but NEVER for a seeded/protected project.
+  if (target && target.cloudId && !PROTECTED_SLUGS.has(String(target.slug || '').toLowerCase())) {
+    addPurged(target.cloudId); // tombstone so a sync can't resurrect it on THIS device regardless
+    try { apiDelete(target.cloudId); } catch {}
+  } else if (target && target.cloudId) {
+    // Protected (burma/palau): still tombstone locally so it hides here, but do NOT attempt a cloud delete.
+    addPurged(target.cloudId);
+  }
   const rows = readIndex().filter((r) => !(r && r.id === id));
   writeIndex(rows);
   for (const k of storageKeys) {

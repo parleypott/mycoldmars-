@@ -73,6 +73,21 @@ function emit(type, detail) {
   } catch {}
 }
 
+// ── LATCH-ON-CONFLICT (two-device concurrent-edit hard stop) ─────────────────────────────────────
+// When a push hits a REAL 409 conflict — the cloud advanced past the version this client built on AND
+// the benign-conflict guard did NOT clear it — we LATCH cloud pushes OFF until the next reload/reconcile.
+// While latched, pushDoc short-circuits (no PUT) so a divergent device can never silently overwrite the
+// newer cloud doc with a stale local one on a subsequent autosave. THE LOCAL SAVE IS NEVER GATED — saveDoc
+// keeps persisting every keystroke; only the cloud MIRROR pauses. The wp-cloud-conflict banner already
+// tells the user to reload; reconcileOnLoad (which runs on that reload / any re-sync) clears the latch so
+// pushes resume cleanly once this device has merged the newer cloud doc.
+//   Device B built on v5, cloud advanced to v6 → B's baseVersion=5 ≠ stored 6 → 409 → banner + latch.
+//   B's local edits stay safe on disk; B reloads → reconcile adopts v6 → latch clears → pushes resume.
+let _cloudLatched = false;
+export function isCloudLatched() { return _cloudLatched; }
+export function setCloudLatch() { _cloudLatched = true; }
+export function clearCloudLatch() { _cloudLatched = false; }
+
 // ── PURE DECISION CORE ─────────────────────────────────────────────────────────────────────────
 // Inputs are plain values so this is fully testable with no browser, no network, no localStorage:
 //   localVersion : number  — the local LS_DOC_VER (0 if none / unknown)
@@ -147,13 +162,19 @@ export async function fetchCloud(fetchImpl = globalThis.fetch) {
 //                                            snapshot-and-adopt — pushDoc itself does NOT fire a
 //                                            "saved" event here (that would be a false green).
 //   { ok:false, offline:true }            — API unreachable / NO_DB / table missing (fires wp-cloud-offline)
-export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
+export async function pushDoc(doc, version, fetchImpl = globalThis.fetch, baseVersion = undefined) {
   // READ-ONLY SHARE GUARD (read-only-share) — a recipient on a `?read`/`?view` link must never PUT
   // to the cloud. This is the cloud half of the safety core (saveDoc is the local half): refuse the
   // write structurally so a reader's browser is incapable of advancing or clobbering Johnny's
   // canonical cloud doc. No-op success, no event, no network call.
   if (isReadOnly()) {
     return { ok: false, skipped: true, readOnly: true };
+  }
+  // LATCH GUARD — a prior REAL conflict latched cloud pushes OFF (this device is divergent until it
+  // reloads to merge the newer cloud doc). Short-circuit: no PUT, no event. The local save already
+  // landed via saveDoc; the wp-cloud-conflict banner is standing. reconcileOnLoad clears this latch.
+  if (_cloudLatched) {
+    return { ok: false, skipped: true, latched: true };
   }
   if (doc == null || !(toInt(version) > 0)) {
     // Nothing meaningful to push yet (e.g. version 0). Treat as a no-op success, no event.
@@ -164,6 +185,17 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
     // above have already returned, so reaching here means a genuine push is in flight — tell the pill
     // so it shows amber "SYNCING TO CLOUD…" and only goes green on the confirmed wp-cloud-saved below.
     emit(EVT_CLOUD_SAVING, { version: toInt(version) });
+    // TRUE COMPARE-AND-SWAP: include the version this client BUILT ON (baseVersion) when the caller can
+    // supply it, so the server accepts the write ONLY if the stored version still equals that base (and
+    // the new version advances past it). This makes two-device concurrent edits impossible to silently
+    // overwrite: a device that built on v5 while the cloud advanced to v6 sends baseVersion=5, the server
+    // sees stored=6 ≠ 5 and 409s. When baseVersion is OMITTED (or <=0 — no meaningful base yet), the body
+    // carries only {doc,version} and the server falls back to its strictly-greater optimistic rule — the
+    // exact pre-CAS behaviour, so a caller that can't supply a base (or an old build) is never broken.
+    const putBody = { doc, version: toInt(version) };
+    if (baseVersion !== undefined && baseVersion !== null && toInt(baseVersion) > 0) {
+      putBody.baseVersion = toInt(baseVersion);
+    }
     // SHARE-SAFETY (server-side write gate): carry the device-held write token so a server configured
     // with BURMA_WRITE_TOKEN accepts THIS device's push. A `?read` recipient's browser has no token in
     // localStorage, so writeTokenHeaders() is empty and the server rejects their (hand-crafted) PUT 401.
@@ -172,7 +204,7 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
     const res = await fetchImpl(API, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...writeTokenHeaders() },
-      body: JSON.stringify({ doc, version: toInt(version) }),
+      body: JSON.stringify(putBody),
     });
     if (res && res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -418,6 +450,8 @@ export function scheduleOfflinePushRetry() {
     disarm();
     const live = readLiveLocal();
     if (!live.hasDoc || live.doc == null || !(toInt(live.version) > 0)) return;
+    // Catch-up push after connectivity returns — OMIT baseVersion (strictly-greater), same rationale as
+    // the keep-local push: the cloud fell behind while we were offline and this re-advances it.
     Promise.resolve(pushDoc(live.doc, live.version))
       .then((res) => {
         // A retry can ALSO 409 (another device moved ahead) → snapshot-and-conflict like any push.
@@ -526,6 +560,11 @@ export function handlePushResult(result, localDoc) {
       try { idbPutSnapshot('conflict', JSON.stringify(result.doc)).catch(() => {}); } catch {}
     }
   } catch {}
+  // LATCH cloud pushes OFF. This device is now genuinely divergent from the cloud: every further
+  // autosave would carry a stale base and 409 again, and (worse) a future omitted-base push could
+  // strictly-greater its way over the newer cloud doc. Freeze the cloud mirror until a reload/reconcile
+  // merges the newer doc. The LOCAL save path is untouched — saveDoc keeps persisting every keystroke.
+  setCloudLatch();
   // Raise the conflict banner. Carry the recovery keys + cloud version so the UI/console can point
   // Johnny straight at his preserved edit. This is the signal that REPLACES the old false green.
   emit(EVT_CLOUD_CONFLICT, {
@@ -575,6 +614,12 @@ export async function reconcileOnLoad(deps = {}) {
     localDiffersFrom: localDiffers = localDiffersFrom,
     fetchCloud: fetchC = fetchCloud,
   } = deps;
+
+  // MERGE POINT — a reconcile IS the moment this device re-syncs with the cloud, so clear any standing
+  // conflict latch. If the cloud is still ahead, the adopt branch below re-seeds from it (and reloads);
+  // if a keep-local push then finds a real divergence, handlePushResult re-latches. Either way, pushes
+  // are unfrozen for the freshly-reconciled state rather than staying stuck from a prior session.
+  clearCloudLatch();
 
   let local;
   try { local = readLocal(); } catch { local = { hasDoc: false, version: 0, doc: null }; }
@@ -709,6 +754,11 @@ export async function reconcileOnLoad(deps = {}) {
         return { action: 'keep-local', shouldReload: false, skippedPush: true };
       }
       if (pushDocBody != null) {
+        // NOTE: this keep-local push intentionally OMITS baseVersion (strictly-greater fallback). It is
+        // a CATCH-UP push for an empty/older cloud (local >= cloud) — its job is to advance the cloud to
+        // our local version, which a strict base==stored CAS would refuse (base=local ≠ older stored).
+        // True CAS lives on the hot edit path (Editor.flushSave); the divergent-equal-version tie still
+        // 409s here via strictly-greater and routes through handlePushResult exactly as before.
         Promise.resolve(pushDoc(pushDocBody, pushVer))
           .then((res) => handlePushResult(res, pushDocBody))
           .catch(() => {});

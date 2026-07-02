@@ -74,6 +74,45 @@ export async function restoreSnapshot(snap, deps = {}) {
   return { ok: true, backupKey, backedUp: true, restoredKey: snap.key };
 }
 
+/**
+ * Restore an ALREADY-IN-HAND doc body (e.g. a cloud revision fetched from the version history) as the
+ * live doc, through the SAME safe adopt path restoreSnapshot uses — the only difference is the source of
+ * the doc (a fetched revision, not a local recovery snapshot). Ordering contract is identical:
+ *   1. BACK UP the current live doc FIRST (must land, or ABORT — never cost Johnny what's on screen),
+ *   2. ADOPT the given body via the canonical saveDoc path,
+ *   3. arm the reload guard, then reload so the editor re-seeds from the restored doc.
+ * `docBody` may be a bare ProseMirror doc or a {doc:...} wrapper (snapshotDocBody normalizes both).
+ * Returns { ok, reason, backupKey, backedUp }. Deps injectable for tests.
+ */
+export async function restoreDoc(docBody, deps = {}) {
+  const {
+    backupCurrent = snapshotLocalConflictAsync,
+    save = saveDoc,
+    armReloadGuard = setReloadingForAdopt,
+    reload = defaultReload,
+  } = deps;
+
+  const body = snapshotDocBody(docBody);
+  if (body == null) return { ok: false, reason: 'no-doc' };
+
+  // 1. BACK UP the current live doc FIRST — must land before we overwrite it (mirrors restoreSnapshot).
+  let backupKey = null;
+  try { backupKey = await backupCurrent(); } catch { backupKey = null; }
+  if (!backupKey) return { ok: false, reason: 'backup-failed', backedUp: false };
+
+  // 2. ADOPT via the canonical saveDoc path.
+  let res;
+  try { res = save(body); } catch { res = { ok: false }; }
+  if (!res || !res.ok) {
+    return { ok: false, reason: 'restore-write-failed', backupKey, backedUp: true, writeResult: res };
+  }
+
+  // 3. Arm the reload guard so the teardown flush can't resurrect the pre-restore in-memory doc, reload.
+  try { armReloadGuard(); } catch {}
+  try { reload(); } catch {}
+  return { ok: true, backupKey, backedUp: true };
+}
+
 function defaultReload() {
   try { if (typeof location !== 'undefined' && location.reload) location.reload(); } catch {}
 }

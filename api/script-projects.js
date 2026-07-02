@@ -17,6 +17,10 @@ import { checkAccess } from './_lib/access.js';
  *        -> { project }  the created row
  *   PATCH /api/script-projects?id=<uuid>  { title? , trashed_at? , config? }   (login-gated)
  *        -> { project }  the updated row  (rename / trash / restore / config-update)
+ *   DELETE /api/script-projects?id=<uuid>   (login-gated)   HARD DELETE — gone for EVERYONE
+ *        -> { ok:true, id }   also cascades script_docs / script_doc_revisions / script_presence (FK
+ *        on delete cascade). REFUSED (403) for the seeded burma/palau projects — those are precious and
+ *        may be trashed/hidden but NEVER hard-deleted through this path.
  *
  * READS are open to anyone past the site gate (same posture as api/script-doc.js GET). WRITES require a
  * signed-in session — logged-in teammates already send their Supabase JWT via the gate.js fetch
@@ -32,10 +36,14 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SE
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Access-Code',
   'Access-Control-Max-Age': '86400',
 };
+
+// Seeded, precious projects that may be trashed/hidden but NEVER hard-deleted through the DELETE route.
+// Guarded by SLUG (stable across rename) so Burma's once-lost live doc can't be purged for everyone.
+const PROTECTED_SLUGS = new Set(['burma', 'palau']);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -80,6 +88,14 @@ export default async function handler(req) {
       const patch = buildPatch(body);
       if (!patch.ok) return err(400, patch.code, patch.message);
       return await patchProject(id, patch.fields);
+    }
+
+    if (req.method === 'DELETE') {
+      const denied = await checkAccess(req);
+      if (denied) return withCors(denied);
+      const id = url.searchParams.get('id') || '';
+      if (!UUID_RE.test(id)) return err(400, 'BAD_ID', 'id (uuid) query param required');
+      return await deleteProject(id);
     }
 
     return err(405, 'METHOD', `Method ${req.method} not allowed`);
@@ -141,7 +157,37 @@ async function patchProject(id, fields) {
   return ok({ project: projectView(rows[0]) });
 }
 
+/* ------------------------------------------------------------------ delete */
+
+// HARD DELETE — removes the project row for EVERYONE (true multi-user purge). The FK on delete cascade
+// on script_docs / script_doc_revisions / script_presence means the doc, its full revision history, and
+// any presence rows go with it. We first read the row's slug to enforce the protected-slug guard: the
+// seeded burma/palau projects are precious (Burma's once-lost live doc) and must never be purgeable this
+// way. An unknown id 404s (idempotent-ish: nothing to delete). NEVER deletes a protected project.
+async function deleteProject(id) {
+  // Read the target's slug first — the guard is by slug (stable across rename), not by id.
+  const look = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}&select=id,slug&limit=1`);
+  if (!look.ok) return err(502, 'DB_READ', await look.text());
+  const rows = await look.json().catch(() => []);
+  if (!rows.length) return err(404, 'NO_PROJECT', 'unknown project id');
+  const slug = rows[0].slug || '';
+  if (isProtectedSlug(slug)) {
+    return err(403, 'PROTECTED', `"${slug}" is a seeded project and cannot be hard-deleted (trash it instead)`);
+  }
+  const del = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' },
+  });
+  if (!del.ok) return err(502, 'DB_WRITE', await del.text());
+  return ok({ ok: true, id });
+}
+
 /* ---------------------------------------------------------------- helpers */
+
+// PURE — is this slug a seeded/precious project that must never be hard-deleted? Exported for tests.
+export function isProtectedSlug(slug) {
+  return PROTECTED_SLUGS.has(String(slug || '').trim().toLowerCase());
+}
 
 // Trim a DB row down to the wire shape the client consumes (never leak created_by).
 function projectView(row) {
@@ -242,4 +288,4 @@ function withCors(res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 
-export { SLUG_RE, RESERVED_SLUGS, UUID_RE, projectView };
+export { SLUG_RE, RESERVED_SLUGS, UUID_RE, projectView, PROTECTED_SLUGS };

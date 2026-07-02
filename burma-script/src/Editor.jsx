@@ -298,6 +298,14 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     // DL-05 — RESET RELOAD GUARD: resetDoc removed LS_DOC and is reloading to clear back to source.
     // The teardown flush during that reload would resurrect the just-reset doc. Refuse the write.
     if (isReloadingForReset()) return;
+    // TRUE COMPARE-AND-SWAP base — capture the version this edit was BUILT ON *before* saveDoc stamps
+    // the next one. knownBaseVersion is the version this tab last read/adopted/successfully-saved, i.e.
+    // exactly what the cloud should currently hold; saveDoc bumps it to base+1 below, so reading it
+    // AFTER would wrongly send the new version as the base. Passed to pushDoc so the server accepts only
+    // if the cloud still equals this base — a concurrent device that advanced the cloud makes our push
+    // 409 (→ latch + banner) instead of silently overwriting the newer doc. base<=0 → pushDoc omits it
+    // (strictly-greater fallback), so the first save / an un-seeded tab is never broken.
+    const baseForPush = getKnownBaseVersion();
     const json = editor.getJSON();
     const res = saveDoc(json); // handles its own loud failure + wp-saved on success.
     if (res.ok) {
@@ -335,7 +343,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       }
       if (pushVersion > 0) {
         try {
-          Promise.resolve(pushDoc(json, pushVersion))
+          Promise.resolve(pushDoc(json, pushVersion, undefined, baseForPush))
             .then((pr) => handlePushResult(pr, json))
             .catch(() => {});
         } catch {}

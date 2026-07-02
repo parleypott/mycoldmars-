@@ -5,7 +5,7 @@
  *
  * Run: bun api/script-doc.test.mjs
  */
-const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE } = await import('./script-doc.js');
+const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP } = await import('./script-doc.js');
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL ' + m); } };
@@ -66,6 +66,41 @@ eq(updateGuardClause({ version: 5, baseVersion: 0 }), 'version=eq.0', 'g6. base 
 /* ---- UUID shape ---- */
 ok(UUID_RE.test('a4b1c2d3-1111-2222-3333-444455556666'), 'u1. uuid matches');
 ok(!UUID_RE.test('burma'), 'u2. slug is not a uuid (resolves via slug lookup)');
+
+/* ---- revision history: toRevisionId (guards the `?revision=` ref before it hits the DB) ---- */
+eq(toRevisionId('42'), 42, 'r1. digit string -> integer id');
+eq(toRevisionId(42), 42, 'r2. number -> integer id');
+eq(toRevisionId('0'), null, 'r3. zero rejected (bigint ids are positive)');
+eq(toRevisionId('-5'), null, 'r4. negative rejected');
+eq(toRevisionId('4.9'), null, 'r5. float rejected (no partial-id fetch)');
+eq(toRevisionId('12abc'), null, 'r6. junk suffix rejected');
+eq(toRevisionId('burma'), null, 'r7. slug is not a revision id');
+eq(toRevisionId(null), null, 'r8. null rejected');
+eq(toRevisionId(''), null, 'r9. empty rejected');
+
+/* ---- revision history: toRevisionView (metadata-only wire shape + author resolution) ---- */
+{
+  const profiles = { 'u-1': { display_name: 'Johnny', color: '#F44315' } };
+  const v = toRevisionView({ id: 9, version: 428, source: 'autosave', user_id: 'u-1', created_at: '2026-07-01T00:00:00Z', doc: DOC('SECRET BODY') }, profiles);
+  eq(v.id, 9, 'rv1. id carried');
+  eq(v.version, 428, 'rv2. version coerced');
+  eq(v.source, 'autosave', 'rv3. source carried');
+  eq(v.user_id, 'u-1', 'rv4. user_id carried');
+  eq(v.user_name, 'Johnny', 'rv5. display_name resolved from profiles');
+  eq(v.user_color, '#F44315', 'rv6. color resolved from profiles');
+  ok(!('doc' in v), 'rv7. NEVER leaks the doc body in the list view');
+}
+{
+  const v = toRevisionView({ id: 3, version: 2, source: 'adopt', user_id: null, created_at: 'x' }, {});
+  eq(v.user_name, null, 'rv8. no user_id -> null name (not a crash)');
+  eq(v.user_color, null, 'rv9. no user_id -> null color');
+}
+{
+  const v = toRevisionView({ id: 4, version: 5, source: 'autosave', user_id: 'u-2', created_at: 'x' }, { 'u-1': { display_name: 'Someone' } });
+  eq(v.user_name, null, 'rv10. unresolved user_id (not in profiles) -> null name');
+}
+ok(toRevisionView(null) === null, 'rv11. null row -> null');
+ok(REVISION_LIST_CAP === 50, 'rv12. list capped at 50 (light metadata payload)');
 
 console.log(`\nscript-doc: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

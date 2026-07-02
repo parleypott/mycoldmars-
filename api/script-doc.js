@@ -17,6 +17,9 @@ import { checkAccess } from './_lib/access.js';
  *     can ever destroy the previous version (the "restore forever" backstop)
  *
  *   GET  /api/script-doc?project=<slug|uuid>            -> { doc, version }  ({doc:null,version:0} empty)
+ *   GET  /api/script-doc?project=<slug|uuid>&revisions=1 -> { revisions: [ {id,version,source,created_at,
+ *        user_id,user_name,user_color} ] }   METADATA ONLY (no doc bodies), newest first, capped ~50.
+ *   GET  /api/script-doc?project=<slug|uuid>&revision=<id> -> { doc, version }  one past revision's full doc
  *   PUT  /api/script-doc?project=<slug|uuid>  { doc, version, baseVersion? }
  *        accepted -> { version }               (also writes a revisions row)
  *        stale    -> 409 { doc, version }       (the current row, so the client snapshots-and-adopts)
@@ -50,8 +53,17 @@ export default async function handler(req) {
     if (req.method === 'GET') {
       // Reads are open to anyone who got past the site gate (matches burma-script-doc GET, and the
       // ?read share model). The write path is the one that must be signed in.
+      const wantsList = url.searchParams.has('revisions');
+      const revisionId = url.searchParams.get('revision');
       const pid = await resolveProjectId(projectRef);
-      if (!pid) return ok({ doc: null, version: 0 }); // unknown project reads empty, not an error
+      if (!pid) {
+        // Unknown project: an empty history / a not-found single revision / an empty doc — never an error.
+        if (wantsList) return ok({ revisions: [] });
+        if (revisionId) return err(404, 'NO_REVISION', 'unknown project');
+        return ok({ doc: null, version: 0 });
+      }
+      if (wantsList) return await listRevisions(pid);
+      if (revisionId) return await getRevision(pid, revisionId);
       return await getDoc(pid);
     }
 
@@ -97,6 +109,59 @@ async function getDoc(pid) {
   const rows = await r.json();
   if (!rows.length) return ok({ doc: null, version: 0 });
   return ok({ doc: rows[0].doc ?? null, version: toVersion(rows[0].version) });
+}
+
+/* -------------------------------------------------------- revision history (read) */
+
+// The CLOUD version history — the "restore any past cloud save" backstop. Every accepted PUT appends a
+// row to script_doc_revisions, so this is an append-only ledger of every save. We return METADATA ONLY
+// (never the ~167KB doc bodies) so the list stays light: id, version, source, created_at, and the
+// author resolved to a display name/colour via public.user_profiles when a user_id is attached.
+async function listRevisions(pid) {
+  const r = await sb(
+    `/rest/v1/script_doc_revisions?project_id=eq.${pgrValue(pid)}` +
+    `&select=id,version,source,user_id,created_at&order=created_at.desc&limit=${REVISION_LIST_CAP}`
+  );
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json().catch(() => []);
+  const profiles = await resolveProfiles(rows.map((x) => x && x.user_id));
+  return ok({ revisions: (Array.isArray(rows) ? rows : []).map((x) => toRevisionView(x, profiles)) });
+}
+
+// One past revision's FULL doc (for the actual restore). project_id is part of the filter so a revision
+// id can never be pulled across projects, and toRevisionId rejects a non-integer id (revisions.id is a
+// bigint) before it ever reaches the query.
+async function getRevision(pid, revisionRef) {
+  const id = toRevisionId(revisionRef);
+  if (id == null) return err(400, 'BAD_REVISION', 'revision id must be a positive integer');
+  const r = await sb(
+    `/rest/v1/script_doc_revisions?project_id=eq.${pgrValue(pid)}&id=eq.${pgrValue(id)}&select=doc,version&limit=1`
+  );
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json().catch(() => []);
+  if (!rows.length) return err(404, 'NO_REVISION', 'unknown revision for this project');
+  return ok({ doc: rows[0].doc ?? null, version: toVersion(rows[0].version) });
+}
+
+// Batch-resolve a set of user_ids to their { display_name, color } profiles. Best-effort: any failure
+// (missing table, no rows) yields an empty map, so the history still lists — just with bare user ids.
+// Returns a plain object keyed by user_id. NEVER throws.
+async function resolveProfiles(userIds) {
+  try {
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!ids.length) return {};
+    const inList = ids.map((u) => pgrValue(u)).join(',');
+    const r = await sb(`/rest/v1/user_profiles?user_id=in.(${inList})&select=user_id,display_name,color`);
+    if (!r.ok) return {};
+    const rows = await r.json().catch(() => []);
+    const map = {};
+    for (const p of Array.isArray(rows) ? rows : []) {
+      if (p && p.user_id) map[p.user_id] = p;
+    }
+    return map;
+  } catch {
+    return {};
+  }
 }
 
 /* ------------------------------------------------------------------ write */
@@ -202,6 +267,36 @@ function updateGuardClause({ version, baseVersion }) {
     : `version=lt.${pgrValue(toVersion(version))}`;
 }
 
+// Newest-first history is capped so the list stays a light metadata payload (no doc bodies).
+const REVISION_LIST_CAP = 50;
+
+// PURE — coerce a `?revision=` ref to a positive integer bigint id, or null if it isn't one. Guards the
+// DB filter against slugs / floats / negatives / junk before they reach the query. Exported for tests.
+function toRevisionId(ref) {
+  if (ref == null) return null;
+  const s = String(ref).trim();
+  if (!/^[0-9]+$/.test(s)) return null; // strictly digits — no floats, signs, or scientific notation
+  const n = Number(s);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+// PURE — shape ONE revision row into the light wire view, resolving its author against a profiles map.
+// Never leaks the doc body (this view is metadata-only). Exported for tests.
+function toRevisionView(row, profiles = {}) {
+  if (!row || typeof row !== 'object') return null;
+  const uid = row.user_id ?? null;
+  const prof = uid && profiles && profiles[uid] ? profiles[uid] : null;
+  return {
+    id: row.id ?? null,
+    version: toVersion(row.version),
+    source: row.source ?? null,
+    created_at: row.created_at ?? null,
+    user_id: uid,
+    user_name: prof && prof.display_name != null ? prof.display_name : null,
+    user_color: prof && prof.color != null ? prof.color : null,
+  };
+}
+
 function validatePutBody(body) {
   const doc = body?.doc;
   if (doc == null || typeof doc !== 'object') {
@@ -258,4 +353,4 @@ function withCors(res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 
-export { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE };
+export { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP };

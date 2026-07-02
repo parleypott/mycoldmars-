@@ -17,7 +17,7 @@ import { requestPersistentStorage, pruneIfLowHeadroom } from './storage-persist.
 import { idbPruneGlobal } from './recovery-store.js';
 import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSnapshotAsync, snapshotToText, dismissSnapshot, dismissSnapshotAsync } from './recovery.js';
 import { idbDeleteDoc } from './recovery-store.js';
-import { restoreSnapshot } from './restore.js';
+import { restoreSnapshot, restoreDoc } from './restore.js';
 import { getEpisode } from './episode-config.js';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
@@ -789,6 +789,148 @@ function RecoveryBanner() {
   );
 }
 
+// ── CLOUD VERSION HISTORY (restore any past cloud save) ──────────────────────────────────────────
+// Wave 1's RecoveryBanner restores LOCAL-DEVICE snapshots. This panel restores the CLOUD history: every
+// accepted cloud save appended a row to script_doc_revisions, so this lists them (newest first, who +
+// when + version) and lets Johnny put ANY past cloud version back — through the SAME safe adopt path as
+// the local restore (back up the current doc FIRST, then adopt + reload). It only appears for cloud-
+// backed projects (Palau / local-only projects never touch the cloud, so there is no cloud history).
+// Calm, deliberate "version browser" styling — paper/ink, NOT the green recovery ALARM: this is a tool
+// you reach for, not a warning. FLAT, JetBrains-mono, on-brand.
+function cloudApiBase() {
+  try { return (EPISODE.cloud && EPISODE.cloud.api) || ''; } catch { return ''; }
+}
+function isCloudBackedProject() {
+  if (EPISODE.localOnly) return false;
+  return /\/api\/script-doc\b/.test(cloudApiBase());
+}
+// Pretty label for a revision's `source` column (autosave / adopt / seed / …). Falls back to a dash.
+function revSourceLabel(src) {
+  const s = String(src || '').trim();
+  return s ? s.replace(/[_-]+/g, ' ') : '—';
+}
+
+function CloudHistoryPanel() {
+  // Gate: cloud-backed projects only. A constant per entry, so this early return keeps hook order stable.
+  if (!isCloudBackedProject()) return null;
+  const api = cloudApiBase();
+
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [revs, setRevs] = useState(null);        // null = never loaded, [] = loaded-empty
+  const [error, setError] = useState('');
+  const [restoring, setRestoring] = useState(null); // id of the revision currently being restored
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(api + '&revisions=1', { headers: { Accept: 'application/json' } });
+      if (!res || !res.ok) throw new Error('history fetch failed');
+      const body = await res.json().catch(() => null);
+      setRevs(Array.isArray(body?.revisions) ? body.revisions : []);
+    } catch {
+      setError('could not load the cloud history — check your connection and try again.');
+      setRevs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    // Lazy-load the list on first expand (metadata-only, so it's light) and on an explicit re-open after
+    // an error, so a transient network blip can be retried without a page reload.
+    if (next && !loading && (revs == null || error)) load();
+  };
+
+  async function restoreRev(rev) {
+    const yes = typeof window !== 'undefined' && typeof window.confirm === 'function'
+      ? window.confirm('Restore this cloud version? Your current copy is backed up first.')
+      : true;
+    if (!yes) return;
+    setRestoring(rev.id);
+    // 1. Fetch the chosen revision's FULL doc (the list carried metadata only).
+    let doc = null;
+    try {
+      const res = await fetch(api + '&revision=' + encodeURIComponent(rev.id), { headers: { Accept: 'application/json' } });
+      if (res && res.ok) { const body = await res.json().catch(() => null); doc = body?.doc ?? null; }
+    } catch {}
+    if (doc == null) {
+      setRestoring(null);
+      try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'could not fetch that version from the cloud — try again.' } })); } catch {}
+      return;
+    }
+    // 2. Adopt through the SAME safe path the local restore uses (back up current FIRST, then reload).
+    let result = null;
+    try { result = await restoreDoc(doc); } catch { result = { ok: false, reason: 'error' }; }
+    setRestoring(null); // only reached on failure — a success reloads the page.
+    if (!result || !result.ok) {
+      const why = result && result.reason === 'backup-failed'
+        ? 'could not back up your current copy first (storage is full) — nothing changed. Free up space, then try again.'
+        : 'restore did not complete — your current copy is unchanged.';
+      try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: why } })); } catch {}
+    }
+  }
+
+  return (
+    <div class={`wp-cloudhist${open ? ' is-open' : ''}`}>
+      <button
+        class="wp-cloudhist-toggle"
+        aria-expanded={open}
+        onClick={toggle}
+        title={open ? 'Hide cloud version history' : 'Show cloud version history'}
+      >
+        <span class="wp-cloudhist-glyph">↺</span>
+        <span class="wp-cloudhist-lab">CLOUD HISTORY</span>
+      </button>
+      {open && (
+        <div class="wp-cloudhist-panel" role="region" aria-label="Cloud version history">
+          <div class="wp-cloudhist-head">
+            <span class="wp-cloudhist-ttl">CLOUD VERSION HISTORY</span>
+            <button class="wp-cloudhist-refresh" onClick={load} disabled={loading} title="Refresh">
+              {loading ? '…' : '⟳'}
+            </button>
+          </div>
+          <p class="wp-cloudhist-note">
+            every cloud save is kept. restore any version — your current copy is backed up first, so this
+            is always safe.
+          </p>
+          {loading && (revs == null) && <div class="wp-cloudhist-empty">loading history…</div>}
+          {error && <div class="wp-cloudhist-empty is-error">{error}</div>}
+          {!loading && !error && revs != null && revs.length === 0 && (
+            <div class="wp-cloudhist-empty">no cloud versions yet — history starts on your next save.</div>
+          )}
+          {revs != null && revs.length > 0 && (
+            <ul class="wp-cloudhist-list">
+              {revs.map((rev) => (
+                <li key={rev.id} class="wp-cloudhist-item">
+                  <span class="wp-cloudhist-when">{relTime(Date.parse(rev.created_at) || Date.now())}</span>
+                  <span class="wp-cloudhist-ver">v{rev.version}</span>
+                  <span
+                    class="wp-cloudhist-who"
+                    style={rev.user_color ? { color: rev.user_color } : undefined}
+                    title={rev.user_id || ''}
+                  >
+                    {rev.user_name || (rev.user_id ? 'teammate' : revSourceLabel(rev.source))}
+                  </span>
+                  <button
+                    class="wp-cloudhist-act is-restore"
+                    disabled={restoring != null}
+                    onClick={() => restoreRev(rev)}
+                    title="Put this version back on screen — your current copy is backed up first"
+                  >{restoring === rev.id ? 'RESTORING…' : 'RESTORE THIS VERSION'}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // READ-ONLY SHARE BADGE (read-only-share) — the calm replacement for the save pill. A reader is never
 // saving anything, so the always-visible status indicator says plainly what this view is: a shared,
 // read-only copy of Johnny's live script. FLAT, JetBrains-mono, on-brand — no alarm, no action.
@@ -954,6 +1096,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       <CopyToast />
       {readOnly ? <ReadOnlyBadge /> : <SaveStatus />}
       {!readOnly && <RecoveryBanner />}
+      {!readOnly && <CloudHistoryPanel />}
     </div>
   );
 }

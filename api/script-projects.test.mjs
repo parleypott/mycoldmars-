@@ -8,7 +8,7 @@
 // Run: bun api/script-projects.test.mjs
 import assert from 'node:assert';
 
-const { validateCreateBody, buildPatch, SLUG_RE, RESERVED_SLUGS, projectView } = await import('./script-projects.js');
+const { validateCreateBody, buildPatch, SLUG_RE, RESERVED_SLUGS, projectView, isProtectedSlug, PROTECTED_SLUGS } = await import('./script-projects.js');
 
 let passed = 0, failed = 0;
 function ok(name, fn) {
@@ -116,6 +116,22 @@ ok('projectView drops created_by and preserves shape', () => {
   assert.ok(!('created_by' in v), 'created_by must not be on the wire');
   assert.equal(v.id, 'uuid');
   assert.deepEqual(v.config, { a: 1 });
+});
+
+// ── isProtectedSlug — the hard-delete guard for seeded/precious projects ─────────────────────────
+ok('burma + palau are protected from hard-delete', () => {
+  assert.equal(isProtectedSlug('burma'), true);
+  assert.equal(isProtectedSlug('palau'), true);
+  assert.equal(isProtectedSlug('BURMA'), true, 'case-insensitive');
+  assert.equal(isProtectedSlug('  palau  '), true, 'trimmed');
+});
+ok('ordinary + empty slugs are NOT protected (deletable)', () => {
+  for (const s of ['my-script', 'day-2', 'untitled', '', null, undefined]) {
+    assert.equal(isProtectedSlug(s), false, `${JSON.stringify(s)} should be deletable`);
+  }
+});
+ok('PROTECTED_SLUGS is exactly {burma, palau}', () => {
+  assert.deepEqual([...PROTECTED_SLUGS].sort(), ['burma', 'palau']);
 });
 
 console.log(failed === 0

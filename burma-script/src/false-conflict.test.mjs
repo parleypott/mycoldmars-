@@ -37,7 +37,7 @@ globalThis.localStorage = {
   get length() { return store.size; },
 };
 
-const { reconcileOnLoad, handlePushResult, EVT_CLOUD_SAVED, EVT_CLOUD_CONFLICT } = await import('./cloud-sync.js');
+const { reconcileOnLoad, handlePushResult, isCloudLatched, clearCloudLatch, EVT_CLOUD_SAVED, EVT_CLOUD_CONFLICT } = await import('./cloud-sync.js');
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; } else { fail++; console.log(`FAIL ${label}`); } };
@@ -51,7 +51,7 @@ const conflictKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(C
 
 /* ── (fc1) STEADY-STATE 409: cloud doc content-identical to the pushed doc → BENIGN ─────────────── */
 {
-  store.clear(); clearEvents();
+  store.clear(); clearEvents(); clearCloudLatch();
   const doc = DOC('same words both sides');
   const out = handlePushResult({ ok: false, stale: true, doc, version: 7 }, DOC('same words both sides'));
   ok(out.conflict === false, 'fc1a. identical-content 409 is NOT a conflict');
@@ -61,6 +61,7 @@ const conflictKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(C
   eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 0, 'fc1e. NO two-device banner raised');
   eq(eventsOfType(EVT_CLOUD_SAVED).length, 1, 'fc1f. fires an honest wp-cloud-saved instead');
   eq(eventsOfType(EVT_CLOUD_SAVED)[0].detail.version, 7, 'fc1g. saved event carries the cloud version');
+  ok(isCloudLatched() === false, 'fc1h. a BENIGN steady-state 409 must NEVER latch cloud pushes');
 }
 
 /* ── (fc2) jsonb KEY-REORDER cannot fake a conflict: same content, different key order → BENIGN ── */
@@ -75,7 +76,7 @@ const conflictKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(C
 
 /* ── (fc3) AUTOSAVE RACE: refused doc is older, but OUR newer save already IS the cloud → BENIGN ── */
 {
-  store.clear(); clearEvents();
+  store.clear(); clearEvents(); clearCloudLatch();
   const newer = DOC('newer autosave from this device');
   const older = DOC('older autosave from this device');
   // The live on-disk doc (this device's newest save) matches what the cloud holds.
@@ -86,11 +87,12 @@ const conflictKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(C
   eq(out.reason, 'own-newer-landed', 'fc3b. reason names the self-race case');
   eq(conflictKeys().length, 0, 'fc3c. no snapshots burned on a self-race');
   eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 0, 'fc3d. no banner on a self-race');
+  ok(isCloudLatched() === false, 'fc3e. a self-race benign 409 must NOT latch');
 }
 
 /* ── (fc4) REAL two-device conflict still gets the FULL treatment (regression lock) ─────────────── */
 {
-  store.clear(); clearEvents();
+  store.clear(); clearEvents(); clearCloudLatch();
   // Live local is a THIRD state (device A kept typing) — neither compare matches.
   store.set(LS_DOC, JSON.stringify(DOC('A kept typing after the refused push')));
   store.set(LS_DOC_VER, '11|tabA');
@@ -101,6 +103,8 @@ const conflictKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(C
   eq(conflictKeys().length, 2, 'fc4b. both sides still snapshotted');
   eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 1, 'fc4c. banner still raised for the real case');
   eq(eventsOfType(EVT_CLOUD_SAVED).length, 0, 'fc4d. no false green on a real conflict');
+  ok(isCloudLatched() === true, 'fc4e. a REAL two-device conflict latches cloud pushes off');
+  clearCloudLatch(); // reset so the following reconcile tests start clean
 }
 
 /* ── (fc5) reconcileOnLoad steady state: equal version + identical content → push SKIPPED ───────── */

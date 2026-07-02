@@ -25,7 +25,7 @@ globalThis.CustomEvent = globalThis.CustomEvent || class { constructor(t, i) { t
 const eventsOfType = (t) => EVENTS.filter((e) => e.type === t);
 const clearEvents = () => { EVENTS.length = 0; };
 
-const { decideReconcile, reconcileOnLoad, bootstrapFromCloud, fetchCloud, pushDoc, handlePushResult, snapshotDocConflict, EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT } = await import('./cloud-sync.js');
+const { decideReconcile, reconcileOnLoad, bootstrapFromCloud, fetchCloud, pushDoc, handlePushResult, snapshotDocConflict, isCloudLatched, clearCloudLatch, EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT } = await import('./cloud-sync.js');
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; } else { fail++; console.log(`FAIL ${label}`); } };
@@ -267,6 +267,7 @@ function makeDeps({ local, cloud }) {
   // wiring Editor.flushSave / reconcile keep-local now use. Proves the end-to-end fix, no false green.
   {
     store.clear(); clearEvents();
+    clearCloudLatch(); // a prior sub-test (c2a) latched on its real conflict; reset to a fresh session
     const fake = async () => ({ ok: false, status: 409, json: async () => ({ error: { code: 'STALE' }, doc: DOC('cloud-won'), version: 99 }) });
     const pr = await pushDoc(DOC('my-stranded-edit'), 50, fake);
     const out = handlePushResult(pr, DOC('my-stranded-edit'));
@@ -475,6 +476,83 @@ function makeBootstrapDeps({ cloud, saveOk = true, saveReason }) {
   delete globalThis.localStorage;
   delete globalThis.window.addEventListener;
   delete globalThis.window.removeEventListener;
+}
+
+/* ───────────────────────── (f) TRUE COMPARE-AND-SWAP — baseVersion in the PUT body ────────────────
+ * The hot edit path now sends the version it BUILT ON so the server can accept only if the cloud still
+ * equals that base. The addition MUST be backwards-safe: a caller that supplies no base (or base<=0)
+ * sends {doc,version} exactly as before, so Burma's live saves never regress.
+ */
+{
+  clearCloudLatch();
+  // (f1) base supplied -> carried in the PUT body alongside version.
+  let sent = null;
+  const fake = async (url, init) => { sent = JSON.parse(init.body); return { ok: true, status: 200, json: async () => ({ version: 6 }) }; };
+  const res = await pushDoc(DOC('x'), 6, fake, 5);
+  ok(res.ok === true, 'f1. CAS push accepted');
+  eq(sent.baseVersion, 5, 'f1b. baseVersion carried in the PUT body');
+  eq(sent.version, 6, 'f1c. version carried alongside');
+
+  // (f2) NO base arg -> body omits baseVersion (strictly-greater fallback == pre-CAS Burma behaviour).
+  let sent2 = null;
+  const fake2 = async (url, init) => { sent2 = JSON.parse(init.body); return { ok: true, json: async () => ({ version: 7 }) }; };
+  await pushDoc(DOC('x'), 7, fake2);
+  ok(!('baseVersion' in sent2), 'f2. no base arg -> PUT omits baseVersion (backwards-safe)');
+
+  // (f3) base<=0 (un-seeded tab / first save) -> also omitted, never sends a meaningless base:0.
+  let sent3 = null;
+  const fake3 = async (url, init) => { sent3 = JSON.parse(init.body); return { ok: true, json: async () => ({ version: 8 }) }; };
+  await pushDoc(DOC('x'), 8, fake3, 0);
+  ok(!('baseVersion' in sent3), 'f3. base<=0 -> PUT omits baseVersion');
+}
+
+/* ───────────────────────── (g) LATCH-ON-CONFLICT — a real 409 freezes cloud pushes ────────────────
+ * A REAL two-device divergence latches cloud pushes OFF until reload/reconcile, so a subsequent autosave
+ * can never silently overwrite the newer cloud doc. A BENIGN 409 (steady state) must NOT latch. The
+ * local save is never gated by any of this — only the cloud mirror pauses.
+ */
+{
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+    key: (i) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size; },
+  };
+
+  // (g1) a REAL divergent 409 -> conflict AND latch on.
+  {
+    store.clear(); clearEvents(); clearCloudLatch();
+    store.set('wp01_burma_doc_v1', JSON.stringify(DOC('A kept typing — a third state')));
+    store.set('wp01_burma_doc_ver_v1', '11|tabA');
+    const out = handlePushResult({ ok: false, stale: true, doc: DOC('B newer doc'), version: 11 }, DOC('A refused edit'));
+    ok(out.conflict === true, 'g1. real divergence is a conflict');
+    ok(isCloudLatched() === true, 'g2. a REAL conflict LATCHES cloud pushes off');
+
+    // (g3) while latched, pushDoc short-circuits — NO PUT fires (can't overwrite the newer cloud doc).
+    let putCalled = false;
+    const spy = async () => { putCalled = true; return { ok: true, json: async () => ({}) }; };
+    const skipped = await pushDoc(DOC('a fresh local edit'), 20, spy, 11);
+    ok(skipped.skipped === true && skipped.latched === true, 'g3. latched pushDoc returns skipped/latched');
+    ok(putCalled === false, 'g3b. latched pushDoc fires NO network PUT (no silent overwrite)');
+
+    // (g4) reconcileOnLoad (the merge point) CLEARS the latch so pushes resume for the reconciled state.
+    await reconcileOnLoad({ readLocal: () => ({ hasDoc: false, version: 0, doc: null }), fetchCloud: async () => ({ ok: false }) });
+    ok(isCloudLatched() === false, 'g4. reconcileOnLoad clears the latch');
+  }
+
+  // (g5) a BENIGN 409 (content-identical) must NOT latch — steady state keeps syncing.
+  {
+    store.clear(); clearEvents(); clearCloudLatch();
+    const doc = DOC('identical on both sides');
+    const out = handlePushResult({ ok: false, stale: true, doc, version: 7 }, DOC('identical on both sides'));
+    ok(out.benign === true, 'g5. identical-content 409 is benign');
+    ok(isCloudLatched() === false, 'g5b. a BENIGN 409 does NOT latch (no false freeze)');
+  }
+
+  clearCloudLatch();
+  delete globalThis.localStorage;
 }
 
 console.log(`\ncloud-sync: ${pass} passed, ${fail} failed`);

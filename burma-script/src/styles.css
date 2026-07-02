@@ -491,6 +491,64 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-recovery-act.is-restore:disabled { opacity: .55; cursor: default; }
 
 /* ============================================================
+   CLOUD VERSION HISTORY — restore any past cloud save. A deliberate "version browser", NOT an alarm:
+   calm paper/ink (never the green recovery bar), pinned bottom-left, expands upward into a floating card.
+   ============================================================ */
+/* z-index sits ABOVE the recovery banner (998) so the toggle stays clickable even when that bottom
+   bar is showing; when both are present the recovery ALARM still reads first (full-width green bar). */
+.wp-cloudhist { position: fixed; left: 18px; bottom: 18px; z-index: 999; font-family: var(--mono); }
+.wp-cloudhist-toggle {
+  appearance: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 999px;
+  padding: 7px 13px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink);
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+.wp-cloudhist-toggle:hover { background: var(--ink); color: var(--frame); }
+.wp-cloudhist-glyph { font-size: 13px; line-height: 1; }
+.wp-cloudhist.is-open .wp-cloudhist-toggle { background: var(--ink); color: var(--frame); }
+.wp-cloudhist-panel {
+  position: absolute; left: 0; bottom: calc(100% + 8px);
+  width: min(360px, calc(100vw - 36px));
+  max-height: min(52vh, 520px); overflow-y: auto;
+  background: var(--frame); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 10px;
+  padding: 12px 13px;
+  box-shadow: 0 8px 28px rgba(31,29,24,.14);
+}
+.wp-cloudhist-head { display: flex; align-items: center; gap: 8px; }
+.wp-cloudhist-ttl { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.wp-cloudhist-refresh {
+  appearance: none; cursor: pointer; margin-left: auto;
+  background: transparent; color: inherit; font-family: var(--mono);
+  font-size: 13px; line-height: 1; border: 1.5px solid var(--ink); border-radius: 6px;
+  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+}
+.wp-cloudhist-refresh:hover { background: var(--ink); color: var(--frame); }
+.wp-cloudhist-refresh:disabled { opacity: .5; cursor: default; }
+.wp-cloudhist-note { margin: 8px 0 4px; font-size: 10.5px; line-height: 1.5; opacity: .72; letter-spacing: .01em; }
+.wp-cloudhist-empty { padding: 10px 4px; font-size: 11px; opacity: .7; }
+.wp-cloudhist-empty.is-error { opacity: .9; color: #b0431f; }
+.wp-cloudhist-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.wp-cloudhist-item {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 7px 8px; border: 1px solid rgba(31,29,24,.16); border-radius: 7px; font-size: 11px;
+}
+.wp-cloudhist-when { font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+.wp-cloudhist-ver { opacity: .6; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.wp-cloudhist-who { opacity: .8; letter-spacing: .02em; overflow: hidden; text-overflow: ellipsis; max-width: 120px; white-space: nowrap; }
+.wp-cloudhist-act {
+  appearance: none; cursor: pointer; margin-left: auto;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  border: 1.5px solid var(--ink); border-radius: 5px; padding: 4px 9px;
+}
+.wp-cloudhist-act.is-restore { background: var(--ink); color: var(--frame); }
+.wp-cloudhist-act.is-restore:hover { background: #2f6f57; border-color: #2f6f57; color: #fff; }
+.wp-cloudhist-act.is-restore:disabled { opacity: .5; cursor: default; }
+
+/* ============================================================
    MASTHEAD (feature A) — the script's name, big + bold, the page headline
    ============================================================ */
 .wp-masthead {
