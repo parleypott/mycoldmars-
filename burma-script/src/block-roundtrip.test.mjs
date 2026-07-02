@@ -63,7 +63,7 @@ ok('a block with flavor + chapterId + timecode/tk/trim/bold marks + a chip round
       type: 'paragraph',
       content: [
         { type: 'text', text: 'Coral at ' },
-        { type: 'text', text: '00:03:29:00', marks: [{ type: 'timecode', attrs: { tc: '00:03:29:00', day: 2 } }] },
+        { type: 'text', text: '00:03:29:00', marks: [{ type: 'timecode', attrs: { tc: '00:03:29:00', day: 2, seq: null } }] },
         { type: 'text', text: ' — ' },
         { type: 'text', text: '{tk verify this}', marks: [{ type: 'tkSpan' }] },
         { type: 'text', text: ' and ' },

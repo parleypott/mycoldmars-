@@ -57,3 +57,5 @@ burma-script/src/document-builder.js	constACT_LABEL_RE=newRegExp(${HEAD_ALTERNAT
 burma-script/src/document-builder.js	constHEAD_BODY_SPLIT_RE=newRegExp(${HEAD_ALTERNATION},)	SAFE	episode-config constant (digit class / genre head alternation), build-controlled not user input
 burma-script/src/document-builder.js	newRegExp(${cls},)	SAFE	validation test-compile inside episodeDayCharacterClass guard: catches a malformed episode day-class and degrades to Burma default (this IS the brick-guard)
 burma-script/src/document-builder.js	newRegExp(${alternation},)	SAFE	validation test-compile inside episodeHeadAlternation guard: catches a malformed episode genre head and degrades to Burma default (this IS the brick-guard)
+burma-script/src/document-builder.js	constDAY_LOCAL_G=newRegExp(${DAY_CLASS_SOURCE},)	SAFE	episode-config constant (digit class), build-controlled not user input — same class as DAY_BLOCK
+burma-script/src/document-builder.js	constDAY_TRAILING=newRegExp(${DAY_CLASS_SOURCE},)	SAFE	episode-config constant (digit class), build-controlled not user input — same class as DAY_BLOCK

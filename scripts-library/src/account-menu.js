@@ -135,7 +135,8 @@ async function openManageUsers() {
   const me = currentUser();
   const rows = (res.users || []).map((u) => {
     const isMe = me && u.id === me.id;
-    const last = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'never';
+    const lastDate = u.last_sign_in_at ? new Date(u.last_sign_in_at) : null;
+    const last = lastDate && !isNaN(lastDate.getTime()) ? lastDate.toLocaleDateString() : 'never';
     return `<div class="sl-user-row" data-id="${esc(u.id)}" data-email="${esc(u.email)}">
       <div class="sl-user-main"><span class="sl-user-email">${esc(u.email)}</span>${isMe ? '<span class="sl-user-you">you</span>' : ''}</div>
       <div class="sl-user-meta">last: ${esc(last)}</div>
