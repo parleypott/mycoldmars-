@@ -129,10 +129,11 @@ async function putDoc(pid, { doc, version, baseVersion }) {
     // fall through to guarded update on the rare insert race
   }
 
-  // GUARDED UPDATE — atomic backstop. Only patch when stored is still strictly less than incoming, so
-  // a concurrent writer that landed between our read and here makes this a no-op (0 rows) not a stomp.
+  // GUARDED UPDATE — the atomic backstop. The guard clause (see updateGuardClause) makes the write
+  // itself conditional at the DB, so a concurrent writer that landed between our read above and here
+  // makes this a no-op (0 rows) not a stomp — in BOTH the optimistic and the compare-and-swap modes.
   const upd = await sb(
-    `/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&version=lt.${pgrValue(version)}`,
+    `/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&${updateGuardClause({ version, baseVersion })}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -181,6 +182,24 @@ async function touchProject(pid, iso) {
 function toVersion(v) {
   const n = Math.floor(Number(v));
   return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// The DB-level guard clause for the guarded UPDATE — this is what makes the write ATOMIC, and it must
+// match the mode isWriteAcceptable already vetted in memory:
+//   • OPTIMISTIC (no baseVersion): `version=lt.<incoming>` — patch only if the stored version is STILL
+//     strictly older than what we're writing. Byte-identical to the original clause; the live client
+//     (cloud-sync.js) only ever uses this mode.
+//   • COMPARE-AND-SWAP (baseVersion present): `version=eq.<baseVersion>` — a TRUE CAS: patch only if the
+//     stored version is STILL exactly the base this client built on. Without it the DB fell back to
+//     `lt.<incoming>`, which let a base=4/v=6 writer overwrite an intervening v=5 it never merged — the
+//     atomicity the endpoint's own doc-comment promised but the write never enforced. The in-memory
+//     isWriteAcceptable check alone can't guarantee it: another writer can land between our read and this
+//     PATCH, and only a DB-level `eq.<base>` blocks that race (0 rows -> 409 -> the client adopts).
+function updateGuardClause({ version, baseVersion }) {
+  const hasBase = baseVersion !== null && baseVersion !== undefined;
+  return hasBase
+    ? `version=eq.${pgrValue(toVersion(baseVersion))}`
+    : `version=lt.${pgrValue(toVersion(version))}`;
 }
 
 function validatePutBody(body) {
@@ -239,4 +258,4 @@ function withCors(res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 
-export { toVersion, validatePutBody, isWriteAcceptable, UUID_RE };
+export { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE };

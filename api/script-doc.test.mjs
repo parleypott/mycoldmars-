@@ -5,7 +5,7 @@
  *
  * Run: bun api/script-doc.test.mjs
  */
-const { toVersion, validatePutBody, isWriteAcceptable, UUID_RE } = await import('./script-doc.js');
+const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE } = await import('./script-doc.js');
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL ' + m); } };
@@ -47,6 +47,21 @@ ok(!isWriteAcceptable({ version: 5, baseVersion: 5, stored: 5 }), 'c3. base==sto
 ok(isWriteAcceptable({ version: 2, baseVersion: 1, stored: 1 }), 'c4. clean linear CAS accepted');
 ok(!isWriteAcceptable({ version: 9, baseVersion: 0, stored: 3 }),
   'c5. base 0 against a populated row -> reject (the two-device stranding case the audit named)');
+
+/* ---- updateGuardClause: the DB-level guard that makes the write atomic ---- */
+// OPTIMISTIC mode (no baseVersion) — the ONLY mode the live client uses. Must stay byte-identical to the
+// original `version=lt.<incoming>` clause; a regression here would break every real save.
+eq(updateGuardClause({ version: 6, baseVersion: null }), 'version=lt.6', 'g1. optimistic -> lt.<incoming>');
+eq(updateGuardClause({ version: 6 }), 'version=lt.6', 'g2. omitted baseVersion is optimistic too');
+eq(updateGuardClause({ version: 6, baseVersion: undefined }), 'version=lt.6', 'g3. undefined base is optimistic');
+// COMPARE-AND-SWAP mode (baseVersion present) — the atomicity fix. Must guard on eq.<base>, NOT lt.<incoming>:
+// a base=4/v=6 writer must be blocked by an intervening v=5 (stored moved off the base), which only
+// `eq.4` catches — `lt.6` would let 6 stomp the 5 it never merged. This is the mutation-load-bearing line.
+eq(updateGuardClause({ version: 6, baseVersion: 4 }), 'version=eq.4', 'g4. CAS -> eq.<base> (blocks an intervening write; NOT lt.<incoming>)');
+eq(updateGuardClause({ version: 2, baseVersion: 1 }), 'version=eq.1', 'g5. clean linear CAS -> eq.<base>');
+// base 0 (a first save that raced an insert) must guard on eq.0, so a row that appeared meanwhile (v>=1)
+// blocks the patch (0 rows -> 409 -> adopt) instead of being stomped.
+eq(updateGuardClause({ version: 5, baseVersion: 0 }), 'version=eq.0', 'g6. base 0 -> eq.0 (insert-race safe)');
 
 /* ---- UUID shape ---- */
 ok(UUID_RE.test('a4b1c2d3-1111-2222-3333-444455556666'), 'u1. uuid matches');
