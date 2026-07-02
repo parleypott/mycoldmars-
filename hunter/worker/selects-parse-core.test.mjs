@@ -246,5 +246,44 @@ const SELECTS_XML = `<?xml version="1.0" encoding="UTF-8"?>
   ok(oldInSeconds < 0, `old raw -1/fps was negative (${oldInSeconds}) — the bug this locks`);
 }
 
+// ── DIRECT-CHILD getText/getNum contract: a clip must read ITS OWN fields, never a nested <file>'s ──
+// The worker's getText/getNum/getDirectChildren scan ONLY direct children (childNodes loop), NOT the
+// whole subtree. That is load-bearing for a real-world importer: a <clipitem> nests a <file> that
+// carries its OWN <name> (and, in some exports, its own timecode-ish tags), and different NLEs order
+// the clipitem's children differently — Premiere/Resolve FCP7-XML exports can emit <file> BEFORE the
+// clip's own <name>/<start>/<in>. Direct-child lookup is immune to that ordering; a subtree/descendant
+// lookup (e.g. getElementsByTagName(tag)[0]) is NOT — with <file> first it would return the FILE's
+// <name> as the clip's name and the nested <pathurl> as a phantom clip field, silently mislabeling the
+// corpus. The existing helper-unit test uses a FLAT root with no nesting and the sentinel test uses
+// identical clip/file names, so neither distinguishes direct-child from descendant. This does.
+{
+  // File placed BEFORE the clip's own metadata, clip name DELIBERATELY different from the file name,
+  // and a decoy nested <name> after the real file name. Direct-child reads must ignore all of it.
+  const reorderedXml = `<xmeml><sequence><name>S</name>
+    <rate><timebase>24</timebase><ntsc>FALSE</ntsc></rate>
+    <media><video><track>
+      <clipitem id="c1">
+        <file id="f1"><name>SOURCE_FILE.mov</name><pathurl>file:///vol/SOURCE_FILE.mov</pathurl><name>DECOY</name></file>
+        <name>CLIP_LABEL</name>
+        <start>240</start><end>288</end><in>100</in><out>148</out><duration>48</duration>
+      </clipitem>
+    </track></video></media></sequence></xmeml>`;
+  const clip = parseFCP7XML(reorderedXml)[0].videoTracks[0].clips[0];
+  eq(clip.name, 'CLIP_LABEL', 'clip name is the clipitem OWN <name>, not the file-first nested <name>');
+  eq(clip.start, 240, 'clip start is the clipitem OWN <start>');
+  eq(clip.inPoint, 100, 'clip in is the clipitem OWN <in>');
+  eq(clip.sourceFile.name, 'SOURCE_FILE.mov', 'source file name is the FIRST nested file <name>, not the decoy');
+
+  // Helper-level proof of the property that makes the above hold: a tag present ONLY as a deeper
+  // descendant (never a direct child) must read as absent, and a direct child wins over a nested one.
+  const doc = new DOMParser().parseFromString(
+    '<clipitem><file><name>FILE</name><pathurl>NESTED</pathurl></file><name>OUTER</name></clipitem>', 'text/xml');
+  const el = doc.documentElement;
+  eq(getText(el, 'pathurl'), '', 'getText: nested-only tag reads absent on the outer el (not the descendant value)');
+  eq(getText(el, 'name'), 'OUTER', 'getText: direct-child <name> wins over the file-first nested <name>');
+  eq(getDirectChildren(el, 'file').length, 1, 'getDirectChildren: exactly the one direct <file>');
+  eq(getDirectChildren(el, 'name').length, 1, 'getDirectChildren: only the direct <name>, not the nested one');
+}
+
 console.log(`selects-parse-core: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
