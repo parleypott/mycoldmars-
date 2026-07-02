@@ -40,6 +40,7 @@ function extractFn(name) {
 }
 
 const readHiScore = extractFn('readHiScore');
+const saveHiScore = extractFn('saveHiScore');
 
 let pass = 0, fail = 0;
 function t(name, fn) { try { fn(); pass++; } catch (e) { fail++; console.error(`  ✗ ${name}: ${e.message}`); } }
@@ -100,6 +101,36 @@ t('leading-numeric lenient parse preserved (parseInt stops at first non-digit)',
   assert.equal(readHiScore('  17'), 17); // leading whitespace tolerated by parseInt
 });
 
+// ── WRITE twin: saveHiScore must never let a throwing store escape ──
+// localStorage.setItem throws QuotaExceededError in Safari/Firefox Private
+// Browsing even for a tiny int. The old inline `localStorage.setItem(...)` at
+// the hi: update site would throw straight out of update() every frame once the
+// player beat the stored hi, freezing the game. saveHiScore swallows it.
+t('WRITE twin: a throwing store does not propagate (returns false)', () => {
+  const throwingStore = { setItem() { throw new DOMException('QuotaExceededError'); } };
+  let landed;
+  assert.doesNotThrow(() => { landed = saveHiScore(throwingStore, 'laserspaceHi', 4200); },
+    'saveHiScore must not rethrow a QuotaExceededError');
+  assert.equal(landed, false, 'a failed write must report false');
+});
+
+t('RED proof: the raw setItem form (pre-fix) DOES throw on a private-mode store', () => {
+  const throwingStore = { setItem() { throw new DOMException('QuotaExceededError'); } };
+  // This is exactly what the hi: update site used to do inline — it throws.
+  assert.throws(() => throwingStore.setItem('laserspaceHi', String(4200)),
+    'the old unguarded write must throw (proving the guard is load-bearing)');
+});
+
+t('WRITE twin: a healthy store persists the score as a string and returns true', () => {
+  const rec = {};
+  const store = { setItem(k, v) { rec[k] = v; } };
+  const ok = saveHiScore(store, 'laserspaceHi', 12345);
+  assert.equal(ok, true, 'a healthy write returns true');
+  assert.equal(rec['laserspaceHi'], '12345', 'value persisted as a String');
+  // round-trips through the guarded reader
+  assert.equal(readHiScore(rec['laserspaceHi']), 12345, 'persisted value round-trips via readHiScore');
+});
+
 // ── source-binding: the guard is actually wired, old form gone ──
 t('source-binding: index.html uses readHiScore + Number.isFinite, not the raw parseInt at the hi: site', () => {
   assert.ok(/function readHiScore\s*\(/.test(html), 'readHiScore must be defined');
@@ -108,6 +139,11 @@ t('source-binding: index.html uses readHiScore + Number.isFinite, not the raw pa
     'the hi: field must call readHiScore');
   assert.ok(!/hi:\s*parseInt\(localStorage\.getItem\("laserspaceHi"\)/.test(html),
     'the old inline parseInt form must be gone from the hi: field');
+  // the WRITE site must route through the crash-safe helper, not raw setItem
+  assert.ok(/saveHiScore\(localStorage,\s*"laserspaceHi",\s*state\.hi\)/.test(html),
+    'the hi update must call saveHiScore');
+  assert.ok(!/^\s*localStorage\.setItem\("laserspaceHi"/m.test(html),
+    'the old unguarded inline localStorage.setItem write must be gone');
 });
 
 console.log(`hi-score: ${pass} passed, ${fail} failed`);

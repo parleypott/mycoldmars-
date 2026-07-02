@@ -375,6 +375,17 @@ function readHiScore(raw) {
   return Number.isFinite(v) ? v : 0;
 }
 
+// Persist a new high score, crash-safe. localStorage.setItem THROWS in Safari/
+// Firefox Private Browsing (a QuotaExceededError even for a tiny int write). This
+// is the WRITE twin of readHiScore's guarded READ: an uncaught throw here fires
+// inside update() every frame once the player beats the stored hi — the exact
+// moment they earn it — freezing the whole game loop. Swallow the failure: the
+// in-memory hi still updates, it just won't survive a reload. Returns whether it landed.
+function saveHiScore(store, key, score) {
+  try { store.setItem(key, String(score)); return true; }
+  catch { return false; }
+}
+
 const state = {
   player: { x: 100, y: 224, w: 14, h: 14, speed: 1.2, alive: true, respawn: 0 },
   bullets: [],   // {x, y, vy}
@@ -743,7 +754,7 @@ function update() {
   /* hi score */
   if (state.score > state.hi) {
     state.hi = state.score;
-    localStorage.setItem("laserspaceHi", String(state.hi));
+    saveHiScore(localStorage, "laserspaceHi", state.hi);
   }
 
   if (state.flash > 0) state.flash--;
