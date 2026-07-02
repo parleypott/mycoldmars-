@@ -1,6 +1,6 @@
 // Mutation-locked tests for the shared quiz answer-accounting core.
 // Run: node shared/quiz-answer.test.mjs  (picked up by scripts/run-tests.mjs)
-import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor, displayPercent } from './quiz-answer.js';
+import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor, displayPercent, shuffleOptions, hasPositionalOption } from './quiz-answer.js';
 import assert from 'node:assert/strict';
 
 let pass = 0;
@@ -221,6 +221,89 @@ t('displayPercent agrees with gradeFor at the reachable (≤5) round counts', ()
       if (grade === 'KEEP LEARNING') assert.ok(pct < 40, `${s}/${total}=${pct}% graded KEEP LEARNING`);
     }
   }
+});
+
+// ── shuffleOptions (answer-position fairness) ────────────────────────────────
+
+// A deterministic rng that plays back a fixed sequence, so a shuffle is exact
+// and reproducible in the test.
+function seqRng(values) {
+  let i = 0;
+  return () => values[i++ % values.length];
+}
+
+t('shuffleOptions keeps the CORRECT option text and remaps answer to its new index', () => {
+  // The load-bearing invariant: whatever the permutation, options[answer] still
+  // names the same correct choice. A mutation that forgets to remap `answer`
+  // (e.g. returns the original index) fails here.
+  for (let seed = 0; seed < 40; seed++) {
+    // vary the rng each iteration so we exercise many permutations
+    const rng = seqRng([ (seed % 7) / 7, (seed % 3) / 3, (seed % 5) / 5, 0.5 ]);
+    const out = shuffleOptions(Q, rng);
+    assert.equal(out.options[out.answer], 'Correct one', `seed ${seed}: answer must point at the correct option`);
+    // it is still the same four options, just reordered
+    assert.deepEqual([...out.options].sort(), [...Q.options].sort());
+  }
+});
+
+t('shuffleOptions actually MOVES the answer off its authored slot for some rng', () => {
+  // The whole point: the correct index is no longer pinned. With a permutation
+  // that swaps index 2 elsewhere, out.answer !== 2. Proves it isn't a no-op.
+  const moved = shuffleOptions(Q, seqRng([0, 0, 0, 0])); // Fisher-Yates with j=0 each step
+  assert.notEqual(moved.answer, Q.answer);
+  assert.equal(moved.options[moved.answer], 'Correct one');
+});
+
+t('shuffleOptions NEVER mutates the input question or its options (banks stay pristine)', () => {
+  const original = { question: 'q', options: ['A', 'B', 'Correct one', 'D'], answer: 2 };
+  const snapshot = JSON.stringify(original);
+  const out = shuffleOptions(original, seqRng([0.9, 0.1, 0.7, 0.3]));
+  assert.equal(JSON.stringify(original), snapshot, 'source question unchanged');
+  assert.notEqual(out.options, original.options, 'returns a new options array');
+});
+
+t('shuffleOptions leaves a POSITIONAL-option question in authored order', () => {
+  // "All of the above" references list order — shuffling it reads as nonsense.
+  // This is the real modern-middle-east question (answer index 3).
+  const positional = {
+    question: 'Why was Israel happy Hamas took over Gaza?',
+    options: ['It weakened unity', 'It justified hostility', 'It kept the cause divided', 'All of the above'],
+    answer: 3,
+  };
+  // even with an rng that WOULD permute, the positional guard returns it untouched
+  const out = shuffleOptions(positional, seqRng([0, 0, 0, 0]));
+  assert.deepEqual(out.options, positional.options);
+  assert.equal(out.answer, 3);
+  assert.equal(out.options[out.answer], 'All of the above');
+});
+
+t('hasPositionalOption detects the order-referencing phrases and ignores self-contained "Both…"', () => {
+  assert.equal(hasPositionalOption(['x', 'All of the above']), true);
+  assert.equal(hasPositionalOption(['x', 'None of these']), true);
+  assert.equal(hasPositionalOption(['x', 'Any of the following']), true);
+  // flyingmoney's "Both rely on…" is self-contained, NOT positional → shuffle-safe
+  assert.equal(hasPositionalOption(['x', 'Both rely exclusively on cryptocurrency']), false);
+  assert.equal(hasPositionalOption(['A', 'B', 'C', 'D']), false);
+});
+
+t('shuffleOptions returns invalid/degenerate input UNCHANGED (never throws, never corrupts)', () => {
+  assert.equal(shuffleOptions(null), null);
+  const noOpts = { question: 'q', answer: 0 };
+  assert.equal(shuffleOptions(noOpts), noOpts);
+  const oob = { question: 'q', options: ['A', 'B'], answer: 5 };   // answer out of range
+  assert.equal(shuffleOptions(oob), oob);
+  const single = { question: 'q', options: ['only'], answer: 0 };  // nothing to permute
+  assert.equal(shuffleOptions(single), single);
+  const nonInt = { question: 'q', options: ['A', 'B'], answer: 1.5 };
+  assert.equal(shuffleOptions(nonInt), nonInt);
+});
+
+t('shuffleOptions is defensive against an rng that returns exactly 1', () => {
+  // Math.random never returns 1, but a bad/seeded rng might; index must stay valid.
+  const out = shuffleOptions(Q, () => 1);
+  assert.equal(out.options.length, 4);
+  assert.equal(out.options[out.answer], 'Correct one');
+  assert.deepEqual([...out.options].sort(), [...Q.options].sort());
 });
 
 console.log(`\nquiz-answer: ${pass} checks passed`);

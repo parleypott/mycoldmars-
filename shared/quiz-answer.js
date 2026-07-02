@@ -15,6 +15,53 @@ export function newQuiz() {
   return { score: 0, results: [], answered: false };
 }
 
+// ── OPTION SHUFFLE (answer-position fairness) ─────────────────────────────────
+// The hand-authored banks cluster the correct answer on ONE position: fascism
+// has 42/50 answers on index 1, modern-middle-east 36/~65 on index 1. The games
+// render `q.options` in authored order, so a player who always picks the second
+// option scores ~84% knowing nothing — the quiz is trivially gamed. Shuffling the
+// options per play (and remapping `answer` to the correct option's new index)
+// removes the positional tell without touching the banks.
+//
+// Positional options ("All of the above" and kin) reference the LIST ORDER, so a
+// question containing one must keep its authored order — moving "All of the
+// above" into the middle of the list reads as nonsense. hasPositionalOption
+// flags those; shuffleOptions returns them unchanged.
+const POSITIONAL_OPTION = /\b(?:all|none|both|any) of (?:the above|these|the following|the others)\b/i;
+
+export function hasPositionalOption(options) {
+  return Array.isArray(options) && options.some(
+    (o) => typeof o === 'string' && POSITIONAL_OPTION.test(o)
+  );
+}
+
+// Return a NEW question with its options permuted and `answer` remapped to the
+// correct option's new index — never mutates the input (the shared banks stay
+// pristine across plays). Fisher-Yates over an index array so the correct
+// option's landing spot is exact. Returns the question unchanged when there's
+// nothing safe to shuffle: a non-array options list, an out-of-range/non-integer
+// answer, fewer than 2 options, or a positional option present.
+//   • rng() → [0,1); defaults to Math.random. Pass a seeded rng in tests.
+export function shuffleOptions(question, rng = Math.random) {
+  if (!question || !Array.isArray(question.options)) return question;
+  const opts = question.options;
+  const ans = question.answer;
+  if (!Number.isInteger(ans) || ans < 0 || ans >= opts.length) return question;
+  if (opts.length < 2) return question;
+  if (hasPositionalOption(opts)) return question;
+  const order = opts.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    // Math.min guards a seeded rng that returns exactly 1 (Math.random never does).
+    const j = Math.min(i, Math.floor(rng() * (i + 1)));
+    const t = order[i]; order[i] = order[j]; order[j] = t;
+  }
+  return {
+    ...question,
+    options: order.map((i) => opts[i]),
+    answer: order.indexOf(ans),
+  };
+}
+
 // Clear the per-question guard so the next question can be answered. Returns a
 // fresh object (never mutates) so the games can keep treating quiz state as
 // replaceable.

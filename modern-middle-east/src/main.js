@@ -1,5 +1,5 @@
 import { easy, hard } from './questions.js';
-import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor, displayPercent } from '../../shared/quiz-answer.js';
+import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor, displayPercent, shuffleOptions } from '../../shared/quiz-answer.js';
 
 /* ─── Themes ─── */
 const THEMES = {
@@ -216,7 +216,7 @@ function shuffle(arr) {
 
 function pickQuestions() {
   const pool = difficulty === 'easy' ? easy : hard;
-  return shuffle(pool).slice(0, roundCount(pool.length, TOTAL));
+  return shuffle(pool).slice(0, roundCount(pool.length, TOTAL)).map((q) => shuffleOptions(q));
 }
 
 /* ─── Start Game ─── */
