@@ -138,6 +138,12 @@ export function stripMarkdown(md) {
     prev = s;
     s = s
       .replace(/~~([^~]+)~~/g, '$1')       // strikethrough (else reads "tilde")
+      // GFM / Obsidian highlight (==important==). The one common emphasis-wrapper
+      // the loop didn't unwrap: the ==markers== leaked into the audio (read as
+      // "equals equals"), same read-it-aloud class as the strike/bold/italic marks
+      // beside it. Requires TWO equals on each side with a non-"=" body, so a lone
+      // comparison "E = mc" (single, space-flanked "=") is never touched.
+      .replace(/==([^=]+)==/g, '$1')       // highlight == (else reads "equals")
       .replace(/\*\*([^*]+)\*\*/g, '$1')   // bold **
       .replace(/__([^_]+)__/g, '$1')       // bold __ (else leaves stray underscores)
       .replace(/\*([^*]+)\*/g, '$1')       // italic *

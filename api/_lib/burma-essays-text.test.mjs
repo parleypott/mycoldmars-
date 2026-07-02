@@ -69,6 +69,16 @@ eq(stripMarkdown('plain prose, nothing to strip'), 'plain prose, nothing to stri
 // combined: bold + italic + strike in one line
 eq(stripMarkdown('**B** and __b2__ and _i_ and ~~s~~'), 'B and b2 and i and s', 'combined emphasis forms');
 
+// ---- GFM / Obsidian highlight (==important==) — the one common emphasis-wrapper
+// the loop didn't unwrap. Old code left the ==markers==, read aloud as "equals equals".
+eq(stripMarkdownOLD('this is ==important== text'), 'this is ==important== text', 'RED: old code leaks == highlight markers');
+eq(stripMarkdown('this is ==important== text'), 'this is important text', 'FIX: ==highlight== unwrapped to inner text');
+eq(stripMarkdown('==big== and ==bold=='), 'big and bold', 'two highlights keep words, drop markers');
+eq(stripMarkdown('a ==high **bold** light== span'), 'a high bold light span', 'highlight + nested bold (fixed-point loop)');
+// Load-bearing guard: a lone comparison "=" must NEVER be touched (regression fence).
+eq(stripMarkdown('the ratio E = mc squared'), 'the ratio E = mc squared', 'single space-flanked = left untouched');
+eq(stripMarkdown('5 == 5 dollars'), '5 == 5 dollars', 'unpaired == in prose (no closing pair) untouched');
+
 // ---- RED PROOF: structural markdown (horizontal rules, setext underlines, tables) that the old
 // function left intact, so ElevenLabs read the glyphs aloud ("dash dash dash", "vertical bar").
 eq(stripMarkdownOLD('A.\n\n---\n\nB.'), 'A.\n\n---\n\nB.', 'RED: old code leaves --- thematic break (read as dashes)');
