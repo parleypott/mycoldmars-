@@ -5,7 +5,7 @@
 // of "1:01:40". These lock the hour carry + the byte-identical sub-hour output.
 
 import assert from 'node:assert';
-import { formatTc, formatClipTime } from './format-tc.js';
+import { formatTc, formatClipTime, formatDuration } from './format-tc.js';
 
 let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.error(`✗ ${name}\n   ${e.message}`); } };
@@ -21,6 +21,13 @@ function oldFormatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+// The LONE hour-dropping duration formatter: the inline scenesPayload.durationStr
+// site in main.js. `Xm Ys` with no hour carry, fed to the narrative AI.
+function oldDurationStr(seconds) {
+  const durMin = Math.floor(seconds / 60);
+  const durSec = Math.floor(seconds % 60);
+  return `${durMin}m${durSec}s`;
 }
 
 // ── RED proof: the old code dropped the hour ──
@@ -66,6 +73,32 @@ t('formatTc === oldFormatTc for every sub-hour second 0..3599', () => {
 t('formatClipTime === oldFormatTime for every sub-hour second 0..3599', () => {
   for (let s = 0; s < 3600; s++) {
     assert.strictEqual(formatClipTime(s), oldFormatTime(s), `formatClipTime(${s})`);
+  }
+});
+
+// ── formatDuration: hour-plus carries (the scenesPayload.durationStr fix) ──
+// RED proof: the old inline form dropped the hour on a shoot-day scene.
+t('RED: old durationStr drops the hour (7530 -> 125m30s)', () => {
+  assert.strictEqual(oldDurationStr(7530), '125m30s');     // the bug
+  assert.strictEqual(formatDuration(7530), '2h5m30s');     // the fix
+});
+t('formatDuration 1h exactly', () => assert.strictEqual(formatDuration(3600), '1h0m0s'));
+t('formatDuration 2h5m30s', () => assert.strictEqual(formatDuration(7530), '2h5m30s'));
+t('formatDuration 10h+ multi-digit hour', () => assert.strictEqual(formatDuration(36000 + 125), '10h2m5s'));
+t('formatDuration just under an hour stays Xm Ys', () => assert.strictEqual(formatDuration(3599), '59m59s'));
+t('formatDuration fractional floors', () => assert.strictEqual(formatDuration(7530.9), '2h5m30s'));
+t('formatDuration sub-minute keeps 0m', () => assert.strictEqual(formatDuration(30), '0m30s'));
+
+// ── formatDuration: bad input degrades (was "NaNmNaNs") ──
+t('formatDuration NaN -> 0m0s', () => assert.strictEqual(formatDuration(NaN), '0m0s'));
+t('formatDuration Infinity -> 0m0s', () => assert.strictEqual(formatDuration(Infinity), '0m0s'));
+t('formatDuration negative -> 0m0s', () => assert.strictEqual(formatDuration(-5), '0m0s'));
+t('formatDuration null -> 0m0s', () => assert.strictEqual(formatDuration(null), '0m0s'));
+
+// ── No-regression: sub-hour output is byte-identical to the old inline code ──
+t('formatDuration === oldDurationStr for every sub-hour second 0..3599', () => {
+  for (let s = 0; s < 3600; s++) {
+    assert.strictEqual(formatDuration(s), oldDurationStr(s), `formatDuration(${s})`);
   }
 });
 

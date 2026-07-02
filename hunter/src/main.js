@@ -1,6 +1,6 @@
 import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining, persistEditorialDecisions, runTasteTraining, getTasteProfile, createJob, listJobs, getWorkerStatus, getUploadUrl, getSupabaseClient } from './db.js';
 import { SCENE_TEMPORAL_GAP_MINUTES, extractDateFromClipName, extractCameraId, groupIntoScenes } from './scene-grouping.js';
-import { formatTc } from './format-tc.js';
+import { formatTc, formatDuration } from './format-tc.js';
 import { byAnalysisRecencyDesc } from './feed-sort.js';
 import { normalizeKeepability } from './keepability.js';
 import { filterAndSortCorpus } from './corpus-filter.js';
@@ -1010,14 +1010,12 @@ function renderInsightsTab(units, patterns, assets, signal) {
     try {
       const projectName = v2Data?.project?.name || '';
       const scenesPayload = scenes.slice(0, 30).map(s => {
-        const durMin = Math.floor(s.totalDuration / 60);
-        const durSec = Math.floor(s.totalDuration % 60);
         return {
           label: s.label,
           day: s.day,
           time: s.time,
           clipCount: s.clips.length,
-          durationStr: `${durMin}m${durSec}s`,
+          durationStr: formatDuration(s.totalDuration),
           topEmotion: s.topEmotion,
           topShot: s.topShot,
           avgKeep: s.avgKeep,
