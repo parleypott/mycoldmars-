@@ -324,3 +324,51 @@
 .sl-user-btn:hover { background: var(--ink, #1f1d18); color: var(--frame, #efeadd); }
 .sl-user-btn--danger { border-color: #a02a12; color: #a02a12; }
 .sl-user-btn--danger:hover { background: #a02a12; color: #fff; }
+
+/* ── Loading veil (project open + route transitions) ─────────────────────────── */
+.sl-loading-veil {
+  position: fixed; inset: 0; z-index: 9800;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--frame, #efeadd);
+  opacity: 1; transition: opacity 240ms var(--ease, ease);
+}
+.sl-loading-veil.sl-veil-out { opacity: 0; pointer-events: none; }
+.sl-loading-inner { text-align: center; font-family: var(--mono, 'JetBrains Mono', monospace); }
+.sl-loading-mark {
+  font-size: 22px; font-weight: 800; letter-spacing: 0.22em;
+  color: var(--ink, #1f1d18); margin-bottom: 18px;
+}
+.sl-loading-spinner {
+  width: 30px; height: 30px; margin: 0 auto 14px;
+  border: 2.5px solid rgba(31,29,24,0.18);
+  border-top-color: var(--accent, #b0431f);
+  border-radius: 50%;
+  animation: sl-spin 720ms linear infinite;
+}
+@keyframes sl-spin { to { transform: rotate(360deg); } }
+.sl-loading-label { font-size: 12px; letter-spacing: 0.04em; color: var(--ink, #1f1d18); opacity: 0.65; }
+@media (prefers-reduced-motion: reduce) { .sl-loading-spinner { animation-duration: 2.4s; } }
+
+/* ── Backbar → a real pill button (project mode) ─────────────────────────────── */
+.sl-backbar {
+  position: fixed; top: 14px; left: 14px; z-index: 8500;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  text-decoration: none; color: var(--ink, #1f1d18);
+  padding: 8px 14px 8px 11px;
+  background: var(--paper, #f7f3e8);
+  border: 1.5px solid var(--ink, #1f1d18); border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(31,29,24,0.10);
+  transition: background 140ms var(--ease, ease), color 140ms var(--ease, ease), transform 120ms var(--ease, ease);
+}
+.sl-backbar:hover { background: var(--ink, #1f1d18); color: var(--paper, #f7f3e8); transform: translateX(-1px); }
+.sl-backbar:active { transform: translateX(0) scale(0.97); }
+.sl-backbar-chev { font-size: 16px; line-height: 1; margin-top: -1px; }
+
+/* ── Card open affordance — obviously clickable ──────────────────────────────── */
+.sl-card { transition: transform 130ms var(--ease, ease), border-color 130ms var(--ease, ease); }
+.sl-card:hover { transform: translateY(-2px); border-color: var(--accent, #b0431f); }
+.sl-card-open:not([disabled]) { cursor: pointer; }
+.sl-card-open:not([disabled]):hover .sl-card-title { color: var(--accent, #b0431f); }
+.sl-card-open:focus-visible { outline: 2px solid var(--accent, #b0431f); outline-offset: 2px; border-radius: 6px; }

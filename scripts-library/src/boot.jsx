@@ -37,33 +37,79 @@ function isLibraryRoute(slug) {
   return RESERVED_LIBRARY.has(slug);
 }
 
-/** Inject a fixed "← Library" affordance (project mode only; engine stays unchanged). */
+/**
+ * Inject a fixed "Library" button (project mode only; the engine files stay
+ * UNCHANGED). It's a real pill button with a back-chevron, not a bare link, so
+ * it reads as navigation. Clicking it hard-navigates to the library route.
+ */
 function injectLibraryBackbar() {
   if (document.getElementById('sl-backbar')) return;
   const a = document.createElement('a');
   a.id = 'sl-backbar';
   a.className = 'sl-backbar';
   a.href = '#library';
-  a.textContent = '← Library';
+  a.innerHTML = '<span class="sl-backbar-chev" aria-hidden="true">‹</span> Library';
   a.setAttribute('title', 'Back to the Script Library');
+  a.setAttribute('aria-label', 'Back to the Script Library');
   document.body.appendChild(a);
+}
+
+// ── Full-screen loading veil ─────────────────────────────────────────────────
+// Shown while a project's engine chunk (~200KB) dynamically imports, so opening
+// a script never flashes a blank screen. Removed once the engine has mounted.
+function showLoadingVeil(label) {
+  let v = document.getElementById('sl-loading-veil');
+  if (!v) {
+    v = document.createElement('div');
+    v.id = 'sl-loading-veil';
+    v.className = 'sl-loading-veil';
+    v.innerHTML = `
+      <div class="sl-loading-inner">
+        <div class="sl-loading-mark">SCRIPTS</div>
+        <div class="sl-loading-spinner" aria-hidden="true"></div>
+        <div class="sl-loading-label"></div>
+      </div>`;
+    document.body.appendChild(v);
+  }
+  v.querySelector('.sl-loading-label').textContent = label || 'Loading…';
+  v.classList.remove('sl-veil-out');
+  return v;
+}
+function hideLoadingVeil() {
+  const v = document.getElementById('sl-loading-veil');
+  if (!v) return;
+  v.classList.add('sl-veil-out');
+  setTimeout(() => { v.remove(); }, 260);
 }
 
 async function mountLibrary() {
   mountedMode = 'library';
-  const { mountLibrary: mount } = await import('./library.jsx');
+  // A library that's already been imported paints instantly from localStorage;
+  // only the very first import needs the veil. Keep it lightweight.
   const el = document.getElementById('app');
-  mount(el);
+  try {
+    const { mountLibrary: mount } = await import('./library.jsx');
+    mount(el);
+  } finally {
+    hideLoadingVeil();
+  }
 }
 
 async function openProject(row) {
   mountedMode = row.slug;
-  // Boot-order contract: select the episode FIRST, then dynamically import the engine.
-  const { setEpisode } = await import('../../burma-script/src/episode-config.js');
-  setEpisode(configForProject(row));
-  touchProject(row.id); // float recently-opened to the top of the library
-  await import('../../burma-script/src/main.jsx');
-  injectLibraryBackbar();
+  showLoadingVeil(`Opening ${row.title || 'script'}…`);
+  try {
+    // Boot-order contract: select the episode FIRST, then dynamically import the engine.
+    const { setEpisode } = await import('../../burma-script/src/episode-config.js');
+    setEpisode(configForProject(row));
+    touchProject(row.id); // float recently-opened to the top of the library
+    await import('../../burma-script/src/main.jsx');
+    injectLibraryBackbar();
+  } finally {
+    // The engine mounts synchronously after import; give it a beat to paint,
+    // then lift the veil so there's no blank flash between veil and script.
+    setTimeout(hideLoadingVeil, 120);
+  }
 }
 
 /** Single reconciler wired to hashchange + popstate. */
@@ -82,9 +128,15 @@ async function applyRouteFromUrl() {
     return openProject(row);
   }
 
-  // Already mounted — the engine is a singleton, so any route CHANGE reloads cleanly.
+  // Already mounted — the engine is a singleton, so any route CHANGE reloads
+  // cleanly. Raise the veil BEFORE the reload so the swap reads as a smooth
+  // transition, not a white flash. (The reload re-runs boot, which paints the
+  // target and lifts the veil again.)
   const target = isLibraryRoute(slug) ? 'library' : slug;
-  if (target !== mountedMode) window.location.reload();
+  if (target !== mountedMode) {
+    showLoadingVeil(isLibraryRoute(slug) ? 'Back to Library…' : 'Opening…');
+    window.location.reload();
+  }
 }
 
 seedIfAbsent();

@@ -47,11 +47,14 @@ function LibraryApp() {
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
   // Mount the avatar/account menu (sign-out, change password, add/manage users)
-  // into the header slot once it exists. No-op when auth is unconfigured.
+  // into the header slot exactly once. No-op when auth is unconfigured. Runs on
+  // mount only ([] deps) — the slot lives in this component's own markup, so it
+  // exists by the time the effect fires.
   useEffect(() => {
     const slot = document.getElementById('sl-account-slot');
     if (slot && !slot.childElementCount) mountAccountMenu(slot);
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const active = useMemo(() => activeProjects(), [tick]);
