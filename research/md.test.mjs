@@ -246,6 +246,36 @@ ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
   ok(!/<blockquote>/.test(mid), 'mid-line `>` does not spawn a <blockquote>');
 }
 
+// ── GFM tables render as <table>, not a leaked `| a | b |` paragraph ──
+// LLM research reports (esp. deep-research runs) emit pipe tables constantly.
+// Before this fix mdToHtml fused every row into one <p> of literal pipes.
+const TBL = '| Country | Pop |\n| --- | --- |\n| Taiwan | 23M |\n| Palau | 18k |';
+const tblOut = mdToHtml(TBL);
+ok(/<table>/.test(tblOut) && /<\/table>/.test(tblOut), 'table: emits a <table> element');
+ok(/<thead><tr><th>Country<\/th><th>Pop<\/th><\/tr><\/thead>/.test(tblOut), 'table: header row -> <thead><th>');
+ok(/<tbody>.*<td>Taiwan<\/td><td>23M<\/td>.*<\/tbody>/s.test(tblOut), 'table: body row -> <tbody><td>');
+ok(!/\| Country/.test(tblOut) && !/---/.test(tblOut), 'table: no leaked pipes or delimiter dashes');
+ok(!/<p>[^<]*<table>/.test(tblOut) && !/<table>[\s\S]*<\/table>[\s\S]*<\/p>/.test(tblOut),
+   'table: <table> is NOT wrapped in a stray <p>');
+// inline formatting survives inside cells
+const tblFmt = mdToHtml('| Name | Link |\n| --- | --- |\n| **bold** | [T](https://e.com) |');
+ok(/<td><strong>bold<\/strong><\/td>/.test(tblFmt), 'table: **bold** renders inside a cell');
+ok(/<td><a href="https:\/\/e.com"[^>]*>T<\/a><\/td>/.test(tblFmt), 'table: [link] renders inside a cell');
+// ragged rows pad/truncate to the header width
+const tblRag = mdToHtml('| A | B |\n| --- | --- |\n| only-one |');
+ok(/<tr><td>only-one<\/td><td><\/td><\/tr>/.test(tblRag), 'table: short row padded to header width');
+// single-column table works
+ok(/<table><thead><tr><th>H<\/th><\/tr><\/thead><tbody><tr><td>a<\/td><\/tr><\/tbody><\/table>/
+   .test(mdToHtml('| H |\n| --- |\n| a |')), 'table: single-column table renders');
+// outer pipes optional
+ok(/<table>/.test(mdToHtml('A | B\n--- | ---\n1 | 2')), 'table: outer pipes are optional');
+// FALSE-POSITIVE GUARD: a prose line with a `|` above a `---` break is NOT a table
+// (column counts differ: 2 header cells vs 1 delimiter cell).
+const notTbl = mdToHtml('intro with a | here\n---\nmore');
+ok(!/<table>/.test(notTbl), 'table: prose-pipe above a bare --- is NOT mistaken for a table');
+// a normal paragraph containing a lone pipe is untouched
+ok(!/<table>/.test(mdToHtml('two paths: A | B, pick one.')), 'table: a lone inline pipe stays prose');
+
 // ── esc still covers the raw-tag boundary ──
 eq(esc('<script>'), '&lt;script&gt;', 'esc neutralizes a tag');
 eq(esc('a & b'), 'a &amp; b', 'esc ampersand');

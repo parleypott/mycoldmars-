@@ -53,6 +53,65 @@ function fenceCode(c) {
   return c.trim();
 }
 
+// A GFM table delimiter row: one+ cells of optional-colon + dashes, pipe-joined,
+// with optional outer pipes. e.g. `| --- | :--: |`, `---|---`, `| :-- |`.
+const TABLE_DELIM = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
+
+// Split one pipe-delimited table line into trimmed cells, dropping the optional
+// leading/trailing pipe. `…` code stubs (stashed code spans) contain no
+// `|`, so a code span inside a cell survives the split intact.
+function splitTableRow(line) {
+  let s = line.trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|')) s = s.slice(0, -1);
+  return s.split('|').map((c) => c.trim());
+}
+
+// Render GFM pipe tables. LLM research reports (esp. deep-research runs) emit
+// these constantly; without this a table leaked into the reader as a literal
+// `| a | b |` paragraph. Runs AFTER the inline transforms so **bold**/[links]/
+// `code` inside a cell already rendered, and the emitted <table> is whitelisted
+// as block-level by the paragraph pass so it is never wrapped in <p>. A block is
+// a table only when a header line containing `|` is followed by a delimiter row
+// whose column count matches the header's — so a prose line that merely contains
+// a `|` above a `---` thematic break is NOT mistaken for a table.
+function renderTables(src) {
+  const lines = src.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const header = lines[i];
+    const delim = lines[i + 1];
+    if (
+      delim !== undefined &&
+      header.includes('|') &&
+      TABLE_DELIM.test(delim) &&
+      splitTableRow(header).length === splitTableRow(delim).length
+    ) {
+      const headers = splitTableRow(header);
+      const cols = headers.length;
+      const body = [];
+      let j = i + 2;
+      // Body rows continue until a blank line or a non-pipe line (the table ends).
+      while (j < lines.length && lines[j].trim() !== '' && lines[j].includes('|')) {
+        body.push(splitTableRow(lines[j]));
+        j++;
+      }
+      const thead = `<thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>`;
+      // Pad/truncate every body row to the header's column count (GFM behavior).
+      const tbody = body.length
+        ? `<tbody>${body
+            .map((r) => `<tr>${Array.from({ length: cols }, (_, k) => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`)
+            .join('')}</tbody>`
+        : '';
+      out.push(`<table>${thead}${tbody}</table>`);
+      i = j - 1;
+      continue;
+    }
+    out.push(header);
+  }
+  return out.join('\n');
+}
+
 export function mdToHtml(md) {
   if (!md) return '';
   let html = esc(md);
@@ -108,10 +167,13 @@ export function mdToHtml(md) {
   html = html.replace(/^\d+\. (.*)$/gm, '<oli>$1</oli>');
   html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
   html = html.replace(/(<oli>[\s\S]*?<\/oli>\n?)+/g, (m) => `<ol>${m.replace(/<(\/?)oli>/g, '<$1li>')}</ol>`);
+  // GFM tables: a single-newline block (no blank lines between rows) that the
+  // paragraph split would otherwise fuse into one <p> of literal pipes.
+  html = renderTables(html);
   html = html
     .split(/\n{2,}/)
     .map((block) => {
-      if (/^\s*<(h\d|ul|ol|pre|li|p|blockquote)/i.test(block.trim())) return block;
+      if (/^\s*<(h\d|ul|ol|pre|li|p|blockquote|table)/i.test(block.trim())) return block;
       if (!block.trim()) return '';
       return `<p>${block.replace(/\n/g, '<br>')}</p>`;
     })
