@@ -213,6 +213,39 @@ ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
   ok(/<ol><li>number<\/li>/.test(mixed), 'mixed doc: number run -> <ol>');
 }
 
+// ── blockquotes render as <blockquote>, not a leaked `>` marker ──
+// esc() turns a leading `>` into `&gt;`; before the blockquote transform a
+// quoted source line rendered as <p>&gt; …</p>, leaking the marker into the
+// reader's report. LLM research reports quote sources with `> ` constantly.
+{
+  const q = mdToHtml('Claim.\n\n> The source says X.\n\nProse.');
+  ok(/<blockquote>The source says X\.<\/blockquote>/.test(q), 'FIX: `> ` line renders a <blockquote>');
+  ok(!/&gt;/.test(q), 'FIX: no leaked &gt; marker in the output');
+  ok(/<p>Claim\.<\/p>/.test(q) && /<p>Prose\.<\/p>/.test(q), 'surrounding prose still becomes paragraphs');
+  // RED PROOF: the genuine old renderer (no blockquote transform) leaks the marker
+  const old = fullOldMd('> The source says X.');
+  ok(/<p>&gt; The source says X\.<\/p>/.test(old), 'RED PROOF: old renderer leaks `&gt;` inside a <p>');
+  ok(!/<blockquote>/.test(old), 'RED PROOF: old renderer never emits <blockquote>');
+}
+{
+  // multi-line quote: consecutive `> ` lines collapse into ONE blockquote, joined <br>
+  const multi = mdToHtml('> line one\n> line two');
+  ok(/<blockquote>line one<br>line two<\/blockquote>/.test(multi), 'multi-line quote joins with <br> in one <blockquote>');
+  ok((multi.match(/<blockquote>/g) || []).length === 1, 'multi-line quote is a single <blockquote>');
+}
+{
+  // inline formatting survives inside a quote (transform runs after bold/italic/link)
+  const rich = mdToHtml('> quoting **bold** and [a link](https://example.com) inside');
+  ok(/<strong>bold<\/strong>/.test(rich), 'bold renders inside a blockquote');
+  ok(/<a href="https:\/\/example\.com"[^>]*>a link<\/a>/.test(rich), 'link renders inside a blockquote');
+}
+{
+  // a `>` in the MIDDLE of a line is NOT a blockquote — must stay escaped in a <p>
+  const mid = mdToHtml('A value 5 > 3 in prose.');
+  ok(/<p>A value 5 &gt; 3 in prose\.<\/p>/.test(mid), 'mid-line `>` stays escaped, not a blockquote');
+  ok(!/<blockquote>/.test(mid), 'mid-line `>` does not spawn a <blockquote>');
+}
+
 // ── esc still covers the raw-tag boundary ──
 eq(esc('<script>'), '&lt;script&gt;', 'esc neutralizes a tag');
 eq(esc('a & b'), 'a &amp; b', 'esc ampersand');
@@ -229,7 +262,7 @@ const normalDocs = [
   'inline `code` and a block:\n\n```\nconst x = 1;\n```',
   'a safe [citation](https://example.com/article) mid-sentence.',
   'mixed [link](https://a.com) and **bold** and `code` together.',
-  '###### deep heading\n\n> not transformed but present',
+  '###### deep heading\n\nplain trailing paragraph.',
   '',
 ];
 for (const doc of normalDocs) {

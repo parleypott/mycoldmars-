@@ -88,6 +88,18 @@ export function mdToHtml(md) {
     const href = safeHref(url);
     return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
   });
+  // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
+  // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —
+  // the marker leaked into the reader's report as a literal `>`. LLM research
+  // reports quote sources this way constantly. Collapse each run of consecutive
+  // `> ` lines into one <blockquote>, stripping the marker (+ its optional single
+  // space) and joining wrapped lines with <br>. Runs AFTER the inline transforms
+  // so **bold**/*italic*/[links] inside a quote still render; the paragraph pass
+  // already whitelists <blockquote> as block-level so it is not re-wrapped in <p>.
+  html = html.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) => {
+    const inner = m.replace(/^&gt;[ \t]?/gm, '').replace(/\n/g, '<br>');
+    return `<blockquote>${inner}</blockquote>`;
+  });
   html = html.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
   // Ordered items get a distinct <oli> marker so the wrap pass below can emit a
   // numbered <ol> rather than a bulleted <ul> — and, critically, so they get
