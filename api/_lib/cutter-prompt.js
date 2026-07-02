@@ -10,8 +10,13 @@ import { buildGeminiChatContents } from './gemini-chat-contents.js';
  * consultant framing + the full two-column script rendered from segments.
  */
 export function buildSystemInstruction(segments, title) {
+  // Null-coalesce every field: the client's renderScript already guards these
+  // (`?? ''` / `|| ''`) because Gemini's analysis JSON can omit a field on a
+  // segment. Without the same guard here the prompt Gemini reads leaks the
+  // literal "undefined" ("WORDS: undefined", "[undefined–undefined]"). `?? ''`
+  // (nullish, not falsy) preserves a numeric 0 start timecode — a valid time.
   const scriptText = (Array.isArray(segments) ? segments : []).map(s =>
-    `[${s.timestamp_start}–${s.timestamp_end}]\n  WORDS: ${s.words}\n  VISUAL: ${s.visual}`
+    `[${s.timestamp_start ?? ''}–${s.timestamp_end ?? ''}]\n  WORDS: ${s.words ?? ''}\n  VISUAL: ${s.visual ?? ''}`
   ).join('\n\n');
 
   return `You are an editorial consultant reviewing a rough cut with a filmmaker.
