@@ -112,8 +112,23 @@ for (const f of codeFlags) {
   ok(palauFlags.has(f), `A: engine flag '${f}' is enabled in Palau config (else Palau silently loses it)`);
 }
 
-// ---- LOCK B: BURMA-PURITY — Burma enables no flags ----
-ok(burmaFlags.size === 0, `B: Burma config enables NO features (found: [${[...burmaFlags].join(', ')}])`);
+// ---- LOCK B: BURMA DATA-SAFETY — Burma may adopt Palau's LOOK, but never a flag that
+//      reinterprets or restructures its already-saved (and once-lost) document. ----
+// History: Phase 1 kept Burma's features EMPTY for a byte-identical "zero behavior change" proof.
+// The product decision then changed deliberately (Johnny: "sunset Burma style, make it all Palau"),
+// so Burma now enables the PRESENTATION + interaction flags. What must NEVER leak into Burma is the
+// DATA-TOUCHING set: these three re-read or rewrite Burma's stored doc on load/rebuild —
+//   • palauTimecodes     — changes what counts as a timecode in Burma's existing prose
+//   • inlineSotName       — restructures SOT blocks on rebuild
+//   • normalizeTableRows  — the sharp one: splits full-width rows and SILENTLY DROPS word-less
+//                           rows on LOAD, which the next autosave then persists.
+// Turning any of these on for Burma is a content migration, not a style change, and is gated on an
+// explicit human decision. This lock is the guard on Johnny's precious doc — keep it RED-on-leak.
+const BURMA_FORBIDDEN = ['palauTimecodes', 'inlineSotName', 'normalizeTableRows'];
+for (const f of BURMA_FORBIDDEN) {
+  ok(!burmaFlags.has(f),
+    `B: Burma must NOT enable data-touching flag '${f}' (it reshapes the saved doc; needs an explicit migration decision)`);
+}
 
 // ---- LOCK C: NO-DEAD-FLAG — every Palau flag is actually read by the engine ----
 for (const f of palauFlags) {

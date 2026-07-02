@@ -23,11 +23,15 @@ export const BURMA = {
   // Engine feature flags (read via episodeFlag in episode-config.js). Burma adopts the SAFE visual
   // dials of the shared doctrine: chipChrome hides the REC pill + VO/DIRECTION labels and gives the
   // calm chip / gridline / split-row treatment; chapterFrames gives the light book-header chapters;
-  // dayFold is a harmless render de-dupe. LEFT OFF: the interaction dials (rowDragReorder, convertMenu,
-  // archiveOwnLine, sequencePicker) and — critically — every DATA-touching flag (palauTimecodes,
-  // inlineSotName, normalizeTableRows, rebuildFromSourceWhenPristine), which would reinterpret Burma's
-  // saved doc and must stay false.
-  features: { chipChrome: true, chapterFrames: true, dayFold: true },
+  // Burma is fully on Palau's doctrine now: presentation + interaction dials all on. LEFT OFF:
+  // sequencePicker (swaps Burma's DAY 1/2/3 tagging for Palau's sequence model — a workflow/content
+  // change, Burma is organized by shoot day) and every DATA-touching flag (palauTimecodes,
+  // inlineSotName, normalizeTableRows, rebuildFromSourceWhenPristine), which would reinterpret
+  // Burma's already-saved doc — gated on an explicit content-migration decision, not style.
+  features: {
+    chipChrome: true, chapterFrames: true, dayFold: true,
+    rowDragReorder: true, convertMenu: true, archiveOwnLine: true,
+  },
   blocksData: scriptData.blocks || [],
   storage: {
     DOC: 'wp01_burma_doc_v1',
