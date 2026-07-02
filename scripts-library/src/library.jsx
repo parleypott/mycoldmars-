@@ -9,7 +9,8 @@
 // forever-delete also clears the doc + IndexedDB, not just the index row.
 
 import { render } from 'preact';
-import { useState, useMemo, useCallback } from 'preact/hooks';
+import { useState, useMemo, useCallback, useEffect } from 'preact/hooks';
+import { mountAccountMenu } from './account-menu.js';
 import {
   activeProjects,
   trashedProjects,
@@ -44,6 +45,13 @@ function LibraryApp() {
   const [draftTitle, setDraftTitle] = useState('');
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
+
+  // Mount the avatar/account menu (sign-out, change password, add/manage users)
+  // into the header slot once it exists. No-op when auth is unconfigured.
+  useEffect(() => {
+    const slot = document.getElementById('sl-account-slot');
+    if (slot && !slot.childElementCount) mountAccountMenu(slot);
+  });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const active = useMemo(() => activeProjects(), [tick]);
@@ -113,6 +121,7 @@ function LibraryApp() {
             <span class="sl-fig">fig.05 — SCRIPT LIBRARY</span>
           </div>
           <div class="sl-sub">The Human Element · local script projects</div>
+          <div class="sl-account-slot" id="sl-account-slot"></div>
         </header>
 
         <div class="sl-toolbar">

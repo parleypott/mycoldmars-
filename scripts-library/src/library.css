@@ -229,3 +229,98 @@
   transition: background 140ms var(--ease, ease), color 140ms var(--ease, ease);
 }
 .sl-backbar:hover { background: var(--ink, #1f1d18); color: var(--frame, #efeadd); }
+
+/* ── Auth gate + account menu (mirrors the Interpreter, Cartridges aesthetic) ── */
+.sl-hidden { display: none !important; }
+
+.sl-gate {
+  position: fixed; inset: 0; z-index: 9000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--frame, #efeadd);
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  padding: 24px;
+}
+.sl-gate-inner {
+  width: 100%; max-width: 380px;
+  background: var(--paper, #f7f3e8);
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 12px; padding: 32px 28px; text-align: center;
+}
+.sl-gate-eyebrow { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent, #b0431f); font-weight: 700; }
+.sl-gate-title { font-size: 30px; margin: 6px 0 4px; letter-spacing: -0.01em; }
+.sl-gate-sub { font-size: 13px; color: var(--ink, #1f1d18); opacity: 0.7; margin: 0 0 18px; }
+.sl-gate-input {
+  width: 100%; box-sizing: border-box; text-align: center;
+  font-family: inherit; font-size: 14px; padding: 11px 12px; margin-top: 8px;
+  background: var(--frame, #efeadd); border: 1.5px solid var(--ink, #1f1d18); border-radius: 8px;
+  color: var(--ink, #1f1d18);
+}
+.sl-gate-input:focus { outline: none; border-color: var(--accent, #b0431f); }
+.sl-gate-btn {
+  width: 100%; font-family: inherit; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; padding: 11px 14px; margin-top: 10px;
+  background: transparent; color: var(--ink, #1f1d18);
+  border: 1.5px solid var(--ink, #1f1d18); border-radius: 8px; cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.sl-gate-btn:hover { background: var(--ink, #1f1d18); color: var(--frame, #efeadd); }
+.sl-gate-btn--primary { background: var(--accent, #b0431f); color: #fff; border-color: var(--accent, #b0431f); }
+.sl-gate-btn--primary:hover { filter: brightness(1.08); }
+.sl-gate-btn:disabled { opacity: 0.5; cursor: default; }
+.sl-gate-msg { font-size: 12px; margin: 12px 0 0; padding: 8px 10px; border-radius: 6px; }
+.sl-gate-msg--error { background: #f6d9d1; color: #7a2410; }
+.sl-gate-msg--success { background: #d8ecd8; color: #235523; }
+.sl-gate-note { font-size: 11px; color: var(--ink, #1f1d18); opacity: 0.6; margin-top: 16px; }
+.sl-gate-note code, .sl-modal-note code, .sl-modal-msg code { background: var(--frame, #efeadd); padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.15); }
+.sl-gate-fallback { margin-top: 14px; text-align: left; font-size: 12px; }
+.sl-gate-fallback summary { cursor: pointer; opacity: 0.7; }
+
+/* Avatar in the header */
+.sl-account-slot { position: absolute; top: 18px; right: 20px; }
+.sl-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent, #b0431f); color: #fff;
+  font-family: var(--mono, monospace); font-weight: 700; font-size: 14px;
+  border: 1.5px solid var(--ink, #1f1d18); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.sl-account-menu {
+  position: fixed; z-index: 9500; min-width: 210px;
+  background: var(--paper, #f7f3e8); border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 10px; padding: 6px; font-family: var(--mono, monospace);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+}
+.sl-account-email { font-size: 12px; opacity: 0.7; padding: 8px 10px 6px; word-break: break-all; }
+.sl-account-item {
+  display: block; width: 100%; text-align: left; font-family: inherit; font-size: 13px;
+  padding: 9px 10px; background: transparent; border: none; border-radius: 6px; cursor: pointer;
+  color: var(--ink, #1f1d18);
+}
+.sl-account-item:hover { background: var(--frame, #efeadd); }
+.sl-account-item--danger { color: #a02a12; }
+.sl-account-divider { height: 1px; background: rgba(0,0,0,0.12); margin: 5px 4px; }
+
+/* Modals (add user / manage users / change password) */
+.sl-modal-overlay { position: fixed; inset: 0; z-index: 9600; background: rgba(31,29,24,0.4); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.sl-modal { width: 100%; max-width: 440px; background: var(--paper, #f7f3e8); border: 1.5px solid var(--ink, #1f1d18); border-radius: 12px; font-family: var(--mono, monospace); }
+.sl-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1.5px solid var(--ink, #1f1d18); }
+.sl-modal-title { font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
+.sl-modal-close { background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--ink, #1f1d18); }
+.sl-modal-body { padding: 18px; }
+.sl-modal-note { font-size: 12px; opacity: 0.75; margin: 0 0 12px; line-height: 1.5; }
+.sl-modal-input { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px; padding: 11px 12px; background: var(--frame, #efeadd); border: 1.5px solid var(--ink, #1f1d18); border-radius: 8px; color: var(--ink, #1f1d18); }
+.sl-modal-input:focus { outline: none; border-color: var(--accent, #b0431f); }
+.sl-modal-msg { font-size: 12px; margin: 12px 0 0; padding: 8px 10px; border-radius: 6px; line-height: 1.5; }
+.sl-modal-msg--error { background: #f6d9d1; color: #7a2410; }
+.sl-modal-msg--success { background: #d8ecd8; color: #235523; }
+.sl-user-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow: auto; }
+.sl-user-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px; border: 1px solid rgba(0,0,0,0.14); border-radius: 8px; }
+.sl-user-main { display: flex; align-items: center; gap: 8px; }
+.sl-user-email { font-size: 13px; }
+.sl-user-you { font-size: 10px; text-transform: uppercase; background: var(--accent, #b0431f); color: #fff; padding: 1px 6px; border-radius: 4px; }
+.sl-user-meta { grid-column: 1; font-size: 11px; opacity: 0.55; }
+.sl-user-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
+.sl-user-btn { font-family: inherit; font-size: 11px; padding: 6px 9px; background: transparent; border: 1.5px solid var(--ink, #1f1d18); border-radius: 6px; cursor: pointer; color: var(--ink, #1f1d18); }
+.sl-user-btn:hover { background: var(--ink, #1f1d18); color: var(--frame, #efeadd); }
+.sl-user-btn--danger { border-color: #a02a12; color: #a02a12; }
+.sl-user-btn--danger:hover { background: #a02a12; color: #fff; }

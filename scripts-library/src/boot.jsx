@@ -19,6 +19,7 @@
 
 import { seedIfAbsent, findBySlug, touchProject } from './project-store.js';
 import { configForProject } from './config-for-project.js';
+import { ensureUnlocked } from './gate.js';
 
 const RESERVED_LIBRARY = new Set(['', 'library', 'home']);
 
@@ -89,4 +90,9 @@ async function applyRouteFromUrl() {
 seedIfAbsent();
 window.addEventListener('hashchange', applyRouteFromUrl);
 window.addEventListener('popstate', applyRouteFromUrl);
-applyRouteFromUrl();
+
+// Gate FIRST — show the sign-in screen (or unlock immediately if already signed
+// in / auth unconfigured), THEN route into the library or a project. The engine
+// only mounts behind a valid session, and the fetch interceptor is installed so
+// /api/admin-users receives the caller's JWT for the ADMIN_EMAILS check.
+ensureUnlocked().then(() => applyRouteFromUrl());

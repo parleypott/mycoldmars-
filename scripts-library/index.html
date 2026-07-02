@@ -16,7 +16,9 @@
   <link rel="stylesheet" href="./src/library.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <!-- Hidden until the auth gate resolves (gate.js reveals it on sign-in, or
+       immediately when auth is unconfigured / already signed in). -->
+  <div id="app" class="sl-hidden"></div>
   <script type="module" src="./src/boot.jsx"></script>
 </body>
 </html>
