@@ -491,5 +491,47 @@ eq(stripMarkdown('She said ~~no~~ then ~~maybe~~ finally.'), 'She said no then m
 eq(stripMarkdown('The file is ~/notes.txt on disk.'), 'The file is ~/notes.txt on disk.',
    'GUARD: a lone prose tilde (home-dir path) is left untouched');
 
+// ── Blockquotes that CONTAIN structural markdown (heading / list / table) ──
+// The blockquote-strip rule used to run LAST (after emphasis), so it fired AFTER
+// the line-anchored heading/bullet/numbered/table rules. A ">"-prefixed line
+// therefore hid its inner marker from those rules, and the marker leaked into the
+// spoken audio: "> ## Quote" → "## Quote" read as "hash hash", "> - point" → "-
+// point", "> 1. one" → "1. one". A pull-quote wrapping a heading or list is common
+// in essays. The fix moves the blockquote strip to run BEFORE the structural rules.
+// RED PROOF: reconstruct the OLD order (structural rules first, blockquote last).
+function stripBlockquoteOLD(md) {
+  return md
+    .replace(/^#+\s*/gm, '')                 // headings ran while ">" still prefixed
+    .replace(/^\s*[-*+]\s+/gm, '')            // bullets ditto
+    .replace(/^\s*\d+[.)]\s+/gm, '')          // numbered ditto
+    .replace(/^>+\s*/gm, '')                  // blockquote stripped LAST — too late
+    .trim();
+}
+eq(stripBlockquoteOLD('> ## A quote heading'), '## A quote heading',
+   'RED: old order leaves "## " (read "hash hash") on a blockquoted heading');
+eq(stripMarkdown('> ## A quote heading'), 'A quote heading',
+   'FIX: blockquoted heading fully unwrapped — no hashes reach the audio');
+eq(stripBlockquoteOLD('> - first point\n> - second point'), '- first point\n- second point',
+   'RED: old order leaves the "- " bullet on a blockquoted list');
+eq(stripMarkdown('> - first point\n> - second point'), 'first point\nsecond point',
+   'FIX: blockquoted bullet list unwrapped, markers gone');
+eq(stripMarkdown('> 1. one\n> 2. two'), 'one\ntwo',
+   'FIX: blockquoted numbered list unwrapped ("1." would read "one dot" otherwise)');
+eq(stripMarkdown('> - [ ] todo item'), 'todo item',
+   'FIX: blockquoted task-list checkbox + bullet both stripped');
+eq(stripMarkdown('> ---'), '',
+   'FIX: a blockquoted thematic break is dropped, not read as "dash dash dash"');
+eq(stripMarkdown('> | City | Pop |\n> |---|---|\n> | Yangon | 5M |'), 'City, Pop\n\nYangon, 5M',
+   'FIX: a blockquoted table speaks its cells (bars gone) instead of "vertical bar"');
+// Nesting: consecutive ">>" and spaced "> > " are both fully unwrapped.
+eq(stripMarkdown('>> deeply nested'), 'deeply nested', 'FIX: nested >> blockquote unwrapped');
+eq(stripMarkdown('> > spaced nest'), 'spaced nest', 'FIX: spaced "> > " blockquote unwrapped');
+// REGRESSION GUARDS: a plain quote still resolves to its text; blockquoted emphasis
+// still resolves; and a mid-sentence ">" comparison in PROSE is never touched.
+eq(stripMarkdown('> just a quote'), 'just a quote', 'GUARD: plain blockquote → its text');
+eq(stripMarkdown('> **important** note'), 'important note', 'GUARD: blockquoted bold still unwrapped');
+eq(stripMarkdown('if 5 > 3 then done'), 'if 5 > 3 then done', 'GUARD: prose "5 > 3" comparison untouched');
+eq(stripMarkdown('The ratio a > b holds.'), 'The ratio a > b holds.', 'GUARD: prose "a > b" untouched');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

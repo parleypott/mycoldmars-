@@ -57,6 +57,16 @@ export function stripMarkdown(md) {
     // HTML comments (<!-- editor note -->) — invisible on the page, but read ALOUD
     // by the TTS as the raw note. Strip before anything else.
     .replace(/<!--[\s\S]*?-->/g, '')
+    // Blockquote markers (>, > , >>, > > ). MUST run BEFORE the line-anchored
+    // structural rules below (headings ^#, bullets ^-, numbered ^1., task-lists,
+    // thematic breaks, table rows) — otherwise a quoted list/heading keeps its
+    // ">" prefix so those rules never see it, and the inner marker leaks into the
+    // audio: "> ## A quote" → "## A quote" read as "hash hash", "> - point" → "-
+    // point", "> 1. one" → "1. one". A blockquote pull-quote containing a heading
+    // or list is common in essays. Strips every nesting level (>[space]) so a
+    // ">> deeply" or spaced "> > " quote is fully unwrapped. Anchored to line
+    // start, so a prose comparison ("5 > 3", "a > b") is never touched.
+    .replace(/^[ \t]*(?:>[ \t]?)+/gm, '')
     .replace(/`([^`]+)`/g, '$1')           // inline code
     // Linked images ([![alt](img)](url)) — an image wrapped in a link. It carries
     // NO readable text, so drop the whole construct. MUST run before the plain
@@ -151,7 +161,6 @@ export function stripMarkdown(md) {
   } while (s !== prev);
 
   return s
-    .replace(/^>+\s*/gm, '')               // blockquotes
     // CommonMark backslash escapes (\$ \* \# \. \- \_ \[ …). Authors — and markdown
     // generators / paste sources — escape ASCII punctuation so it renders literally:
     // "It cost \$5", "the year 2020\." (to stop the auto-list), "use the \* operator".
