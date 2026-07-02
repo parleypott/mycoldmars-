@@ -457,5 +457,29 @@ eq(stripMarkdown('Read [the report](https://r.com) now.'), 'Read the report now.
 eq(stripMarkdown('![alone](x.png) stays gone'), 'stays gone',
    'GUARD: a plain image is still removed on its own');
 
+// ── Tilde-fenced code blocks (~~~), the CommonMark twin of the ``` fence ──
+// The stripper dropped ``` blocks but not ~~~ blocks. Without a tilde-fence rule,
+// the strike rule (~~…~~) chewed a ~~~ fence into stray single tildes AND the code
+// body was read aloud — the exact read-it-aloud failure this module exists to kill.
+// RED PROOF: the pre-fix pipeline (backtick fence + strike, no tilde fence) leaves
+// "~code~" garbage. The mutation lock: deleting the ~~~ fence rule turns the FIX
+// lines RED.
+const stripTildeFenceOLD = (md) =>
+  md.replace(/```[\s\S]*?```/g, '')          // only the backtick fence existed
+    .replace(/~~([^~]+)~~/g, '$1');          // strike rule then mangles the ~~~ fence
+eq(stripTildeFenceOLD('Intro.\n\n~~~js\nconst secret = 42;\n~~~\n\nOutro.'),
+   'Intro.\n\n~js\nconst secret = 42;\n~\n\nOutro.',
+   'RED: pre-fix leaves stray tildes + reads the code body aloud on a ~~~ fence');
+eq(stripMarkdown('Intro.\n\n~~~js\nconst secret = 42;\n~~~\n\nOutro.'), 'Intro.\n\nOutro.',
+   'FIX: a ~~~ tilde-fenced code block is dropped whole, like a ``` block');
+eq(stripMarkdown('~~~\nplain fenced code\n~~~'), '',
+   'FIX: an unlabelled ~~~ fence is dropped');
+// REGRESSION GUARDS: a 2-tilde strikethrough must NOT be swallowed as a fence, and
+// prose containing a lone tilde stays intact.
+eq(stripMarkdown('She said ~~no~~ then ~~maybe~~ finally.'), 'She said no then maybe finally.',
+   'GUARD: two ~~strike~~ spans still resolve to words, not eaten as a fence');
+eq(stripMarkdown('The file is ~/notes.txt on disk.'), 'The file is ~/notes.txt on disk.',
+   'GUARD: a lone prose tilde (home-dir path) is left untouched');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

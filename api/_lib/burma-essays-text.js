@@ -46,7 +46,14 @@ export function decodeEntities(s) {
 
 export function stripMarkdown(md) {
   let s = decodeEntities(String(md ?? ''))
-    .replace(/```[\s\S]*?```/g, '')        // fenced code blocks
+    .replace(/```[\s\S]*?```/g, '')        // fenced code blocks (backtick)
+    // Tilde-fenced code blocks (CommonMark allows ~~~ as well as ```). Without
+    // this, the code BODY got read aloud AND the fence tildes leaked: the strike
+    // rule below (~~…~~) partially chewed a ~~~ fence into stray single tildes
+    // ("~js … ~"), read as "tilde". Requires THREE tildes to open/close, so a
+    // 2-tilde ~~strikethrough~~ span never starts a fence match. Runs BEFORE the
+    // strike rule, mirroring the backtick fence above.
+    .replace(/~~~[\s\S]*?~~~/g, '')
     // HTML comments (<!-- editor note -->) — invisible on the page, but read ALOUD
     // by the TTS as the raw note. Strip before anything else.
     .replace(/<!--[\s\S]*?-->/g, '')
