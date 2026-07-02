@@ -64,6 +64,10 @@ function findAutoTests(dir) {
 const EXPLICIT_TESTS = [
   { file: join(ROOT, 'burma-script/parse-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/routing-test.ts'), cwd: join(ROOT, 'burma-script') },
+  // routing-test.ts locks the classifier on SINGLE-paragraph inputs; this one locks the
+  // multi-paragraph consecutive-SOT routing (the stateful-/g-regex "every other timecode
+  // drops to the bin" class documented at parser.ts:27-33). cwd-agnostic; lives there.
+  { file: join(ROOT, 'burma-script/tc-routing-statefulness-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/roundtrip-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/list-roundtrip-test.ts'), cwd: join(ROOT, 'burma-script') },
   // integrity-check.ts enforces the worklist-unwrap + reorder round-trip law on the real 225-block
