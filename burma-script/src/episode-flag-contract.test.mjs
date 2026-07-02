@@ -122,9 +122,15 @@ for (const f of codeFlags) {
 //   • inlineSotName       — restructures SOT blocks on rebuild
 //   • normalizeTableRows  — the sharp one: splits full-width rows and SILENTLY DROPS word-less
 //                           rows on LOAD, which the next autosave then persists.
+//   • rebuildFromSourceWhenPristine — the SHARPEST one: when the saved doc looks byte-pristine,
+//                           migrate-doc.js DISCARDS it entirely and rebuilds the editor doc from the
+//                           episode's source blocks (sample-blocks.json). On Burma that would silently
+//                           throw away Johnny's once-lost precious doc the moment it matched source.
 // Turning any of these on for Burma is a content migration, not a style change, and is gated on an
 // explicit human decision. This lock is the guard on Johnny's precious doc — keep it RED-on-leak.
-const BURMA_FORBIDDEN = ['palauTimecodes', 'inlineSotName', 'normalizeTableRows'];
+// The list mirrors burma-script/config.js's own "every DATA-touching flag (…)" comment — all four,
+// not three: the fourth (rebuildFromSourceWhenPristine) was named in the config but missing here.
+const BURMA_FORBIDDEN = ['palauTimecodes', 'inlineSotName', 'normalizeTableRows', 'rebuildFromSourceWhenPristine'];
 for (const f of BURMA_FORBIDDEN) {
   ok(!burmaFlags.has(f),
     `B: Burma must NOT enable data-touching flag '${f}' (it reshapes the saved doc; needs an explicit migration decision)`);
