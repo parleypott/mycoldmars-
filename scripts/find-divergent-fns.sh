@@ -43,7 +43,10 @@
 # Captures two definition forms (where divergent helpers actually live):
 #   function NAME( ... )                 /  export [async] function NAME(
 #   const NAME = [async] function|( ...  /  export const NAME = (...) =>
-# Excludes: node_modules, dist (build output), and *.test.* / *.spec.* files.
+# Excludes: node_modules, dist + */assets/ (Vite build output — the committed
+# public/*/assets/ bundles are minified, hashed, never hand-edited, so a
+# bundle-vs-source "divergence" is pure noise AND the 1.8MB single-line bundle
+# makes the downstream char-naive body extractor hang), and *.test.* / *.spec.*.
 #
 set -euo pipefail
 
@@ -61,7 +64,7 @@ GREP_OPTS=(
   -rHoE
   --include='*.js' --include='*.mjs' --include='*.ts'
   --exclude='*.test.*' --exclude='*.spec.*'
-  --exclude-dir=node_modules --exclude-dir=dist
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=assets
 )
 
 # Two passes (declaration form + const-expr form), each emitting "path:<keyword name...>".
