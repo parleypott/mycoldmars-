@@ -136,6 +136,18 @@ export function mdToHtml(md) {
   html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+  // Thematic breaks (horizontal rules). A line of 3+ of the SAME marker
+  // (-, *, or _), optionally spaced, is a CommonMark thematic break — LLM
+  // research reports use `---` (and sometimes `***`/`___`) to divide sections
+  // constantly. Without this the divider leaked into the reader as a literal
+  // `<p>---</p>` paragraph. Converted HERE — after headings, before the list
+  // and emphasis passes — so a `***` break can never be eaten by the `**bold**`
+  // / `*em*` transforms, and a `- - -` break is never mistaken for a `- ` bullet
+  // (a bullet needs `- ` then item text; a break is only markers + spaces). The
+  // \1 backref forces all markers to match, so a mixed `-*-` line is left alone.
+  // A GFM table's delimiter row (`| --- | --- |`) carries `|`, which is neither
+  // a marker nor a space, so it never matches here and reaches renderTables intact.
+  html = html.replace(/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, '<hr>');
   // List MARKERS are block structure and must be claimed BEFORE the inline
   // emphasis pass. A `* ` bullet (asterisk + space) is unambiguously a list
   // marker in CommonMark — emphasis can never be immediately followed by
@@ -186,7 +198,7 @@ export function mdToHtml(md) {
   html = html
     .split(/\n{2,}/)
     .map((block) => {
-      if (/^\s*<(h\d|ul|ol|pre|li|p|blockquote|table)/i.test(block.trim())) return block;
+      if (/^\s*<(h\d|hr|ul|ol|pre|li|p|blockquote|table)/i.test(block.trim())) return block;
       if (!block.trim()) return '';
       return `<p>${block.replace(/\n/g, '<br>')}</p>`;
     })

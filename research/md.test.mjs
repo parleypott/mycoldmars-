@@ -321,6 +321,32 @@ eq(esc('a & b'), 'a &amp; b', 'esc ampersand');
 eq(esc(null), '', 'esc null -> empty');
 ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw <script> in report neutralized');
 
+// ── thematic breaks (horizontal rules): `---`/`***`/`___` -> <hr>, not a
+//    literal `<p>---</p>` paragraph. LLM research reports divide sections with
+//    these constantly; without the transform the divider leaked into the reader.
+//    (Mutation-lock: delete the `<hr>` replace line in md.js and the four FIX
+//    assertions go RED while every guard below stays green.)
+{
+  const dash = mdToHtml('First section.\n\n---\n\nSecond section.');
+  ok(dash.includes('<hr>') && !dash.includes('---'), 'FIX: `---` renders <hr>, no literal dashes leak');
+  ok(mdToHtml('A\n\n***\n\nB').includes('<hr>'), 'FIX: `***` thematic break renders <hr>');
+  ok(mdToHtml('A\n\n___\n\nB').includes('<hr>'), 'FIX: `___` thematic break renders <hr>');
+  ok(mdToHtml('A\n\n- - -\n\nB').includes('<hr>'), 'FIX: spaced `- - -` break renders <hr>');
+  // <hr> is block-level: it must stand alone, never wrapped in <p>.
+  eq(mdToHtml('---'), '<hr>', 'FIX: a lone thematic break is not wrapped in <p>');
+  // GUARDS: things that look close but are NOT thematic breaks stay untouched.
+  const bullets = mdToHtml('- item one\n- item two');
+  ok(bullets.includes('<ul>') && bullets.includes('<li>item one</li>') && !bullets.includes('<hr>'),
+     'GUARD: `- ` bullets stay a list, never an <hr>');
+  ok(mdToHtml('text **bold** here').includes('<strong>bold</strong>') && !mdToHtml('text **bold** here').includes('<hr>'),
+     'GUARD: **bold** is never eaten as a `***` break');
+  ok(!mdToHtml('A\n\n--\n\nB').includes('<hr>'), 'GUARD: only two dashes is not a break');
+  ok(!mdToHtml('A\n\n-*-\n\nB').includes('<hr>'), 'GUARD: mixed markers (`-*-`) are not a break');
+  const tbl = mdToHtml('| A | B |\n| --- | --- |\n| 1 | 2 |');
+  ok(tbl.includes('<table>') && tbl.includes('<td>1</td>') && !tbl.includes('<hr>'),
+     'GUARD: a table delimiter row is not swallowed by the <hr> transform');
+}
+
 // ── NO-REGRESSION: normal markdown is byte-identical to the old renderer ──
 // (old===new on every input WITHOUT a dangerous scheme or breakout quote, since
 //  the only changes are the link transform and the ordered-list <ol> wrap — so
