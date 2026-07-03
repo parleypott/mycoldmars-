@@ -147,6 +147,24 @@ eq(strip('+ plus a\n+ plus b'), 'plus a\nplus b', 'plus (+) bullet markers remov
 eq(strip('1) one\n2) two'), 'one\ntwo', 'paren (1)) numbered markers removed');
 eq(strip('a claim[3] here'), 'a claim here', 'citation marker removed');
 eq(strip('claim at end [12]'), 'claim at end', 'trailing citation marker removed + trimmed');
+
+// CITATION CLUSTERS + RANGES — deep-research prose clusters and ranges its refs
+// ("[3, 5]", "[3-5]", "[3–5]", "[3, 5, 7]", "[3; 5]"). The old /\[\d+\]/ caught only
+// a lone number, so every one of these LEAKED into the audio, read aloud as "open
+// bracket three comma five close bracket". Reverting to /\[\d+\]/ turns these RED.
+eq(strip('coup [3, 5] fell'), 'coup fell', 'comma citation cluster removed + seam closed');
+eq(strip('coup [3; 5] fell'), 'coup fell', 'semicolon citation cluster removed');
+eq(strip('era [3, 5, 7] ended'), 'era ended', 'three-number citation cluster removed');
+eq(strip('range [3-5] noted'), 'range noted', 'hyphen citation range removed');
+eq(strip('range [3–5] noted'), 'range noted', 'en-dash citation range removed');
+eq(strip('range [3—5] noted'), 'range noted', 'em-dash citation range removed');
+eq(strip('tight[3,5]word'), 'tightword', 'no-space citation cluster removed');
+ok(!strip('as reported [4, 9, 11] widely').includes('['), 'no bracket leaks from a cluster');
+// GUARD — non-citation brackets must survive (body is not pure digits+separators).
+eq(strip('see [note] below'), 'see [note] below', 'prose bracket [note] kept');
+eq(strip('cost [3.5] each'), 'cost [3.5] each', 'decimal bracket [3.5] kept (not a citation)');
+eq(strip('use [3 items] here'), 'use [3 items] here', 'bracket with words [3 items] kept');
+eq(strip('ref [Smith 2020] cited'), 'ref [Smith 2020] cited', 'author-year bracket kept');
 eq(strip('> a quote'), 'a quote', 'blockquote marker removed');
 eq(strip('line\n\n\n\nline'), 'line\n\nline', 'collapse 3+ blank lines to one');
 eq(strip('  trimmed  '), 'trimmed', 'outer whitespace trimmed');

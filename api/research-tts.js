@@ -19,13 +19,28 @@ export { chunkText };
 // autolinks, AND it mangled __bold__ into "_strong_" and read ~~strike~~ as "tilde".
 // Delegating to the shared core kills all of those leaks at once and ends the drift.
 //
-// The one rule that stays LOCAL: numeric citation markers ([3], [12]) that deep-
-// research prose sprinkles inline and that would otherwise be read aloud as
-// "bracket three". Burma essays don't use those, so it doesn't belong in the shared
-// core. Applied after stripMarkdown (which leaves bare [3] untouched), then a final
-// trim in case a citation sat at the very end.
+// The one rule that stays LOCAL: numeric citation markers that deep-research prose
+// sprinkles inline and that would otherwise be read aloud as "bracket three". Burma
+// essays don't use those, so it doesn't belong in the shared core. Applied after
+// stripMarkdown (which leaves bare citations untouched).
+//
+// Handles the full citation shape, not just a lone [3]: research/academic output
+// routinely CLUSTERS ("[3, 5]", "[3; 5]", "[3, 5, 7]") and RANGES ("[3-5]", the
+// en-dash "[3–5]", the em-dash "[3—5]") its references. The old /\[\d+\]/ caught
+// only a single number, so every cluster/range LEAKED into the audio, read aloud as
+// "open bracket three comma five close bracket" — the exact read-it-aloud failure
+// this stripping exists to kill. The pattern requires the bracket body to be ONLY
+// digits joined by citation separators (start and end on a digit), so real prose
+// brackets ("[see below]", "[3 things]", "[Smith 2020]", a decimal "[3.5]") are
+// never touched. Removing a citation leaves a double space at the seam ("coup [3, 5]
+// fell" -> "coup  fell"); the [ \t]{2,} collapse closes it so the readout is clean.
+// Newlines are untouched, so paragraph structure survives. Final trim in case a
+// citation sat at the very end.
 export function strip(md) {
-  return stripMarkdown(String(md ?? '')).replace(/\[\d+\]/g, '').trim();
+  return stripMarkdown(String(md ?? ''))
+    .replace(/\[\d+(?:\s*[-–—,;]\s*\d+)*\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
 }
 
 export default async function handler(req) {
