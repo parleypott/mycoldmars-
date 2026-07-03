@@ -139,6 +139,26 @@ export function mdToHtml(md) {
   const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
+  // CommonMark AUTOLINKS: `<https://…>`, `<mailto:…>`, and a bare-email
+  // `<name@host>`. esc() has already turned the delimiters into &lt;/&gt;, so
+  // without a rule the whole autolink leaked into the reader as literal
+  // `<https://…>` text — and the TTS narrator (api/_lib/burma-essays-text.js)
+  // already treats these as autolinks, so the VISUAL reader was the inconsistent
+  // one. Match a scheme-URI (or bare email) between the escaped brackets with no
+  // spaces/brackets inside, route the destination through safeHref (so a
+  // `<javascript:…>`/`<data:…>` autolink can NEVER become a live href — it drops
+  // back to literal text), and STASH the rendered <a> so it sails through every
+  // heading/emphasis/list/paragraph transform below intact, exactly like a code
+  // span. A prose comparison ("a &lt; b &gt; c") carries spaces and a bare "&lt;3"
+  // has no scheme/@, so neither matches — they stay literal, unchanged.
+  html = html.replace(/&lt;([a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]+?)&gt;/g, (whole, url) => {
+    const href = safeHref(url);
+    return href ? stub(`<a href="${href}" target="_blank" rel="noopener">${url}</a>`) : whole;
+  });
+  html = html.replace(/&lt;([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+?)&gt;/g, (whole, mail) => {
+    const href = safeHref(`mailto:${mail}`);
+    return href ? stub(`<a href="${href}" target="_blank" rel="noopener">${mail}</a>`) : whole;
+  });
   // Reference-style link DEFINITIONS. Citation-heavy deep-research reports emit
   // numbered references — `[the report][1]` in the prose and `[1]: https://…`
   // definitions at the bottom. Before this, the definition line leaked into the

@@ -735,5 +735,54 @@ function fullOldMd(md) {
      'GUARD: **bold** with a nested *italic* renders both');
 }
 
+// ── CommonMark AUTOLINKS: `<https://…>` / `<mailto:…>` / bare `<email>` ──
+// esc() turns the delimiters into &lt;/&gt;, so with no autolink rule the whole
+// `<url>` leaked into the reader as literal text — while the TTS narrator already
+// treated it as a link (the visual reader was the inconsistent one). The fix
+// routes the destination through safeHref and stashes the rendered <a>.
+{
+  // RED PROOF: without an autolink rule the delimiters survive esc() and the
+  // autolink renders as literal `&lt;…&gt;` text (no <a> tag). oldMd (top of file)
+  // has no autolink handling, so it reproduces the leak.
+  const leak = oldMd('See <https://example.com> here');
+  ok(/&lt;https:\/\/example\.com&gt;/.test(leak) && !/<a /.test(leak),
+     'RED PROOF: without the rule, <https://…> leaks as literal &lt;…&gt; text');
+
+  // FIX: a scheme autolink becomes a real, scheme-checked link.
+  const auto = mdToHtml('See <https://example.com> here');
+  ok(/<a href="https:\/\/example\.com" target="_blank" rel="noopener">https:\/\/example\.com<\/a>/.test(auto),
+     'FIX: <https://…> renders a clickable link with the URL as label');
+  ok(!/&lt;https/.test(auto), 'FIX: no literal &lt;https leaks alongside the link');
+
+  // FIX: mailto autolink and bare-email autolink both linkify (email -> mailto:).
+  ok(/<a href="mailto:hi@newpress\.co"/.test(mdToHtml('Mail <mailto:hi@newpress.co> now')),
+     'FIX: <mailto:…> autolink linkified');
+  ok(/<a href="mailto:hi@newpress\.co"[^>]*>hi@newpress\.co<\/a>/.test(mdToHtml('Reach <hi@newpress.co> today')),
+     'FIX: bare <email> autolink linkified via mailto: with the email as label');
+
+  // GUARD: a dangerous scheme in an autolink is NOT linkified — safeHref drops it
+  // and the text stays literal (this is the load-bearing security assertion;
+  // neutering the safeHref call turns it RED by emitting a live javascript: href).
+  const danger = mdToHtml('Danger <javascript:alert(1)> here');
+  ok(!/<a /.test(danger) && !/href="javascript:/.test(danger),
+     'GUARD: <javascript:…> autolink is never a live href — stays literal');
+  ok(!/<a /.test(mdToHtml('FTP <ftp://x.com/f> here')),
+     'GUARD: a non-whitelisted scheme (<ftp://…>) is left literal, not linkified');
+
+  // GUARD: prose that merely contains < and > is untouched (spaces / no scheme).
+  eq(mdToHtml('Compare a < b and c > d'), '<p>Compare a &lt; b and c &gt; d</p>',
+     'GUARD: prose comparison "a < b … c > d" stays literal');
+  eq(mdToHtml('A heart <3 always'), '<p>A heart &lt;3 always</p>',
+     'GUARD: bare "<3" (no scheme/@) stays literal');
+
+  // GUARD: a disambiguation URL keeps its parens; an existing [label](url) link
+  // and a query-string `&` still render exactly as before (no regression).
+  ok(/wiki\/Burma_\(Myanmar\)<\/a>/.test(mdToHtml('<https://en.wikipedia.org/wiki/Burma_(Myanmar)>')),
+     'GUARD: autolink with balanced parens keeps them in href+label');
+  eq(mdToHtml('[label](https://normal.com) still works'),
+     '<p><a href="https://normal.com" target="_blank" rel="noopener">label</a> still works</p>',
+     'GUARD: existing inline [label](url) link unaffected by the autolink pass');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
