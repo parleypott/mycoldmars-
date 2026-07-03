@@ -176,8 +176,18 @@ export function mdToHtml(md) {
   // paren in the href instead of truncating at the first ')' and leaking a
   // stray ')' into the body text. `[^()]` still stops at an unmatched ')',
   // so it never over-consumes into trailing prose or a following link.
-  html = html.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, url) => {
-    const href = safeHref(url);
+  html = html.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, dest) => {
+    // Split off an optional CommonMark link TITLE: `[t](url "title")` /
+    // `(url 'title')` / `(url (title))`. The title is metadata, never part of
+    // the href — LLM research prose emits titled links constantly. Before this,
+    // the whole `url "title"` string went to safeHref, whose URL parser rejected
+    // the embedded space/quotes and returned null, so the ENTIRE link was
+    // dropped (label rendered as bare text, href lost). A real link destination
+    // carries no unescaped whitespace, so the href is the first whitespace-
+    // delimited token; only strip the remainder when it matches a title (else
+    // keep the whole string — no regression for malformed/spaced dests).
+    const m = dest.match(/^(\S+)\s+(?:"[^"]*"|'[^']*'|\([^()]*\))$/);
+    const href = safeHref(m ? m[1] : dest);
     return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
   });
   // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without

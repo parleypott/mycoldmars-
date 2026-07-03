@@ -108,6 +108,42 @@ eq(safeHref('  https://e.com  '), 'https://e.com', 'safeHref trims surrounding w
 // a paren mid-URL is preserved too
 ok(mdToHtml('[foo](https://e.com/a_(b)_c)').includes('href="https://e.com/a_(b)_c"'),
    'mid-URL balanced paren preserved');
+// ── CommonMark link TITLES: [t](url "title") — strip the title, KEEP the link ──
+// LLM research prose emits titled links constantly. Before the fix, the whole
+// `url "title"` went to safeHref, whose URL parser rejected the embedded space/
+// quotes and returned null, so the ENTIRE link was dropped (label rendered as
+// bare text, href lost). RED PROOF: the old single-arg transform (no title
+// split) dropped the link — its output has no <a href>.
+function oldTitleMd(md) {
+  const oesc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let h = oesc(md);
+  // Reproduce the pre-fix link transform: pass the FULL dest (incl. title) to
+  // the same scheme-checked href logic mdToHtml used, with no title split.
+  h = h.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, dest) => {
+    let href = null;
+    try { const u = new URL(String(dest).trim(), 'https://research.local/');
+      if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:') href = String(dest).trim().replace(/"/g, '&quot;'); } catch {}
+    return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
+  });
+  return h;
+}
+ok(!/<a /.test(oldTitleMd('[the source](https://example.com "Great Page")')),
+   'RED PROOF: old renderer DROPPED a titled link (no <a> emitted)');
+for (const [name, md] of [
+  ['double-quote', '[the source](https://example.com "Great Page")'],
+  ['single-quote', "[src](https://example.com 'A Title')"],
+  ['paren',        '[src](https://example.com (A Title))'],
+]) {
+  const out = mdToHtml(md);
+  ok(out.includes('href="https://example.com"'), `FIX: ${name} title stripped, href preserved`);
+  ok(!/Great Page|A Title/.test(out), `FIX: ${name} title text not leaked into output`);
+}
+// no-title link is byte-identical (guard against over-stripping)
+ok(mdToHtml('[src](https://example.com)').includes('href="https://example.com"'),
+   'GUARD: untitled link unchanged');
+// a spaced-but-not-a-title dest keeps the whole string (no regression, no drop)
+ok(mdToHtml('[x](foo bar baz)').includes('href="foo bar baz"'),
+   'GUARD: spaced non-title dest is not treated as a title');
 // the balanced matcher must NOT over-consume into trailing prose or a next link
 {
   const trail = mdToHtml('see [a](http://x.com) and (a note)');
