@@ -555,5 +555,103 @@ function fullOldMd(md) {
      'GUARD: inline [label](url) links still work');
 }
 
+// ── images `![alt](url)` render the ALT text, not `!` + a spurious link ──
+// The inline link transform matches `[alt](url)`, so an image leaked as
+// `!<a href=url>alt</a>` — the `!` leaked AND the reader (which has no image
+// support) emitted a live link to the image binary. Now the image is reduced to
+// its alt text before the link pass.
+// (Mutation-lock: delete the `![alt](url)` replace line in md.js and the FIX
+//  assertions go RED; the plain-link GUARD stays green.)
+{
+  // RED PROOF: the genuine old renderer leaks `!` and linkifies the image URL.
+  const oldImg = fullOldMd('See ![a chart](https://example.com/chart.png) here.');
+  ok(/!<a [^>]*href="https:\/\/example\.com\/chart\.png"[^>]*>a chart<\/a>/.test(oldImg),
+     'RED PROOF: old renderer leaks `!` and turns the image into a live link');
+
+  const out = mdToHtml('See ![a chart](https://example.com/chart.png) here.');
+  eq(out, '<p>See a chart here.</p>', 'FIX: image renders its alt text, no `!` and no <a>');
+  ok(!/<a /.test(out), 'FIX: image does not produce a live link');
+  ok(!/chart\.png/.test(out), 'FIX: the image URL is not leaked into the reader');
+
+  // empty alt collapses to nothing
+  eq(mdToHtml('![](https://e.com/x.png)'), '', 'FIX: empty-alt image collapses to empty');
+  // image with a balanced-paren URL still fully consumed (no stray `)` leak)
+  eq(mdToHtml('![map](https://e.com/Foo_(bar).png)'), '<p>map</p>',
+     'FIX: balanced-paren image URL fully consumed');
+  // a linked image `[![alt](img)](url)` degrades to a text link (alt as label)
+  ok(/<a href="https:\/\/dest\.com"[^>]*>logo<\/a>/.test(
+       mdToHtml('[![logo](https://img.com/l.png)](https://dest.com)')),
+     'FIX: linked image degrades to a text link with the alt as its label');
+  // GUARD: a normal (non-image) link is unaffected by the image pass.
+  ok(/<a href="https:\/\/n\.com"[^>]*>link<\/a>/.test(mdToHtml('A [link](https://n.com) here.')),
+     'GUARD: a plain [link](url) is untouched by the image transform');
+  // GUARD: a bare `!` in prose (not an image) stays literal.
+  eq(mdToHtml('Wow! That is great.'), '<p>Wow! That is great.</p>', 'GUARD: a lone `!` in prose stays literal');
+}
+
+// ── triple emphasis `***word***` -> nested <strong><em>, not crossed tags ──
+// The `**bold**` pass half-ate a `***…***` run, producing malformed/crossed
+// tags (<strong>*word</strong>* then a garbled <em>). A dedicated triple rule
+// before the bold/italic passes renders it as proper nested emphasis.
+// (Mutation-lock: delete the `***…***` replace line in md.js and the FIX
+//  assertions go RED; the **bold**/*em*/`***`-break GUARDs stay green.)
+{
+  // RED PROOF: the genuine old renderer produces CROSSED tags (</strong> closes
+  // before </em> — invalid nesting) instead of clean nested emphasis.
+  const oldTri = fullOldMd('This is ***very*** important.');
+  ok(/<strong><em>very<\/strong><\/em>/.test(oldTri),
+     'RED PROOF: old renderer emits crossed <strong><em>…</strong></em> tags');
+  ok(!/<strong><em>very<\/em><\/strong>/.test(oldTri), 'RED PROOF: old renderer does NOT emit clean nested tags');
+
+  eq(mdToHtml('This is ***very*** important.'), '<p>This is <strong><em>very</em></strong> important.</p>',
+     'FIX: ***word*** renders as nested <strong><em>');
+  ok(!/<strong>\*/.test(mdToHtml('***x***')), 'FIX: no stray `*` leaks inside the strong tag');
+  eq(mdToHtml('***x***'), '<p><strong><em>x</em></strong></p>', 'FIX: a lone ***x*** renders clean nested tags');
+  // triple + neighbouring double/single all render in one line
+  eq(mdToHtml('***a*** and **b** and *c*'),
+     '<p><strong><em>a</em></strong> and <strong>b</strong> and <em>c</em></p>',
+     'FIX: triple, double, and single emphasis coexist on one line');
+  // GUARD: plain **bold** and *italic* are unchanged.
+  eq(mdToHtml('**bold** here'), '<p><strong>bold</strong> here</p>', 'GUARD: **bold** unchanged');
+  eq(mdToHtml('*italic* here'), '<p><em>italic</em> here</p>', 'GUARD: *italic* unchanged');
+  // GUARD: a standalone `***` line is still a thematic break, never emphasis.
+  ok(mdToHtml('A\n\n***\n\nB').includes('<hr>'), 'GUARD: standalone `***` stays a thematic break');
+}
+
+// ── setext headings: `Title\n===` -> <h1>, `Title\n---` -> <h2> ──
+// LLM research prose uses setext headings; before this the `===` underline leaked
+// as a literal paragraph and the `-` underline was eaten by the thematic-break
+// rule (Title became a <p> followed by a stray <hr>).
+// (Mutation-lock: delete either setext replace line in md.js and its FIX
+//  assertion goes RED; the blank-line-above and marker-above GUARDs stay green.)
+{
+  // RED PROOF: the genuine old renderer leaks the underline / splits into <p>+<hr>.
+  const oldH1 = fullOldMd('Section Title\n===');
+  ok(/===/.test(oldH1) && !/<h1>Section Title<\/h1>/.test(oldH1),
+     'RED PROOF: old renderer leaks the `===` underline, no <h1>');
+  const oldH2 = fullOldMd('Section Title\n---');
+  ok(!/<h2>Section Title<\/h2>/.test(oldH2), 'RED PROOF: old renderer does NOT emit a setext <h2>');
+
+  eq(mdToHtml('Section Title\n==='), '<h1>Section Title</h1>', 'FIX: `Title\\n===` renders <h1>');
+  eq(mdToHtml('Section Title\n---'), '<h2>Section Title</h2>', 'FIX: `Title\\n---` (no blank above) renders <h2>');
+  ok(/<h2>Findings<\/h2>/.test(mdToHtml('Findings\n---\n\nbody text')),
+     'FIX: setext <h2> heading, then following prose is a separate paragraph');
+  ok(mdToHtml('Findings\n---').includes('<h2>') && !mdToHtml('Findings\n---').includes('<hr>'),
+     'FIX: the `---` underline becomes an <h2>, NOT a stray <hr>');
+  // inline emphasis inside a setext heading still renders (runs after this pass)
+  ok(/<h1>A <strong>Bold<\/strong> Title<\/h1>/.test(mdToHtml('A **Bold** Title\n===')),
+     'FIX: inline **bold** inside a setext heading still renders');
+
+  // GUARD: a `---` preceded by a BLANK line has no text above -> thematic break.
+  const br = mdToHtml('First section.\n\n---\n\nSecond section.');
+  ok(br.includes('<hr>') && !br.includes('<h2>'), 'GUARD: `---` after a blank line stays a thematic break');
+  // GUARD: a bullet list is not consumed as a setext heading.
+  eq(mdToHtml('- a\n- b'), '<ul><li>a</li>\n<li>b</li></ul>', 'GUARD: `- ` bullets stay a list, not an <h2>');
+  // GUARD: an ordered list is untouched.
+  ok(/<ol>/.test(mdToHtml('1. one\n2. two')), 'GUARD: numbered list stays an <ol>');
+  // GUARD: `--` (two dashes) after a blank line is not a heading nor a break.
+  ok(!mdToHtml('A\n\n--\n\nB').includes('<h2>'), 'GUARD: `--` above nothing is not a setext heading');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

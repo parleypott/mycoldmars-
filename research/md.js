@@ -167,6 +167,24 @@ export function mdToHtml(md) {
   html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+  // Setext headings: a text line immediately followed by a line of `=` (-> h1)
+  // or `-` (-> h2). LLM research prose emits these constantly. Without this, the
+  // `===` underline leaked as a literal paragraph and the `-` underline was eaten
+  // by the thematic-break rule below (Title became a <p> followed by a stray
+  // <hr>). Runs BEFORE thematic breaks so a `---` UNDERLINE (a non-blank text
+  // line directly above it, no blank line between) becomes an <h2> — while a
+  // `---` preceded by a BLANK line has no text line above, so it stays a
+  // thematic break. The text line is skipped when it is blank or already a block
+  // (an ATX heading / <hr> / list marker / blockquote) so a real bullet or ATX
+  // heading sitting above a rule is left for the thematic-break + list passes.
+  const setext = (whole, text, marker) =>
+    /^\s*$/.test(text) ||
+    /^\s*<(?:h\d|hr|ul|ol|li|pre|blockquote|table)/i.test(text) ||
+    /^[ \t]*(?:[-*+] |\d+\. |&gt;)/.test(text)
+      ? whole
+      : `<${marker}>${text.trim()}</${marker}>`;
+  html = html.replace(/^([^\n]+)\n[ \t]*=+[ \t]*$/gm, (m, t) => setext(m, t, 'h1'));
+  html = html.replace(/^([^\n]+)\n[ \t]*-+[ \t]*$/gm, (m, t) => setext(m, t, 'h2'));
   // Thematic breaks (horizontal rules). A line of 3+ of the SAME marker
   // (-, *, or _), optionally spaced, is a CommonMark thematic break — LLM
   // research reports use `---` (and sometimes `***`/`___`) to divide sections
@@ -200,6 +218,12 @@ export function mdToHtml(md) {
   // spans/fences are already stashed, so an indented `- ` inside code is safe.
   html = html.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
   html = html.replace(/^[ \t]*\d+\. (.*)$/gm, '<oli>$1</oli>');
+  // Triple emphasis `***word***` -> nested <strong><em>. Must run BEFORE the
+  // `**bold**` and `*em*` passes: those would half-eat a `***…***` run into
+  // crossed/malformed tags (<strong>*word</strong>* then a garbled <em>). The
+  // `***` thematic-break line was already claimed above (it is markers-only),
+  // so only an INLINE `***word***` (carrying word chars) reaches here.
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
   // Underscore emphasis (__bold__, _italic_) and GFM strikethrough (~~struck~~).
@@ -222,6 +246,12 @@ export function mdToHtml(md) {
   // paren in the href instead of truncating at the first ')' and leaking a
   // stray ')' into the body text. `[^()]` still stops at an unmatched ')',
   // so it never over-consumes into trailing prose or a following link.
+  // Images `![alt](url)`: the reader has no image support, so render the ALT
+  // text (dropping the leading `!` and the URL) instead of leaking a literal `!`
+  // followed by a spurious link. Runs BEFORE the inline link transform so the
+  // `[alt](url)` remnant is never linkified. A linked image `[![alt](img)](url)`
+  // degrades to a plain text link (its alt becomes the link label).
+  html = html.replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))*)\)/g, (_, alt) => alt);
   html = html.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, dest) => {
     // Split off an optional CommonMark link TITLE: `[t](url "title")` /
     // `(url 'title')` / `(url (title))`. The title is metadata, never part of
