@@ -653,6 +653,36 @@ function fullOldMd(md) {
   ok(!mdToHtml('A\n\n--\n\nB').includes('<h2>'), 'GUARD: `--` above nothing is not a setext heading');
 }
 
+// ── ATX headings strip the optional CommonMark CLOSING `#` sequence ──────────
+// `## Heading ##` -> <h2>Heading</h2>. Before this the greedy `(.*)` capture kept
+// the trailing `##` as literal text ("Heading ##") — LLM research prose emits
+// closed ATX headings often enough to reach the reader.
+// (Mutation-lock: revert md.js's combined heading rule to a greedy `(.*)` capture
+//  and the closing-sequence FIX assertions go RED; the open-heading + level +
+//  fused-`#` GUARDs stay green.)
+{
+  // RED PROOF: the genuine old renderer leaks the trailing closing hashes.
+  const oldClosed = fullOldMd('## Heading ##');
+  ok(/Heading ##/.test(oldClosed), 'RED PROOF: old renderer leaks the trailing `##` into the heading');
+
+  eq(mdToHtml('## Heading ##'), '<h2>Heading</h2>', 'FIX: closed ATX heading drops the trailing `##`');
+  eq(mdToHtml('# Title #'), '<h1>Title</h1>', 'FIX: closer run length need not match the opener');
+  eq(mdToHtml('### Deep ###'), '<h3>Deep</h3>', 'FIX: closing sequence stripped at h3');
+  eq(mdToHtml('## Spaced  ##  '), '<h2>Spaced</h2>', 'FIX: trailing spaces after the closer are trimmed');
+  // GUARD: an OPEN heading (the common case) is unchanged.
+  eq(mdToHtml('## Findings'), '<h2>Findings</h2>', 'GUARD: open ATX heading is unchanged');
+  eq(mdToHtml('###### deep'), '<h6>deep</h6>', 'GUARD: six-hash heading still maps to <h6>');
+  // GUARD: a `#` FUSED to the content (no preceding space) is literal, not a closer.
+  eq(mdToHtml('## C#'), '<h2>C#</h2>', 'GUARD: fused `#` (no space) stays part of the heading text');
+  // GUARD: a MID-line `#` is untouched.
+  eq(mdToHtml('## a # b'), '<h2>a # b</h2>', 'GUARD: an interior `#` is not a closer');
+  // GUARD: inline emphasis inside a closed heading still renders.
+  ok(/<h2><strong>Bold<\/strong><\/h2>/.test(mdToHtml('## **Bold** ##')),
+     'GUARD: inline **bold** inside a closed heading still renders');
+  // GUARD: seven leading `#` is not a heading (needs the space after 1-6).
+  ok(!/<h[1-6]>/.test(mdToHtml('####### too many')), 'GUARD: 7+ hashes is not an ATX heading');
+}
+
 // ── Single `*em*` is CommonMark FLANKING-AWARE ───────────────────────────────
 // Whitespace-flanked asterisks — arithmetic ("3 * 4 * 5"), a bare glob
 // ("* wildcard *") — must NOT be read as an emphasis span and italicise the

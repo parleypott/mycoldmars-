@@ -181,12 +181,20 @@ export function mdToHtml(md) {
       return '';
     },
   );
-  html = html.replace(/^###### (.*)$/gm, '<h6>$1</h6>');
-  html = html.replace(/^##### (.*)$/gm, '<h5>$1</h5>');
-  html = html.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
-  html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+  // ATX headings (`# ` … `###### `). One combined rule: the leading run of 1-6
+  // `#` sets the level (greedy, so `## x` is an <h2>, never <h1> + a literal `# x`)
+  // and must be followed by a space. CommonMark also allows an OPTIONAL CLOSING
+  // sequence of `#`s — `## Heading ##` -> <h2>Heading</h2>: a trailing `#` run,
+  // when separated from the content by whitespace, is a decorative closer, not
+  // text. The old per-level rules captured `(.*)` greedily, so a closed heading
+  // leaked its trailing `##` into the reader ("Heading ##"). LLM research prose
+  // emits closed ATX headings often enough to reach the report. `(.*?)` is
+  // non-greedy and the `(?:[ \t]+#+)?[ \t]*$` tail strips a whitespace-separated
+  // closing run (plus any trailing spaces); a `#` fused to the content ("foo#",
+  // no preceding space) is NOT a closer and stays literal, and a mid-line `#`
+  // ("a # b") is untouched. Seven+ leading `#` never matches (the 7th breaks the
+  // required space), exactly like the old rules.
+  html = html.replace(/^(#{1,6}) (.*?)(?:[ \t]+#+)?[ \t]*$/gm, (_, h, t) => `<h${h.length}>${t}</h${h.length}>`);
   // Setext headings: a text line immediately followed by a line of `=` (-> h1)
   // or `-` (-> h2). LLM research prose emits these constantly. Without this, the
   // `===` underline leaked as a literal paragraph and the `-` underline was eaten
