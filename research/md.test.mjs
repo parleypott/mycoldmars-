@@ -955,5 +955,59 @@ function fullOldMd(md) {
      'RED PROOF: the OLD autolink-first ordering double-nests the <a> tag');
 }
 
+// ── CommonMark BACKSLASH ESCAPES (research/md.js) ──────────────────────────
+// A `\` before an ASCII-punctuation char makes it LITERAL and strips its
+// markdown meaning. Before the fix mdToHtml had NO backslash handling, so an
+// escaped `\*word\*` was italicised AND leaked its backslashes, and `\#`/`\[`/`\$`
+// leaked the backslash into the report. The TTS narrator
+// (api/_lib/burma-essays-text.js) already unescaped these — the visual reader was
+// the lone inconsistent path. LLM research prose emits escapes constantly
+// (showing literal markdown, `\$` before a price, `2 \* 3` for a literal star).
+{
+  // RED PROOF: the OLD (no-escape) path leaked backslashes AND spuriously emphasised.
+  // Reconstruct just the single-`*` emphasis pass the shipped renderer runs, with
+  // NO backslash handling in front of it — exactly the pre-fix behavior.
+  const oldEscPath = (() => {
+    let h = esc('a \\*escaped\\* star');
+    h = h.replace(/(^|[^*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '$1<em>$2</em>');
+    return h;
+  })();
+  ok(/\\<em>escaped\\<\/em>/.test(oldEscPath),
+     'RED PROOF: old no-escape path leaks backslashes and wraps escaped \\*…\\* in <em>');
+
+  // FIX: escaped delimiters render as their LITERAL char — no <em>, no backslash.
+  eq(mdToHtml('a \\*escaped\\* star'), '<p>a *escaped* star</p>',
+     'escaped \\*…\\* -> literal asterisks, no emphasis, no backslash');
+  eq(mdToHtml('2 \\* 3 = 6'), '<p>2 * 3 = 6</p>',
+     'escaped multiply asterisk stays literal');
+  eq(mdToHtml('escaped \\_underscore\\_ word'), '<p>escaped _underscore_ word</p>',
+     'escaped \\_…\\_ -> literal underscores, no emphasis');
+  eq(mdToHtml('\\# not a heading'), '<p># not a heading</p>',
+     'escaped \\# -> literal hash, not an <h1>');
+  eq(mdToHtml('a \\[not a link\\] here'), '<p>a [not a link] here</p>',
+     'escaped \\[ \\] -> literal brackets');
+  eq(mdToHtml('price is \\$5 today'), '<p>price is $5 today</p>',
+     'escaped \\$ -> literal dollar sign');
+  eq(mdToHtml('a backslash \\\\ then text'), '<p>a backslash \\ then text</p>',
+     'escaped \\\\ -> one literal backslash');
+  // Entity-producing escapes stay HTML-safe (esc() ran first, so `\<` is `\&lt;`).
+  eq(mdToHtml('escaped \\<tag\\> here'), '<p>escaped &lt;tag&gt; here</p>',
+     'escaped \\< \\> -> literal, entity-encoded (no live tag)');
+  eq(mdToHtml('escaped \\& ampersand'), '<p>escaped &amp; ampersand</p>',
+     'escaped \\& -> literal ampersand, entity-encoded');
+
+  // NON-REGRESSION: a backslash before a NON-punctuation char is NOT an escape
+  // (a Windows path, a LaTeX macro) and must survive untouched; real markdown
+  // must still render.
+  eq(mdToHtml('LaTeX \\alpha stays'), '<p>LaTeX \\alpha stays</p>',
+     'backslash + letter is not an escape — left literal');
+  eq(mdToHtml('C:\\\\Users\\\\Johnny'), '<p>C:\\Users\\Johnny</p>',
+     'windows path double-backslash collapses per CommonMark, no mangling');
+  eq(mdToHtml('**bold** and *italic*'), '<p><strong>bold</strong> and <em>italic</em></p>',
+     'REGRESSION: unescaped emphasis still renders');
+  eq(mdToHtml('`\\*in code\\*`'), '<p><code>\\*in code\\*</code></p>',
+     'REGRESSION: backslash escapes are INERT inside code spans (verbatim)');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

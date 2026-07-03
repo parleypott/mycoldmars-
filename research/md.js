@@ -139,6 +139,26 @@ export function mdToHtml(md) {
   const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
+  // CommonMark BACKSLASH ESCAPES. A `\` before any ASCII-punctuation char makes
+  // that char LITERAL and strips its markdown meaning — `\*not italic\*` renders
+  // the visible text `*not italic*`, `\#` a literal `#`, `\[x\]` literal brackets.
+  // Without this the reader treated the escaped delimiter as live syntax: an
+  // escaped `\*word\*` was italicised AND leaked its backslashes ("\<em>word\</em>"),
+  // and an escaped `\#`/`\[`/`\-` leaked its backslash into the report. LLM
+  // research prose emits these constantly (showing literal markdown, `\$` before a
+  // price, `2 \* 3` to force literal asterisks). The TTS narrator
+  // (api/_lib/burma-essays-text.js) already unescapes them — the VISUAL reader was
+  // the lone inconsistent path. Runs AFTER code stashing (backslash escapes are
+  // INERT inside code spans per CommonMark) and BEFORE every structural/emphasis
+  // pass, stashing each escaped char as an inert stub so no downstream transform
+  // can treat it as a delimiter; it restores verbatim at the end with the code
+  // spans. `& < >` are already entity-encoded by esc(), so an escaped `\<`/`\&`/`\>`
+  // arrives as `\&lt;`/`\&amp;`/`\&gt;` — handled first, stashing the entity so the
+  // literal `<`/`&`/`>` survives HTML-safe. The plain branch mirrors the narrator's
+  // exact escapable class; a backslash before a NON-punctuation char (a Windows
+  // path `C:\Users`, a LaTeX `\alpha`) is not an escape and is left untouched.
+  html = html.replace(/\\(&(?:amp|lt|gt);)/g, (_, ent) => stub(ent));
+  html = html.replace(/\\([!-\/:-@\[-`{-~])/g, (_, ch) => stub(ch));
   // Reference-style link DEFINITIONS. Citation-heavy deep-research reports emit
   // numbered references — `[the report][1]` in the prose and `[1]: https://…`
   // definitions at the bottom. Before this, the definition line leaked into the
