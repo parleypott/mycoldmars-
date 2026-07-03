@@ -212,6 +212,45 @@ ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
   ok(/<ul><li>bullet<\/li>/.test(mixed), 'mixed doc: bullet run -> <ul>');
   ok(/<ol><li>number<\/li>/.test(mixed), 'mixed doc: number run -> <ol>');
 }
+// ── `* ` bullet whose text contains *emphasis* stays a list item ──
+// The emphasis pass used to run BEFORE list-marker conversion, so the leading
+// `* ` of an asterisk-bulleted item was treated as an emphasis OPENER: it ate
+// the bullet, the line stopped being a list item, and a stray `*` leaked into
+// the reader. A `* ` (asterisk + space) is unambiguously a CommonMark bullet —
+// emphasis can never be immediately followed by whitespace — so the marker must
+// be claimed first. RED PROOF: the genuine old ordering (emOldMd, below)
+// reproduces the mangle.
+{
+  const one = mdToHtml('* Second *important* point');
+  ok(/<ul><li>Second <em>important<\/em> point<\/li><\/ul>/.test(one),
+     'FIX: `* ` bullet with *emphasis* renders as an <li> with <em> inside');
+  ok(!/<em> Second <\/em>/.test(one), 'FIX: leading `* ` bullet is NOT eaten as an emphasis opener');
+
+  const two = mdToHtml('* one *em* and *two* here');
+  ok(/<li>one <em>em<\/em> and <em>two<\/em> here<\/li>/.test(two),
+     'FIX: `* ` bullet with two emphasis spans renders both, keeps the item');
+
+  const boldMix = mdToHtml('* **Bold:** and *em* mixed');
+  ok(/<li><strong>Bold:<\/strong> and <em>em<\/em> mixed<\/li>/.test(boldMix),
+     'FIX: `* ` bullet mixing **bold** + *em* renders both inside one <li>');
+
+  // A `-` bulleted item with emphasis was never mangled (only `* ` was), but lock it too.
+  const dash = mdToHtml('- point with *stress*');
+  ok(/<li>point with <em>stress<\/em><\/li>/.test(dash), '`-` bullet with *emphasis* renders cleanly');
+
+  // RED PROOF: emphasis-before-list-conversion eats the `* ` marker and leaks a stray `*`.
+  const oesc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function emOldMd(md) {
+    let h = oesc(md);
+    h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    h = h.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');   // runs BEFORE list conversion (old bug)
+    h = h.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
+    return h;
+  }
+  const old = emOldMd('* Second *important* point');
+  ok(/<em> Second <\/em>/.test(old) && !/<li>/.test(old),
+     'RED PROOF: old ordering eats the `* ` marker, no <li>, stray `*` leaks');
+}
 
 // ── blockquotes render as <blockquote>, not a leaked `>` marker ──
 // esc() turns a leading `>` into `&gt;`; before the blockquote transform a

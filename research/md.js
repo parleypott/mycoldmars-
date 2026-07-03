@@ -136,6 +136,20 @@ export function mdToHtml(md) {
   html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+  // List MARKERS are block structure and must be claimed BEFORE the inline
+  // emphasis pass. A `* ` bullet (asterisk + space) is unambiguously a list
+  // marker in CommonMark — emphasis can never be immediately followed by
+  // whitespace — but if the emphasis rules below run first they treat the
+  // leading `* ` of an item whose text contains a `*emphasis*` span as an
+  // emphasis opener: they eat the bullet marker, so the line is no longer a
+  // list item, and a stray `*` leaks into the reader ("* Second *important*
+  // point" -> "<em> Second </em>important* point"). Converting bullets and
+  // numbered items to <li>/<oli> here fixes that; the emphasis/link transforms
+  // below then run over the item TEXT and still render correctly. The <ul>/<ol>
+  // wrap still happens after the inline pass — the marker tags carry no * [ `
+  // for those transforms to mangle.
+  html = html.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
+  html = html.replace(/^\d+\. (.*)$/gm, '<oli>$1</oli>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
   // URL capture allows one level of balanced parens so Wikipedia-style
@@ -159,12 +173,11 @@ export function mdToHtml(md) {
     const inner = m.replace(/^&gt;[ \t]?/gm, '').replace(/\n/g, '<br>');
     return `<blockquote>${inner}</blockquote>`;
   });
-  html = html.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
-  // Ordered items get a distinct <oli> marker so the wrap pass below can emit a
-  // numbered <ol> rather than a bulleted <ul> — and, critically, so they get
-  // wrapped AT ALL. They were converted *after* the <ul> wrap before, leaving
-  // every numbered list as orphan <li> with no list container (no <ol>/<ul>).
-  html = html.replace(/^\d+\. (.*)$/gm, '<oli>$1</oli>');
+  // Wrap the runs of <li>/<oli> markers (converted up before the inline pass so a
+  // `* ` bullet marker is never eaten by emphasis). Ordered items carry the <oli>
+  // marker so this emits a numbered <ol> rather than a bulleted <ul> — and,
+  // critically, so they get wrapped AT ALL (they used to be converted AFTER the
+  // <ul> wrap, leaving every numbered list as orphan <li> with no container).
   html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
   html = html.replace(/(<oli>[\s\S]*?<\/oli>\n?)+/g, (m) => `<ol>${m.replace(/<(\/?)oli>/g, '<$1li>')}</ol>`);
   // GFM tables: a single-newline block (no blank lines between rows) that the
