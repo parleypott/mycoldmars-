@@ -53,6 +53,15 @@ function fenceCode(c) {
   return c.trim();
 }
 
+// CommonMark reference-label normalisation: trim, collapse internal whitespace
+// to a single space, and case-fold. `[The Report]`, `[the report]`, and
+// `[the   report]` all resolve to the same definition. Used for BOTH the
+// definition side (`[label]: url`) and every reference side (full/collapsed/
+// shortcut), so the two always agree.
+function normRefLabel(s) {
+  return String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 // A GFM table delimiter row: one+ cells of optional-colon + dashes, pipe-joined,
 // with optional outer pipes. e.g. `| --- | :--: |`, `---|---`, `| :-- |`.
 const TABLE_DELIM = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
@@ -130,6 +139,28 @@ export function mdToHtml(md) {
   const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
+  // Reference-style link DEFINITIONS. Citation-heavy deep-research reports emit
+  // numbered references — `[the report][1]` in the prose and `[1]: https://…`
+  // definitions at the bottom. Before this, the definition line leaked into the
+  // reader as a literal `<p>[1]: https://…</p>` and every `[label][ref]` /
+  // shortcut `[label]` reference leaked as literal bracket text (the inline
+  // `[label](url)` transform only matches parenthesised links). Collect each
+  // definition into `refs` (normalised label -> destination) and STRIP its line
+  // here — after code is stashed (so a `[x]: y` inside a code span is untouched)
+  // and before the heading/list/paragraph passes (so the stripped line can never
+  // become a <p>/<li>). A definition is `[label]: dest` with up to 3 leading
+  // spaces and an OPTIONAL trailing title ("…" / '…' / (…)); the destination is
+  // the first whitespace-delimited token. Resolution happens after the inline
+  // link pass below.
+  const refs = new Map();
+  html = html.replace(
+    /^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(\S+)(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*$/gm,
+    (_, label, dest) => {
+      const key = normRefLabel(label);
+      if (!refs.has(key)) refs.set(key, dest); // first definition wins (CommonMark)
+      return '';
+    },
+  );
   html = html.replace(/^###### (.*)$/gm, '<h6>$1</h6>');
   html = html.replace(/^##### (.*)$/gm, '<h5>$1</h5>');
   html = html.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
@@ -205,6 +236,28 @@ export function mdToHtml(md) {
     const href = safeHref(m ? m[1] : dest);
     return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
   });
+  // Reference-style link RESOLUTION, using the `refs` map collected above. Runs
+  // after the inline `[label](url)` pass (those are already <a> tags, so no bare
+  // `[…]` remains for these to touch). FULL/COLLAPSED first — `[text][ref]` (and
+  // `[text][]`, which reuses `text` as the label) — so the shortcut pass below
+  // can't eat the leading `[text]` of a full reference. Then SHORTCUT — a bare
+  // `[text]` whose text is itself a defined label (`[1]` with a `[1]: url`
+  // definition). Both linkify ONLY when the label resolves to a definition with
+  // an allowed scheme; an unknown or dangerous reference is left byte-identical
+  // to the input, so undefined bracket text (`[fig 3]`, array notation) is
+  // untouched — no regression for prose that merely uses square brackets.
+  if (refs.size) {
+    const refLink = (whole, label, key) => {
+      const dest = refs.get(normRefLabel(key));
+      if (dest === undefined) return whole;
+      const href = safeHref(dest);
+      return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : whole;
+    };
+    html = html.replace(/\[([^\]\n]+)\]\[([^\]\n]*)\]/g, (whole, label, ref) =>
+      refLink(whole, label, ref.trim() || label),
+    );
+    html = html.replace(/\[([^\]\n]+)\]/g, (whole, label) => refLink(whole, label, label));
+  }
   // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
   // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —
   // the marker leaked into the reader's report as a literal `>`. LLM research

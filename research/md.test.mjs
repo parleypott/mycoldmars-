@@ -497,5 +497,63 @@ function fullOldMd(md) {
   return html;
 }
 
+// ── reference-style links: [text][1] + [1]: url definitions ──
+// Citation-heavy deep-research reports emit numbered references — `[the report][1]`
+// in the prose with `[1]: https://…` definitions at the bottom — plus collapsed
+// `[label][]` and shortcut `[label]` forms. Before this the definition LINE leaked
+// as a literal `<p>[1]: https://…</p>` and every reference leaked as literal bracket
+// text (the inline `[label](url)` transform only matches parenthesised links).
+// (Mutation-lock: delete either the definition-collect `refs` block or the
+//  resolution `if (refs.size)` block in md.js and the FIX assertions go RED while
+//  the GUARDs — undefined/dangerous/array-notation — stay green.)
+{
+  // RED PROOF: the genuine old renderer leaks both the reference AND its definition.
+  const oldFull = fullOldMd('See [the report][1] for details.\n\n[1]: https://example.com/report');
+  ok(/\[the report\]\[1\]/.test(oldFull), 'RED PROOF: old renderer leaks the [text][1] reference as literal text');
+  ok(/\[1\]: https:\/\/example\.com\/report/.test(oldFull), 'RED PROOF: old renderer leaks the [1]: url definition line');
+
+  // FULL reference: [text][1] resolves, the definition line is stripped.
+  const full = mdToHtml('See [the report][1] for details.\n\n[1]: https://example.com/report');
+  ok(/<a href="https:\/\/example\.com\/report"[^>]*>the report<\/a>/.test(full),
+     'FIX: [text][1] resolves to the defined link');
+  ok(!/\[1\]:/.test(full) && !/\[the report\]/.test(full), 'FIX: definition line + bracket syntax gone');
+
+  // COLLAPSED reference: [OpenAI][] reuses its own text as the label.
+  const coll = mdToHtml('Read [OpenAI][] docs.\n\n[OpenAI]: https://openai.com "OpenAI"');
+  ok(/<a href="https:\/\/openai\.com"[^>]*>OpenAI<\/a>/.test(coll), 'FIX: collapsed [OpenAI][] resolves (title stripped)');
+  ok(!/openai\.com"/.test(coll) || /<a /.test(coll), 'FIX: collapsed ref title never leaks into the body');
+
+  // SHORTCUT reference: bare [1] whose text is a defined label.
+  const sc = mdToHtml('As shown in [1] and [2].\n\n[1]: https://a.com\n[2]: https://b.com');
+  ok(/<a href="https:\/\/a\.com"[^>]*>1<\/a>/.test(sc) && /<a href="https:\/\/b\.com"[^>]*>2<\/a>/.test(sc),
+     'FIX: shortcut [1]/[2] citations resolve to their definitions');
+  ok(!/\[1\]:/.test(sc) && !/\[2\]:/.test(sc), 'FIX: both definition lines stripped');
+
+  // CASE-INSENSITIVE + whitespace-collapsed label matching (CommonMark).
+  ok(/<a href="https:\/\/example\.com"[^>]*>Report<\/a>/.test(
+       mdToHtml('The [Report] confirms it.\n\n[report]: https://example.com')),
+     'FIX: reference labels match case-insensitively');
+
+  // GUARD: an UNDEFINED reference is left byte-identical — no over-linkifying.
+  eq(mdToHtml('See [missing][9] and [fig 3] here.'),
+     '<p>See [missing][9] and [fig 3] here.</p>',
+     'GUARD: undefined references stay literal (no regression)');
+  // GUARD: array/index notation is never turned into a link.
+  eq(mdToHtml('The value arr[0] and list[i] unchanged.'),
+     '<p>The value arr[0] and list[i] unchanged.</p>',
+     'GUARD: bracket notation with no matching definition is untouched');
+  // GUARD: a dangerous-scheme definition never produces a live href.
+  const danger = mdToHtml('Click [here][x].\n\n[x]: javascript:alert(1)');
+  ok(!/<a /.test(danger) && !/href="javascript:/.test(danger),
+     'GUARD: a reference to a javascript: definition never becomes a live link');
+  // GUARD: a `[x]: y` INSIDE a code span is not treated as a definition.
+  const inCode = mdToHtml('Text `[1]: not-a-def` stays.\n\nAnd [1] here.\n\n[1]: https://real.com');
+  ok(/<code>\[1\]: not-a-def<\/code>/.test(inCode), 'GUARD: a `[x]: y` in a code span is not a definition');
+  ok(/<a href="https:\/\/real\.com"[^>]*>1<\/a>/.test(inCode), 'GUARD: the real [1] definition still resolves');
+  // GUARD: inline parenthesised links are unaffected by the reference passes.
+  ok(/<a href="https:\/\/n\.com"[^>]*>link<\/a>/.test(mdToHtml('A normal [link](https://n.com) too.')),
+     'GUARD: inline [label](url) links still work');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
