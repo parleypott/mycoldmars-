@@ -101,5 +101,58 @@ const cueCount = (srt) => (srt.match(/-->/g) || []).length;
      'valid small maxWords still tightens splitting (limit honored, not defaulted)');
 }
 
+// ---- buildSRT: no zero-duration cues when maxWords forces more chunks than
+// the segment has whole seconds (short one-line-caption settings) ----
+// Bug: the chunk loop floored every cue to 1s. Once numChunks exceeded the
+// segment's whole-second capacity, that floor pushed the cursor past endSec and
+// the Math.min clamp pinned all trailing cues to endSec — emitting cues with
+// start==end (zero duration). SRT players drop those, silently losing the words.
+// Fix caps the floor at the fair share (remaining ÷ remaining chunks) so every
+// cue stays strictly positive and inside the segment.
+{
+  // 20-word line over a 3-second segment, maxWords=4 → 5 chunks into 3 seconds.
+  const text = Array.from({ length: 20 }, (_, i) => 'w' + (i + 1)).join(' ');
+  const out = buildSRT(
+    [{ number: 1, translated: text }],
+    [{ number: 1, start: '00:00:10,000', end: '00:00:13,000' }],
+    { maxWords: 4, maxDuration: 5 }
+  );
+  const cues = out.split('\r\n\r\n').filter(Boolean).map(block => {
+    const m = block.match(/(\d\d:\d\d:\d\d,\d\d\d) --> (\d\d:\d\d:\d\d,\d\d\d)/);
+    return m ? { start: timeToSeconds(m[1]), end: timeToSeconds(m[2]) } : null;
+  }).filter(Boolean);
+
+  eq(cues.length, 5, 'squeezed line still splits into all 5 cues');
+  // The load-bearing assertion — RED on the old `Math.max(chunkDur, 1)` floor,
+  // which produced two 00:00:13,000 --> 00:00:13,000 zero-duration cues.
+  const zeroDur = cues.filter(c => c.end <= c.start).length;
+  eq(zeroDur, 0, 'no zero-duration (start==end) cues under a short maxWords');
+  // Cues stay ordered and inside the segment.
+  eq(cues[0].start, 10, 'first cue starts at segment start');
+  eq(cues[cues.length - 1].end, 13, 'last cue ends exactly at segment end');
+  let ordered = true;
+  for (let i = 1; i < cues.length; i++) {
+    if (cues[i].start < cues[i - 1].end - 1e-9) ordered = false;
+  }
+  eq(ordered, true, 'cues are non-overlapping and monotonically ordered');
+}
+
+// ---- buildSRT: the roomy case is unchanged by the adaptive floor ----
+// A segment with ≥1s per remaining chunk must be unaffected by the fix (guards
+// against the change altering normal, non-squeezed exports).
+{
+  // 30-word line over 8 seconds, maxWords=10 → 3 chunks, 8s ÷ 3 ≈ 2.67s each,
+  // well above the 1s floor, so the floor never engages either way.
+  const text = Array.from({ length: 30 }, (_, i) => 'x' + (i + 1)).join(' ');
+  const out = buildSRT(
+    [{ number: 1, translated: text }],
+    [{ number: 1, start: '00:00:00,000', end: '00:00:08,000' }],
+    { maxWords: 10, maxDuration: 5 }
+  );
+  const cues = out.split('\r\n\r\n').filter(Boolean);
+  eq(cues.length, 3, 'roomy line splits into 3 cues');
+  eq(cues.every(c => c.includes(' --> ')), true, 'every roomy cue has a valid time range');
+}
+
 console.log(`\nsrt-builder: ${pass}/${pass + fail} passed${fail ? `, ${fail} FAILED` : ''}`);
 process.exit(fail ? 1 : 0);

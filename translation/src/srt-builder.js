@@ -133,7 +133,21 @@ export function buildSRT(translations, segments, opts = {}) {
       // returned fewer chunks than asked for, a single chunk could end up
       // spanning the full segment — blowing past the slider's max.
       chunkDur = Math.min(chunkDur, maxDuration);
-      chunkDur = Math.max(chunkDur, 1);
+      // Floor each cue to at least 1s WHEN the segment has room, but never
+      // demand more than an equal share of the time left. A fixed 1s floor
+      // overshoots endSec once numChunks exceeds the segment's whole-second
+      // capacity (common with a short maxWords — e.g. one-line captions:
+      // maxWords=4 on a 20-word / 3s line forces 5 chunks into 3 seconds).
+      // The old floor then pushed cursor past endSec, and the Math.min clamp
+      // below pinned every trailing cue to endSec → zero-duration cues
+      // (start==end), which SRT players drop, silently losing those words.
+      // Capping the floor at the fair share (remaining ÷ remaining chunks)
+      // keeps every cue strictly positive and inside the segment. Identical
+      // to the old `Math.max(chunkDur, 1)` whenever there's ≥1s per remaining
+      // chunk — i.e. every non-squeezed case.
+      const remainingChunks = chunks.length - j;
+      const fairShare = remainingChunks > 0 ? (endSec - cursor) / remainingChunks : 0;
+      chunkDur = Math.max(chunkDur, Math.min(1, fairShare));
       const chunkEnd = Math.min(cursor + chunkDur, endSec);
 
       subtitles.push({
