@@ -171,6 +171,21 @@ export function mdToHtml(md) {
   html = html.replace(/^[ \t]*\d+\. (.*)$/gm, '<oli>$1</oli>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  // Underscore emphasis (__bold__, _italic_) and GFM strikethrough (~~struck~~).
+  // The TTS stripMarkdown already unwraps all three; the visual reader leaked
+  // them as literal `_italic_` / `__bold__` / `~~cancelled~~` markers — LLM
+  // research prose emits underscore emphasis and strikethrough often enough to
+  // reach the reader. Underscore uses CommonMark's INTRAWORD rule: a `_` only
+  // opens/closes emphasis at a word boundary, so snake_case identifiers and URL
+  // path segments (foo_bar_baz) are left literal — the `(^|[^\w])` prefix and
+  // `(?![\w])` tail enforce that (asterisk has no intraword restriction, which
+  // is why the rules above don't need it). Double-underscore runs before single
+  // so `__bold__` isn't half-eaten. Strikethrough needs no flanking guard: a
+  // doubled `~~` is vanishingly rare outside real strike spans, and code (where
+  // `~` could appear) is already stashed.
+  html = html.replace(/(^|[^\w])__(\S(?:[^_\n]*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
+  html = html.replace(/(^|[^\w])_(\S(?:[^_\n]*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
+  html = html.replace(/~~([^~\n]+?)~~/g, '<del>$1</del>');
   // URL capture allows one level of balanced parens so Wikipedia-style
   // disambiguation links — [Taiwan](…/Taiwan_(island)) — keep their closing
   // paren in the href instead of truncating at the first ')' and leaking a

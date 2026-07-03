@@ -411,6 +411,44 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
      'RED PROOF: old renderer leaks the indented `- ` marker as literal text');
 }
 
+// ── underscore emphasis (_i_ / __b__) + GFM strikethrough (~~s~~) ──
+// The TTS stripMarkdown unwraps all three; the visual reader used to leak them
+// as literal markers. Fixed with CommonMark intraword flanking so snake_case /
+// URL path segments stay literal. RED PROOF: the old renderer (asterisk-only)
+// emitted the raw markers; FIX renders the tag; GUARD: intraword `_` untouched.
+{
+  ok(/He was _deeply_ shaken/.test(fullOldMd('He was _deeply_ shaken.')),
+     'RED PROOF: old renderer leaks literal _italic_ markers');
+  ok(/is __very__ important/.test(fullOldMd('This is __very__ important.')),
+     'RED PROOF: old renderer leaks literal __bold__ markers');
+  ok(/~~cancelled~~/.test(fullOldMd('The plan was ~~cancelled~~ delayed.')),
+     'RED PROOF: old renderer leaks literal ~~strike~~ markers');
+
+  eq(mdToHtml('He was _deeply_ shaken.'), '<p>He was <em>deeply</em> shaken.</p>',
+     'FIX: _italic_ renders as <em>');
+  eq(mdToHtml('This is __very__ important.'), '<p>This is <strong>very</strong> important.</p>',
+     'FIX: __bold__ renders as <strong>');
+  eq(mdToHtml('The plan was ~~cancelled~~ delayed.'), '<p>The plan was <del>cancelled</del> delayed.</p>',
+     'FIX: ~~strike~~ renders as <del>');
+  eq(mdToHtml('__lead__ then _tail_ done'), '<p><strong>lead</strong> then <em>tail</em> done</p>',
+     'FIX: bold and italic underscore in one line both render');
+
+  // GUARD: intraword underscores are NEVER emphasis (CommonMark) — a mangled
+  // snake_case identifier or URL path segment is the whole regression risk.
+  eq(mdToHtml('Call some_helper_fn now.'), '<p>Call some_helper_fn now.</p>',
+     'GUARD: snake_case stays literal');
+  eq(mdToHtml('the a__b__c token'), '<p>the a__b__c token</p>',
+     'GUARD: mid-word __ stays literal');
+  eq(mdToHtml('fully _re_shaped word'), '<p>fully _re_shaped word</p>',
+     'GUARD: underscore that would close before a word char stays literal');
+  eq(mdToHtml('See [wiki](https://en.wikipedia.org/wiki/Foo_bar_baz).'),
+     '<p>See <a href="https://en.wikipedia.org/wiki/Foo_bar_baz" target="_blank" rel="noopener">wiki</a>.</p>',
+     'GUARD: underscores in a link URL path are untouched');
+  // GUARD: asterisk emphasis (the pre-existing rule) is unchanged.
+  eq(mdToHtml('He was *deeply* shaken.'), '<p>He was <em>deeply</em> shaken.</p>',
+     'GUARD: asterisk *italic* still renders');
+}
+
 // ── NO-REGRESSION: normal markdown is byte-identical to the old renderer ──
 // (old===new on every input WITHOUT a dangerous scheme or breakout quote, since
 //  the only changes are the link transform and the ordered-list <ol> wrap — so
