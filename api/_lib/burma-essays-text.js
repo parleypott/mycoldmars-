@@ -172,7 +172,17 @@ export function stripMarkdown(md) {
       // beside it. Requires TWO equals on each side with a non-"=" body, so a lone
       // comparison "E = mc" (single, space-flanked "=") is never touched.
       .replace(/==([^=]+)==/g, '$1')       // highlight == (else reads "equals")
-      .replace(/\*\*([^*]+)\*\*/g, '$1')   // bold **
+      // Asterisk emphasis is FLANKING-AWARE per CommonMark: a "*" can only OPEN a
+      // span when the char right after it is not whitespace, and only CLOSE one when
+      // the char right before it is not whitespace. The old bare /\*\*(…)\*\*/ (and
+      // the italic /\*(…)\*/ below) ignored flanking, so two whitespace-flanked stars
+      // in one line — arithmetic like "buy 2 * 2 and 5 * 6", or a literal-asterisk
+      // aside "a ** b ** c" — mis-paired ACROSS the unrelated text between them,
+      // EATING the inner stars and mashing "2 * 2 ... 5 * 6" into "2  2 ... 5  6"
+      // (a garbled run read aloud). The flanking lookarounds ((?=[^\s*]) after the
+      // opener, (?<=[^\s*]) before the closer) fix it while still stripping genuine
+      // **bold**/*italic* spans; the fixed-point loop still converges nested spans.
+      .replace(/\*\*(?=[^\s*])([^*]+?)(?<=[^\s*])\*\*/g, '$1')   // bold ** (flanking-aware)
       // Underscore emphasis is INTRAWORD-BLIND per CommonMark: a "_" opens/closes
       // emphasis only at a word boundary, so snake_case identifiers are NEVER
       // emphasis and must stay literal (matching the media_uploads contract). The
@@ -186,7 +196,7 @@ export function stripMarkdown(md) {
       // genuine _italic_ / __bold__ spans. The * forms stay intra-word-capable
       // (CommonMark treats * and _ differently), so they are unchanged.
       .replace(/(?<![\p{L}\p{N}])__([^_]+)__(?![\p{L}\p{N}])/gu, '$1')  // bold __ (boundary-aware)
-      .replace(/\*([^*]+)\*/g, '$1')       // italic *
+      .replace(/\*(?=[^\s*])([^*]+?)(?<=[^\s*])\*/g, '$1')       // italic * (flanking-aware)
       .replace(/(?<![\p{L}\p{N}])_([^_]+)_(?![\p{L}\p{N}])/gu, '$1');   // italic _ (boundary-aware)
   } while (s !== prev);
 

@@ -454,6 +454,30 @@ eq(stripMarkdown('an *italic* word'), 'an italic word', 'GUARD: simple *italic* 
 eq(stripMarkdown('a __two word__ b'), 'a two word b', 'GUARD: simple __bold__ unchanged');
 eq(stripMarkdown('no emphasis here at all'), 'no emphasis here at all', 'GUARD: plain prose untouched');
 
+// ── Asterisk emphasis is FLANKING-AWARE (CommonMark) ──
+// A "*" can only OPEN a span when the next char is non-whitespace, and only CLOSE
+// one when the prev char is non-whitespace. The old bare /\*(…)\*/ ignored this, so
+// TWO whitespace-flanked stars in one line — arithmetic ("2 * 2 ... 5 * 6") or a
+// literal-asterisk aside ("a ** b ** c") — mis-paired ACROSS the unrelated text
+// between them, EATING the inner stars and mashing the numbers into a garbled run
+// read aloud. RED PROOF: the bare single-pass rules reproduce the mangle; the
+// flanking-aware live stripMarkdown leaves the arithmetic literal.
+eq(stripEmphasisSinglePass('buy 2 * 2 = 4 apples and 5 * 6 too'), 'buy 2  2 = 4 apples and 5  6 too',
+   'RED: bare star rule mis-pairs across two space-flanked "*" and mashes the digits');
+eq(stripMarkdown('buy 2 * 2 = 4 apples and 5 * 6 too'), 'buy 2 * 2 = 4 apples and 5 * 6 too',
+   'FIX: space-flanked arithmetic "*" preserved literally — no star eaten, no digit mash');
+eq(stripEmphasisSinglePass('a ** b ** c'), 'a  b  c',
+   'RED: bare bold rule eats a space-flanked "** … **" literal-asterisk aside');
+eq(stripMarkdown('a ** b ** c'), 'a ** b ** c',
+   'FIX: space-flanked "**" pair preserved literally');
+eq(stripMarkdown('he multiplied 3 * 4 and 5 * 6 quickly'), 'he multiplied 3 * 4 and 5 * 6 quickly',
+   'FIX: multiple space-flanked products left untouched');
+// GUARDS: genuine spans (no whitespace just inside the markers) still strip, and the
+// fixed-point loop still converges nested spans — byte-identical to prior behavior.
+eq(stripMarkdown('a *word* and *two* here'), 'a word and two here', 'GUARD: real *italic* pairs still stripped');
+eq(stripMarkdown('**legit bold** stays'), 'legit bold stays', 'GUARD: real **bold** still stripped');
+eq(stripMarkdown('**bold with *nested* inside**'), 'bold with nested inside', 'GUARD: nested */** still converges under flanking rules');
+
 // ── GFM task-list checkboxes ("- [ ] todo" / "- [x] done") ──
 // The plain-bullet rule only eats the "- " marker, so the "[ ]" / "[x]" checkbox
 // survived and ElevenLabs read it ALOUD ("open bracket close bracket", "open
