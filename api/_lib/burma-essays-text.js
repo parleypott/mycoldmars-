@@ -45,7 +45,23 @@ export function decodeEntities(s) {
 }
 
 export function stripMarkdown(md) {
+  // CommonMark backslash escapes (\* \_ \$ \# \. \[ …) make a punctuation char
+  // LITERAL — inert to every markdown rule. The old code only dropped the backslash
+  // at the very END (after emphasis), which was fine for a NON-marker escape ("\$5")
+  // but WRONG for an escaped emphasis marker: an escaped PAIR "\*not italic\*" (or
+  // "\_x\_") still LOOKED like a real *…* / _…_ span to the flanking emphasis rules,
+  // so they EOTE the (escaped) markers and STRANDED the two backslashes — read aloud
+  // as "backslash not italic backslash", the exact leak this module exists to kill.
+  // Fix: replace each escaped punctuation char with an inert PUA sentinel BEFORE any
+  // rule runs, then restore the literal char LAST. The sentinel (U+E000<idx>U+E001)
+  // matches no structural/emphasis rule — a "1\." still can't become a list, a "\*"
+  // can't be eaten as emphasis — so escapes are fully literal, exactly per CommonMark.
+  const escaped = [];
   let s = decodeEntities(String(md ?? ''))
+    .replace(/\\([!-\/:-@\[-`{-~])/g, (_m, ch) => {
+      escaped.push(ch);
+      return `${escaped.length - 1}`;
+    })
     .replace(/```[\s\S]*?```/g, '')        // fenced code blocks (backtick)
     // Tilde-fenced code blocks (CommonMark allows ~~~ as well as ```). Without
     // this, the code BODY got read aloud AND the fence tildes leaked: the strike
@@ -201,16 +217,12 @@ export function stripMarkdown(md) {
   } while (s !== prev);
 
   return s
-    // CommonMark backslash escapes (\$ \* \# \. \- \_ \[ …). Authors — and markdown
-    // generators / paste sources — escape ASCII punctuation so it renders literally:
-    // "It cost \$5", "the year 2020\." (to stop the auto-list), "use the \* operator".
-    // The stripper passed the backslash through RAW, so ElevenLabs read it ALOUD
-    // ("backslash dollar 5", "twenty twenty backslash"), the exact read-it-aloud
-    // failure this whole module exists to kill. Runs LAST — after every structural
-    // rule — so an escape has already done its job of PREVENTING interpretation (an
-    // escaped "1\." never matched the numbered-list rule, so its "1" still survives
-    // to here); we only now drop the backslash and keep the literal punctuation.
-    .replace(/\\([!-\/:-@\[-`{-~])/g, '$1') // \X (ASCII punctuation) -> X
+    // Restore the backslash-escaped punctuation protected at the TOP: each sentinel
+    // (U+E000<idx>U+E001) becomes the literal char it stood for, dropping the backslash.
+    // Runs LAST, after every structural + emphasis rule has already declined to touch
+    // the (inert) sentinel — so an escaped "1\." kept its number and an escaped "\*not
+    // italic\*" kept its literal asterisks instead of leaking two stranded backslashes.
+    .replace(/(\d+)/g, (_m, i) => escaped[+i] ?? '')
     .replace(/\n{3,}/g, '\n\n')            // collapse blank runs
     .trim();
 }

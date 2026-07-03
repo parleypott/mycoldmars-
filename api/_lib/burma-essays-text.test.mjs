@@ -396,6 +396,26 @@ eq(stripMarkdown('no backslashes at all here'), 'no backslashes at all here', 'G
 eq(stripMarkdown('a < b and c > d'), 'a < b and c > d', 'GUARD: prose comparisons untouched by the escape rule');
 eq(stripMarkdown('path C:\\Users still'), 'path C:\\Users still', 'GUARD: \\U (non-punctuation) left intact — outside CommonMark escape set');
 
+// ---- ESCAPED EMPHASIS MARKERS (ordering bug): an escaped PAIR "\*not italic\*" or
+// "\_x\_" is LITERAL punctuation per CommonMark, but the old code only dropped the
+// backslash at the END (after emphasis), so the flanking emphasis rules still saw the
+// escaped "*"/"_" as a real span, ATE the markers, and STRANDED the two backslashes —
+// read aloud as "backslash not italic backslash". RED PROOF: stripMarkdownOLD (no
+// escape protection, non-flanking emphasis) reproduces the stranded-backslash leak.
+// The FIX protects escapes with an inert sentinel BEFORE any rule, so the escaped
+// markers stay literal. Mutation lock: deleting the sentinel protect/restore turns
+// the FIX lines RED (the emphasis rules eat the escaped markers again).
+eq(stripMarkdownOLD('\\*not italic\\*'), '\\not italic\\', 'RED: old code strands two backslashes on escaped-asterisk pair');
+eq(stripMarkdown('\\*not italic\\*'), '*not italic*', 'FIX: escaped \\*…\\* stays literal asterisks (no backslash spoken)');
+eq(stripMarkdownOLD('a \\_literal\\_ underscore'), 'a \\literal\\ underscore', 'RED: old code strands two backslashes on escaped-underscore pair');
+eq(stripMarkdown('a \\_literal\\_ underscore'), 'a _literal_ underscore', 'FIX: escaped \\_…\\_ stays literal underscores');
+eq(stripMarkdown('use the \\*splat\\* glob'), 'use the *splat* glob', 'FIX: a mid-sentence escaped-asterisk pair survives intact');
+// GUARD: a REAL emphasis span whose CONTENT holds an escaped marker keeps the inner
+// literal and still strips the outer span ("*a\*b*" -> emphasis on "a*b").
+eq(stripMarkdown('*a\\*b*'), 'a*b', 'GUARD: escaped marker inside a real emphasis span stays literal, span still stripped');
+// GUARD: a real **bold** next to an escaped literal pair — bold strips, literal survives.
+eq(stripMarkdown('**real bold** and \\*literal\\*'), 'real bold and *literal*', 'GUARD: real bold stripped, adjacent escaped pair kept literal');
+
 // ---- NESTED EMPHASIS (fixed-point loop): a single left-to-right emphasis pass leaked
 // stray markers on NESTED spans, so a literal "*"/"_" reached the TTS ("asterisk").
 // RED PROOF: the five emphasis rules applied EXACTLY ONCE (the pre-loop behavior).
