@@ -17,24 +17,50 @@ export const findReplaceKey = new PluginKey('burmaFindReplace');
 
 const EMPTY = { query: '', caseSensitive: false, matches: [], current: 0 };
 
+// Escape regex metacharacters so a query is always matched as a LITERAL string (the case-insensitive
+// path below runs it through RegExp; the case-sensitive path uses indexOf, which is literal already).
+function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
 // Pure: collect every non-overlapping match of `query` in the doc as {from,to} doc positions.
 // Walks textblocks and maps textContent offsets to absolute positions (pos+1 enters the block).
+//
+// Offset correctness: matching MUST happen in the ORIGINAL text's coordinate space, because the
+// {from,to} we push are original-doc positions the decorations paint and `replaceCurrentTr` splices.
+// The old case-insensitive path lowercased the whole text and ran indexOf on THAT — but
+// String.toLowerCase can CHANGE LENGTH (e.g. 'İ' U+0130 → 'i̇', 1 char → 2), so every offset after
+// such a character drifted, and `to = from + query.length` over-selected when the matched substring's
+// original width differed from the query's. Both corrupt the replace range. We now use a literal-escaped
+// case-insensitive regex, which reports m.index and m[0].length in the ORIGINAL string — offset-exact
+// regardless of case-folding length changes. For ASCII / normal content this is byte-identical to the
+// old behavior.
 export function computeMatches(doc, query, caseSensitive = false) {
   const matches = [];
   if (!doc || !query) return matches;
-  const needle = caseSensitive ? query : query.toLowerCase();
   const len = query.length;
   if (!len) return matches;
+  const re = caseSensitive ? null : new RegExp(escapeRegExp(query), 'gi');
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true; // recurse into wrappers (rows, cells, the doc)
     const text = node.textContent;
     if (!text) return false;
-    const hay = caseSensitive ? text : text.toLowerCase();
-    let idx = 0;
-    while ((idx = hay.indexOf(needle, idx)) !== -1) {
-      const from = pos + 1 + idx;
-      matches.push({ from, to: from + len });
-      idx += len; // non-overlapping
+    if (caseSensitive) {
+      let idx = 0;
+      while ((idx = text.indexOf(query, idx)) !== -1) {
+        const from = pos + 1 + idx;
+        matches.push({ from, to: from + len });
+        idx += len; // non-overlapping
+      }
+    } else {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        const mlen = m[0].length;
+        const from = pos + 1 + m.index;
+        matches.push({ from, to: from + mlen });
+        // Advance past this match (non-overlapping). Guard the degenerate zero-length case so a
+        // pathological match can never spin the loop (query is non-empty, so mlen is normally > 0).
+        re.lastIndex = mlen === 0 ? m.index + 1 : m.index + mlen;
+      }
     }
     return false; // a textblock's inline children are already covered by textContent
   });

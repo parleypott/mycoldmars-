@@ -101,6 +101,35 @@ eq(clampCurrent(-1, 3), 2, 'clampCurrent: wraps backward');
   eq(computeMatches(doc, 'endless', false).length, 0, 'computeMatches: no cross-block match');
 }
 
+// ── 4b. offset stays correct after a length-CHANGING lowercase char (İ → i̇) ──────────────────────
+{
+  // 'İ' (U+0130) lowercases to TWO code units ('i' + combining dot). The old path lowercased the whole
+  // text and ran indexOf on that, so every offset after 'İ' drifted +1 and the range ran off the block.
+  // The regex path matches in ORIGINAL coordinates, so the range covers exactly "cat".
+  const doc = docFromParagraphs([[schema.text('İx cat')]]);
+  const ms = computeMatches(doc, 'cat', false);
+  eq(ms.length, 1, 'computeMatches: one "cat" after a length-changing İ');
+  eq(doc.textBetween(ms[0].from, ms[0].to, ''), 'cat', 'computeMatches: range covers exactly "cat" (no İ offset drift)');
+  // And it must stay inside the block (old code produced to = block-end+1).
+  ok(ms[0].to <= doc.content.size, 'computeMatches: range does not overrun the doc');
+  // Case-INSENSITIVE match of the İ itself reports its ORIGINAL 1-char width, not the 2-char lowercase.
+  const upper = computeMatches(doc, 'İ', false);
+  ok(upper.length === 1 && (upper[0].to - upper[0].from) === 1, 'computeMatches: İ match keeps original 1-char width');
+}
+
+// ── 4c. query is matched LITERALLY — regex metacharacters are escaped, not interpreted ─────────────
+{
+  // "a.b" must match the literal "a.b", NOT "aXb" (which a raw regex `a.b` would). Proves the new
+  // regex path escapes metacharacters and preserves the old indexOf literal semantics.
+  const doc = docFromParagraphs([[schema.text('a.b axb a.b')]]);
+  eq(computeMatches(doc, 'a.b', false).length, 2, 'computeMatches: "a.b" matches literal dots only (metachar escaped)');
+  eq(computeMatches(doc, 'a.b', true).length, 2, 'computeMatches: case-sensitive "a.b" also literal');
+  // A pure-metachar query is inert as a literal (no accidental catastrophic pattern).
+  const doc2 = docFromParagraphs([[schema.text('cost is $5 (five)')]]);
+  eq(computeMatches(doc2, '$5', false).length, 1, 'computeMatches: "$5" matched literally');
+  eq(computeMatches(doc2, '(five)', false).length, 1, 'computeMatches: "(five)" matched literally, not as a group');
+}
+
 // ── 5. plugin apply wires computeMatches + clamps current ─────────────────────────────────────────
 {
   let state = stateWith(docFromParagraphs([[schema.text('go go go')]]));
