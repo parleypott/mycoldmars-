@@ -5,6 +5,7 @@ import worldTopo from 'world-atlas/countries-50m.json';
 import { Game } from './game.js';
 import { initThemes } from './theme.js';
 import { parseFeedbackList } from './feedback-store.js';
+import { arrowAngleDeg, arrowOffsetPx } from './arrow-geom.js';
 import './style.css';
 
 // ─── On-screen error overlay (so failures don't hide in devtools) ───
@@ -435,12 +436,11 @@ function confirmGuess() {
     const targetScreen = map.project([result.targetLon, result.targetLat]);
     const dx = targetScreen.x - guessScreen.x;
     const dy = targetScreen.y - guessScreen.y;
-    const screenAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
+    const screenAngle = arrowAngleDeg(dx, dy);
 
     // Offset the arrow marker away from the pin in the direction it points
     const offsetDist = 30;
-    const rad = screenAngle * Math.PI / 180;
-    const offsetPx = { x: Math.sin(rad) * offsetDist, y: -Math.cos(rad) * offsetDist };
+    const offsetPx = arrowOffsetPx(screenAngle, offsetDist);
     const arrowLngLat = map.unproject([guessScreen.x + offsetPx.x, guessScreen.y + offsetPx.y]);
 
     const arrowEl = document.createElement('div');
