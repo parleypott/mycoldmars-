@@ -422,6 +422,28 @@ eq(stripEmphasisSinglePass('__grim _work_ done__'),
    'RED: single-pass strands "_" on __bold__ wrapping an _italic_ span');
 eq(stripMarkdown('__grim _work_ done__'), 'grim work done',
    'FIX: __bold__ wrapping _italic_ fully cleaned');
+// ── Underscore emphasis is INTRAWORD-BLIND (CommonMark) ──
+// The single-underscore snake_case contract (media_uploads, above) always held
+// because the italic rule needs a matching PAIR of "_". But a word carrying TWO
+// intra-word underscores DID trip it: the old bare /_(…)_/ matched "_analysis_"
+// inside "data_analysis_v2" and merged it to a garbled run-on word — and worse, a
+// real span next to a snake_case word mis-paired ACROSS the intra-word "_" and
+// stranded a lone "_" the TTS reads as "underscore". RED PROOF: the single-pass
+// underscore rule (bare, no boundary) reproduces both leaks; the boundary-aware
+// live stripMarkdown preserves the identifier and cleans only the real span.
+eq(stripEmphasisSinglePass('data_analysis_v2'), 'dataanalysisv2',
+   'RED: bare underscore rule merges an intra-word snake_case identifier');
+eq(stripMarkdown('The file data_analysis_v2.csv leaked.'), 'The file data_analysis_v2.csv leaked.',
+   'FIX: multi-underscore snake_case preserved literally — no merge, no stray "_"');
+eq(stripEmphasisSinglePass('code_word and _real emphasis_ here'), 'codeword and real emphasis_ here',
+   'RED: bare underscore rule strands a lone "_" beside a snake_case word');
+eq(stripMarkdown('code_word and _real emphasis_ here'), 'code_word and real emphasis here',
+   'FIX: intra-word "_" preserved, adjacent real _italic_ still stripped, no stray "_"');
+eq(stripMarkdown('run make_it_happen now'), 'run make_it_happen now',
+   'GUARD: triple-underscore identifier untouched');
+eq(stripMarkdown('an _italic_ word'), 'an italic word', 'GUARD: genuine _italic_ still stripped');
+eq(stripMarkdown('the term _tatmadaw_ means army'), 'the term tatmadaw means army',
+   'GUARD: word-bounded _italic_ inside prose still stripped');
 // Bare nested pair and triple emphasis.
 eq(stripMarkdown('**bold *italic* bold**'), 'bold italic bold', 'FIX: bare nested span leaves no markers');
 eq(stripMarkdown('***bold italic***'), 'bold italic', 'FIX: triple ***…*** cleaned (converges first pass)');

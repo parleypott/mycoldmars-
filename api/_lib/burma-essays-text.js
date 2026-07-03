@@ -173,9 +173,21 @@ export function stripMarkdown(md) {
       // comparison "E = mc" (single, space-flanked "=") is never touched.
       .replace(/==([^=]+)==/g, '$1')       // highlight == (else reads "equals")
       .replace(/\*\*([^*]+)\*\*/g, '$1')   // bold **
-      .replace(/__([^_]+)__/g, '$1')       // bold __ (else leaves stray underscores)
+      // Underscore emphasis is INTRAWORD-BLIND per CommonMark: a "_" opens/closes
+      // emphasis only at a word boundary, so snake_case identifiers are NEVER
+      // emphasis and must stay literal (matching the media_uploads contract). The
+      // old bare /_(…)_/ fired on intra-word DOUBLE underscores: "data_analysis_v2"
+      // lost its "_analysis_" -> "dataanalysisv2" (a garbled run-on word read
+      // aloud), and worse, a real span sitting next to a snake_case word
+      // ("code_word and _real emphasis_") mis-paired across the intra-word "_" and
+      // STRANDED a lone "_" that the TTS reads aloud as "underscore" — the exact
+      // leak this module exists to kill. The boundary lookarounds (no letter/number
+      // immediately outside the outer underscores) fix both while still stripping
+      // genuine _italic_ / __bold__ spans. The * forms stay intra-word-capable
+      // (CommonMark treats * and _ differently), so they are unchanged.
+      .replace(/(?<![\p{L}\p{N}])__([^_]+)__(?![\p{L}\p{N}])/gu, '$1')  // bold __ (boundary-aware)
       .replace(/\*([^*]+)\*/g, '$1')       // italic *
-      .replace(/_([^_]+)_/g, '$1');        // italic _
+      .replace(/(?<![\p{L}\p{N}])_([^_]+)_(?![\p{L}\p{N}])/gu, '$1');   // italic _ (boundary-aware)
   } while (s !== prev);
 
   return s
