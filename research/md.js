@@ -139,6 +139,36 @@ export function mdToHtml(md) {
   const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
+  // Reference-style link DEFINITIONS. Citation-heavy deep-research reports emit
+  // numbered references — `[the report][1]` in the prose and `[1]: https://…`
+  // definitions at the bottom. Before this, the definition line leaked into the
+  // reader as a literal `<p>[1]: https://…</p>` and every `[label][ref]` /
+  // shortcut `[label]` reference leaked as literal bracket text (the inline
+  // `[label](url)` transform only matches parenthesised links). Collect each
+  // definition into `refs` (normalised label -> destination) and STRIP its line
+  // here — after code is stashed (so a `[x]: y` inside a code span is untouched)
+  // and, critically, BEFORE the autolink pass below: a CommonMark-legal
+  // angle-bracket destination (`[a]: <https://x/y>`) would otherwise be eaten by
+  // the autolink rule first (turning `&lt;…&gt;` into a stashed <a>), captured as
+  // the dest, and re-wrapped into a double-nested `<a href="<a …>">` on stash
+  // restore. Running here (before autolink, before the heading/list/paragraph
+  // passes so the stripped line can never become a <p>/<li>) sidesteps that. A
+  // definition is `[label]: dest` with up to 3 leading spaces and an OPTIONAL
+  // trailing title ("…" / '…' / (…)); the destination is the first whitespace-
+  // delimited token, with a wrapping `<…>` (esc()'d to `&lt;…&gt;`) stripped to
+  // the bare URL. Resolution happens after the inline link pass below.
+  const refs = new Map();
+  html = html.replace(
+    /^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(\S+)(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*$/gm,
+    (_, label, dest) => {
+      const key = normRefLabel(label);
+      // Strip a CommonMark angle-bracket wrapper: `<url>` -> `url` (esc()'d form
+      // is `&lt;url&gt;`). Without this the brackets leak into href/text later.
+      const d = dest.replace(/^&lt;([\s\S]*)&gt;$/, '$1');
+      if (!refs.has(key)) refs.set(key, d); // first definition wins (CommonMark)
+      return '';
+    },
+  );
   // CommonMark AUTOLINKS: `<https://…>`, `<mailto:…>`, and a bare-email
   // `<name@host>`. esc() has already turned the delimiters into &lt;/&gt;, so
   // without a rule the whole autolink leaked into the reader as literal
@@ -159,28 +189,6 @@ export function mdToHtml(md) {
     const href = safeHref(`mailto:${mail}`);
     return href ? stub(`<a href="${href}" target="_blank" rel="noopener">${mail}</a>`) : whole;
   });
-  // Reference-style link DEFINITIONS. Citation-heavy deep-research reports emit
-  // numbered references — `[the report][1]` in the prose and `[1]: https://…`
-  // definitions at the bottom. Before this, the definition line leaked into the
-  // reader as a literal `<p>[1]: https://…</p>` and every `[label][ref]` /
-  // shortcut `[label]` reference leaked as literal bracket text (the inline
-  // `[label](url)` transform only matches parenthesised links). Collect each
-  // definition into `refs` (normalised label -> destination) and STRIP its line
-  // here — after code is stashed (so a `[x]: y` inside a code span is untouched)
-  // and before the heading/list/paragraph passes (so the stripped line can never
-  // become a <p>/<li>). A definition is `[label]: dest` with up to 3 leading
-  // spaces and an OPTIONAL trailing title ("…" / '…' / (…)); the destination is
-  // the first whitespace-delimited token. Resolution happens after the inline
-  // link pass below.
-  const refs = new Map();
-  html = html.replace(
-    /^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(\S+)(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*$/gm,
-    (_, label, dest) => {
-      const key = normRefLabel(label);
-      if (!refs.has(key)) refs.set(key, dest); // first definition wins (CommonMark)
-      return '';
-    },
-  );
   // ATX headings (`# ` … `###### `). One combined rule: the leading run of 1-6
   // `#` sets the level (greedy, so `## x` is an <h2>, never <h1> + a literal `# x`)
   // and must be followed by a space. CommonMark also allows an OPTIONAL CLOSING

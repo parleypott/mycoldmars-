@@ -892,5 +892,68 @@ function fullOldMd(md) {
      'RED PROOF: the dot-only rule fails to claim a "1)" list (no <oli> produced)');
 }
 
+// ── Reference-link DEFINITION with an ANGLE-BRACKET destination ──
+// `[a]: <https://x/y>` is a CommonMark-legal ref definition. The autolink pass
+// used to run BEFORE the ref-def collector, so it ate the `&lt;url&gt;` on the
+// definition line into a stashed <a>, the collector captured that sentinel as
+// the dest, and stash-restore re-expanded it INSIDE the later ref-link's href —
+// producing a mangled double-nested `<a href="<a href=...>...</a>">a</a>`.
+// FIX: collect (and strip) ref definitions BEFORE the autolink pass, and strip a
+// wrapping `<…>` from the destination.
+{
+  const ang = mdToHtml('[a]\n\n[a]: <https://x.com/y>').trim();
+  // FIX: one clean anchor, bare URL in the href, no nested <a>.
+  ok(ang === '<p><a href="https://x.com/y" target="_blank" rel="noopener">a</a></p>',
+     'FIX: angle-bracket ref dest renders one clean <a> with a bare href');
+  ok(!/href="<a/.test(ang) && (ang.match(/<a /g) || []).length === 1,
+     'FIX: no double-nested <a> (exactly one anchor)');
+  ok(!/&lt;|&gt;/.test(ang), 'FIX: the angle brackets are stripped, not leaked');
+
+  // GUARD: a BARE (non-angle) ref dest is byte-identical — no regression.
+  ok(mdToHtml('[a]\n\n[a]: https://x.com/y').trim() === ang,
+     'GUARD: angle-dest output matches the bare-dest output exactly');
+  // GUARD: full/collapsed and titled refs still resolve.
+  ok(/<a href="https:\/\/ex.com\/z"[^>]*>the report<\/a>/.test(
+       mdToHtml('[the report][1]\n\n[1]: https://ex.com/z')),
+     'GUARD: full reference still resolves');
+  // GUARD: an inline autolink on a NON-definition line still renders.
+  ok(/see <a href="https:\/\/foo.com\/bar"[^>]*>https:\/\/foo.com\/bar<\/a> here/.test(
+       mdToHtml('see <https://foo.com/bar> here')),
+     'GUARD: inline autolink outside a ref-def still works');
+  // GUARD: a dangerous angle-bracket dest is dropped (scheme whitelist holds).
+  ok(mdToHtml('[a]\n\n[a]: <javascript:alert(1)>').trim() === '<p>[a]</p>',
+     'GUARD: javascript: angle dest drops the link (no live href)');
+
+  // RED PROOF: with the OLD ordering (autolink BEFORE ref-def collect, no strip),
+  // the angle dest double-nests. Re-derive that path over the shipped helpers.
+  const oldPath = (() => {
+    let h = esc('[a]\n\n[a]: <https://x.com/y>');
+    const stash = [];
+    const stub = (r) => `${stash.push(r) - 1}`;
+    // autolink FIRST (the buggy order)
+    h = h.replace(/&lt;([a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]+?)&gt;/g, (whole, url) => {
+      const href = safeHref(url);
+      return href ? stub(`<a href="${href}" target="_blank" rel="noopener">${url}</a>`) : whole;
+    });
+    // then ref-def collect WITHOUT stripping angle brackets
+    const refs = new Map();
+    h = h.replace(/^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(\S+)[ \t]*$/gm, (_, label, dest) => {
+      refs.set(label.trim().toLowerCase(), dest);
+      return '';
+    });
+    // shortcut ref resolution
+    h = h.replace(/\[([^\]\n]+)\]/g, (whole, label) => {
+      const dest = refs.get(label.trim().toLowerCase());
+      if (dest === undefined) return whole;
+      const href = safeHref(dest);
+      return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : whole;
+    });
+    h = h.replace(/(\d+)/g, (_, i) => stash[Number(i)]);
+    return h;
+  })();
+  ok(/href="<a /.test(oldPath),
+     'RED PROOF: the OLD autolink-first ordering double-nests the <a> tag');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
