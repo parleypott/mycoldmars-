@@ -139,6 +139,18 @@ eq(stripMarkdownPreHtml('Line.<br>Next.<em>x</em>'), 'Line.<br>Next.<em>x</em>',
 eq(stripMarkdown('Line.<br>Next.<em>x</em>'), 'Line.Next.x', 'FIX: raw HTML tags dropped, text kept');
 // Reference-style link USE — keep visible text, drop the [id].
 eq(stripMarkdown('See [the report][1] for details.'), 'See the report for details.', 'FIX: reference-style link use keeps text, drops [id]');
+// Reference-style IMAGES (![alt][id] / ![alt][]) — an image referenced by label.
+// Without a dedicated rule the reference-link-USE rule matches only the "[alt][id]"
+// part and reduces it to the alt text, LEAVING the leading "!" to leak into the
+// audio ("exclamation mark"). RED proof: the ref-link-use transform alone on the
+// stripped construct keeps a stray "!". FIX: the whole image is dropped, like an
+// inline ![alt](url).
+eq('![Burma map][fig1]'.replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1'), '!Burma map', 'RED: ref-link-use rule alone leaves the leading "!" husk');
+eq(stripMarkdown('See ![the map][fig1] here.\n\n[fig1]: /map.png'), 'See  here.', 'FIX: reference-style image dropped whole (same double-space as an inline image) — no leaked "!"');
+eq(stripMarkdown('See ![Burma map][] here.'), 'See  here.', 'FIX: collapsed reference-style image (![alt][]) dropped whole');
+eq(stripMarkdown('See ![the map][fig1] here.').includes('!'), false, 'FIX: no "!" husk anywhere in the ref-image output');
+eq(stripMarkdown('See [the map][fig1] here.'), 'See the map here.', 'GUARD: a real ref-LINK (no !) still keeps its visible text');
+eq(stripMarkdown('Prices rose 5! Then fell.'), 'Prices rose 5! Then fell.', 'GUARD: a plain "!" in prose is untouched');
 // Footnotes — inline marker dropped, definition text kept.
 eq(stripMarkdown('A claim.[^1]\n\n[^1]: the source note.'), 'A claim.\n\nthe source note.', 'FIX: footnote marker dropped, def text kept');
 // Closed ATX heading — drop the trailing ###.

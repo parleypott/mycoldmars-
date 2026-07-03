@@ -91,6 +91,14 @@ export function stripMarkdown(md) {
     // "[]()" husk never reaches the audio. The link rule above needs >=1 text char,
     // so it skips these on its own.
     .replace(/\[\]\([^)]*\)/g, '')
+    // Reference-style IMAGES (![alt][id] / ![alt][]) — an image referenced by a
+    // label instead of an inline (url). Carries NO readable text, so drop the WHOLE
+    // construct, mirroring the inline-image rule above. MUST run BEFORE the
+    // reference-link-USE rule below: that rule matches only the "[alt][id]" part and
+    // reduces it to the alt text, leaving the leading "!" to leak into the audio
+    // (read aloud as "exclamation mark"). Common when an essay defines its images
+    // once at the bottom and references them by label (![Burma map][fig1]).
+    .replace(/!\[[^\]]*\]\[[^\]]*\]/g, '')
     // Reference-style link USE — [text][id] / [text][] -> keep the visible text, drop [id].
     .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
     // Footnote definition lines ([^id]: text) -> keep the text, drop the marker.
