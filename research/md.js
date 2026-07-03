@@ -236,6 +236,22 @@ export function mdToHtml(md) {
   // between <ul> blocks. Consuming the indent folds sub-items into the list as
   // flat <li> (nesting depth is dropped, but no literal marker leaks). Code
   // spans/fences are already stashed, so an indented `- ` inside code is safe.
+  // GFM TASK-LIST items ("- [ ] todo", "- [x] done", "* [X] done"). Must run
+  // BEFORE the generic bullet rule below — that rule would capture the raw
+  // "[ ] todo" as the item TEXT, so the reader showed the literal `[ ]`/`[x]`
+  // checkbox marker (the TTS narrator, api/_lib/burma-essays-text.js, already
+  // strips these, so the VISUAL reader was again the lone inconsistent path).
+  // Render a disabled checkbox like GitHub: the checked state is a STATIC boolean
+  // derived from the [x] match (never interpolated text), and esc() has already
+  // run, so the emitted `<input>` is real markup that carries no ) * # [ ` — it
+  // sails through every inline transform below, and the plain `<li>` still folds
+  // into the <ul> wrap. The task TEXT flows through the same inline passes as any
+  // list item. Requires the GFM space after the bullet, so prose "[x]" is safe.
+  html = html.replace(
+    /^[ \t]*(?:[-*+])[ \t]+\[([ xX])\][ \t]*(.*)$/gm,
+    (_, mark, text) =>
+      `<li><input type="checkbox" disabled${mark === 'x' || mark === 'X' ? ' checked' : ''}>${text ? ' ' + text : ''}</li>`
+  );
   html = html.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
   html = html.replace(/^[ \t]*\d+\. (.*)$/gm, '<oli>$1</oli>');
   // Triple emphasis `***word***` -> nested <strong><em>. Must run BEFORE the

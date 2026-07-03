@@ -784,5 +784,52 @@ function fullOldMd(md) {
      'GUARD: existing inline [label](url) link unaffected by the autolink pass');
 }
 
+// ── GFM task-list checkboxes render a checkbox, not the literal [ ]/[x] marker ──
+// A deep-research report routinely emits action-item checklists ("- [ ] do X",
+// "- [x] done"). The reader used to run these through the GENERIC bullet rule,
+// which captured "[ ] do X" as the item TEXT and leaked the raw checkbox marker
+// into the report ("<li>[ ] do X</li>"). The TTS narrator already strips these,
+// so the visual reader was the lone inconsistent path. FIX: a task-list rule runs
+// BEFORE the bullet rule and renders a disabled checkbox. Mutation-proof: revert
+// the fix (remove the task-list rule) and every FIX assertion below goes RED.
+{
+  const box = mdToHtml('- [ ] open task\n- [x] done task');
+  ok(/<ul>/.test(box) && !/\[ \]/.test(box) && !/\[x\]/.test(box),
+     'FIX: task-list [ ]/[x] markers are gone — no literal checkbox leaks into the reader');
+  ok(/<li><input type="checkbox" disabled> open task<\/li>/.test(box),
+     'FIX: "- [ ] open task" renders an unchecked disabled checkbox + text');
+  ok(/<li><input type="checkbox" disabled checked> done task<\/li>/.test(box),
+     'FIX: "- [x] done task" renders a CHECKED disabled checkbox + text');
+  ok(/<ul><li><input[\s\S]*<\/li>\n?<li><input[\s\S]*<\/li><\/ul>/.test(box),
+     'FIX: consecutive task items fold into one <ul>');
+
+  // Uppercase [X] and a `*`/`+` bullet marker are all valid GFM task syntax.
+  ok(/<input type="checkbox" disabled checked>/.test(mdToHtml('* [X] shout done')),
+     'FIX: "* [X]" (uppercase, asterisk bullet) renders checked');
+  ok(/<input type="checkbox" disabled>/.test(mdToHtml('+ [ ] plus bullet task')),
+     'FIX: "+ [ ] …" (plus bullet) renders an unchecked checkbox');
+
+  // Task text still flows through the inline emphasis pass.
+  ok(/<li><input type="checkbox" disabled> ship <em>the<\/em> fix<\/li>/.test(mdToHtml('- [ ] ship *the* fix')),
+     'FIX: emphasis inside a task item still renders (<em> inside the <li>)');
+
+  // GUARD: a plain bullet with a bracketed aside is NOT mistaken for a task item.
+  const plain = mdToHtml('- see note [1] below');
+  ok(/<li>see note \[1\] below<\/li>/.test(plain) && !/<input/.test(plain),
+     'GUARD: a normal "- text [1]" bullet is untouched (no checkbox)');
+  // GUARD: prose "[x]" mid-sentence (no leading bullet) is never a checkbox.
+  ok(!/<input/.test(mdToHtml('The value [x] is unknown here')),
+     'GUARD: mid-prose "[x]" is not turned into a checkbox');
+
+  // RED PROOF: the old path (generic bullet rule with no task rule) leaks the marker.
+  const oldTask = (() => {
+    let h = esc('- [ ] open task');
+    h = h.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
+    return h;
+  })();
+  ok(/<li>\[ \] open task<\/li>/.test(oldTask),
+     'RED PROOF: without the task rule the generic bullet leaks "[ ] open task"');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
