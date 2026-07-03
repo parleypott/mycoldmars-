@@ -74,9 +74,19 @@ export function stripMarkdown(md) {
     // a "[]()" husk (the outer []() with the URL gone) that the TTS reads aloud as
     // "open bracket close bracket open paren close paren". Common in essays as a
     // clickable photo/map.
-    .replace(/\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)/g, '')
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')  // images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // inline links -> link text
+    //
+    // The URL captures below allow ONE level of balanced parens —
+    // `(?:[^()]|\([^()]*\))` — not the naive `[^)]+`. A bare `[^)]+` truncates at
+    // the FIRST ")", so a Wikipedia-style disambiguation link
+    // ("[Myanmar](…/Myanmar_(Burma))") or an image path with a parenthetical
+    // ("…/Burma_(Myanmar).png") left the rest of the URL — and a stray ")" —
+    // leaking into the audio ("Myanmar close paren", "dot png close paren"). These
+    // links are ubiquitous in geopolitical/historical essays, so it's a real
+    // read-it-aloud leak, not a corner case. Mirrors the fix already shipped in
+    // research/md.js's link/image transforms.
+    .replace(/\[!\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)\]\((?:[^()]|\([^()]*\))*\)/g, '')
+    .replace(/!\[[^\]]*\]\((?:[^()]|\([^()]*\))+\)/g, '')  // images
+    .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))+\)/g, '$1') // inline links -> link text
     // Empty-text inline links ([](url)) — no readable text; drop entirely so the
     // "[]()" husk never reaches the audio. The link rule above needs >=1 text char,
     // so it skips these on its own.

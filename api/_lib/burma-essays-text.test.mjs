@@ -533,5 +533,40 @@ eq(stripMarkdown('> **important** note'), 'important note', 'GUARD: blockquoted 
 eq(stripMarkdown('if 5 > 3 then done'), 'if 5 > 3 then done', 'GUARD: prose "5 > 3" comparison untouched');
 eq(stripMarkdown('The ratio a > b holds.'), 'The ratio a > b holds.', 'GUARD: prose "a > b" untouched');
 
+// ---- FIX: URL captures allow ONE level of balanced parens (Wikipedia-style links).
+// RED PROOF via a pre-fix reconstruction (naive `[^)]+` URL capture): it truncated at
+// the FIRST ")", leaking the URL tail + a stray ")" into the spoken text ("Myanmar
+// close paren", "dot png close paren"). These disambiguation links are ubiquitous in
+// the geopolitical/historical essays this narrator serves. Mirrors research/md.js's fix.
+function stripLinksNaive(md) {
+  return String(md ?? '')
+    .replace(/\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)/g, '')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+}
+eq(stripLinksNaive('See [Myanmar](https://en.wikipedia.org/wiki/Myanmar_(Burma)) today.'),
+   'See Myanmar) today.', 'RED: naive capture leaks a stray ")" from a paren URL');
+eq(stripLinksNaive('Photo ![map](https://x.org/Burma_(Myanmar).png) here.'),
+   'Photo .png) here.', 'RED: naive capture leaks the ".png)" image-URL tail');
+eq(stripMarkdown('See [Myanmar](https://en.wikipedia.org/wiki/Myanmar_(Burma)) today.'),
+   'See Myanmar today.',
+   'FIX: link with a parenthetical in the URL keeps only the label, no stray ")"');
+eq(stripMarkdown('Photo ![map](https://x.org/Burma_(Myanmar).png) here.'),
+   'Photo  here.',
+   'FIX: image with a parenthetical in the URL fully dropped, no ".png)" tail');
+eq(stripMarkdown('A [![m](https://a.org/p_(1).png)](https://b.org/x_(2)) end.'),
+   'A  end.',
+   'FIX: linked image with parens in BOTH URLs fully dropped, no leaked tail');
+eq(stripMarkdown('Cite [Kachin State](https://en.wikipedia.org/wiki/Kachin_(state)).'),
+   'Cite Kachin State.',
+   'FIX: paren-URL link at end of sentence keeps the terminal period');
+// REGRESSION GUARDS: ordinary (paren-free) links/images behave exactly as before.
+eq(stripMarkdown('[Newpress](https://newpress.co) and ![i](https://y.org/z.png) ok'),
+   'Newpress and  ok',
+   'GUARD: plain link + plain image unchanged by the balanced-paren upgrade');
+eq(stripMarkdown('[the report][1] then [Newpress](https://newpress.co).'),
+   'the report then Newpress.',
+   'GUARD: reference-style link + inline link both still resolve');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
