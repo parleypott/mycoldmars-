@@ -149,8 +149,14 @@ function parseClipItem(clipEl, fps, fileDefs) {
   let sourceFile = null;
   if (fileEl) {
     const fileId = fileEl.getAttribute('id');
-    let fileName = getText(fileEl, 'name');
-    let pathUrl = getText(fileEl, 'pathurl');
+    // Direct-child (`:scope >`) reads, matching the rest of this parser and the
+    // worker twin (selects-parse-core.js getText, which is childNodes-only). A
+    // bare `getText(fileEl,'name')` is querySelector = ANY descendant, so a
+    // `<file>` that nests an element carrying its own `<name>` (non-standard
+    // exporters — Resolve/custom) would silently read the WRONG name. Scoping to
+    // the file's own child keeps the two parsers byte-identical on every input.
+    let fileName = getText(fileEl, ':scope > name');
+    let pathUrl = getText(fileEl, ':scope > pathurl');
     // Bare reference (<file id="..."/> with no children) — resolve from the
     // document's full file definitions so repeat cuts keep their real source.
     if (!fileName && !pathUrl && fileId && fileDefs && fileDefs.has(fileId)) {
@@ -168,10 +174,10 @@ function parseClipItem(clipEl, fps, fileDefs) {
   const markerEls = clipEl.querySelectorAll(':scope > marker');
   for (const m of markerEls) {
     markers.push({
-      name: getText(m, 'name'),
-      comment: getText(m, 'comment'),
-      inPoint: getNum(m, 'in'),
-      outPoint: getNum(m, 'out'),
+      name: getText(m, ':scope > name'),
+      comment: getText(m, ':scope > comment'),
+      inPoint: getNum(m, ':scope > in'),
+      outPoint: getNum(m, ':scope > out'),
     });
   }
 
@@ -273,8 +279,8 @@ function buildFileDefs(doc) {
   for (const fileEl of fileEls) {
     const id = fileEl.getAttribute('id');
     if (!id || defs.has(id)) continue;
-    const name = getText(fileEl, 'name');
-    const pathUrl = getText(fileEl, 'pathurl');
+    const name = getText(fileEl, ':scope > name');
+    const pathUrl = getText(fileEl, ':scope > pathurl');
     if (name || pathUrl) {
       defs.set(id, { name, pathUrl });
     }
