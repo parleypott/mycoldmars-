@@ -347,6 +347,34 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
      'GUARD: a table delimiter row is not swallowed by the <hr> transform');
 }
 
+// ── indented / nested list items convert instead of leaking literal markers ──
+// The bullet/number regexes used to require the marker at absolute line-start, so
+// LLM sub-points nested with 2-4 spaces of indent ("- point\n    - sub") were left
+// unconverted and leaked into the reader as literal `- sub` text stranded between
+// <ul> blocks. Allowing a leading `[ \t]*` folds them into the list as flat <li>
+// (nesting depth dropped, but no literal marker leaks).
+// (Mutation-lock: revert either list regex to `^(?:- |\* )` / `^\d+\. ` in md.js
+//  and the FIX assertions go RED while the top-level GUARDs stay green.)
+{
+  const nested = mdToHtml('Top points:\n\n- First item\n    - nested sub-item\n    - another sub\n- Second item');
+  ok(/<li>nested sub-item<\/li>/.test(nested) && /<li>another sub<\/li>/.test(nested),
+     'FIX: indented `- ` sub-items convert to <li>');
+  ok(!/- nested sub-item/.test(nested) && !/- another sub/.test(nested),
+     'FIX: no literal `- ` marker leaks between the <ul> blocks');
+  ok((nested.match(/<ul>/g) || []).length === 1, 'FIX: sub-items fold into a single <ul>, not stranded outside it');
+  // indented ordered items too
+  const numNest = mdToHtml('Steps:\n\n1. one\n   2. sub-step\n3. three');
+  ok(/<ol>/.test(numNest) && /<li>sub-step<\/li>/.test(numNest) && !/2\. sub-step/.test(numNest),
+     'FIX: indented `N. ` sub-items convert to <li> inside the <ol>');
+  // GUARD: top-level (zero-indent) lists are byte-identical to before.
+  eq(mdToHtml('- a\n- b'), '<ul><li>a</li>\n<li>b</li></ul>', 'GUARD: top-level bullets unchanged');
+  eq(mdToHtml('1. first\n2. second'), '<ol><li>first</li>\n<li>second</li></ol>', 'GUARD: top-level numbers unchanged');
+  // RED PROOF: the genuine old renderer leaves the indented marker as literal text.
+  const old = fullOldMd('- First item\n    - nested sub-item\n- Second item');
+  ok(/- nested sub-item/.test(old) && !/<li>nested sub-item<\/li>/.test(old),
+     'RED PROOF: old renderer leaks the indented `- ` marker as literal text');
+}
+
 // ── NO-REGRESSION: normal markdown is byte-identical to the old renderer ──
 // (old===new on every input WITHOUT a dangerous scheme or breakout quote, since
 //  the only changes are the link transform and the ordered-list <ol> wrap — so

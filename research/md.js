@@ -160,8 +160,15 @@ export function mdToHtml(md) {
   // below then run over the item TEXT and still render correctly. The <ul>/<ol>
   // wrap still happens after the inline pass — the marker tags carry no * [ `
   // for those transforms to mangle.
-  html = html.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
-  html = html.replace(/^\d+\. (.*)$/gm, '<oli>$1</oli>');
+  // A leading `[ \t]*` claims INDENTED bullets/numbers too. LLM research reports
+  // routinely nest sub-points with 2-4 spaces of indent ("- point\n    - sub"),
+  // and the marker at absolute line-start only would leave every indented item
+  // unconverted — it leaked into the reader as literal `- sub` text stranded
+  // between <ul> blocks. Consuming the indent folds sub-items into the list as
+  // flat <li> (nesting depth is dropped, but no literal marker leaks). Code
+  // spans/fences are already stashed, so an indented `- ` inside code is safe.
+  html = html.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
+  html = html.replace(/^[ \t]*\d+\. (.*)$/gm, '<oli>$1</oli>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
   // URL capture allows one level of balanced parens so Wikipedia-style
