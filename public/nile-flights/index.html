@@ -277,17 +277,30 @@ function toggle(id){
   save();
 }
 
-let saveTimer=null;
+let saveTimer=null, saveInFlight=false;
+// A pending (debounced) or in-flight save means the local `state` holds a check
+// the server hasn't confirmed yet. Skip the background poll during that window:
+// otherwise load() reassigns `state` out from under the unsaved edit, reverting
+// the just-tapped box — and if the poll lands mid-save, the debounced POST
+// serializes the polled-in (stale) state, permanently LOSING the booking. This
+// is a page Johnny + Marisa edit at the same time, so the race is real, not
+// theoretical. Pure predicate so it's unit-testable; saveTimer is nulled and
+// saveInFlight always cleared (finally) so polling can never get stuck off.
+function shouldPoll(visible, pendingTimer, inFlight){
+  return !!visible && !pendingTimer && !inFlight;
+}
 function save(){
   setSynced("saving…");
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
+    saveTimer=null; saveInFlight=true;
     try{
       const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({state})});
       if(!r.ok) throw new Error("save failed ("+r.status+")");
       const j=await r.json(); updatedAt=j.updated_at;
       setSynced("all changes saved");
     }catch(e){ toast("Couldn't save — check connection","err"); setSynced("not saved"); }
+    finally{ saveInFlight=false; }
   },350);
 }
 
@@ -334,7 +347,7 @@ document.addEventListener("keydown",e=>{
 render();
 load();
 // light polling so Johnny sees Marisa's checks land (and vice-versa)
-setInterval(()=>{ if(document.visibilityState==="visible") load(); }, 20000);
+setInterval(()=>{ if(shouldPoll(document.visibilityState==="visible", saveTimer, saveInFlight)) load(); }, 20000);
 </script>
 </body>
 </html>
