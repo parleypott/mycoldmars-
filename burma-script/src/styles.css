@@ -1549,3 +1549,61 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
      could rest dimmed. Pin it visible — the indicator that must never hide stays at full opacity. */
   .wp-save-pill, .wp-save-pill * { opacity: 1 !important; }
 }
+
+/* ============================================================
+   IMAGE BLOCK (ADDITIVE) — a reference frame / inspo still living inline in
+   the rack. A quiet FIGURE, not a cartridge: no spine, no counter, no flex-row
+   chrome — the frame IS the content. Constrained to the column that holds it
+   (full-width row = the doc column; a said|shown split = that lane's width).
+   Doctrine: flat, 1.5px ink border, 11px radius, mono caption in the quiet
+   kind-label colour. INSPO stills get a small mono badge pinned top-left so a
+   mood reference can never be mistaken for a real frame from footage.
+   INERT for Burma/Palau — their docs contain no imageBlock nodes.
+   ============================================================ */
+.wp-image {
+  position: relative;
+  display: block;
+  margin: 0 0 11px;
+  max-width: 100%;
+}
+.wp-image .wp-image-img,
+.wp-image img {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  border: 1.5px solid var(--ink);
+  border-radius: 11px;
+  background: var(--face);
+}
+/* In a said|shown split the lane is already narrow — let the frame fill it. */
+.wp-trow[data-cols="2"] .wp-image img,
+.wp-trow[data-cols="3"] .wp-image img { max-width: 100%; }
+.wp-image .wp-image-caption {
+  margin: 5px 2px 0;
+  font-family: var(--mono);
+  font-size: var(--chrome-size-sm, 11px);
+  line-height: 1.45;
+  letter-spacing: .02em;
+  color: var(--ep-kind-label);
+  max-width: 640px;
+}
+.wp-image .wp-image-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: var(--ep-cap-text);
+  background: var(--ep-cap);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  pointer-events: none;
+}
+.wp-image .wp-image-badge[hidden] { display: none; }
+.wp-image .wp-image-caption[hidden] { display: none; }
+/* Selected (atom) image gets the same selection affordance as other nodes. */
+.wp-image.ProseMirror-selectednode img { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }

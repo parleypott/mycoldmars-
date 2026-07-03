@@ -32,7 +32,7 @@ function reset() { _store.clear(); }
 {
   reset();
   seedIfAbsent();
-  eq(readIndex().length, 2, 'seed: two legacy rows');
+  eq(readIndex().length, 3, 'seed: three legacy rows (burma, palau, palau2)');
   const BURMA_UUID = '267bb0ec-215c-45bb-9a18-c2c5d4a68ef5';
   const PALAU_UUID = 'e8b9513c-98de-4950-8ba3-b660f0f5e2e4';
   const changed = mergeCloudRows([
@@ -41,7 +41,7 @@ function reset() { _store.clear(); }
   ]);
   ok(changed, 'merge: legacy adoption changed the cache');
   const rows = readIndex();
-  eq(rows.length, 2, 'merge: still exactly two rows (no duplicate burma/palau)');
+  eq(rows.length, 3, 'merge: still exactly three rows (no duplicate burma/palau)');
   const burma = rows.find((r) => r.slug === 'burma');
   eq(burma.id, 'local_seed_burma', 'legacy: local id preserved (keeps pinned namespace)');
   eq(burma.cloudId, BURMA_UUID, 'legacy: linked to its cloud id by slug');
@@ -57,7 +57,7 @@ function reset() { _store.clear(); }
   ok(row, 'merge: teammate project added');
   eq(row.id, TEAM_UUID, 'teammate: cloud UUID is the id (drives its namespace + doc path)');
   eq(row.cloudId, TEAM_UUID, 'teammate: cloudId set');
-  eq(activeProjects().length, 3, 'active: burma + palau + teammate');
+  eq(activeProjects().length, 4, 'active: burma + palau + palau2 + teammate');
 }
 
 // ── rename-safe: merge is keyed by cloudId, so a locally-renamed slug does NOT duplicate ──

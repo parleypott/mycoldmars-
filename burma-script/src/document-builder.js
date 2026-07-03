@@ -624,6 +624,21 @@ function blockToNode(b, opts) {
         content: [para(inlineContent(bodyText(b), 'plain'))],
       };
 
+    case 'image':
+      // ADDITIVE image support: an ATOM node — the src / caption / kind live entirely in attrs
+      // (reconstruction-complete, WP-13), no editable content. Burma/Palau blocks arrays contain
+      // no type:"image", so this branch never fires for them and their docs are byte-identical.
+      return {
+        type: 'imageBlock',
+        attrs: {
+          blockId: id,
+          src: b.imageSrc || '',
+          alt: b.imageAlt || '',
+          kind: b.imageKind === 'inspo' ? 'inspo' : 'shot',
+          flavor: b.flavor ?? null,
+        },
+      };
+
     case 'none':
       // A "born" block with no chosen type yet — a chrome-less editable line. It still routes
       // its body through inlineContent so anything already typed (chips included) survives.
@@ -694,6 +709,9 @@ function rowBlocks(row) {
 function rowHasVisibleWords(row) {
   for (const block of rowBlocks(row)) {
     if (block?.type === 'paragraph' && isEmptyPlaceholderPara(block)) continue;
+    // An image block carries no TEXT but is absolutely visible content — the empty-row culler
+    // must never drop it (its words live in attrs.alt, not in text nodes).
+    if (block?.type === 'imageBlock') return true;
     if (nodeText(block).trim()) return true;
   }
   return false;
@@ -898,6 +916,7 @@ const NODE_TO_TYPE = {
   noneBlock: 'none',
   noteBlock: null,
   binBlock: 'bin',
+  imageBlock: 'image',
 };
 
 // Tree-walk a node to its plain text, RE-SERIALIZING the inline span marks back into
@@ -1052,6 +1071,12 @@ function nodeToBlock(node, i) {
     if (a.speaker) block.speaker = a.speaker;
     block.done = !!a.done;
   } else if (node.type === 'voBlock') { block.text = text; block.voStatus = a.status || 'todo'; }
+  else if (node.type === 'imageBlock') {
+    // Image blocks are attr-complete atoms: src / caption / kind round-trip via attrs, no text.
+    block.imageSrc = a.src || '';
+    block.imageAlt = a.alt || '';
+    block.imageKind = a.kind === 'inspo' ? 'inspo' : 'shot';
+  }
   else { block.text = text; }
   return block;
 }

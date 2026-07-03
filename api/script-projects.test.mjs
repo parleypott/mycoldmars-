@@ -130,8 +130,8 @@ ok('ordinary + empty slugs are NOT protected (deletable)', () => {
     assert.equal(isProtectedSlug(s), false, `${JSON.stringify(s)} should be deletable`);
   }
 });
-ok('PROTECTED_SLUGS is exactly {burma, palau}', () => {
-  assert.deepEqual([...PROTECTED_SLUGS].sort(), ['burma', 'palau']);
+ok('PROTECTED_SLUGS is exactly {burma, palau, palau2}', () => {
+  assert.deepEqual([...PROTECTED_SLUGS].sort(), ['burma', 'palau', 'palau2']);
 });
 
 console.log(failed === 0

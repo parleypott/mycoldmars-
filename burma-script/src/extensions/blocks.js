@@ -946,8 +946,92 @@ export const BinBlock = Node.create({
   },
 });
 
+// --- IMAGE — a reference frame / inspo still living inline in the rack (ADDITIVE) ---
+// An ATOM block node: the image + its caption are pure attrs (src / alt / kind), no editable
+// content, so it round-trips byte-exact through JSON like every other reconstruction-complete
+// node (WP-13). INERT for Burma/Palau: their blocks arrays contain no type:"image", so
+// buildEditorDocument never emits this node for them — registering the type only widens what the
+// schema ACCEPTS, it changes nothing about what existing docs contain or render.
+// kind: 'shot' = a reference frame pulled from footage; 'inspo' = mood/inspiration (gets a badge).
+export const ImageBlock = Node.create({
+  name: 'imageBlock',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      ...baseAttrs(),
+      src: { default: '' },
+      alt: { default: '' },
+      kind: { default: 'shot' },
+    };
+  },
+  parseHTML() { return [{ tag: 'figure[data-image]' }]; },
+  renderHTML({ node }) {
+    const a = node.attrs;
+    const children = [
+      ['img', { src: a.src || '', alt: a.alt || '', loading: 'lazy' }],
+    ];
+    if (a.alt) children.push(['figcaption', { class: 'wp-image-caption' }, a.alt]);
+    // NOT a .wp-cart: an image is a quiet figure (no spine, no counter, no flex-row chrome) —
+    // calm doctrine styling lives on .wp-image in styles.css.
+    return ['figure', mergeAttributes(sharedRenderAttrs(node, {
+      'data-image': '', 'data-kind': a.kind || 'shot',
+      'data-block-id': a.blockId || '', class: 'wp-image',
+    })), ...children];
+  },
+  // Captions are reference metadata, not script words — contribute nothing to text exports.
+  renderText() { return ''; },
+  addNodeView() {
+    return ({ node }) => {
+      const a = node.attrs;
+      const dom = el('figure', 'wp-image', { 'data-image': '', contenteditable: 'false' });
+      if (a.blockId) dom.setAttribute('data-block-id', a.blockId);
+      dom.setAttribute('data-kind', a.kind || 'shot');
+      syncSharedDomAttrs(dom, a);
+
+      const img = el('img', 'wp-image-img', { loading: 'lazy' });
+      const paint = (attrs) => {
+        img.src = attrs.src || '';
+        img.alt = attrs.alt || '';
+        dom.setAttribute('data-kind', attrs.kind || 'shot');
+      };
+      dom.appendChild(img);
+
+      // INSPO badge — only for kind:'inspo' (mood reference, not a real frame from footage).
+      const badge = el('span', 'wp-image-badge', { contenteditable: 'false' });
+      badge.textContent = 'INSPO';
+      dom.appendChild(badge);
+
+      const cap = el('figcaption', 'wp-image-caption', { contenteditable: 'false' });
+      dom.appendChild(cap);
+
+      const paintAll = (attrs) => {
+        paint(attrs);
+        badge.hidden = (attrs.kind || 'shot') !== 'inspo';
+        cap.textContent = attrs.alt || '';
+        cap.hidden = !attrs.alt;
+      };
+      paintAll(a);
+
+      return {
+        dom,
+        ignoreMutation: () => true,
+        update(updated) {
+          if (updated.type.name !== 'imageBlock') return false;
+          paintAll(updated.attrs);
+          syncSharedDomAttrs(dom, updated.attrs);
+          return true;
+        },
+      };
+    };
+  },
+});
+
 export const BURMA_NODES = [
   ChapterBlock, SceneBlock, VoBlock, OncamBlock,
   SotBlock, BrollBlock, MontageBlock, NoneBlock, ScriptStart, NoteBlock, BinBlock,
+  ImageBlock,
   DirectionChip, DirectionBreak,
 ];

@@ -189,7 +189,7 @@ async function apiDelete(cloudId) {
 // Seeded, precious projects that must never be hard-deleted (mirrors PROTECTED_SLUGS in
 // api/script-projects.js). The server refuses these with 403 too — this is the belt-and-suspenders
 // client guard so we don't even fire a doomed DELETE for burma/palau.
-const PROTECTED_SLUGS = new Set(['burma', 'palau']);
+const PROTECTED_SLUGS = new Set(['burma', 'palau', 'palau2']);
 
 // ── cloud → cache MERGE (row by row; never a whole-list clobber) ────────────────────────────────────
 
@@ -420,7 +420,7 @@ export function purgeProject(id, { storageKeys = [], dbName = null } = {}) {
 
 /**
  * MIGRATION SEEDER. On the very first Script Library load — when the index key is ABSENT (not merely an
- * empty array) — seed exactly two rows, Burma and Palau, with slugs 'burma'/'palau' and episode ids that
+ * empty array) — seed the pinned legacy rows — Burma, Palau and Palau V2 — with slugs 'burma'/'palau'/'palau2' and episode ids that
  * make configForProject return the PINNED legacy configs (the existing wp01_burma_* / script_palau_*
  * namespaces). So opening either seeded project loads its already-saved doc with ZERO data loss. These
  * rows carry NO cloudId — the first syncFromCloud() adopts them by slug and LINKS them to their existing
@@ -433,6 +433,15 @@ export function seedIfAbsent() {
   if (present) return false;
   const now = Date.now();
   const rows = [
+    {
+      id: 'local_seed_palau2',
+      slug: 'palau2',
+      title: 'Palau V2',
+      episode: 'palau2',
+      createdAt: new Date(now - 500).toISOString(),
+      updatedAt: new Date(now + 500).toISOString(),
+      trashedAt: null,
+    },
     {
       id: 'local_seed_palau',
       slug: 'palau',

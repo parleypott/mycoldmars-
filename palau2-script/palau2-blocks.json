@@ -1,0 +1,3080 @@
+{
+ "title": "Palau V2 — The Human Element",
+ "blocks": [
+  {
+   "id": "bin_palau2_1_56debd",
+   "type": "bin",
+   "text": "EDITO PASS OFF\n\nIm marking b roll i like in gold"
+  },
+  {
+   "id": "chapter_palau2_2_84d1c2",
+   "type": "chapter",
+   "genre": "cold_open",
+   "title": "COLD OPEN",
+   "text": "CH: CO\nDreamy sequence that immerses us in three modes\n1. Spear fishing\n2. Establishing of Palau\n3. Riding on boats\nAnd while we see this footage we hear SOTs from people we talked to but also JH reflecting/reacting.\n\nA mix of beauty, adventure, intrigue and end with 'but there's tension'\n\nClimaxes with some uncertain tension then we're into the Map Room Opener"
+  },
+  {
+   "id": "bin_palau2_3_9fe341",
+   "type": "bin",
+   "text": "SOT Options"
+  },
+  {
+   "id": "sot_palau2_4_a5ccf7",
+   "type": "sot",
+   "text": "Why do you come to this spot?\" \"So it's a channel. Very live coral and sandy area. It attracts a variety of fish",
+   "timecode": {
+    "day": 1,
+    "tc": "00:27:04:17",
+    "ambiguous": false,
+    "raw": "DAY 1 00:27:04:17"
+   }
+  },
+  {
+   "id": "sot_palau2_5_a2cd4d",
+   "type": "sot",
+   "text": "\"And this time of day, anything can be done there. So we're aiming for unicorn fish. So we'll see.\"",
+   "timecode": {
+    "day": 1,
+    "tc": "00:27:29:18",
+    "ambiguous": false,
+    "raw": "DAY 1 00:27:29:18"
+   }
+  },
+  {
+   "id": "sot_palau2_6_a13425",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "We're 1% land and 99% ocean, so we're actually a large ocean state. Um, right there. Life and 1% definitely depends on the quality of the 99% in the world.",
+   "timecode": {
+    "day": null,
+    "tc": "00:33:04",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:33:04] ... [00:33:26][21.8]"
+   }
+  },
+  {
+   "id": "sot_palau2_7_a9c417",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "\" I've never been to the Pacific like this. I've never been to this kind of water before. It's really cool to see it. Beautiful.\"",
+   "timecode": {
+    "day": 1,
+    "tc": "00:27:29:18",
+    "ambiguous": false,
+    "raw": "DAY 1 00:27:29:18 JH"
+   }
+  },
+  {
+   "id": "sot_palau2_8_48a984",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "\"But how did you know about Palau and decide to come?\"",
+   "timecode": {
+    "day": 1,
+    "tc": "00:36:21:12",
+    "ambiguous": false,
+    "raw": "DAY 1 00:36:21:12 HADLY"
+   }
+  },
+  {
+   "id": "sot_palau2_9_d92350",
+   "type": "sot",
+   "text": "talks about how its a big difference fish are less and less. Used to be way more",
+   "timecode": {
+    "day": 1,
+    "tc": "00:45:12:17",
+    "ambiguous": false,
+    "raw": "DAT1 00:45:12:17"
+   }
+  },
+  {
+   "id": "sot_palau2_10_65ab8d",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "flavor": "gold",
+   "text": "life on Earth depends on the quality and life of the ocean",
+   "timecode": {
+    "day": null,
+    "tc": "00:31:22",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:31:22] ... [00:31:28][6.5]"
+   }
+  },
+  {
+   "id": "sot_palau2_11_eddcd2",
+   "type": "sot",
+   "text": "ranger talks about tide rise taking over an island.",
+   "timecode": {
+    "day": 3,
+    "tc": "00:35:47:02",
+    "ambiguous": false,
+    "raw": "DAY 3 00:35:47:02"
+   }
+  },
+  {
+   "id": "sot_palau2_12_a39d77",
+   "type": "sot",
+   "text": "\" in between these two island. Big pile of sand its gone\"",
+   "timecode": {
+    "day": 3,
+    "tc": "00:36:13:20",
+    "ambiguous": false,
+    "raw": "DAY 3 00:36:13:20"
+   }
+  },
+  {
+   "id": "sot_palau2_13_ce0cbb",
+   "type": "sot",
+   "text": "\"this is the only pine tre that is left on the rock island itself…holding the sand. All the pin trees…got washed away. 00:37:33:12 maybe by next year that pine tree will fall.\n\nThat sand used to stick out. That pile used to be right there…00:37:47:14 the sand itself was like a rock island now its just slowly going gone…going gone.",
+   "timecode": {
+    "day": 3,
+    "tc": "00:36:38:21",
+    "ambiguous": false,
+    "raw": "DAY 3 00:36:38:21 (embedded: 00:37:33:12, 00:37:47:14)"
+   }
+  },
+  {
+   "id": "sot_palau2_14_569420",
+   "type": "sot",
+   "text": "When it's on full moon, that's when the corals spawn",
+   "timecode": {
+    "day": 3,
+    "tc": "00:38:23:01",
+    "ambiguous": false,
+    "raw": "DAY 3 00:38:23:01"
+   }
+  },
+  {
+   "id": "sot_palau2_15_327a30",
+   "type": "sot",
+   "text": "The top of the coral, you glow. And then you see those worms….On a full moon.",
+   "timecode": {
+    "day": 3,
+    "tc": "00:38:56:17",
+    "ambiguous": false,
+    "raw": "DAY 3 00:38:56:17"
+   }
+  },
+  {
+   "id": "chapter_palau2_16_7b6eee",
+   "type": "chapter",
+   "genre": "map",
+   "title": "LOOK AT THIS MAP",
+   "text": ""
+  },
+  {
+   "id": "vo_palau2_17_a1c4ad",
+   "type": "vo",
+   "text": "Look at this map",
+   "lane": "said"
+  },
+  {
+   "id": "broll_palau2_18_94f448",
+   "type": "broll",
+   "text": "Rolls out Map of Papalau with empty ocean\nThis is a printed map of the 3d render high res. No compositing yet.",
+   "lane": "shown",
+   "width": "full"
+  },
+  {
+   "id": "bin_palau2_19_982a19",
+   "type": "bin",
+   "text": "EMILY x BENJAMIN: MAPS TO PRINTS\n1. Flat 3d map of Palau without water\n2. Falt 3d map of palau with water"
+  },
+  {
+   "id": "bin_palau2_20_dc53c1",
+   "type": "bin",
+   "text": "ASPECT RATIO: TK EMILY"
+  },
+  {
+   "id": "note_palau2_21_cf2698",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-003-000.png",
+   "imageAlt": "Flat 3d map of Palau without water (green render, no ocean)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "note_palau2_22_a42d4d",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-003-001.png",
+   "imageAlt": "Flat 3d map of Palau with water (blue ocean render)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "oncam_palau2_23_3c3a45",
+   "type": "oncam",
+   "text": "It's one you've never seen before and it shows a huge country… the size of Texas.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_1"
+  },
+  {
+   "id": "oncam_palau2_24_a13b5b",
+   "type": "oncam",
+   "text": "ON CAM + close up on printed map",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_1"
+  },
+  {
+   "id": "oncam_palau2_25_b6263f",
+   "type": "oncam",
+   "text": "Oh but it doesn't actually look like this.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_2"
+  },
+  {
+   "id": "oncam_palau2_26_287e28",
+   "type": "oncam",
+   "text": "ONCAM",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_2"
+  },
+  {
+   "id": "broll_palau2_27_c6b6b2",
+   "type": "broll",
+   "text": "3d COMPOSITE\nSHOT 1: JH SHOT\n- Water filling up while JH looks down and watches it start to fill up",
+   "lane": "shown",
+   "width": "full"
+  },
+  {
+   "id": "note_palau2_28_d55271",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-004-002.png",
+   "imageAlt": "JH at the map-room desk, red outline on desk labeled '3d map' (composite placement frame)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "broll_palau2_29_e99c6a",
+   "type": "broll",
+   "text": "SHOT 2: COMPOSITE of JH peering over the map as it fills up with water",
+   "lane": "shown",
+   "width": "full"
+  },
+  {
+   "id": "bin_palau2_30_82ed8d",
+   "type": "bin",
+   "text": "INSPO SHOT FOR THIS:"
+  },
+  {
+   "id": "note_palau2_31_1771da",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-005-003.png",
+   "imageAlt": "Inspo: JH peering over the 3d water map (eyes above the map horizon)",
+   "imageKind": "inspo"
+  },
+  {
+   "id": "broll_palau2_32_cbcbb7",
+   "type": "broll",
+   "text": "SHOT 3 Top down shot of the map filling up with water",
+   "lane": "shown",
+   "width": "full"
+  },
+  {
+   "id": "vo_palau2_33_ce4a8a",
+   "type": "vo",
+   "text": "This is Palau.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_3"
+  },
+  {
+   "id": "broll_palau2_34_9052ed",
+   "type": "broll",
+   "text": "Map is now full of water",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_3"
+  },
+  {
+   "id": "note_palau2_35_7a63c3",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-006-004.png",
+   "imageAlt": "JH at the map-room desk with '3d map' outline (right-column reference frame)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "vo_palau2_36_c9f7a9",
+   "type": "vo",
+   "text": "And a country that is 99% water. The ocean is their world. Their food.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_4"
+  },
+  {
+   "id": "broll_palau2_37_3e6564",
+   "type": "broll",
+   "text": "Non Composite: close up on the map, slow orbit around the islands surrounded by a vast expanse of water",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_4"
+  },
+  {
+   "id": "vo_palau2_38_9fb286",
+   "type": "vo",
+   "text": "And that ocean is changing.",
+   "lane": "said"
+  },
+  {
+   "id": "oncam_palau2_39_c6ff36",
+   "type": "oncam",
+   "text": "We hear so much about this . the ocean is rising and warming ,islands are sinking. But i want to understand what that actually means.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_5"
+  },
+  {
+   "id": "oncam_palau2_40_d110af",
+   "type": "oncam",
+   "text": "ON CAM",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_5"
+  },
+  {
+   "id": "oncam_palau2_41_219729",
+   "type": "oncam",
+   "text": "So I'm setting off to talk to the people on these islands. To document their story, to see what they are seeing. And understand what the rest of us can learn from the people living on teh front lines of a changing ocean.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_6"
+  },
+  {
+   "id": "oncam_palau2_42_9c6b1f",
+   "type": "oncam",
+   "text": "ONCAM",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_6"
+  },
+  {
+   "id": "chapter_palau2_43_3960e3",
+   "type": "chapter",
+   "genre": "ground",
+   "title": "INQ 1.",
+   "text": ""
+  },
+  {
+   "id": "chapter_palau2_44_2a7965",
+   "type": "chapter",
+   "genre": "explainer",
+   "title": "EXPLAINER 1. Coral",
+   "text": "Ill do this as ON CAM as if im in inquiry but its mostly covered, treated as VO"
+  },
+  {
+   "id": "vo_palau2_45_24585c",
+   "type": "vo",
+   "text": "This is coral.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_7"
+  },
+  {
+   "id": "broll_palau2_46_68afaf",
+   "type": "broll",
+   "text": "3d: Wide of Coral zooming in",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_7"
+  },
+  {
+   "id": "vo_palau2_47_417c7a",
+   "type": "vo",
+   "text": "Which turns out to be the most underrated animal of all time. But wait.",
+   "lane": "said"
+  },
+  {
+   "id": "vo_palau2_48_dea508",
+   "type": "vo",
+   "text": "First. Let's settle this. Plant, animal, or rock…it's all three",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_8"
+  },
+  {
+   "id": "broll_palau2_49_88de11",
+   "type": "broll",
+   "text": "Wide of Coral zooming in",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_8"
+  },
+  {
+   "id": "vo_palau2_50_caf7ae",
+   "type": "vo",
+   "text": "First the animal. This thing. A squishy gummy worm with a little mouth and tentacles. It's called a polyp.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_9"
+  },
+  {
+   "id": "broll_palau2_51_00b5f4",
+   "type": "broll",
+   "text": "zooming in focus on the polyp",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_9"
+  },
+  {
+   "id": "oncam_palau2_52_da7ab1",
+   "type": "oncam",
+   "text": "Ok so does it eat algae floating around the ocean.\n\nNO!",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_10"
+  },
+  {
+   "id": "broll_palau2_53_946f0f",
+   "type": "broll",
+   "text": "JH ON CAM inquiry vibes (straggler)",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_10",
+   "flavor": "pink"
+  },
+  {
+   "id": "vo_palau2_54_3c04ea",
+   "type": "vo",
+   "text": "It ISSS the ALgea…",
+   "lane": "said"
+  },
+  {
+   "id": "vo_palau2_55_6dd11e",
+   "type": "vo",
+   "text": "EXPERTS SAY",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_11"
+  },
+  {
+   "id": "broll_palau2_56_6494c4",
+   "type": "broll",
+   "text": "zoom in even further now we are in the flesh and we see algae",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_11"
+  },
+  {
+   "id": "sot_palau2_57_dfe972",
+   "type": "sot",
+   "text": "this alga lives inside the flesh of the coral, and it feeds the coral",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:03:29",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:03:29] this alga lives inside the flesh of the coral, and it feeds the coral [00:03:36][7.3]"
+   }
+  },
+  {
+   "id": "oncam_palau2_58_3265ee",
+   "type": "oncam",
+   "text": "JH explaining to izzy “Algae do photosynthesis and make sugar and feed the polyp”",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_12"
+  },
+  {
+   "id": "broll_palau2_59_d827e6",
+   "type": "broll",
+   "text": "ONCAM + / 3d shows sunlight appear on the algae and they glow",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_12"
+  },
+  {
+   "id": "sot_palau2_60_e2d789",
+   "type": "sot",
+   "text": "It just has the plants living inside itself. Think of it as if you had a salad bar living in you, and whenever you wanted a salad, Would you just go out in the sun and... Sunbathed for a while.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:04:30",
+    "ambiguous": true,
+    "raw": "Dr Porter: 20260311-James Porter - Interview: [00:04:30] It just has the plants living inside itself. Think of it as if you had a salad bar living in you, and whenever you wanted a salad, Would you just go out in the sun and... Sunbathed for a while. [00:04:42][12.6]"
+   }
+  },
+  {
+   "id": "sot_palau2_61_e55d73",
+   "type": "sot",
+   "text": "corals liberated themselves from the requirement to get sustenance from plants. It just has the plants living inside itself",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:04:17",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:04:17] corals kind of liberated themselves from one important source of their food, which is the requirement to get sustenance from plants. It just has the plants living inside itself [00:04:33][15.1] (strikethroughs: 'kind of', 'one important source of their food, which is')"
+   }
+  },
+  {
+   "id": "oncam_palau2_62_37d9ec",
+   "type": "oncam",
+   "text": "JH Ok but whats THIS..?",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_13"
+  },
+  {
+   "id": "broll_palau2_63_acd218",
+   "type": "broll",
+   "text": "JH (260311) on cam pointing at the rock",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_13"
+  },
+  {
+   "id": "sot_palau2_64_ab99f3",
+   "type": "sot",
+   "text": "it also helps deposit its limestone skeleton",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:03:37",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:03:37] it also helps deposit its limestone skeleton [00:03:41][4.8]"
+   }
+  },
+  {
+   "id": "sot_palau2_65_06f51e",
+   "type": "sot",
+   "text": "our bones are calcium phosphate but coral's bones are calcium carbonate.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:03:44",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:03:44] our bones are calcium phosphate but coral's bones are calcium carbonate. [00:03:50][6.0]"
+   }
+  },
+  {
+   "id": "oncam_palau2_66_01163d",
+   "type": "oncam",
+   "text": "JH “Calcium Carbonate???",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_14"
+  },
+  {
+   "id": "broll_palau2_67_977d3a",
+   "type": "broll",
+   "text": "JH (260311) on cam (straggler)",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_14",
+   "flavor": "pink"
+  },
+  {
+   "id": "vo_palau2_68_d8f58b",
+   "type": "vo",
+   "text": "Expert: “calcium carbonate”\nCalcium carbonate”",
+   "lane": "said"
+  },
+  {
+   "id": "oncam_palau2_69_17ed50",
+   "type": "oncam",
+   "text": "PORTER “calcium carbonate, our bones are calcium phosphate.”",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_15"
+  },
+  {
+   "id": "broll_palau2_70_81d8c1",
+   "type": "broll",
+   "text": "Porter on cam then: / Shot of skeleton anatomy text book / Close up on bone",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_15"
+  },
+  {
+   "id": "oncam_palau2_71_d373b7",
+   "type": "oncam",
+   "text": "PORTER: “but corals bones are calcium carbonate.”\n\nPORTER “its limestone skeleton”",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_16"
+  },
+  {
+   "id": "broll_palau2_72_ee0846",
+   "type": "broll",
+   "text": "CORAL close up on the rock / Wide of a reef structure",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_16"
+  },
+  {
+   "id": "oncam_palau2_73_b885d4",
+   "type": "oncam",
+   "text": "JH inquiry: “whoa whoa whoa so the polyp, which is fueled by the algae living INSIDE THEM turns into a little chemist,",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_17"
+  },
+  {
+   "id": "broll_palau2_74_1400b4",
+   "type": "broll",
+   "text": "(260311)",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_17"
+  },
+  {
+   "id": "oncam_palau2_75_7a5a28",
+   "type": "oncam",
+   "text": "It take calcium and carbon from the sea water, combines them to make literal ROCK!",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_18"
+  },
+  {
+   "id": "broll_palau2_76_55c14a",
+   "type": "broll",
+   "text": "JH ON CAM inquiry vibes (straggler) / 2d animation on top of 3d of coral / • Calcium ions (Ca²⁺) from seawater / • Carbonate ions (CO₃²⁻) formed from dissolved CO₂",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_18",
+   "flavor": "pink"
+  },
+  {
+   "id": "broll_palau2_77_080e3c",
+   "type": "broll",
+   "text": "^^^^when those two are combined they produce: calcium carbonate (CaCO₃) AKA limestone. / Short hand for this: Ca²⁺ + CO₃²⁻ → CaCO₃",
+   "lane": "shown",
+   "flavor": "purple"
+  },
+  {
+   "id": "vo_palau2_78_8a6b63",
+   "type": "vo",
+   "text": "Limestone like chalk or marble”\nit just made that by crystallizing sea water what????\n!!",
+   "lane": "said"
+  },
+  {
+   "id": "oncam_palau2_79_fda6d6",
+   "type": "oncam",
+   "text": "JH explaining to iz “and it just creates it own home!!!",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_19"
+  },
+  {
+   "id": "broll_palau2_80_0bdd08",
+   "type": "broll",
+   "text": "ONCAM + / 3d timelapse of the coral reef",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_19"
+  },
+  {
+   "id": "oncam_palau2_81_db7b9e",
+   "type": "oncam",
+   "text": "Yeah the alps were made by coral\nWHAT???? (struck through)",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_20"
+  },
+  {
+   "id": "broll_palau2_82_0371bc",
+   "type": "broll",
+   "text": "JH ON CAM inquiry vibes (straggler) (struck through)",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_20",
+   "flavor": "pink"
+  },
+  {
+   "id": "sot_palau2_83_b40733",
+   "type": "sot",
+   "text": "that limestone then is deposited underneath the coral, so the coral is always growing towards the light.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:03:50",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:03:50] that limestone then is deposited underneath the coral, so the coral is always growing towards the light. [00:03:58][8.2]"
+   }
+  },
+  {
+   "id": "jh-note_palau2_84_c7c17a",
+   "type": "jh-note",
+   "text": "This is where it turns into MAGIC. We hear something liek THIS and we see timelpase and we hear SOTs and JH realization and we wnat to cry because its actually so profound"
+  },
+  {
+   "id": "broll_palau2_85_fa423c",
+   "type": "broll",
+   "text": "3d timelapse of the coral reef growing more and more depositing limestone skeleton",
+   "lane": "shown"
+  },
+  {
+   "id": "broll_palau2_86_97d25b",
+   "type": "broll",
+   "text": "STRAGGLER: JH packing up getting ready to go. Its time to fly",
+   "lane": "shown",
+   "flavor": "pink"
+  },
+  {
+   "id": "chapter_palau2_87_685bf2",
+   "type": "chapter",
+   "genre": "ground",
+   "title": "GROUND 1: Entering the Coral",
+   "text": ""
+  },
+  {
+   "id": "sot_palau2_88_880f82",
+   "type": "sot",
+   "text": "just take it in as a a cacophony that is also a symphony of life. This is the beauty of the natural world revealed in its finest way.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:33:20",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:33:20] just take it in as a a cacophony that is also a symphony of life. This is the beauty of the natural world revealed in its finest way. [00:33:33][13.1]"
+   }
+  },
+  {
+   "id": "montage_palau2_89_edb539",
+   "type": "montage",
+   "text": "We hear Porter while we see quick montage of / JH leaving / Flying / Map of route to Palau (globe. 2d or 3d)",
+   "lane": "shown"
+  },
+  {
+   "id": "montage_palau2_90_906fc7",
+   "type": "montage",
+   "text": "Landing / ON a boat / Gearing up in scuba • DAY 4 00:38:59:02 / And then….",
+   "lane": "shown"
+  },
+  {
+   "id": "scene_palau2_91_2e5b69",
+   "type": "scene",
+   "title": "SPLASH — Under water",
+   "text": "SPLASH DAY 4 00:42:57:02 / Under water. JH exploring the ree / Breath…music swells with beauty and wonder"
+  },
+  {
+   "id": "sot_palau2_92_cd8b4a",
+   "type": "sot",
+   "text": "Almost all of the 500 species of corals found in the Pacific are found in Palao,",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:24:52",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:24:52] Almost all of the 500 species of corals found in the Pacific are found in Palao, [00:24:59][7.0]"
+   }
+  },
+  {
+   "id": "broll_palau2_93_5ed7f9",
+   "type": "broll",
+   "text": "Beauty shots of diving JH discovering. Dynamic montage of the reef",
+   "lane": "shown"
+  },
+  {
+   "id": "sot_palau2_94_2b754c",
+   "type": "sot",
+   "text": "These master architects have designed the most beautiful structures. Found anywhere in the world",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:32:54",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:32:54] These master architects have designed the most beautiful structures. Found anywhere in the world [00:33:00][6.8]"
+   }
+  },
+  {
+   "id": "sot_palau2_95_9be1bb",
+   "type": "sot",
+   "text": "you are going to see everything. And you're gonna see everything all at once. And what this means is that your mind will be overwhelmed with a kaleidoscope of fish and invertebrates and life forms that you can't possibly put a name on, with spectacular colors that you have never seen before. Not even in a neon sign.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:32:14",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:32:14] you are going to see everything. And you're gonna see everything all at once. And what this means is that your mind will be overwhelmed with a kaleidoscope of fish and invertebrates and life forms that you can't possibly put a name on, with spectacular colors that you have never seen before. Not even in a neon sign. [00:32:40][26.0] (strikethroughs: 'And you're gonna see everything', 'And what this means is that', 'fish and invertebrates and')"
+   }
+  },
+  {
+   "id": "broll_palau2_96_ef60a8",
+   "type": "broll",
+   "text": "Beauty shots of diving JH discovering. Dynamic montage of the reef",
+   "lane": "shown"
+  },
+  {
+   "id": "note_palau2_97_d86740",
+   "type": "note",
+   "text": "BREATH"
+  },
+  {
+   "id": "sot_palau2_98_fbb424",
+   "type": "sot",
+   "text": "I mean, corals have been around for 400 million years and they have built the one environment on earth where the living things can be seen from outer space",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:04:46",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:04:46] I mean, corals have been around for 400 million years and they have built the one environment on earth where the living things can be seen from outer space [00:04:56][10.3]"
+   }
+  },
+  {
+   "id": "oncam_palau2_99_1f6e39",
+   "type": "oncam",
+   "text": "ONCAM / Shot of coral reef / Shots of reef from space",
+   "lane": "shown"
+  },
+  {
+   "id": "note_palau2_100_2f8778",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-011-005.png",
+   "imageAlt": "Satellite shot of coral reef from space",
+   "imageKind": "shot"
+  },
+  {
+   "id": "note_palau2_101_c44a1b",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-011-006.png",
+   "imageAlt": "Satellite shot of coral reef from space",
+   "imageKind": "shot"
+  },
+  {
+   "id": "note_palau2_102_aa1ef2",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-011-007.png",
+   "imageAlt": "Satellite shot of coral reef from space",
+   "imageKind": "shot"
+  },
+  {
+   "id": "sot_palau2_103_fa5f56",
+   "type": "sot",
+   "text": "coral reefs as solid structures are physical barriers to extreme waves, the damage that might be caused by a hurricane or a tsunami.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:14:23",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:14:23] coral reefs as solid structures are physical barriers to extreme waves, the damage that might be caused by a hurricane or a tsunami. [00:14:36][12.9]"
+   }
+  },
+  {
+   "id": "broll_palau2_104_64c663",
+   "type": "broll",
+   "text": "Drone of Coral reef breaking waves / Under water stock shot of wave swelling from underneath. / Sat shot of island and annotate the coreal reef around it",
+   "lane": "shown"
+  },
+  {
+   "id": "sot_palau2_105_919b79",
+   "type": "sot",
+   "text": "hese are buffers to the violence of ocean waves.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:14:51",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:14:51] hese are buffers to the violence of ocean waves. [00:14:55][3.9]"
+   }
+  },
+  {
+   "id": "note_palau2_106_071dbe",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-012-008.png",
+   "imageAlt": "Satellite of an island with the reef outlined in red, labeled 'reef'",
+   "imageKind": "shot"
+  },
+  {
+   "id": "vo_palau2_107_d72fba",
+   "type": "vo",
+   "text": "JH straggler audio from the studio: “AH I now understand why its called “the great barrier reef” its all just coral protecting australia.",
+   "lane": "said"
+  },
+  {
+   "id": "broll_palau2_108_0a698c",
+   "type": "broll",
+   "text": "2d Map",
+   "lane": "shown",
+   "flavor": "purple"
+  },
+  {
+   "id": "note_palau2_109_c2add0",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-012-009.png",
+   "imageAlt": "Globe view of Australia with the Great Barrier Reef outlined in red",
+   "imageKind": "shot"
+  },
+  {
+   "id": "note_palau2_110_f0cef3",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-012-010.png",
+   "imageAlt": "Map of Australia labeled, with the 'great barrier reef' traced in red",
+   "imageKind": "shot"
+  },
+  {
+   "id": "note_palau2_111_36369e",
+   "type": "note",
+   "text": "JH continues under water diving"
+  },
+  {
+   "id": "sot_palau2_112_183534",
+   "type": "sot",
+   "text": "Ninety … nations… have coral reefs inside their territorial boundaries. The U.S. Is no exception",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:12:40",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:12:40] Ninety …[00:12:37] nations… [] have coral reefs inside their territorial boundaries. The U.S. Is no exception"
+   }
+  },
+  {
+   "id": "broll_palau2_113_1f12f9",
+   "type": "broll",
+   "text": "Hard cut between a bunch of coral reef from space and put Floria wide and Hawiaa wide when he says US is no exception",
+   "lane": "shown"
+  },
+  {
+   "id": "jh-note_palau2_114_727e5b",
+   "type": "jh-note",
+   "text": "I made a tool for this https://mycoldmars.com/reef You can recompose the images and output a mp4"
+  },
+  {
+   "id": "note_palau2_115_62162b",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-013-011.png",
+   "imageAlt": "Two atolls / reef from space (from the mycoldmars reef tool)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "sot_palau2_116_85a492",
+   "type": "sot",
+   "text": "…. We have Hawaii and Florida. But of these ninety. Sovereign nations that have coral reefs, most of them are in developing countries where half a billion people. Rely exclusively on coral reefs as their sole source of protein and income.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:13:09",
+    "ambiguous": true,
+    "raw": "…. We have Hawaii and Florida. But of these ninety. Sovereign nations that have coral reefs, most of them are in developing countries where half a billion people. Rely exclusively on coral reefs as their sole source of protein and income. [00:13:09][29.5] (strikethroughs: 'We have Hawaii and Florida. But of these ninety. Sovereign nations that have coral reefs, most of them are in developing countries where')"
+   }
+  },
+  {
+   "id": "sot_palau2_117_8809f8",
+   "type": "sot",
+   "text": "Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:13:09",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:13:09] Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit. [00:13:21][12.1]"
+   }
+  },
+  {
+   "id": "broll_palau2_118_6da3dc",
+   "type": "broll",
+   "text": "Beautiful premium photography from around the world showing people who rely on coral reefs. Show fish markets ports docks etc",
+   "lane": "shown"
+  },
+  {
+   "id": "sot_palau2_119_71a40d",
+   "type": "sot",
+   "text": "only only one percent of the surface of the ocean, actually a little bit less, and yet there are 25 percent of all marine plant and animal species are found in this little one percent.",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:09:02",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:09:02] only only one percent of the surface of the ocean, actually a little bit less, and yet there are 25 percent of all marine plant and animal species are found in this little one percent. [00:09:16][13.6]"
+   }
+  },
+  {
+   "id": "broll_palau2_120_5dadab",
+   "type": "broll",
+   "text": "More Diving B roll",
+   "lane": "shown"
+  },
+  {
+   "id": "sot_palau2_121_ed24e5",
+   "type": "sot",
+   "text": "coral reefs achieve their biological diversity by the inclusion of the natural world, not the exclusion of it. And what that buys you is 400 million years of evolution. And I think",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:07:29",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:07:29] coral reefs achieve their biological diversity by the inclusion of the natural world, not the exclusion of it. And what that buys you is 400 million years of evolution. And I think"
+   }
+  },
+  {
+   "id": "broll_palau2_122_1bf012",
+   "type": "broll",
+   "text": "More Diving B roll",
+   "lane": "shown"
+  },
+  {
+   "id": "sot_palau2_123_dbae41",
+   "type": "sot",
+   "text": "we humans should learn something from coral reefs.",
+   "timecode": {
+    "day": null,
+    "tc": "00:07:45",
+    "ambiguous": true,
+    "raw": "[00:07:45][16.1]"
+   }
+  },
+  {
+   "id": "scene_palau2_124_d04d2c",
+   "type": "scene",
+   "title": "Getting out reacting",
+   "text": ""
+  },
+  {
+   "id": "sot_palau2_125_cf3219",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "that was insane. Polyps are definitely my new favorite animal. They are the most incredible species of animal that I've ever heard of. What they've created down there is unlike anything I could have ever imagined. Oh my God. I feel like I'm still taking it all in. Like I can't quite fathom what I just saw.",
+   "timecode": {
+    "day": 4,
+    "tc": "02:40:54:19",
+    "ambiguous": false,
+    "raw": "DAY 4: 02:40:54:19"
+   }
+  },
+  {
+   "id": "vo_palau2_126_3729f2",
+   "type": "vo",
+   "text": "So I'm finally here and ready to explore this place to understand what the people who understand teh ocean the best have to say about the changes we're all hearing about.\n\n..",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_21"
+  },
+  {
+   "id": "broll_palau2_127_bf3124",
+   "type": "broll",
+   "text": "JH on boat and car and general tour of most of the locations and\n● JH on boats\n● JH in car\n● Talking to people",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_21"
+  },
+  {
+   "id": "vo_palau2_128_f17864",
+   "type": "vo",
+   "text": "This isnt a very big place.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_22"
+  },
+  {
+   "id": "broll_palau2_129_4fe522",
+   "type": "broll",
+   "text": "JH showing google maps to the camera",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_22"
+  },
+  {
+   "id": "vo_palau2_130_dae872",
+   "type": "vo",
+   "text": "I mean it would be if you drained all the water. But with all the ocean, this place is just a few dots of land where 18 thousand people live.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_23"
+  },
+  {
+   "id": "broll_palau2_131_14ac7b",
+   "type": "broll",
+   "text": "MAP shows Palau map with out any water and then it fills up and we orbit around the islands",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_23",
+   "flavor": "gold"
+  },
+  {
+   "id": "vo_palau2_132_e9674a",
+   "type": "vo",
+   "text": "Amongst these rock islands",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_24"
+  },
+  {
+   "id": "broll_palau2_133_bac1f1",
+   "type": "broll",
+   "text": "Drone of rock islands",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_24"
+  },
+  {
+   "id": "oncam_palau2_134_da7c43",
+   "type": "oncam",
+   "speaker": "JH",
+   "text": "I edited an explainer \"I'm surrounded by these rocks\"",
+   "timecode": {
+    "day": 4,
+    "tc": "00:18:33:21",
+    "ambiguous": false,
+    "raw": "DAY 4 00:18:33:21 JH ON CAM"
+   }
+  },
+  {
+   "id": "broll_palau2_135_41d716",
+   "type": "broll",
+   "text": "Arriving to camp site on boat, unloading.",
+   "width": "full"
+  },
+  {
+   "id": "vo_palau2_136_e1bd0d",
+   "type": "vo",
+   "text": "I'm camping on one of these rock islands",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_25"
+  },
+  {
+   "id": "broll_palau2_137_11abfb",
+   "type": "broll",
+   "text": "Arriving to Camping. Exploring getting set up.",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_25"
+  },
+  {
+   "id": "broll_palau2_138_b98454",
+   "type": "broll",
+   "text": "Arriving exploring getting set up",
+   "width": "full"
+  },
+  {
+   "id": "sot_palau2_139_23765b",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "at last I'm on this journey to figure out what's going on with the sinking islands of the Pacific. What that means for the rest of us. But we can learn about it. And so I will for John. I will camp here, but I've got a lot of people to talk to. I've got a lot of diving to do. I've got a lot of exploring to do to understand what's going on here on this island that is changing.",
+   "timecode": {
+    "day": 6,
+    "tc": "03:31:16:13",
+    "ambiguous": false,
+    "raw": "DAY 6 03:31:16:13"
+   }
+  },
+  {
+   "id": "chapter_palau2_140_861a0d",
+   "type": "chapter",
+   "genre": "montage",
+   "title": "HEPTAPODS MONTAGE",
+   "text": ""
+  },
+  {
+   "id": "jh-note_palau2_141_f55dad",
+   "type": "jh-note",
+   "text": "I edited the A roll in DAY 6 > Sequence: HEPTAPOD"
+  },
+  {
+   "id": "note_palau2_142_ca525f",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-015-012.png",
+   "imageAlt": "Premiere timeline screenshot — DAY 6 > Sequence: HEPTAPOD (edited A roll)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "scene_palau2_143_1f542f",
+   "type": "scene",
+   "title": "SCENE: Night Time",
+   "text": "This is a fun/personality scene with food and fear of rats cut it together into a rough flow and we can refine. It shouldnt be more than 4 min at the rough and eventually we'll get it down to 90 sec i think\n● Making dinner\n● Rats! Oh no\n● Elon Musk\n● LIGHT OUT"
+  },
+  {
+   "id": "jh-note_palau2_144_1ef51c",
+   "type": "jh-note",
+   "text": "Let me know if you need a pick up line to bridge into this thats like \"but first, I gotta make dinner and try to get some sleep\""
+  },
+  {
+   "id": "jh-note_palau2_145_f1c7b3",
+   "type": "jh-note",
+   "text": "End with JH 'goign to bed' which brings us into explainer section two."
+  },
+  {
+   "id": "jh-note_palau2_146_5095ea",
+   "type": "jh-note",
+   "text": "This beat its kind of like THIS FINLAND SCENE where its nighttime camping vlog ending with going to bed and \"while we sleep\" an explainer happens."
+  },
+  {
+   "id": "chapter_palau2_147_8f5d28",
+   "type": "chapter",
+   "genre": "explainer",
+   "title": "EXPLAINER 2. Warming Ocean (WIP_)",
+   "text": ""
+  },
+  {
+   "id": "vo_palau2_148_613264",
+   "type": "vo",
+   "text": "Ok so before we go any further i think its worth understanding what exactly is going on in the ocean. Why is it changing?"
+  },
+  {
+   "id": "jh-note_palau2_149_4b6f7a",
+   "type": "jh-note",
+   "text": "This needs to be the most straight forward and clear explanation of the major changes happening in the ocean and their consequences. It should cover\n● Why the ocean is warming\n● Why the ocean is acidifying\n● Why the ocean is rising\n● What effects is all this having on the ecosystems in and around Palau"
+  },
+  {
+   "id": "bin_palau2_150_a58dfa",
+   "type": "bin",
+   "text": "SOTS WE CAN USE FOR THIS SECTION"
+  },
+  {
+   "id": "sot_palau2_151_62dd39",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "Coral skeletons are made of limestone and limestone is dissolved by acid.",
+   "timecode": {
+    "day": null,
+    "tc": "00:16:21",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:16:21] … [00:16:29][8.0]"
+   }
+  },
+  {
+   "id": "sot_palau2_152_f4703f",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "The pH of Coca-Cola is 2.5. Now car battery acid is 1.0, but Coca-cola is 2,5. Pretty acid stuff. Drinking water has a pH of 7. What happens when we pump CO2 into a soft drink, it acidifies the soft drink. So the pH in Coca-Cola of 2.5 is not because of the Coca-Cola's secret formula, it's simply because of CO2. And what's happening is we are turning the oceans into Coca-cola.",
+   "timecode": {
+    "day": null,
+    "tc": "00:16:52",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:16:52] … [00:17:27][35.9]"
+   }
+  },
+  {
+   "id": "sot_palau2_153_4951d4",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "some of the low islands in the Pacific, like the Maldives and Karabas. When sea level rise occurs, and that's because the warming on land melts glaciers and sea level rises, they're going to lose their whole country. Palau has some areas that are almost 900 feet tall, so it's doubtful that they're going to loose their territorial integrity, but their reefs are not going to be able to keep up with the onslaught of ocean warming and ocean acidification.",
+   "timecode": {
+    "day": null,
+    "tc": "00:18:54",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:18:54] … [00:19:27][33.7]"
+   }
+  },
+  {
+   "id": "sot_palau2_154_ff238e",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "There are a hundred and eighty sovereign nations on earth. Ninety of them have coral reefs inside their territorial boundaries. The U.S. Is no exception. We have Hawaii and Florida.",
+   "timecode": {
+    "day": null,
+    "tc": "00:12:34",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:12:34] … [00:12:48][13.2]"
+   }
+  },
+  {
+   "id": "sot_palau2_155_524d46",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "where half a billion people. Rely exclusively on coral reefs as their sole source of protein and income. Coral reefs generate 10 trillion dollars a year in economic benefit to places that most need this economic benefit.",
+   "timecode": {
+    "day": null,
+    "tc": "00:12:56",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:12:56] … [00:13:21][25.4]"
+   }
+  },
+  {
+   "id": "sot_palau2_156_3392b0",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "It keeps getting warmer and warmer and warm So the problem there is that this elevated temperature? Kills the algae so we're see we're back back to symbiodinium And when it kills the algae that starves the coral because it's lost its salad bar and It bleaches white and the reason coral reefs bleach is what we've called it is you can when the algae die You can see through the flesh of the call to the white limestone skeleton underneath and If that bleached condition stays for too long the corals will die.",
+   "timecode": {
+    "day": null,
+    "tc": "00:11:11",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:11:11] … [00:11:53][42.2]"
+   }
+  },
+  {
+   "id": "sot_palau2_157_f7a49a",
+   "type": "sot",
+   "speaker": "James Porter",
+   "text": "You'll lose your city. I mean, coral's built the buildings, and you don't have them anymore. Everything suffers when a coral reef bleaches and dies. I mean we're talking about this biodiversity and all this productivity, and all of that begins to die. So the consequences are huge.",
+   "timecode": {
+    "day": null,
+    "tc": "00:12:01",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:12:01] … [00:12:28][27.5]"
+   }
+  },
+  {
+   "id": "chapter_palau2_158_462765",
+   "type": "chapter",
+   "genre": "ground",
+   "title": "GR 2. Things Are Changing",
+   "text": ""
+  },
+  {
+   "id": "scene_palau2_159_a44338",
+   "type": "scene",
+   "title": "SCENE: Waking up",
+   "text": "– starting with DAY 7 00:02:55:17"
+  },
+  {
+   "id": "note_palau2_160_24d95f",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-018-013.png",
+   "imageAlt": "Hammock at the campsite — reference frame for the Waking up scene open (DAY 7 00:02:55:17)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "oncam_palau2_161_5439e2",
+   "type": "oncam",
+   "speaker": "JH",
+   "text": "(i prefer take 2): \"good morning, it rained which i waw ok wtih cuz it was so hot before then\"",
+   "timecode": {
+    "day": 7,
+    "tc": "00:03:55:06",
+    "ambiguous": false,
+    "raw": "DAY 7 00:03:55:06 JH ON CAM"
+   }
+  },
+  {
+   "id": "broll_palau2_162_8ef4d5",
+   "type": "broll",
+   "text": "Quick montage of prepping breakfast, drinking coconut"
+  },
+  {
+   "id": "broll_palau2_163_28ca6b",
+   "type": "broll",
+   "text": "Coffee and ramen"
+  },
+  {
+   "id": "broll_palau2_164_77a064",
+   "type": "broll",
+   "text": "And then BOOM we're on a boat driving like the shot at DAY 7 00:13:08:16"
+  },
+  {
+   "id": "scene_palau2_165_f216f3",
+   "type": "scene",
+   "title": "SCENE: Jelly Fish lake",
+   "text": "(quick montage, a continuation of the previous flow)"
+  },
+  {
+   "id": "broll_palau2_166_d19063",
+   "type": "broll",
+   "text": "JH on a boat\nJH hiking thru the jingle\nArriving to jelly fish lake"
+  },
+  {
+   "id": "broll_palau2_167_7ce152",
+   "type": "broll",
+   "text": "(go pro footage not imported yet): Getting in swimming around and then we start to see the jelly fish with the on cam in the next row",
+   "width": "full"
+  },
+  {
+   "id": "note_palau2_168_b2787a",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-019-014.png",
+   "imageAlt": "GoPro footage browser screenshot — DAY 1-7 / DRONE / PHOTO folders with clip lists (the not-yet-imported go pro footage)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "oncam_palau2_169_a7184b",
+   "type": "oncam",
+   "speaker": "JH",
+   "text": "Wow wow wow. This is insane. These yellow medusa jellyfish are just floating so peacefully in this island lake.",
+   "timecode": {
+    "day": 4,
+    "tc": "02:56:25:10",
+    "ambiguous": false,
+    "raw": "DAY 4 02:56:25:10 JH ONCAM"
+   },
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_26"
+  },
+  {
+   "id": "broll_palau2_170_95ee58",
+   "type": "broll",
+   "text": "Jellyfish",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_26"
+  },
+  {
+   "id": "broll_palau2_171_b347f8",
+   "type": "broll",
+   "text": "6-10 second breath of visuals of jelly fish and music",
+   "width": "full"
+  },
+  {
+   "id": "oncam_palau2_172_f18095",
+   "type": "oncam",
+   "speaker": "JH",
+   "text": "(I EDITED THE A ROLL)",
+   "timecode": {
+    "day": 4,
+    "tc": "02:56:50:15",
+    "ambiguous": false,
+    "raw": "DAY 4 02:56:50:15 JH ON CAM"
+   },
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_27"
+  },
+  {
+   "id": "note_palau2_173_66b2a2",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-019-015.png",
+   "imageAlt": "Premiere timeline screenshot — 'A ROLL EDITED' sequence for the DAY 4 02:56:50:15 on-cam",
+   "imageKind": "shot",
+   "pairId": "pair_27",
+   "lane": "said",
+   "width": "half"
+  },
+  {
+   "id": "note_palau2_174_2b52d9",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-019-016.png",
+   "imageAlt": "Transcript excerpt screenshot accompanying the edited A roll",
+   "imageKind": "shot",
+   "pairId": "pair_27",
+   "lane": "said",
+   "width": "half"
+  },
+  {
+   "id": "broll_palau2_175_9b8ba7",
+   "type": "broll",
+   "text": "Broll of jelly fish\n☐ Archive photos of what it was like in its heights\nBroll of jelly fish",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_27"
+  },
+  {
+   "id": "oncam_palau2_176_0aaac4",
+   "type": "oncam",
+   "speaker": "JH",
+   "text": "There actually five of these lakes after a plow, but they only let people come to one of them is a sacrificial lake to let tourists come and see. The others are protected from human activity because it turns out, human activity is kind of the one throughline on all of these changes. Human activity makes all the difference.",
+   "timecode": {
+    "day": 4,
+    "tc": "02:58:15:00",
+    "ambiguous": false,
+    "raw": "DAY 4 02:58:15:00 JH ONCAM"
+   },
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_28"
+  },
+  {
+   "id": "oncam_palau2_177_5fb21f",
+   "type": "oncam",
+   "text": "JH ON CAM",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_28"
+  },
+  {
+   "id": "broll_palau2_178_cb132a",
+   "type": "broll",
+   "text": "OF Transportation for transition\n● Boat\n● Car",
+   "width": "full"
+  },
+  {
+   "id": "scene_palau2_179_e70475",
+   "type": "scene",
+   "title": "Scene: Sinking Neighborhood",
+   "text": ""
+  },
+  {
+   "id": "oncam_palau2_180_afd936",
+   "type": "oncam",
+   "speaker": "JH",
+   "text": "we're now descending to a neighborhood that has already been impacted by rising sea levels",
+   "timecode": {
+    "day": 5,
+    "tc": "00:00:01:09",
+    "ambiguous": false,
+    "raw": "DAY 5 00:00:01:09 JH ON CAM"
+   }
+  },
+  {
+   "id": "sot_palau2_181_8cfa6e",
+   "type": "sot",
+   "speaker": "LEGISLATOR",
+   "text": "I mean, I'm no expert, but we can actually see with our own eyes that something's happening and it's rising.",
+   "timecode": {
+    "day": null,
+    "tc": "00:02:12",
+    "ambiguous": true,
+    "raw": "260327-02-106- LEGISLATOR: [00:02:12] … [00:02:18][6.2]"
+   }
+  },
+  {
+   "id": "vo_palau2_182_c611af",
+   "type": "vo",
+   "text": "This is TK NAME (Ask Jeannie). He's a law maker in the Palauan parliament. He grew up in this neighborhood that now"
+  },
+  {
+   "id": "vo_palau2_183_247dca",
+   "type": "vo",
+   "text": "experiences a high tide that comes up to their door step.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_29"
+  },
+  {
+   "id": "broll_palau2_184_171b15",
+   "type": "broll",
+   "text": "Archive of flooded neighborhood when high tide comes\n☐ ASK jeannie to figure out what neighborhood this is and she can get in touch to ask if they have their own photos",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_29"
+  },
+  {
+   "id": "sot_palau2_185_b570a7",
+   "type": "sot",
+   "speaker": "LEGISLATOR",
+   "text": "At first it was like it's calm, it's natural, but now it's more constant.",
+   "timecode": {
+    "day": null,
+    "tc": "00:11:01",
+    "ambiguous": true,
+    "raw": "260327-02-106- LEGISLATOR: [00:11:01] … [00:11:06][5.2]"
+   }
+  },
+  {
+   "id": "sot_palau2_186_428bec",
+   "type": "sot",
+   "speaker": "LEGISLATOR-NEIGHBOR",
+   "text": "Maybe every year. Every year they're going to be wasting the time. It goes higher? Yeah. More of a high",
+   "timecode": {
+    "day": null,
+    "tc": "00:17:15",
+    "ambiguous": true,
+    "raw": "260327-02-106- LEGISLATOR-NEIGHBOR: [00:17:15] … [00:17:23][8.4]"
+   }
+  },
+  {
+   "id": "bin_palau2_187_a9266e",
+   "type": "bin",
+   "text": "Talking to local\n○ 260327-02-106- LEGISLATOR: [continues on page 21]"
+  },
+  {
+   "id": "sot_palau2_188_969e7a",
+   "type": "sot",
+   "text": "[00:17:23] It's going to be a whole new story. It's changing. Higher and higher. [00:17:28][4.6]",
+   "timecode": {
+    "day": null,
+    "tc": "00:17:23",
+    "ambiguous": true,
+    "raw": "[00:17:23] ... [00:17:28][4.6]"
+   }
+  },
+  {
+   "id": "sot_palau2_189_a9debb",
+   "type": "sot",
+   "speaker": "JOHNNY",
+   "text": "260327-02-106- LEGISLATOR-JOHNNY: [00:17:28] And how does that affect your home or your or this community? [00:17:36][7.2]",
+   "timecode": {
+    "day": null,
+    "tc": "00:17:28",
+    "ambiguous": true,
+    "raw": "260327-02-106- LEGISLATOR-JOHNNY: [00:17:28]"
+   }
+  },
+  {
+   "id": "sot_palau2_190_c9b2e2",
+   "type": "sot",
+   "speaker": "NEIGHBOR",
+   "text": "260327-02-106- LEGISLATOR-NEIGHBOR: [00:17:37] I don't know, maybe very soon we're gonna move out. Yeah, yeah, yeah. There's no choice. [00:17:43][6.5]",
+   "timecode": {
+    "day": null,
+    "tc": "00:17:37",
+    "ambiguous": true,
+    "raw": "260327-02-106- LEGISLATOR-NEIGHBOR: [00:17:37]"
+   }
+  },
+  {
+   "id": "sot_palau2_191_820727",
+   "type": "sot",
+   "speaker": "LEGISLATOR",
+   "text": "260327-02-106- LEGISLATOR: [00:26:42] their homes, they like their homes. They're generational homes. Their families used to stay here. And now they're staying here and there's nothing we can do in fighting the tide, I mean the tide rise [00:26:59][16.8]",
+   "timecode": {
+    "day": null,
+    "tc": "00:26:42",
+    "ambiguous": true,
+    "raw": "260327-02-106- LEGISLATOR: [00:26:42]"
+   }
+  },
+  {
+   "id": "broll_palau2_192_2b2478",
+   "type": "broll",
+   "lane": "shown",
+   "width": "full",
+   "text": "B roll transition like driving, drone shot and then into Rangers"
+  },
+  {
+   "id": "scene_palau2_193_c94853",
+   "type": "scene",
+   "title": "SCENE: Rangers",
+   "text": ""
+  },
+  {
+   "id": "sot_palau2_194_a0a070",
+   "type": "sot",
+   "text": "DAY 3 00:00:00:12 SOT “hey! Youtuber! Nice to meet you etc”",
+   "timecode": {
+    "day": 3,
+    "tc": "00:00:00:12",
+    "ambiguous": false,
+    "raw": "DAY 3 00:00:00:12 SOT"
+   }
+  },
+  {
+   "id": "broll_palau2_195_914e8c",
+   "type": "broll",
+   "lane": "shown",
+   "text": "DAY 3 00:00:24:21 B ROLL showing the map of how they protect it"
+  },
+  {
+   "id": "broll_palau2_196_5cbb88",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL: Hard cut and we’re out on the water driving fast on a boat"
+  },
+  {
+   "id": "vo_palau2_197_e3a932",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_30",
+   "text": "Im joinin the night patrol with the local state rangers who patrol this water looking for anyone illegally sailing or fishing in Palaus huge water territory.\n\nThe conversation was supposed to be about protecting Palau;s water from filipino poachers but quickly it turned to the changing ocean"
+  },
+  {
+   "id": "broll_palau2_198_5324c6",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_30",
+   "text": "B roll or riding with the ranger"
+  },
+  {
+   "id": "sot_palau2_199_4d831e",
+   "type": "sot",
+   "speaker": "RANGER",
+   "text": "DAY 3 (string out) 01:01:50:17 SOT RANGER “Everything’s just Changing”",
+   "timecode": {
+    "day": 3,
+    "tc": "01:01:50:17",
+    "ambiguous": false,
+    "raw": "DAY 3 (string out) 01:01:50:17 SOT RANGER"
+   }
+  },
+  {
+   "id": "sot_palau2_200_f416e9",
+   "type": "sot",
+   "speaker": "RANGER",
+   "text": "DAY 3 20260325-0843-GH016622 SOT RANGER: “So people we've got a lot of people that stay close to the mangroves before. Now they're moving up to higher ground because it's really it's really rising over. It's coming through the front door. It's coming to the front door. I know people that where I stayed up on the max tide, it's on their front door. There's water in the front that's usually you're walking on saltwater to get in your car. Nearly. That's concerning. Yeah.”",
+   "timecode": {
+    "day": 3,
+    "ambiguous": false,
+    "raw": "DAY 3 20260325-0843-GH016622 SOT RANGER"
+   }
+  },
+  {
+   "id": "broll_palau2_201_98ec28",
+   "type": "broll",
+   "lane": "shown",
+   "width": "full",
+   "text": "B roll of riding on boat"
+  },
+  {
+   "id": "sot_palau2_202_8118fd",
+   "type": "sot",
+   "speaker": "RANGER",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_31",
+   "text": "DAY 3 20260325-0843-GH016622 SOT 18:34:56:22 SOIT RANGER “And then you start to observe the, the sea level rise.”",
+   "timecode": {
+    "day": 3,
+    "tc": "18:34:56:22",
+    "ambiguous": false,
+    "raw": "DAY 3 20260325-0843-GH016622 SOT 18:34:56:22"
+   }
+  },
+  {
+   "id": "bin_palau2_203_7f3e1d",
+   "type": "bin",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_31",
+   "text": "Any archive of this. Jeannie can ask Dora the ranger contact"
+  },
+  {
+   "id": "sot_palau2_204_912f91",
+   "type": "sot",
+   "speaker": "RANGER",
+   "text": "DAY 3 20260325-0843-GH016622 SOT 18:32:42:06: SOT RANGER: “Tide Rise,, it's getting higher. So, as you can see, under the Rock Island before climate start to change, . The water stays on that. That's the max level. Yeah, but now that level, the water is coming up.”....",
+   "timecode": {
+    "day": 3,
+    "tc": "18:32:42:06",
+    "ambiguous": false,
+    "raw": "DAY 3 20260325-0843-GH016622 SOT 18:32:42:06"
+   }
+  },
+  {
+   "id": "sot_palau2_205_e07ef8",
+   "type": "sot",
+   "speaker": "RANGER",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_32",
+   "text": "DAY 3 (string out) SOT ranger 01:02:26:15 “that whole area in front of the office will be wet, full of ocean. Thats what really affecting us. ”",
+   "timecode": {
+    "day": 3,
+    "tc": "01:02:26:15",
+    "ambiguous": false,
+    "raw": "DAY 3 (string out) SOT ranger 01:02:26:15"
+   }
+  },
+  {
+   "id": "broll_palau2_206_3cff49",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_32",
+   "text": "B ROLL is there any footage of the parking lot in front of the office from when I first arrived? That’s what he’s referring to"
+  },
+  {
+   "id": "broll_palau2_207_4ecf85",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL MORE DRIVING, getting dark like the stuff when I changed to rec 709 starting at DAY 3 string out 01:07:16:09"
+  },
+  {
+   "id": "vo_palau2_208_725c44",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_33",
+   "text": "the journey turns into the ranger taking me to all the spot that have transformed rapidly because of the rising ocean. Its getting dark but he shines his light. He wants me to see"
+  },
+  {
+   "id": "broll_palau2_209_b05f74",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_33",
+   "text": "B roll of driving around and ranger pointing at things with flashlight in the dark. Like at DAY 3 (stringout) 01:23:38:20\nAnd later at 01:33:17:14"
+  },
+  {
+   "id": "note_palau2_210_ff0a40",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-023-017.png",
+   "imageAlt": "Ranger shining flashlight from the boat at night",
+   "imageKind": "shot"
+  },
+  {
+   "id": "sot_palau2_211_0c1814",
+   "type": "sot",
+   "speaker": "RANGER",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_34",
+   "text": "DAY 3 (string out) SOT 01:00:50:00 SOT RANGER “and when you see the sand the sand used to be BIG super big and then tide rise is slowly pulling all the sand away”",
+   "timecode": {
+    "day": 3,
+    "tc": "01:00:50:00",
+    "ambiguous": false,
+    "raw": "DAY 3 (string out) SOT 01:00:50:00 SOT RANGER"
+   }
+  },
+  {
+   "id": "broll_palau2_212_abbd07",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_34",
+   "text": "B ROLL Pointing his flash light at an island"
+  },
+  {
+   "id": "sot_palau2_213_035e79",
+   "type": "sot",
+   "speaker": "RANGER",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_35",
+   "text": "DAY 3 (string out) SOT 01:01:00:08 SOT RANGER “we got these big trees taht grow in front of the sand yeah on teh beach we dont touch those. Those roots hold the sand… the tide is getting past that, its slowly pulling everythign out so the tree itself is slowly dying…the roots of that are mainly holding the sand”",
+   "timecode": {
+    "day": 3,
+    "tc": "01:01:00:08",
+    "ambiguous": false,
+    "raw": "DAY 3 (string out) SOT 01:01:00:08 SOT RANGER"
+   }
+  },
+  {
+   "id": "oncam_palau2_214_11df80",
+   "type": "oncam",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_35",
+   "text": "Interview on cam plus\nYou can use b roll of him shining the light onto the tree at DAY 3 string out 01:27:09:03"
+  },
+  {
+   "id": "note_palau2_215_932cb3",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-023-018.png",
+   "imageAlt": "Ranger shining light into the night sky/tree from the boat",
+   "imageKind": "shot"
+  },
+  {
+   "id": "sot_palau2_216_edfa62",
+   "type": "sot",
+   "speaker": "RANGER",
+   "text": "DAY 3 (string out) SOT 01:24:56:20 SOT RANGER “this is the only pine tree left on this rock island. Holding the sand",
+   "timecode": {
+    "day": 3,
+    "tc": "01:24:56:20",
+    "ambiguous": false,
+    "raw": "DAY 3 (string out) SOT 01:24:56:20 SOT RANGER"
+   }
+  },
+  {
+   "id": "note_palau2_217_c354d6",
+   "type": "note",
+   "text": "CUE: Maybe cue in this track\nB roll of returning to the harbor like at\nDAY 3 string out 01:37:10:00"
+  },
+  {
+   "id": "vo_palau2_218_ca3309",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_36",
+   "text": "moments like this drive home the reality of a changing ocean in a way the data, the graphs, the alarming headlines just can’t.\n\nthis isn't just about an ocean level going up, flooding homes and reshaping beaches,"
+  },
+  {
+   "id": "broll_palau2_219_5ee3f3",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_36",
+   "text": "B roll of returning to the harbor like at\nDAY 3 string out 01:37:10:00"
+  },
+  {
+   "id": "vo_palau2_220_45a0fa",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_37",
+   "text": "It's also about what's happening to the actual water itself. Warmth and acid in the water are also affecting the how life works here."
+  },
+  {
+   "id": "broll_palau2_221_fcbae0",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_37",
+   "text": "B ROLL General ocean"
+  },
+  {
+   "id": "vo_palau2_222_9b6492",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_38",
+   "text": "Especially in those limestone kingdoms the Polyps have been building for 40 million years where coral that protects and feeds not only this island but a huge portion of the world."
+  },
+  {
+   "id": "broll_palau2_223_be0bbb",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_38",
+   "text": "B ROLL: Coral General. Pensive slow beautify shots."
+  },
+  {
+   "id": "vo_palau2_224_f1f28e",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_39",
+   "text": "No one knows this better than Hadly, who took me spear fishing."
+  },
+  {
+   "id": "broll_palau2_225_46b13e",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_39",
+   "text": "B ROLL Hadly"
+  },
+  {
+   "id": "sot_palau2_226_580fac",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "DAY 1 02:36:20:16 HADLY SOT “if we compare 5 years ago to today its already a big difference",
+   "timecode": {
+    "day": 1,
+    "tc": "02:36:20:16",
+    "ambiguous": false,
+    "raw": "DAY 1 02:36:20:16 HADLY SOT"
+   }
+  },
+  {
+   "id": "sot_palau2_227_581f2d",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "DAY 1 02:34:42:21 HANDLY SOT “ reefs are dying the areas that used to have fish are covered with sand.”",
+   "timecode": {
+    "day": 1,
+    "tc": "02:34:42:21",
+    "ambiguous": false,
+    "raw": "DAY 1 02:34:42:21 HANDLY SOT"
+   }
+  },
+  {
+   "id": "sot_palau2_228_b8afe6",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "DAY 1 02:35:33:07 SOT “Fish need corals. You know, their their protection, their housing, their food, your food source.",
+   "timecode": {
+    "day": 1,
+    "tc": "02:35:33:07",
+    "ambiguous": false,
+    "raw": "DAY 1 02:35:33:07 SOT"
+   }
+  },
+  {
+   "id": "sot_palau2_229_6d3670",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "DAY 1 02:36:25:13 SOT HADLY “today its already a big difference and imagine 10-20 years… again, we used to fish very close. You were able to get a lot fish in that short time that we did today. So we can see the reductiion in our resources you know…",
+   "timecode": {
+    "day": 1,
+    "tc": "02:36:25:13",
+    "ambiguous": false,
+    "raw": "DAY 1 02:36:25:13 SOT HADLY"
+   }
+  },
+  {
+   "id": "broll_palau2_230_7d4f13",
+   "type": "broll",
+   "lane": "shown",
+   "width": "full",
+   "text": "Transition\n\nB ROL Establishing of Tommy's House Including the stuff at DAY 6 02:50:14:04\n\nCut in some ambient chatter between me and Tommy\n\nB ROLL Show him walking along the beach"
+  },
+  {
+   "id": "scene_palau2_231_078db1",
+   "type": "scene",
+   "title": "SCENE: Tommy’s House",
+   "text": ""
+  },
+  {
+   "id": "vo_palau2_232_001ed9",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_40",
+   "text": "I got invited over to the house of {Tommy TK}.{ an elder who served as the president of Palau for TK years}."
+  },
+  {
+   "id": "broll_palau2_233_f571f8",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_40",
+   "text": "TOmmy and his house and ocean"
+  },
+  {
+   "id": "sot_palau2_234_424161",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "260328-02-107- TOMMY: [00:11:18] this is not the Palau that we grew up in. Definitely not the same Palau. For one thing, the environment is a very different thing. It's still beautiful, it's still plentiful, but not as beautiful and not as plentiful as before. As a fisherman, you notice that. You know the fish population is down. The fish sizes are down. You have to fish further away from shore to catch fish nowadays. [00:12:03][45.7]",
+   "timecode": {
+    "day": null,
+    "tc": "00:11:18",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:11:18]"
+   }
+  },
+  {
+   "id": "sot_palau2_235_3748fd",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "260328-02-107- TOMMY: [01:22:01] you cannot predict the tide anymore. We used to know with the moon and the wind, we need to know, but not anymore. [01:22:09][8.2]",
+   "timecode": {
+    "day": null,
+    "tc": "01:22:01",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [01:22:01]"
+   }
+  },
+  {
+   "id": "vo_palau2_236_6891b8",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_41",
+   "text": "Before I know it a huge feast comes out. Complete with fish.CRAP stuffed with coconut, and juicy crab leg, raw sashimi, all totally fresh out of the ocean. Vegetables and fruits grown on the island"
+  },
+  {
+   "id": "broll_palau2_237_c25132",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_41",
+   "text": "B ROLL: Shots of all this close up plus shots of JH dishing up like at 01:55:50:22 and 02:06:36:12"
+  },
+  {
+   "id": "vo_palau2_238_8495ce",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_42",
+   "text": "And of course taro, this magical crop I've been hearing about."
+  },
+  {
+   "id": "note_palau2_239_ee0cdf",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-025-019.png",
+   "imageAlt": "Taro blended with coconut on a plate (video frame)",
+   "imageKind": "shot",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_42"
+  },
+  {
+   "id": "sot_palau2_240_e837ef",
+   "type": "sot",
+   "speaker": "TINA",
+   "text": "260328-02-108- TARO-TINA: [00:46:47] that is the bread. In your culture, you would say that's the wheat, the bread, without the bread without whatever that makes the bread that's your, that's to staple. So taro is our staple, [00:47:03][16.4]",
+   "timecode": {
+    "day": null,
+    "tc": "00:46:47",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-TINA: [00:46:47]"
+   }
+  },
+  {
+   "id": "sot_palau2_241_ef39a2",
+   "type": "sot",
+   "speaker": "TINA",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_43",
+   "text": "260328-02-108- TARO-TINA: [00:49:59] Women are the taro growers. [00:50:03][3.9]",
+   "timecode": {
+    "day": null,
+    "tc": "00:49:59",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-TINA: [00:49:59]"
+   }
+  },
+  {
+   "id": "bin_palau2_242_ea9774",
+   "type": "bin",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_43",
+   "text": "Archive of taro in many forms like it being cultivated.\nClear close up on Taro\nFootage of women cultivating it\nCeremonies that involve Taro"
+  },
+  {
+   "id": "sot_palau2_243_f5791d",
+   "type": "sot",
+   "speaker": "TINA",
+   "text": "260328-02-108- TARO-TINA: [00:50:46] hat's another revenue for women for taro. Because once you have taro flower, you can make spaghetti, you can have dinner rolls, pancakes, waffles, whatever. They also, you can also make taro soy sauce. And taro wine. [00:51:02][15.7]",
+   "timecode": {
+    "day": null,
+    "tc": "00:50:46",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-TINA: [00:50:46]"
+   }
+  },
+  {
+   "id": "sot_palau2_244_ccda14",
+   "type": "sot",
+   "speaker": "TINA",
+   "text": "260328-02-108- TARO-TINA: [00:46:24] the true Tarot, the purple one is because of its value in our cultural ceremonies. So in any cultural ceremonies there must be taro. [00:46:36][11.8]",
+   "timecode": {
+    "day": null,
+    "tc": "00:46:24",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-TINA: [00:46:24]"
+   }
+  },
+  {
+   "id": "sot_palau2_245_7b70dd",
+   "type": "sot",
+   "speaker": "JOHNNY",
+   "text": "260328-02-108- TARO-JOHNNY: [00:51:04] It really is a magical crop. Yeah. [00:51:05][1.4]",
+   "timecode": {
+    "day": null,
+    "tc": "00:51:04",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-JOHNNY: [00:51:04]"
+   }
+  },
+  {
+   "id": "vo_palau2_246_489e0e",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_44",
+   "text": "And here it is blended with coconut and steamed. This is a real offering from these women."
+  },
+  {
+   "id": "note_palau2_247_cce8f3",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-026-020.png",
+   "imageAlt": "Taro blended with coconut, steamed, on a plate (video frame)",
+   "imageKind": "shot",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_44"
+  },
+  {
+   "id": "sot_palau2_248_defe30",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "DAY 6 01:36:46:01 JH “Oh my goodness this is a feast! “",
+   "timecode": {
+    "day": 6,
+    "tc": "01:36:46:01",
+    "ambiguous": false,
+    "raw": "DAY 6 01:36:46:01 JH"
+   }
+  },
+  {
+   "id": "sot_palau2_249_aaa643",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "DAY 6 01:39:55:23 JH “ im thrilled to be eating this food “",
+   "timecode": {
+    "day": 6,
+    "tc": "01:39:55:23",
+    "ambiguous": false,
+    "raw": "DAY 6 01:39:55:23 JH"
+   }
+  },
+  {
+   "id": "broll_palau2_250_8d7e6b",
+   "type": "broll",
+   "lane": "shown",
+   "width": "full",
+   "text": "B ROLL OF EATING"
+  },
+  {
+   "id": "vo_palau2_251_008939",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_45",
+   "text": "we get talking about the their changing islands. And soon im learning that the changing ocean isnt just coming for the coral or the low lying neighborhoods, its coming for their most sacred crop."
+  },
+  {
+   "id": "broll_palau2_252_e02d0c",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_45",
+   "text": "Eating and chatting. Ambient audio of chatting"
+  },
+  {
+   "id": "sot_palau2_253_b02589",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "260328-02-107- TOMMY: [00:10:03] The sea level now is also reaching the taro patches, the farming areas where people rely on their livelihoods and what they farm. And if you happen to live in a low lying atoll surrounded by ocean and the tide is rapidly rising to a level now that it floods the taro patches, salt water will not help you maintain a livelihood. [00:10:34][31.0]",
+   "timecode": {
+    "day": null,
+    "tc": "00:10:03",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:10:03]"
+   }
+  },
+  {
+   "id": "vo_palau2_254_58e95a",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_46",
+   "text": "Tina TK who used to be the finance minister pulls me over to one of these patches"
+  },
+  {
+   "id": "broll_palau2_255_36cffd",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_46",
+   "text": "B ROLL Tina Showing me the taro patches"
+  },
+  {
+   "id": "sot_palau2_256_41dc15",
+   "type": "sot",
+   "speaker": "TINA",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_47",
+   "text": "260328-02-108- TARO-TINA: [00:52:18] when the sea level rises, the sea-level rise, they would intrude into the coastal taro fields [00:52:24][6.0]",
+   "timecode": {
+    "day": null,
+    "tc": "00:52:18",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-TINA: [00:52:18]"
+   }
+  },
+  {
+   "id": "bin_palau2_257_fa97a1",
+   "type": "bin",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_47",
+   "text": "Archive footage of Taro farms flooding"
+  },
+  {
+   "id": "sot_palau2_258_c94a25",
+   "type": "sot",
+   "speaker": "JOHNNY",
+   "text": "260328-02-108- TARO-JOHNNY: [00:52:24] What does that do to the patches? [00:52:26][1.5]",
+   "timecode": {
+    "day": null,
+    "tc": "00:52:24",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-JOHNNY: [00:52:24]"
+   }
+  },
+  {
+   "id": "sot_palau2_259_a2c50d",
+   "type": "sot",
+   "speaker": "TINA",
+   "text": "260328-02-108- TARO-TINA: [00:52:27] It would kill the taro.",
+   "timecode": {
+    "day": null,
+    "tc": "00:52:27",
+    "ambiguous": true,
+    "raw": "260328-02-108- TARO-TINA: [00:52:27]"
+   }
+  },
+  {
+   "id": "note_palau2_260_2bc1e1",
+   "type": "note",
+   "text": "Breath while we contemplate this."
+  },
+  {
+   "id": "vo_palau2_261_3ae58a",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_48",
+   "text": "Each person talked to feels the changing ocean in their own way. And they all agree that it's challenging their way of life. But this doesn’t mean they are hopeless."
+  },
+  {
+   "id": "broll_palau2_262_2c48e2",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_48",
+   "text": "B ROLL JH driving"
+  },
+  {
+   "id": "broll_palau2_263_d0389c",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL Back on a boat"
+  },
+  {
+   "id": "broll_palau2_264_e8ac40",
+   "type": "broll",
+   "lane": "shown",
+   "text": "[MUSIC CUE, hopeful change in tone]\nB ROLL transition JH on boat. JH at camp, JH night time camp. Lights out."
+  },
+  {
+   "id": "broll_palau2_265_3dda78",
+   "type": "broll",
+   "lane": "shown",
+   "text": "DAY 7 00:02:24:21 Morning shots\n● B ROLL now JH is on a paddle boat explioriubng",
+   "timecode": {
+    "day": 7,
+    "tc": "00:02:24:21",
+    "ambiguous": false,
+    "raw": "DAY 7 00:02:24:21"
+   }
+  },
+  {
+   "id": "scene_palau2_266_c5c44e",
+   "type": "scene",
+   "title": "SCENE: Lagoon and Heat resistant Coral",
+   "text": ""
+  },
+  {
+   "id": "broll_palau2_267_211d3c",
+   "type": "broll",
+   "lane": "shown",
+   "text": "● B ROLL Establish JH on paddle board (ie at 01:03:27:17)\n● B ROLL DAY 7 01:03:55:19 Baby sharks"
+  },
+  {
+   "id": "vo_palau2_268_d4e8c1",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_49",
+   "text": "VO: this morning I'm taking the paddleboard from my camp site into a little opening between the big rock islands."
+  },
+  {
+   "id": "broll_palau2_269_527518",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_49",
+   "text": "● JH on paddleboard\n● Drone of the lagoons"
+  },
+  {
+   "id": "oncam_palau2_270_416c0a",
+   "type": "oncam",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_50",
+   "speaker": "JH",
+   "timecode": {
+    "day": 7,
+    "tc": "01:06:30:02",
+    "ambiguous": false,
+    "raw": "DAY 7 01:06:30:02"
+   },
+   "text": "DAY 7 01:06:30:02 JH ONCAM \"it just opens up into this massive lagoon enclosed on all sides by the rock islands. So yes its a part of the ocean but its like a sea of glass. Its calm out here."
+  },
+  {
+   "id": "oncam_palau2_271_a55a4b",
+   "type": "oncam",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_50",
+   "text": "ON Cam and b roll"
+  },
+  {
+   "id": "oncam_palau2_272_0cea85",
+   "type": "oncam",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_51",
+   "speaker": "JH",
+   "text": "JH: \"This is one of the most unique things about Palau is because it has all of these really still lagoons. It is able to develop all kinds of unique ecosystems that thrive inside of these lagoons, that are shielded from the ocean, that don't have a lot of activity. There's no waves out here—BRID CALL. …hahah Ok.. getting a greeting form the neighborhood bird over here…"
+  },
+  {
+   "id": "broll_palau2_273_d35874",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_51",
+   "text": "B ROLL: DAY 7 01:07:42:09 shot of birds\nB roll General coverage"
+  },
+  {
+   "id": "broll_palau2_274_c48ff1",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL: Keeps going into teh lagoon general coverage"
+  },
+  {
+   "id": "oncam_palau2_275_794fe0",
+   "type": "oncam",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_52",
+   "speaker": "JH",
+   "timecode": {
+    "day": 7,
+    "tc": "01:08:42:19",
+    "ambiguous": false,
+    "raw": "DAY 7 01:08:42:19"
+   },
+   "text": "DAY 7 01:08:42:19 . JH ON CAM \"But these lagoons also create warmth. This water is not cooling down with the rest of the ocean. It's sitting here baking in the sun, nice and still. And so the stuff that grows in here is actually okay with warmer water. It's actually learned to thrive with warmer water over thousands and millions of years, over thousands and thousands of years And that's given Palau something special. Heat resistant organisms, including heat resistant coral. So now the rest of the world is coming here to ask questions about this coral. What can we learn from it? And does it hold some clue on how to protect coral as the rest of the ocean gets warmer and warmer? That's the question. And the secret is right here in this beautiful lagoon that I am totally alone in. just me the squacking birds\""
+  },
+  {
+   "id": "oncam_palau2_276_9169cd",
+   "type": "oncam",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_52",
+   "text": "Mostly on cam but with some B ROLL of the coral in this lagoon and shots of moving around the lagoon\nB ROLL: Some good general b roll around 01:11:01:01 and byond\nB ROLL: Really good b roll starting at 01:11:36:05"
+  },
+  {
+   "id": "broll_palau2_277_00cb26",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL: DAY 7 00:00:37:06 JH explores Cave… breifly",
+   "timecode": {
+    "day": 7,
+    "tc": "00:00:37:06",
+    "ambiguous": false,
+    "raw": "DAY 7 00:00:37:06"
+   }
+  },
+  {
+   "id": "note_palau2_278_99d28a",
+   "type": "note",
+   "text": "Note: i selected in the rest of the iphone footage at the end (DAY 7 01:12:21:03)"
+  },
+  {
+   "id": "note_palau2_279_538afc",
+   "type": "note",
+   "text": "[Scene over and we cut to JH meeting scientists]"
+  },
+  {
+   "id": "chapter_palau2_280_dda2fc",
+   "type": "chapter",
+   "genre": "ground",
+   "title": "GR 3. Fighting Back",
+   "text": ""
+  },
+  {
+   "id": "scene_palau2_281_6769c8",
+   "type": "scene",
+   "title": "SCENE: heat resistant coral research",
+   "text": ""
+  },
+  {
+   "id": "broll_palau2_282_0b1159",
+   "type": "broll",
+   "lane": "shown",
+   "text": "● B roll: Arriving to research lab\n● DAY 5 00:06:21:11 meeting scientist Lauren, and then 00:09:35:00 meeting other scientist Meng\n● B ROLL: hard cut to now we're driving"
+  },
+  {
+   "id": "vo_palau2_283_9a6097",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_53",
+   "text": "VO: I'm driving north with researchers Lauren and Meng. They want to show me a an experiment their running under the water"
+  },
+  {
+   "id": "broll_palau2_284_09983a",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_53",
+   "text": "● B ROLL: DAY 5 00:10:21:16 Loading Up\n● B ROLL: Driving"
+  },
+  {
+   "id": "vo_palau2_285_d4148c",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_54",
+   "text": "VO: Despite all the concerning changes, Palau is also home to a huge amount of effort to understand exactly what's happening to the ocean and what can be done. Palau is the epicenter of this kind of research."
+  },
+  {
+   "id": "broll_palau2_286_6f6a78",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_54",
+   "flavor": "pink",
+   "text": "☐ B ROLL palau general scenery\n☐ Archive of science projects being done in Palauy\n☐ B ROLL OF coral reef research foundation and mapping"
+  },
+  {
+   "id": "vo_palau2_287_3d7e85",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_55",
+   "text": "VO: I've ben talking to a lot of them including some researchers who are mapping every inch of coral around in Palau so they can study how these complex ecosystems are changing with the changing ocean."
+  },
+  {
+   "id": "broll_palau2_288_7c2911",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_55",
+   "text": "B ROLL : DAY 2 coral reef research foundation: \"mapping coral\""
+  },
+  {
+   "id": "vo_palau2_289_78d6f4",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_56",
+   "text": "VO: Lauren and Meng project studies that coral that I found in the lagoons. The kind that can handle the heat."
+  },
+  {
+   "id": "broll_palau2_290_edbf85",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_56",
+   "text": "B ROLL riding north with Lauren and Meng"
+  },
+  {
+   "id": "sot_palau2_291_6fd666",
+   "type": "sot",
+   "speaker": "LAUREN",
+   "timecode": {
+    "day": null,
+    "tc": "00:21:18",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - LAUREN: [00:21:18]"
+   },
+   "text": "what this project really focuses on is identifying heat tolerant corals around Palau. And so what we do every week is we go and collect different coral species around our donor sites and take a piece back to the lab and conduct heat stress essays on them. And then we're able to identify which colony is high heat tolerance. To warmer ocean temperatures, low heat tolerant and the medium heat tolerance. And then after we identify that, we're able to place the colony in our restoration site according to those heat tolerance, [00:21:53][35.0]"
+  },
+  {
+   "id": "sot_palau2_292_eb40c7",
+   "type": "sot",
+   "speaker": "LAUREN",
+   "timecode": {
+    "day": null,
+    "tc": "00:30:33",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - LAUREN: [00:30:33]"
+   },
+   "text": "Some species are more adaptable to these warming ocean temperatures [00:30:37][4.1]"
+  },
+  {
+   "id": "bin_palau2_293_a734e0",
+   "type": "bin",
+   "text": "SOTS"
+  },
+  {
+   "id": "bin_palau2_294_bf8760",
+   "type": "bin",
+   "text": "● Arrive"
+  },
+  {
+   "id": "sot_palau2_295_1087ad",
+   "type": "sot",
+   "speaker": "LAUREN",
+   "timecode": {
+    "day": null,
+    "tc": "01:36:54",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - LAUREN: [01:36:54]"
+   },
+   "text": "And we have a lot of corals out planted on here, some that have been heat stress tested through heat stress essays. And now we're going to go down and have a look. [01:37:03][8.9]"
+  },
+  {
+   "id": "sot_palau2_296_3888ef",
+   "type": "sot",
+   "speaker": "MANG",
+   "timecode": {
+    "day": null,
+    "tc": "01:44:06",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - MANG: [01:44:06]"
+   },
+   "text": "so I'm all set up. So I'm gonna head down first. [01:44:10][4.1]"
+  },
+  {
+   "id": "broll_palau2_297_4283e9",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL : DIVE IN"
+  },
+  {
+   "id": "broll_palau2_298_20a437",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL Diving inspecting the heat resistant coral"
+  },
+  {
+   "id": "broll_palau2_299_60e56f",
+   "type": "broll",
+   "lane": "shown",
+   "text": "B ROLL of coral inspection work playing while SOT is heard"
+  },
+  {
+   "id": "sot_palau2_300_ad1126",
+   "type": "sot",
+   "speaker": "MANG",
+   "timecode": {
+    "day": null,
+    "tc": "01:42:40",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - MANG: [01:42:40]"
+   },
+   "text": "So for these particular species, it's been out here for six months. So this is the six-month inventory. [01:42:54][13.6]"
+  },
+  {
+   "id": "sot_palau2_301_38b0c4",
+   "type": "sot",
+   "speaker": "LAUREN",
+   "timecode": {
+    "day": null,
+    "tc": "00:30:21",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - LAUREN: [00:30:21]"
+   },
+   "text": "we've seen here through our experiments that corals are able to adapt. [00:30:28][7.3]"
+  },
+  {
+   "id": "sot_palau2_302_adc220",
+   "type": "sot",
+   "speaker": "LAUREN",
+   "timecode": {
+    "day": null,
+    "tc": "00:26:09",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - LAUREN: [00:26:09]"
+   },
+   "text": "we want to get ahead and start restoration pre-emptively with high heat tolerant corals so that when... The projected bleaching events are going to happen, we're already going to have these high heat-tolerant corals on the reef. That who hopefully aren't going to bleach because they'll be more resilient to these higher temperatures. [00:26:28][18.6]"
+  },
+  {
+   "id": "sot_palau2_303_2fbd7a",
+   "type": "sot",
+   "speaker": "MANG",
+   "timecode": {
+    "day": null,
+    "tc": "00:43:52",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - MANG: [00:43:52]"
+   },
+   "text": "I would see an old lady in the store and she would recognize me as a Pick Rick employee. And she'll ask me like, hey, how's your work going out there? How is it looking out there, do you see fish? Do you see sea cucumbers, do see clams? I'm like, yes. And it's exciting to know that they acknowledge and they know what we're doing out there. [00:44:13][20.4]"
+  },
+  {
+   "id": "sot_palau2_304_dd6977",
+   "type": "sot",
+   "speaker": "LAUREN",
+   "timecode": {
+    "day": null,
+    "tc": "00:39:07",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - LAUREN: [00:39:07]"
+   },
+   "text": "this kind of experiment or project that we're doing, identifying heat tolerance, can offer kind of a glimmer of hope to those people who might be a little bit disappointed about the state of coral reefs around the world, that we have good minds who are working on it all around the word"
+  },
+  {
+   "id": "vo_palau2_305_31e04f",
+   "type": "vo",
+   "lane": "said",
+   "text": "VO: while this research is promising there are some scientists who think this is a futile effort"
+  },
+  {
+   "id": "bin_palau2_306_2aac93",
+   "type": "bin",
+   "text": "SOTs from researchers"
+  },
+  {
+   "id": "sot_palau2_307_f79b7b",
+   "type": "sot",
+   "flavor": "pink",
+   "text": "SOT: TK there was one researcher i interviewed from my hotel bed in NYC that said its not viable."
+  },
+  {
+   "id": "sot_palau2_308_7bb916",
+   "type": "sot",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:31:22",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:31:22]"
+   },
+   "text": "When we try to influence the genome of a coral for survival, at one level, that's a good thing. We're trying to get it to survive in a changing world. On the other hand, we are doing something which is called assisted evolution, where we are assisting it to live in a world that we have changed. Assisted evolution is just highfalutin term for playing God. Are we really qualified to do that? [00:32:06][44.6]"
+  },
+  {
+   "id": "vo_palau2_309_4f6331",
+   "type": "vo",
+   "lane": "said",
+   "text": "VO: it's not just science. Local elder and ex presidnet Tommy Remengesau explained to me that Palau is also doing what they've done for centuries here when the environment starts to go out of balance."
+  },
+  {
+   "id": "sot_palau2_310_4abb36",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "timecode": {
+    "day": null,
+    "tc": "00:12:58",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:12:58]"
+   },
+   "text": "in Palau we call it BUL, B-U-L, which literally means no take. [00:13:04][5.8]"
+  },
+  {
+   "id": "sot_palau2_311_a9cd2a",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "timecode": {
+    "day": null,
+    "tc": "00:13:16",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:13:16]"
+   },
+   "text": "so the concept of bull, imagine even back then, there was so much fish around, and yet our parents, the elders of the community, the chiefs, they were always saying there has to be a bull, bull meaning no take, prohibitive taking of any marine life in those protected areas that they say don't go there. Those three. And We actually followed the degree or the declaration with no question because it was true that if we didn't do that, there won't be any fish for the next generation or for our children. [00:14:05][49.5]"
+  },
+  {
+   "id": "vo_palau2_312_c7cc7c",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_57",
+   "text": "VO: Long before a humans burned enough energy to change the climate, the people here knew that human activity had the ability to throw the ocean out of balance. They got familiar with leaving areas along to let them regenerate."
+  },
+  {
+   "id": "broll_palau2_313_a7b07d",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_57",
+   "flavor": "pink",
+   "text": "BROLL general palau\n☐ Archive of deep palau and polynesian cultures"
+  },
+  {
+   "id": "vo_palau2_314_f89557",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_58",
+   "text": "VO: Today they've done that on a huge scale."
+  },
+  {
+   "id": "broll_palau2_315_8e33f5",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_58",
+   "text": "3d Map: Draw on the marine protected zone: start slow up on the islands of palau then zoom out and show the boundary of the MPA draw on and shade it and label \"MARINE PROTECTED AREA\""
+  },
+  {
+   "id": "sot_palau2_316_bef6d1",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "timecode": {
+    "day": null,
+    "tc": "00:27:49",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:27:49]"
+   },
+   "text": "Palau's water, territorial waters. Of some 600,000 square kilometers. It's close to no commercial fishing, and 80% of our water. [00:28:03][13.6]"
+  },
+  {
+   "id": "sot_palau2_317_7fb7f6",
+   "type": "sot",
+   "speaker": "James Porter",
+   "timecode": {
+    "day": null,
+    "tc": "00:25:21",
+    "ambiguous": true,
+    "raw": "20260311-James Porter - Interview: [00:25:21]"
+   },
+   "text": "Palau has one of the largest marine preserves in the world. They have a shark preserve which is 230,000 square miles. Now that's larger than the size of Texas. And that preserve exists today because of what the Palauan people did to preserve their fisheries and their environment. [00:25:45][23.1]"
+  },
+  {
+   "id": "vo_palau2_318_2286d6",
+   "type": "vo",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_59",
+   "text": "VO: Enforcing this prohibition is hard. Especially out here deep in the pacific ocean"
+  },
+  {
+   "id": "broll_palau2_319_f31346",
+   "type": "broll",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_59",
+   "text": "B ROLL: riding with the rangers"
+  },
+  {
+   "id": "vo_palau2_320_f73c8c",
+   "type": "vo",
+   "text": "VO: where poachers from neighboring countries can easily cross this invisible line to fish.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_60"
+  },
+  {
+   "id": "broll_palau2_321_6cd885",
+   "type": "broll",
+   "text": "2d animation: show MPA boundary and zoom out from palau and show lines form Philippines coming into the MAP (map",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_60",
+   "flavor": "purple"
+  },
+  {
+   "id": "note_palau2_322_26646a",
+   "type": "image",
+   "imageSrc": "/palau2/img/palau2-034-021.png",
+   "imageAlt": "Map reference frame — MPA boundary, red lines from the Philippines into Palau (sits inside the 2d animation direction cell)",
+   "imageKind": "shot"
+  },
+  {
+   "id": "bin_palau2_323_ee7514",
+   "type": "bin",
+   "text": "Archive of boats burning like this. See if we can get stuff from AP or getty or something and if not lets ask if we can license some of this."
+  },
+  {
+   "id": "vo_palau2_324_a5ed1a",
+   "type": "vo",
+   "text": "VO: to show how serious they are, palau law enforcement started burning the boats of any poachers they found in their water.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_61"
+  },
+  {
+   "id": "broll_palau2_325_f15836",
+   "type": "broll",
+   "text": "Archive of boats burning",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_61"
+  },
+  {
+   "id": "vo_palau2_326_b2c839",
+   "type": "vo",
+   "text": "VO: these days they mostly just capture the boat. Like this one we saw in the harbor with the crew detained on the boat waiting to be deported back to Indonesia.",
+   "lane": "said",
+   "width": "half",
+   "pairId": "pair_62"
+  },
+  {
+   "id": "broll_palau2_327_8eccd3",
+   "type": "broll",
+   "text": "DAY 6 03:10:50:21: Footage of the boat they interdicted\n\nDAY 7 00:15:51:12 more footage of the boat they interdicted",
+   "lane": "shown",
+   "width": "half",
+   "pairId": "pair_62"
+  },
+  {
+   "id": "sot_palau2_328_1d58e7",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "Now scientists are coming to Palau. And they're studying the bull effect and saying, you know, your ancestors were right",
+   "timecode": {
+    "day": null,
+    "tc": "00:14:26",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:14:26] ... [00:14:37][10.0]"
+   }
+  },
+  {
+   "id": "vo_palau2_329_230bce",
+   "type": "vo",
+   "text": "{TK one line on any observed effects of this MPA effort in palau}"
+  },
+  {
+   "id": "note_palau2_330_38a6b8",
+   "type": "note",
+   "text": "Breath while we rest on b roll of detained boat"
+  },
+  {
+   "id": "note_palau2_331_4e6d2d",
+   "type": "note",
+   "text": "SOT WITH NO MUSIC:"
+  },
+  {
+   "id": "sot_palau2_332_0c5064",
+   "type": "sot",
+   "speaker": "TOMMY-JOHNNY",
+   "text": "Are you hopeful?",
+   "timecode": {
+    "day": null,
+    "tc": "01:11:52",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY-JOHNNY: [01:11:52] ... [01:11:53][0.3]"
+   }
+  },
+  {
+   "id": "sot_palau2_333_b44954",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "I have to be. I cannot say I am. If I don't give hope a chance, who cares? But again, it starts with the young people",
+   "timecode": {
+    "day": null,
+    "tc": "01:11:55",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [01:11:55] ... [01:12:09][14.5]"
+   }
+  },
+  {
+   "id": "sot_palau2_334_06b64d",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "you kind of get resilient to what's happening because it's not an overnight thing. Gradually, gradually, and you do have to adjust somehow.",
+   "timecode": {
+    "day": null,
+    "tc": "01:37:17",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [01:37:17] ... [01:37:29][12.4]"
+   }
+  },
+  {
+   "id": "sot_palau2_335_66beec",
+   "type": "sot",
+   "speaker": "RANGER",
+   "text": "“if that's what Mother Nature is going to give, then we just gotta live with it and try, trying. What would you call it? work with The mother nature. What can we do to make sure that we don't lose that? Yeah, yeah. Adapt. Yes. Adapt to it.",
+   "timecode": {
+    "day": 3,
+    "tc": "01:01:31:23",
+    "ambiguous": false,
+    "raw": "DAY 3 01:01:31:23 RANGER"
+   }
+  },
+  {
+   "id": "sot_palau2_336_2cf4da",
+   "type": "sot",
+   "speaker": "TOMMY",
+   "text": "think of your children, think about tomorrow, don't just think of yourself right now.",
+   "timecode": {
+    "day": null,
+    "tc": "00:14:06",
+    "ambiguous": true,
+    "raw": "260328-02-107- TOMMY: [00:14:06] ... [00:14:13][6.9]"
+   }
+  },
+  {
+   "id": "sot_palau2_337_1ee8c7",
+   "type": "sot",
+   "speaker": "MANG",
+   "text": "i grew up here i'm in the ocean like all the time now that i have kids i want to preserve what we have for their kids and their grandkids",
+   "flavor": "yellow",
+   "timecode": {
+    "day": null,
+    "tc": "01:20:59",
+    "ambiguous": true,
+    "raw": "260327-02-104- RESEARCHERS - MANG: [01:20:59] ... [01:21:34][36.0]"
+   }
+  },
+  {
+   "id": "sot_palau2_338_3f00da",
+   "type": "sot",
+   "speaker": "MENG",
+   "text": "“what you've seen out there in Johnny is what we have, and we want to keep that, you know, we want to keep that beauty that that amazement that you get diving into the water.We want to keep that. And we want our fish. We want our clams, our sea cucumbers. So the work that we do is really important",
+   "timecode": {
+    "day": 5,
+    "tc": "02:19:34:20",
+    "ambiguous": false,
+    "raw": "DAY 5 02:19:34:20 Meng"
+   }
+  },
+  {
+   "id": "chapter_palau2_339_280605",
+   "type": "chapter",
+   "genre": "ending",
+   "title": "ENDING",
+   "text": ""
+  },
+  {
+   "id": "scene_palau2_340_bcb358",
+   "type": "scene",
+   "title": "SC: SPEAR FISHING",
+   "text": ""
+  },
+  {
+   "id": "note_palau2_341_e07e85",
+   "type": "note",
+   "text": "HADLY GENERAL (to lay under the establishing)"
+  },
+  {
+   "id": "sot_palau2_342_c412ee",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "“ But my age are growing up. We grew up in a jungle. The road so, so much changed during our growing up here.”",
+   "timecode": {
+    "day": 1,
+    "tc": "01:32:04:09",
+    "ambiguous": false,
+    "raw": "DAY 1 01:32:04:09"
+   }
+  },
+  {
+   "id": "sot_palau2_343_1b256e",
+   "type": "sot",
+   "speaker": "HADLY",
+   "text": "fishing on a bamboo raft lamp. You know, kerosene lamp. Cooking on fire. That was our life growing up….I don't want to go back to the bamboo raft and kerosene lamp, and I have no problem with the the future and technology and stuff. I, I can't wait to try more. More that's coming.",
+   "timecode": {
+    "day": 1,
+    "tc": "01:32:22:06",
+    "ambiguous": false,
+    "raw": "DAY 1 01:32:22:06"
+   }
+  },
+  {
+   "id": "broll_palau2_344_dd56d8",
+   "type": "broll",
+   "text": "DAY 1 00:32:36:16 cool first shot to introduce",
+   "timecode": {
+    "day": 1,
+    "tc": "00:32:36:16",
+    "ambiguous": false,
+    "raw": "DAY 1 00:32:36:16"
+   }
+  },
+  {
+   "id": "bin_palau2_345_195ce7",
+   "type": "bin",
+   "text": "[struck-through beat list]\n- Riding out\n- Fishing\n- Catching a few fish\n- It used to be much better\n- We caught enough for dinner\n- DAY 1 00:44:15:14 talking about sea mosquitos electric shock\n- Riding home, contemplating what has changed\n- At Hadly's\n- Choose the fish\n- DAY 1 02:06:20:13 young guy “i love spear fishing, freedom, catch a big fish. Once your on the outer reef its really beautiful when the sun is out … yeah its like part of our culture\n- ]=grandpa threw him in the water to learn how to swim\n- He guts the fish\n- Hadly grabs lemon off the tree\n- DAY 1 02:23:16:09 Hadly “we were born attached to the ocean, its always been our home, a big part of our lives”\n- DAY 1 01:09:38:00 Hadly “it can be so calm then, you know, we could get mad at you, like, go home.”\n- DAY 1 01:13:13:08 - 01:14:15:20 Hadly has memorized the reefs"
+  },
+  {
+   "id": "scene_palau2_346_ac114b",
+   "type": "scene",
+   "title": "SC: RANGERS",
+   "text": ""
+  },
+  {
+   "id": "scene_palau2_347_47d600",
+   "type": "scene",
+   "title": "SC: JELLY FISH LAKE",
+   "text": ""
+  },
+  {
+   "id": "bin_palau2_348_c60ee5",
+   "type": "bin",
+   "text": "SPRINKLES"
+  },
+  {
+   "id": "bin_palau2_349_a9e3ab",
+   "type": "bin",
+   "text": "GENERAL BOX"
+  },
+  {
+   "id": "broll_palau2_350_55331d",
+   "type": "broll",
+   "text": "Passport Gets Stamped: a. DAY 1 00:00:01:20",
+   "timecode": {
+    "day": 1,
+    "tc": "00:00:01:20",
+    "ambiguous": false,
+    "raw": "DAY 1 00:00:01:20"
+   }
+  },
+  {
+   "id": "note_palau2_351_0fa990",
+   "type": "note",
+   "text": "General “i’ve been driving around these islands”"
+  },
+  {
+   "id": "broll_palau2_352_19ca33",
+   "type": "broll",
+   "text": "DAY 1 00:04:27:10 eating driving hanging",
+   "timecode": {
+    "day": 1,
+    "tc": "00:04:27:10",
+    "ambiguous": false,
+    "raw": "DAY 1 00:04:27:10"
+   }
+  },
+  {
+   "id": "broll_palau2_353_8867cc",
+   "type": "broll",
+   "text": "DAY 1 00:05:41:14 Calling Hadly who tells me to slow it down",
+   "timecode": {
+    "day": 1,
+    "tc": "00:05:41:14",
+    "ambiguous": false,
+    "raw": "DAY 1 00:05:41:14"
+   }
+  },
+  {
+   "id": "sot_palau2_354_68023f",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "“once upon a time” coral story",
+   "timecode": {
+    "day": 1,
+    "tc": "00:06:48:03",
+    "ambiguous": false,
+    "raw": "DAY 1 00:06:48:03"
+   }
+  },
+  {
+   "id": "sot_palau2_355_a54216",
+   "type": "sot",
+   "speaker": "JH",
+   "text": "“this place is lush” JH reacts",
+   "timecode": {
+    "day": 1,
+    "tc": "00:07:37:17",
+    "ambiguous": false,
+    "raw": "DAY 1 00:07:37:17"
+   }
+  }
+ ]
+}

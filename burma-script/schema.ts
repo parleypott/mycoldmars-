@@ -12,7 +12,8 @@ export type BlockType =
   | "vo" | "oncam" | "sot" | "broll" | "montage"
   | "note" | "jh-note"
   | "none" // "born" block: chrome-less line until the writer picks a type
-  | "bin"; // holding bin: unplaced SOTs / "words words words"
+  | "bin"  // holding bin: unplaced SOTs / "words words words"
+  | "image"; // reference frame / inspo still — renders inline in the rack (additive; Burma/Palau docs carry none)
 
 // VO has a THREE-state status (JH's elegant tri-checkbox): not started → recorded → in the edit
 export type VOStatus = "todo" | "recorded" | "in-edit";
@@ -57,6 +58,10 @@ export interface Block {
   // edit direction
   timecode?: Timecode;       // SOT / B-roll
   speaker?: string;          // SOT: "Jack" / "JH" / "Drew"
+  // image blocks (type:"image") — ADDITIVE: no other block type carries these.
+  imageSrc?: string;         // web path served from /public (e.g. "/palau2/img/frame.png")
+  imageAlt?: string;         // caption / alt text (shown under the image, mono)
+  imageKind?: "shot" | "inspo"; // shot = reference frame from footage; inspo = mood/inspiration (badged)
   // editor workflow
   done?: boolean;            // SOT/note "done → green"
   width?: "full" | "half";   // for the drag-to-A/V two-column pairing

@@ -13,6 +13,7 @@
 
 import { BURMA } from '../../burma-script/config.js';
 import { PALAU } from '../../palau-script/config.js';
+import { PALAU2 } from '../../palau2-script/config.js';
 import { generateSlug } from './slug.js';
 
 // Favicon path that resolves correctly at runtime from /scripts-library/ (the doc
@@ -23,6 +24,7 @@ const SHARED_FAVICON = '../burma-script/favicon.svg';
 const LEGACY = {
   burma: BURMA,
   palau: PALAU,
+  palau2: PALAU2,
 };
 
 // Sensible default genres for a NEW script — `head` feeds the chapter-reclassifier

@@ -43,7 +43,7 @@ const CORS = {
 
 // Seeded, precious projects that may be trashed/hidden but NEVER hard-deleted through the DELETE route.
 // Guarded by SLUG (stable across rename) so Burma's once-lost live doc can't be purged for everyone.
-const PROTECTED_SLUGS = new Set(['burma', 'palau']);
+const PROTECTED_SLUGS = new Set(['burma', 'palau', 'palau2']);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
