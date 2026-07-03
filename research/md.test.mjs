@@ -653,5 +653,39 @@ function fullOldMd(md) {
   ok(!mdToHtml('A\n\n--\n\nB').includes('<h2>'), 'GUARD: `--` above nothing is not a setext heading');
 }
 
+// ── Single `*em*` is CommonMark FLANKING-AWARE ───────────────────────────────
+// Whitespace-flanked asterisks — arithmetic ("3 * 4 * 5"), a bare glob
+// ("* wildcard *") — must NOT be read as an emphasis span and italicise the
+// prose between them. RED PROOF: the genuine old non-flanking rule (emOldMd,
+// below) reproduces the mangle. LLM research reports emit `a * b` multiplication
+// and standalone `*` often enough to reach the innerHTML reader.
+{
+  const oesc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // The OLD single-asterisk rule, in isolation, on already-escaped text.
+  const emOldMd = (md) => oesc(md).replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+
+  // RED PROOF: the old rule mis-pairs the two arithmetic asterisks.
+  ok(/<em> 4 <\/em>/.test(emOldMd('Multiply 3 * 4 * 5 now')),
+     'RED PROOF: old rule italicises the prose between two whitespace-flanked `*`');
+
+  // FIX: arithmetic with bare `*` is left literal (no <em> injected).
+  const arith = mdToHtml('Multiply 3 * 4 * 5 now');
+  ok(!/<em>/.test(arith), 'FIX: `3 * 4 * 5` arithmetic emits no <em>');
+  ok(/3 \* 4 \* 5/.test(arith), 'FIX: the literal asterisks survive in the body');
+
+  // FIX: two space-flanked asterisks around real words stay literal.
+  const glob = mdToHtml('Use a bare * wildcard * here.');
+  ok(!/<em>/.test(glob), 'FIX: `* wildcard *` (space-flanked) is not emphasis');
+
+  // GUARD: a genuine, tightly-wrapped `*italic*` still renders.
+  eq(mdToHtml('A real *italic* word.'), '<p>A real <em>italic</em> word.</p>',
+     'GUARD: tightly-wrapped *italic* still becomes <em>');
+  // GUARD: single-char emphasis `*x*` still works (optional inner group).
+  eq(mdToHtml('note *x* here'), '<p>note <em>x</em> here</p>',
+     'GUARD: single-char *x* emphasis still renders');
+  // GUARD: an opener with a trailing space cannot open (left-flanking).
+  ok(!/<em>/.test(mdToHtml('a* b *c')), 'GUARD: `a* b *c` — no left-flanking opener, no <em>');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

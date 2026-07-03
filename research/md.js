@@ -225,7 +225,16 @@ export function mdToHtml(md) {
   // so only an INLINE `***word***` (carrying word chars) reaches here.
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  // Single `*em*` is FLANKING-AWARE per CommonMark: an opening `*` must be
+  // immediately followed by a non-whitespace char (left-flanking) and a closing
+  // `*` immediately preceded by one (right-flanking). The old `[^*\n]+` capture
+  // ignored that, so two whitespace-flanked asterisks — arithmetic ("3 * 4 * 5"),
+  // a bare glob ("* wildcard *") — mis-paired and italicised the prose between
+  // them ("3 <em> 4 </em> 5"). LLM research reports emit `a * b` multiplication
+  // and standalone `*` often enough to reach the reader. `\S(?:[^*\n]*?\S)?`
+  // pins both ends to non-whitespace (mirrors the underscore rule below and the
+  // TTS stripMarkdown fix); every real, tightly-wrapped `*italic*` is unchanged.
+  html = html.replace(/(^|[^*])\*(\S(?:[^*\n]*?\S)?)\*/g, '$1<em>$2</em>');
   // Underscore emphasis (__bold__, _italic_) and GFM strikethrough (~~struck~~).
   // The TTS stripMarkdown already unwraps all three; the visual reader leaked
   // them as literal `_italic_` / `__bold__` / `~~cancelled~~` markers — LLM
