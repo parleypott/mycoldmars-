@@ -152,8 +152,12 @@ export function validateHeartbeat(body) {
   let color = null;
   if (body.color != null) {
     const c = String(body.color).trim();
-    // Accept a hex color only; ignore anything else rather than store junk.
-    if (/^#[0-9a-fA-F]{3,8}$/.test(c)) color = c;
+    // Accept a hex color only, and only at a VALID CSS length (3/4/6/8 digits —
+    // #RGB, #RGBA, #RRGGBB, #RRGGBBAA). The old `{3,8}` also let 5- and 7-digit
+    // junk through, which is not a real color: CSS ignores it, so the presence
+    // dot rendered COLORLESS instead of falling back to the client's stable
+    // colorFor(). Dropping it to null lets that fallback paint a real dot.
+    if (/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(c)) color = c;
   }
   let sectionId = null;
   if (body.sectionId != null) {

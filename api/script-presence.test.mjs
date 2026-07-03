@@ -40,9 +40,20 @@ ok('non-hex color is dropped, not stored', () => {
   assert.equal(v.color, null);
 });
 
-ok('hex colors of assorted lengths accepted', () => {
-  for (const c of ['#fff', '#2b7fff', '#2b7fffcc']) {
+ok('hex colors of valid CSS lengths accepted (3/4/6/8 digits)', () => {
+  // #RGB, #RGBA, #RRGGBB, #RRGGBBAA — the only lengths CSS actually renders.
+  for (const c of ['#fff', '#ffff', '#2b7fff', '#2b7fffcc']) {
     assert.equal(validateHeartbeat({ projectId: 'p', holderId: 'h', color: c }).color, c);
+  }
+});
+
+ok('hex colors of INVALID length dropped to null (5/7 digits are not real colors)', () => {
+  // The old `{3,8}` regex let these through; CSS ignores a 5-/7-digit hex, so it
+  // rendered a COLORLESS dot instead of the client's stable colorFor() fallback.
+  // Dropping to null is load-bearing: it hands the client a clean "no color" so
+  // the fallback paints a real dot. Neuter the length check ({3,8}) → these go RED.
+  for (const c of ['#12345', '#1234567']) {
+    assert.equal(validateHeartbeat({ projectId: 'p', holderId: 'h', color: c }).color, null);
   }
 });
 
