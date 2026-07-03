@@ -687,5 +687,53 @@ function fullOldMd(md) {
   ok(!/<em>/.test(mdToHtml('a* b *c')), 'GUARD: `a* b *c` — no left-flanking opener, no <em>');
 }
 
+// ── `**bold**` / `***bi***` are CommonMark FLANKING-AWARE too ─────────────────
+// The single-`*` and `_` rules were made flanking-aware; `**`/`***` were not.
+// So two whitespace-flanked `**` — power notation ("2 ** 10 to 2 ** 20"), a bare
+// "** note **" — mis-paired and BOLDED the prose between them
+// ("2 <strong> 10 to 2 </strong> 20"). Technical deep-research reports emit
+// `a ** b` power notation often enough to reach the innerHTML reader. The fix
+// pins both `**`/`***` edges to a non-whitespace, non-`*` char (and tightens the
+// single-`*` edges to `[^\s*]` so a leftover asterisk from a declined `**` run
+// isn't re-grabbed as single-em). RED PROOF: the genuine old non-flanking
+// `**`/`***`/`*` passes, in isolation, reproduce the mangle.
+{
+  const oesc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const emOldMd = (md) =>
+    oesc(md)
+      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*(\S(?:[^*\n]*?\S)?)\*/g, '$1<em>$2</em>');
+
+  // RED PROOF: the old rule bolds the prose between two whitespace-flanked `**`.
+  ok(/<strong> 10 to 2 <\/strong>/.test(emOldMd('2 ** 10 to 2 ** 20')),
+     'RED PROOF: old rule bolds the prose between two whitespace-flanked `**`');
+
+  // FIX: power notation with bare `**` is left literal (no <strong> injected).
+  const pow = mdToHtml('values range from 2 ** 10 to 2 ** 20 bits');
+  ok(!/<strong>/.test(pow), 'FIX: `2 ** 10 to 2 ** 20` power notation emits no <strong>');
+  ok(/2 \*\* 10 to 2 \*\* 20/.test(pow), 'FIX: the literal `**` asterisks survive in the body');
+
+  // FIX: a whitespace-padded triple stays fully literal (no half-eaten <strong>).
+  const tri = mdToHtml('a *** b *** c literal');
+  ok(!/<strong>/.test(tri) && /a \*\*\* b \*\*\* c/.test(tri),
+     'FIX: `a *** b *** c` (space-flanked triple) stays literal');
+
+  // GUARD: genuine, tightly-wrapped bold / bold-italic still render.
+  eq(mdToHtml('real **bold** here'), '<p>real <strong>bold</strong> here</p>',
+     'GUARD: tightly-wrapped **bold** still becomes <strong>');
+  eq(mdToHtml('real ***both*** here'), '<p>real <strong><em>both</em></strong> here</p>',
+     'GUARD: tightly-wrapped ***both*** still becomes <strong><em>');
+  // GUARD: single-char bold / bold-italic still work (optional inner group).
+  eq(mdToHtml('one **X** two'), '<p>one <strong>X</strong> two</p>',
+     'GUARD: single-char **X** still renders');
+  eq(mdToHtml('one ***X*** two'), '<p>one <strong><em>X</em></strong> two</p>',
+     'GUARD: single-char ***X*** still renders');
+  // GUARD: **bold** containing a nested *italic* still renders both.
+  eq(mdToHtml('**bold with *italic* inside**'),
+     '<p><strong>bold with <em>italic</em> inside</strong></p>',
+     'GUARD: **bold** with a nested *italic* renders both');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

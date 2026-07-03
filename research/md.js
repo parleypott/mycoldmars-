@@ -223,18 +223,38 @@ export function mdToHtml(md) {
   // crossed/malformed tags (<strong>*word</strong>* then a garbled <em>). The
   // `***` thematic-break line was already claimed above (it is markers-only),
   // so only an INLINE `***word***` (carrying word chars) reaches here.
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Both `***` and `**` are FLANKING-AWARE, same as the single-`*` and `_`
+  // rules: the opener must be immediately followed by a non-whitespace char and
+  // the closer immediately preceded by one. The old `(.+?)` capture ignored
+  // that, so two whitespace-flanked `**` — exponentiation ("2 ** 10 to 2 ** 20"),
+  // a bare "** note **" — mis-paired and bolded the prose between them
+  // ("2 <strong> 10 to 2 </strong> 20"). Technical deep-research reports emit
+  // `a ** b` power notation often enough to reach the innerHTML reader.
+  // `[^\s*](?:[^\n]*?[^\s*])?` pins both ends to a non-whitespace, non-`*` char.
+  // Excluding `\n` keeps a run from bridging across lines (matching the old `.+?`
+  // single-line behavior); the inner class stays `[^\n]` (not `[^*]`) so a nested
+  // `*italic*` inside `**bold**` still renders. Excluding `*` at the two EDGES
+  // (not just whitespace) stops a whitespace-padded triple like "a *** b *** c"
+  // from being half-eaten into a spurious <strong> — the `**` opener refuses to
+  // treat the third `*` of a `***` run as its first content char.
+  html = html.replace(/\*\*\*([^\s*](?:[^\n]*?[^\s*])?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*([^\s*](?:[^\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
   // Single `*em*` is FLANKING-AWARE per CommonMark: an opening `*` must be
   // immediately followed by a non-whitespace char (left-flanking) and a closing
   // `*` immediately preceded by one (right-flanking). The old `[^*\n]+` capture
   // ignored that, so two whitespace-flanked asterisks — arithmetic ("3 * 4 * 5"),
   // a bare glob ("* wildcard *") — mis-paired and italicised the prose between
   // them ("3 <em> 4 </em> 5"). LLM research reports emit `a * b` multiplication
-  // and standalone `*` often enough to reach the reader. `\S(?:[^*\n]*?\S)?`
-  // pins both ends to non-whitespace (mirrors the underscore rule below and the
-  // TTS stripMarkdown fix); every real, tightly-wrapped `*italic*` is unchanged.
-  html = html.replace(/(^|[^*])\*(\S(?:[^*\n]*?\S)?)\*/g, '$1<em>$2</em>');
+  // and standalone `*` often enough to reach the reader.
+  // `[^\s*](?:[^*\n]*?[^\s*])?` pins both ends to a non-whitespace, non-`*` char
+  // (mirrors the underscore rule below and the TTS stripMarkdown fix). Using
+  // `[^\s*]` rather than `\S` at the edges also means a LEFTOVER asterisk from a
+  // whitespace-flanked `**`/`***` run just above (which those flanking-aware
+  // rules correctly declined to bold — e.g. "2 ** 10 to 2 ** 20") is NOT grabbed
+  // as single-em content; without it the stray `*`s mis-paired into
+  // "2 <em>* 10 to 2 *</em> 20". Every real, tightly-wrapped `*italic*` (and
+  // single-char `*x*` via the optional inner group) is unchanged.
+  html = html.replace(/(^|[^*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '$1<em>$2</em>');
   // Underscore emphasis (__bold__, _italic_) and GFM strikethrough (~~struck~~).
   // The TTS stripMarkdown already unwraps all three; the visual reader leaked
   // them as literal `_italic_` / `__bold__` / `~~cancelled~~` markers — LLM
