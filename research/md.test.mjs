@@ -831,5 +831,36 @@ function fullOldMd(md) {
      'RED PROOF: without the task rule the generic bullet leaks "[ ] open task"');
 }
 
+// ── Ordered lists with a `)` delimiter (CommonMark allows both `1.` and `1)`) ──
+// The renderer matched only `\d+\. `, so a paren-delimited ordered list leaked
+// into the reader as a fused literal `<p>1) foo<br>2) bar</p>` — the ")" text
+// preserved and the whole list collapsed into one paragraph. The TTS narrator
+// already accepts both delimiters, so the visual reader was the inconsistent one.
+{
+  const paren = mdToHtml('1) first\n2) second');
+  // FIX: a `1)`/`2)` list becomes a real <ol> with clean item text (no ")" leak).
+  ok(/<ol>/.test(paren), 'FIX: "1)"-delimited list renders an <ol>');
+  ok(/<li>first<\/li>/.test(paren) && /<li>second<\/li>/.test(paren),
+     'FIX: paren-list item text is clean (no leaked ")")');
+  ok(!/1\)/.test(paren) && !/<p>/.test(paren),
+     'FIX: no literal "1)" and no fused <p> paragraph survives');
+
+  // GUARD: the classic `1.` delimiter still renders an <ol> (no regression).
+  ok(/<ol>/.test(mdToHtml('1. one\n2. two')), 'GUARD: "1."-delimited list still an <ol>');
+  // GUARD: paren-list emphasis inside an item still renders.
+  ok(/<li>ship <em>the<\/em> fix<\/li>/.test(mdToHtml('1) ship *the* fix')),
+     'GUARD: emphasis inside a paren-list item still renders');
+
+  // RED PROOF: the OLD dot-only rule leaves a `1)` list as an unclaimed line —
+  // it never becomes an <oli>, so it falls through to a literal paragraph.
+  const oldOrdered = (() => {
+    let h = esc('1) first\n2) second');
+    h = h.replace(/^[ \t]*\d+\. (.*)$/gm, '<oli>$1</oli>');
+    return h;
+  })();
+  ok(!/<oli>/.test(oldOrdered),
+     'RED PROOF: the dot-only rule fails to claim a "1)" list (no <oli> produced)');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

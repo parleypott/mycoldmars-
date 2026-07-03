@@ -253,7 +253,15 @@ export function mdToHtml(md) {
       `<li><input type="checkbox" disabled${mark === 'x' || mark === 'X' ? ' checked' : ''}>${text ? ' ' + text : ''}</li>`
   );
   html = html.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
-  html = html.replace(/^[ \t]*\d+\. (.*)$/gm, '<oli>$1</oli>');
+  // Ordered items. CommonMark allows BOTH `1.` and `1)` as ordered-list
+  // delimiters, and LLM research prose emits paren-delimited lists ("1) foo\n
+  // 2) bar") constantly. Matching only `\d+\. ` left a `1)` list leaking into the
+  // reader as a fused literal `<p>1) foo<br>2) bar</p>` — its ")" text preserved
+  // and the whole list collapsed into one paragraph. The TTS narrator
+  // (api/_lib/burma-essays-text.js) already accepts both delimiters, so the
+  // VISUAL reader was again the lone inconsistent path. `[.)]` claims both; the
+  // `<oli>` marker still folds into the numbered <ol> wrap below.
+  html = html.replace(/^[ \t]*\d+[.)] (.*)$/gm, '<oli>$1</oli>');
   // Triple emphasis `***word***` -> nested <strong><em>. Must run BEFORE the
   // `**bold**` and `*em*` passes: those would half-eat a `***…***` run into
   // crossed/malformed tags (<strong>*word</strong>* then a garbled <em>). The
