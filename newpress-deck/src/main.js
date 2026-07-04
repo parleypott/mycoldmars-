@@ -574,11 +574,18 @@ function renderSlide(s) {
 /* ============================================================
    HELPERS
    ============================================================ */
+// HTML-escape for interpolation into deck markup. Quote-safe (maps " and ') so it
+// is correct in ATTRIBUTE context too — e() feeds both text nodes (headlines,
+// body) AND an attribute (`alt="${e(name)}"` in imgOrPlaceholder). The old form
+// escaped via a textContent→innerHTML round-trip, which neutralises only & < >
+// and lets quotes through raw — a `"` in a name would break out of the alt
+// attribute. This char-map form renders byte-identically for every text use and
+// closes that breakout. (Same fix as translation/src/main.js esc().)
 function e(str) {
   if (!str) return '';
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
 }
 
 function nl(str) {

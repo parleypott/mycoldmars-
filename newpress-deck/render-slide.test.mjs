@@ -38,8 +38,13 @@ let block = mainSrc.slice(startIdx, navIdx);
 // (its closing */ lives past our slice). The earlier HELPERS comment is fully closed and stays.
 block = block.slice(0, block.lastIndexOf('/*'));
 
-// Faithful minimal `document`: e() does `d.textContent = str; return d.innerHTML`, which in a
-// real browser HTML-escapes &, <, > (and leaves quotes). Mirror exactly that.
+// `document` stub — VESTIGIAL as of the 2026-07-04 quote-safety fix. e() used to
+// escape via a `document.createElement` textContent→innerHTML round-trip (which
+// leaks quotes — the attribute-XSS breakout this fix closed); it is now a pure
+// char-map escaper that touches no DOM. The stub is kept as an inert safety net in
+// case the extracted block ever references `document` again. It faithfully mirrors
+// the OLD round-trip (escapes &,<,> only) so, if e() ever regresses to that form,
+// the quote-safety assertions below go RED instead of silently passing on a stub.
 const documentStub = {
   createElement() {
     let raw = '';
@@ -52,7 +57,9 @@ const documentStub = {
   },
 };
 
-const renderSlide = new Function('document', block + '\n; return renderSlide;')(documentStub);
+const extracted = new Function('document', block + '\n; return { renderSlide, e };')(documentStub);
+const renderSlide = extracted.renderSlide;
+const e = extracted.e;
 
 // ── Pull in the REAL shipped slide data. slides.js is `export default slides`. ──
 const slides = (await import('./src/slides.js')).default;
@@ -106,9 +113,33 @@ assert.equal(renderSlide({ layout: '__nope__', headline: 'x' }), '',
   'RED-proof FAILED: an unknown layout should hit default and return "" (blank)');
 checks++;
 
-// A correct slice must still escape HTML the way the browser does (proves the document stub
-// is faithful, so "renders non-empty" isn't passing on a broken escaper).
+// A correct slice must still escape HTML the way the browser does (proves e() escapes
+// the tag-forming chars, so "renders non-empty" isn't passing on a broken escaper).
 ok(renderSlide({ layout: 'data', headline: 'A < B & C', body: 'x', stats: [] }).includes('A &lt; B &amp; C'),
-  'document stub should HTML-escape &,<,> in headline text the way innerHTML does');
+  'e() should HTML-escape &,<,> in headline text');
+
+// ── MUTATION LOCK on the 2026-07-04 quote-safety fix ──
+// e() feeds an ATTRIBUTE (`alt="${e(name)}"` in imgOrPlaceholder), so it MUST escape
+// double/single quotes or a `"` in a name breaks out of the attribute (stored/reflected
+// XSS breakout — the same class as translation esc()). The old DOM round-trip form left
+// quotes RAW. These assertions go RED if e() ever regresses to a quote-leaking escaper.
+ok(e('say "hi"') === 'say &quot;hi&quot;',
+  'RED-proof: e() must escape the double quote to &quot; (attribute-breakout guard)');
+ok(e("it's") === 'it&#39;s',
+  'RED-proof: e() must escape the single quote to &#39;');
+ok(e('a & b < c > d "q"') === 'a &amp; b &lt; c &gt; d &quot;q&quot;',
+  'RED-proof: e() must escape all five HTML-significant chars');
+// And prove it lands correctly in the real attribute sink: a name with a quote must NOT
+// close the alt attribute early.
+const teamWithQuote = teamSlide
+  ? { ...teamSlide, members: [{ ...(teamSlide.members[0] || {}), name: 'A "B" C', img: '/x.png' }] }
+  : null;
+if (teamWithQuote) {
+  const out = renderSlide(teamWithQuote);
+  ok(!out.includes('alt="A "B" C"'),
+    'RED-proof: a quote in a member name must be escaped inside alt="", not break the attribute');
+  ok(out.includes('alt="A &quot;B&quot; C"'),
+    'RED-proof: the member name must appear quote-escaped inside the alt attribute');
+}
 
 console.log(`newpress-deck render-slide: ${checks} checks passed (${slides.length} real slides rendered, 0 blanks, 0 throws)`);
