@@ -29,7 +29,7 @@
 rateLimitOk	SAFE	83	different rate buckets (_commentbankBucket vs _devchatBucket), same checkRateLimit logic
 parseClipItem	SAFE	52	browser (:scope querySelector) vs node (getDirectChildren) DOM fork; worker omits markers — nothing downstream consumes them
 isNestedInClipItem	SAFE	57	parentElement/tagName (browser) vs parentNode/nodeName (node) — DOM API parity
-buildFileDefs	SAFE	66	querySelectorAll (browser) vs getElementsByTagName (node) — DOM API parity
+buildFileDefs	SAFE	50	browser/node DOM fork: client querySelectorAll+':scope > name' vs worker getElementsByTagName+getText(tag). Re-glanced iter#3 after 2aa726b widened the client to ':scope >' (sim 66→50): behavior IDENTICAL — worker getText iterates childNodes matching nodeName===tag, i.e. direct-child-only, same as ':scope > name'. Not a descendant-search bug.
 extractCameraId	SAFE	75	worker returns number (re-prefixed 'C' in a console.log ONLY, not persisted); client returns 'C'+digits for UI — each internally consistent
 markStudied	SAFE	85	per-app localStorage keys (hk-studied vs nm-studied)
 callEleven	SAFE	87	qss-tts wants Accept audio/mpeg + streaming-latency; karaoke wants JSON timestamps — intentional
@@ -80,3 +80,10 @@ eatTemplate	SAFE	81	scanner-internal fork: strip-comments.mjs BLANKS all chars t
 validatePutBody	SAFE	72	burma-script-doc is legacy single-doc (no CAS); script-doc adds baseVersion compare-and-swap — intentional successor fork
 getDoc	SAFE	85	different tables (burma_script_docs single-row vs script_docs per-project) — legacy vs generalized endpoint
 installApiFetchInterceptor	SAFE	83	per-app forks (__slApiFetchPatched vs __mcmApiFetchPatched + mcm_access_code header) — two apps
+signInWithPassword	SAFE	69	scripts-library(password-primary) vs translation(magic-link-primary) auth.js — two independent login systems, intentional architectural fork
+sendMagicLink	SAFE	80	same scripts-library-vs-translation auth fork; scripts-library uses OTP as forgot-pw fallback, translation as primary
+onAuthChange	SAFE	80	same auth fork; translation passes (_user,_profile) to handlers, scripts-library passes (_user) only — profile system exists only in translation
+signOut	SAFE	60	same auth fork; translation also clears _profile/_profileError state
+bootstrap	SAFE	63	same auth fork; translation also loads user_profiles row + subscribes profile
+updatePassword	SAFE	83	same auth fork; near-identical, formatting/import-path (supa.js vs db.js) differences only
+slug	IGNORE	66	name-collision: real slug() helper (burma-essays-text, reef-render) vs {slug} template refs (qss-worlds/script-projects/project-store/translation) vs unrelated getActive body (qss worlds.js) — extractor matched different constructs, not one copied fn
