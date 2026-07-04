@@ -5,6 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { fmtShortTimecode } from './short-timecode.js';
 import { escapeHtml } from './html-escape.js';
+import { esc } from './esc.js';
 import { initialsOf } from './initials.js';
 import { relativeAgo } from './relative-ago.js';
 import { enrichSegmentRefs } from './segment-ref.js';
@@ -5540,12 +5541,10 @@ document.addEventListener('keydown', (e) => {
 // (Reader view removed — copy-with-timecode now lives in the editor and workshop only.)
 
 // ── Helpers ──
-function esc(str) {
-  if (!str) return '';
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
+// esc() moved to ./esc.js (imported at top) — delegates to the shared 5-char
+// escapeHtml so it's safe in the many title=""/style=""/value="" attribute
+// contexts it feeds. The former DOM textContent->innerHTML form escaped only
+// & < >, leaking a " out of the attribute (e.g. a filename `A "final".mp4`).
 
 // ── Speaker toggle ──
 btnSpeakerToggle.addEventListener('click', () => {
