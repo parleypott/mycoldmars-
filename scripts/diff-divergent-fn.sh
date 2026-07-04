@@ -269,11 +269,28 @@ scan_mode() {
   # find-divergent-fns.sh emits: "<count>  <name>  <file> <file> ..."
   while IFS= read -r line; do
     [ -z "$line" ] && continue
-    local name
+    local name count
     name="$(printf '%s' "$line" | awk '{print $2}')"
+    count="$(printf '%s' "$line" | awk '{print $1}')"
     [ -z "$name" ] && continue
     # 1-2 char names are never a shared helper worth diffing — pure collision noise.
     [ "${#name}" -lt 3 ] && continue
+    # FAST PATH — skip the expensive body-extract for names already judged IGNORE
+    # (same-name collisions: unrelated functions sharing a generic identifier).
+    # IGNORE rows are EXEMPT from sim-drift re-review (triage_tag never re-flags
+    # them) AND hidden by --new, so recomputing their body overlap is pure waste.
+    # Crucially, the worst offenders ARE these collisions — generic names spanning
+    # many files (handler×60, walk×17, selfTest×15, tick×10) force max_similarity's
+    # O(files²) pairwise comm/sort/wc, which dominated the whole scan and drove the
+    # 10-min hang (fork/exec thrash: sys-time ≫ user-time). Emit the row straight
+    # from the ledger's logged sim instead. --new output is byte-identical (IGNORE
+    # hidden either way); full-scan shows the same IGNORE rows with the stable
+    # logged sim (which the ledger designates reference-only, so no fidelity loss).
+    local led; led="$(lookup_triage "$name")"
+    if [ "$(printf '%s' "$led" | cut -f1)" = IGNORE ]; then
+      printf '%s\t%s\t%s\n' "$(printf '%s' "$led" | cut -f2)" "$name" "$count" >> "$results"
+      continue
+    fi
     compare_name "$name" quiet >> "$results" 2>/dev/null || true
   done < <(scripts/find-divergent-fns.sh "$min" 2>/dev/null || true)
 
