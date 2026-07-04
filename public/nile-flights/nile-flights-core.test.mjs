@@ -168,6 +168,12 @@ function ok(name, cond) { if (cond) pass++; else { fail++; console.log('  FAIL:'
   ok('dur 0 -> "0m"', dur(parse('2026-06-15 10:00'), parse('2026-06-15 10:00')) === '0m');
   // multi-hour with minutes
   ok('dur 3h 50m (ADD->CAI)', dur(parse('2026-06-16 22:15'), parse('2026-06-17 02:05')) === '3h 50m');
+  // reversed/degenerate leg (arrive before depart — a data typo when Johnny fills in
+  // the pending TBD Aswan->Cairo leg mid-trip, e.g. wrong AM/PM or forgot the overnight
+  // date bump) must render a clean "0m", NOT malformed negative garbage ("-1h -20m").
+  // Load-bearing: remove the Math.max(0,...) clamp and these two go RED.
+  ok('dur reversed -20m -> "0m"', dur(parse('2026-06-21 10:20'), parse('2026-06-21 10:00')) === '0m');
+  ok('dur reversed -2h40m -> "0m"', dur(parse('2026-06-21 11:40'), parse('2026-06-21 10:00')) === '0m');
 }
 
 // ===================== pad =====================

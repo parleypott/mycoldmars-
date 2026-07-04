@@ -160,7 +160,7 @@ const LEGS = [
 const pad=n=>String(n).padStart(2,"0");
 const parse=s=>{const[d,t]=s.split(" ");const[Y,M,D]=d.split("-").map(Number);const[h,m]=(t||"0:0").split(":").map(Number);return new Date(Y,M-1,D,h,m);};
 const fmtTime=dt=>{let h=dt.getHours(),m=dt.getMinutes();const ap=h>=12?"PM":"AM";h=h%12||12;return `${h}:${pad(m)} ${ap}`;};
-const dur=(a,b)=>{let mins=Math.round((b-a)/60000);const h=Math.floor(mins/60),mm=mins%60;return[(h?`${h}h`:""),(mm?`${mm}m`:(h?"":"0m"))].filter(Boolean).join(" ");};
+const dur=(a,b)=>{let mins=Math.max(0,Math.round((b-a)/60000));const h=Math.floor(mins/60),mm=mins%60;return[(h?`${h}h`:""),(mm?`${mm}m`:(h?"":"0m"))].filter(Boolean).join(" ");};
 const dayKey=dt=>`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
 const dayOnly=dt=>new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());
 const DOW=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
