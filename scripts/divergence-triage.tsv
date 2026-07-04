@@ -87,3 +87,4 @@ signOut	SAFE	60	same auth fork; translation also clears _profile/_profileError s
 bootstrap	SAFE	63	same auth fork; translation also loads user_profiles row + subscribes profile
 updatePassword	SAFE	83	same auth fork; near-identical, formatting/import-path (supa.js vs db.js) differences only
 slug	IGNORE	66	name-collision: real slug() helper (burma-essays-text, reef-render) vs {slug} template refs (qss-worlds/script-projects/project-store/translation) vs unrelated getActive body (qss worlds.js) — extractor matched different constructs, not one copied fn
+scanSource	IGNORE	85	name-collision: the loop's OWN gate scripts (find-*.mjs) each define a private scanSource(source) helper — 13 files, all in scripts/, not product code; extractor matched sibling infra copies, not a shipped divergent fn
