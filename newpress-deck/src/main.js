@@ -1,6 +1,7 @@
 import './style.css';
 import slides from './slides.js';
 import { navTarget } from './nav.js';
+import { wrapIndex } from './carousel.js';
 
 const deck = document.getElementById('deck');
 const progressBar = document.getElementById('progress-bar');
@@ -689,11 +690,12 @@ buildProgressBar();
   let idx = 0;
 
   function show(n) {
-    imgs[idx].classList.remove('active');
-    dots[idx].classList.remove('active');
-    idx = (n + imgs.length) % imgs.length;
-    imgs[idx].classList.add('active');
-    dots[idx].classList.add('active');
+    if (!imgs.length) return;
+    imgs[idx]?.classList.remove('active');
+    dots[idx]?.classList.remove('active');
+    idx = wrapIndex(n, imgs.length);
+    imgs[idx]?.classList.add('active');
+    dots[idx]?.classList.add('active');
   }
 
   prevBtn.addEventListener('click', (ev) => { ev.stopPropagation(); show(idx - 1); });
