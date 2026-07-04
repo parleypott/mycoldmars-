@@ -195,6 +195,17 @@ export function mdToHtml(md) {
   html = html.replace(
     /^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(\S+)(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*$/gm,
     (_, label, dest) => {
+      // Pandoc/GFM FOOTNOTES, not link definitions. A `[^id]: text` line is a
+      // footnote definition and `[^id]` in the prose is a footnote reference —
+      // deep-research LLMs emit these constantly (the def carries the citation).
+      // A `^`-prefixed label is NEVER a reference-link label here: capturing it
+      // stored `refs["^1"]="text"`, and the shortcut resolver below then turned
+      // the footnote ref `[^1]` into a BROKEN link `<a href="text">^1</a>` — a
+      // bogus relative href, active content corruption in the reader. Skip it
+      // (return the line verbatim, already esc()'d, so it renders as honest
+      // literal text with the citation still visible) instead of mis-linking it.
+      // The resolver leaves `[^1]` literal because its label never enters `refs`.
+      if (label.startsWith('^')) return _;
       const key = normRefLabel(label);
       // Strip a CommonMark angle-bracket wrapper: `<url>` -> `url` (esc()'d form
       // is `&lt;url&gt;`). Without this the brackets leak into href/text later.
