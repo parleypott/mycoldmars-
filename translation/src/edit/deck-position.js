@@ -36,8 +36,8 @@ export function clampDeckPosition(saved, viewport, frame) {
   const fw = positive(frame && frame.width);
   const fh = positive(frame && frame.height);
   return {
-    left: clampAxis(saved && saved.left, vw && fw ? Math.max(0, vw - fw) : null),
-    bottom: clampAxis(saved && saved.bottom, vh && fh ? Math.max(0, vh - fh) : null),
+    left: clampToBounds(saved && saved.left, vw && fw ? Math.max(0, vw - fw) : null),
+    bottom: clampToBounds(saved && saved.bottom, vh && fh ? Math.max(0, vh - fh) : null),
   };
 }
 
@@ -48,7 +48,9 @@ function positive(v) {
 
 // Floor at 0 always; cap at `max` only when max is a known number (viewport and
 // frame both measured). `null` max means "size unknown" → leave the far edge free.
-function clampAxis(v, max) {
+// (Named clampToBounds, not clampAxis, to avoid a repeat-flagged name collision
+// with democracy/url-state.js's unrelated exported clampAxis — see JOURNAL 2026-07-04.)
+function clampToBounds(v, max) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
   const floored = Math.max(0, n);
