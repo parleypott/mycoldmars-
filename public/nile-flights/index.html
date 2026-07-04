@@ -181,6 +181,17 @@ function classifyGap(mins){
 // or a forgotten overnight date-bump) renders "0 min connection", never "-45 min connection".
 // Byte-identical for every real (positive) tight connection. Sibling of the dur() clamp.
 function connMins(mins){ return Math.max(0, Math.round(mins)); }
+// Pure: the "☾ On the ground" duration label shown when a same-airport gap has a TBD leg
+// on one side (no exact clock times), so we count WHOLE CALENDAR DAYS between the previous
+// arrival day and the next departure day rather than an hour count. 0-1 days apart renders
+// "overnight"; 2+ renders "~N days". dayOnly() strips time-of-day first, so DST or a
+// late-night/early-morning pairing never nudges the day count. This is the exact display
+// Johnny sees for the pending TBD Aswan->Cairo ground gap. Byte-identical to the former
+// inline render() expression. Sibling of classifyGap().
+function groundDaysLabel(fromDt, toDt){
+  const days = Math.round((dayOnly(toDt) - dayOnly(fromDt)) / 86400000);
+  return days >= 2 ? `~${days} days` : "overnight";
+}
 
 /* ---- state ---- */
 let state={bookings:{}};
@@ -216,8 +227,8 @@ function render(){
           html+=`<div class="gap"><span class="pill ${g.pill}"><span class="t">${g.head}</span><span>${dur(pArr,tDep)}</span><span class="sub">in ${city}</span></span></div>`;
         }
       }else{
-        const days=Math.round((dayOnly(l.tbd?parse(l.date+" 12:00"):tDep)-dayOnly(prev.tbd?parse(prev.date+" 12:00"):pArr))/86400000);
-        html+=`<div class="gap"><span class="pill ground"><span class="t">☾ On the ground</span><span>${days>=2?`~${days} days`:"overnight"}</span><span class="sub">in ${city}</span></span></div>`;
+        const fromDt=prev.tbd?parse(prev.date+" 12:00"):pArr, toDt=l.tbd?parse(l.date+" 12:00"):tDep;
+        html+=`<div class="gap"><span class="pill ground"><span class="t">☾ On the ground</span><span>${groundDaysLabel(fromDt,toDt)}</span><span class="sub">in ${city}</span></span></div>`;
       }
     }
     // day header

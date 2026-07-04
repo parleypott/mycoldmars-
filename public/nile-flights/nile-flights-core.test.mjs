@@ -54,15 +54,17 @@ function extractConstLine(src, name) {
 // Bind the REAL shipped functions out of the HTML. pad/parse/fmtTime/dur are self-contained
 // single-line consts (fmtTime uses pad, so order matters); classifyGap is a self-contained
 // top-level function. A bare sandbox runs the exact live code.
-const { classifyGap, connMins, dur, parse, fmtTime, pad } = (() => {
+const { classifyGap, connMins, dur, parse, fmtTime, pad, dayOnly, groundDaysLabel } = (() => {
   const body = `
     ${extractConstLine(HTML, 'pad')}
     ${extractConstLine(HTML, 'parse')}
     ${extractConstLine(HTML, 'fmtTime')}
     ${extractConstLine(HTML, 'dur')}
+    ${extractConstLine(HTML, 'dayOnly')}
     ${extractFn(HTML, 'classifyGap')}
     ${extractFn(HTML, 'connMins')}
-    return { classifyGap, connMins, dur, parse, fmtTime, pad };
+    ${extractFn(HTML, 'groundDaysLabel')}
+    return { classifyGap, connMins, dur, parse, fmtTime, pad, dayOnly, groundDaysLabel };
   `;
   // eslint-disable-next-line no-new-func
   return new Function(body)();
@@ -203,6 +205,49 @@ function ok(name, cond) { if (cond) pass++; else { fail++; console.log('  FAIL:'
   ok('pad 5 -> 05', pad(5) === '05');
   ok('pad 12 -> 12', pad(12) === '12');
   ok('pad 0 -> 00', pad(0) === '00');
+}
+
+// ===================== groundDaysLabel (the "☾ On the ground" TBD-gap label) =====================
+// The gap between two same-airport legs where one is a TBD leg (no clock times) — counts whole
+// CALENDAR days, not hours. This is the exact display for Johnny's pending Aswan->Cairo ground gap.
+{
+  const D = s => parse(s);
+  // 0/1-day gaps read "overnight".
+  ok('same day -> overnight',        groundDaysLabel(D('2026-06-21 22:00'), D('2026-06-22 06:00')) === 'overnight');
+  ok('exactly 1 calendar day -> overnight', groundDaysLabel(D('2026-06-21 00:00'), D('2026-06-22 23:00')) === 'overnight');
+  // 2+ calendar days read "~N days".
+  ok('2 days -> ~2 days',            groundDaysLabel(D('2026-06-21 09:00'), D('2026-06-23 09:00')) === '~2 days');
+  ok('5 days -> ~5 days',            groundDaysLabel(D('2026-06-20 12:00'), D('2026-06-25 12:00')) === '~5 days');
+
+  // dayOnly() strips time-of-day FIRST, so a late-night -> next-morning pairing that is <24h apart
+  // in real hours is still 1 calendar day -> "overnight" (never a spurious "~1 days" / "~2 days").
+  ok('23:30 -> next 00:30 (1h real, 1 cal day) -> overnight',
+     groundDaysLabel(D('2026-06-21 23:30'), D('2026-06-22 00:30')) === 'overnight');
+  // ...and a same-calendar-day pairing spanning ~47 real hours across a 2-day jump still counts days.
+  ok('00:30 -> +2d 23:30 (~2.9 real days, 2 cal days) -> ~2 days',
+     groundDaysLabel(D('2026-06-21 00:30'), D('2026-06-23 23:30')) === '~2 days');
+
+  // RED proof — the extraction is behavior-preserving vs the OLD inline render() expression:
+  const oldInline = (fromDt, toDt) => {
+    const days = Math.round((dayOnly(toDt) - dayOnly(fromDt)) / 86400000);
+    return days >= 2 ? `~${days} days` : 'overnight';
+  };
+  let match = true;
+  for (let d = 0; d <= 30; d++) {
+    const from = D('2026-06-01 08:00');
+    const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + d, 20, 0);
+    if (groundDaysLabel(from, to) !== oldInline(from, to)) { match = false; break; }
+  }
+  ok('behavior-preserving: groundDaysLabel === old inline render across 0..30 day gaps', match);
+
+  // RED proof — a version that used RAW ms (no dayOnly) would mislabel the 23:30->00:30 pairing.
+  const badRaw = (fromDt, toDt) => {
+    const days = Math.round((toDt - fromDt) / 86400000);
+    return days >= 2 ? `~${days} days` : 'overnight';
+  };
+  ok('RED proof: raw-ms variant still overnight here (both agree) but the ~2-day case diverges',
+     badRaw(D('2026-06-21 00:30'), D('2026-06-23 23:30')) === '~3 days' &&
+     groundDaysLabel(D('2026-06-21 00:30'), D('2026-06-23 23:30')) === '~2 days');
 }
 
 console.log(`nile-flights-core: ${pass} passed, ${fail} failed`);
