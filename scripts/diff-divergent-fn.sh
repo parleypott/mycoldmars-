@@ -121,21 +121,39 @@ SIM_THRESHOLD="${DIFF_FN_SIM:-50}"
 
 # Max pairwise normalized-line overlap (integer %) among the body.* files in $1.
 # 100 = identical line sets; low = unrelated functions that share a name.
+#
+# PERF: the whole O(n²) pairwise comparison runs in ONE awk process. The old
+# form spawned ~8 subprocesses PER PAIR (sort -u|wc twice + comm<(sort)<(sort)|wc)
+# and recomputed `sort -u body.i` for every j — for the ~250 divergent names a
+# --scan touches that was ~10K+ forks, and the fork/exec thrash (sys-time ≫
+# user-time) drove the 3-to-10-minute --scan hang. Building each file's unique
+# line-set once, in-process, and testing membership by hash makes it a single
+# fork per name. Result is byte-identical: same unique-line counts, same
+# shared-line count, same ratio = shared*100/max(a,b) (integer-truncated), same
+# max across pairs. Bodies are pre-filtered non-empty in compare_name, so every
+# body.$i has ≥1 line and awk's appearance-order file index == the 0..n-1 index.
 max_similarity() {
-  local dir="$1" n="$2" best=0 i j
-  for ((i = 0; i < n; i++)); do
-    for ((j = i + 1; j < n; j++)); do
-      local a b shared ratio
-      a=$(sort -u "$dir/body.$i" | wc -l)
-      b=$(sort -u "$dir/body.$j" | wc -l)
-      shared=$(comm -12 <(sort -u "$dir/body.$i") <(sort -u "$dir/body.$j") | wc -l)
-      local denom=$(( a > b ? a : b ))
-      [ "$denom" -eq 0 ] && continue
-      ratio=$(( shared * 100 / denom ))
-      [ "$ratio" -gt "$best" ] && best=$ratio
-    done
-  done
-  echo "$best"
+  local dir="$1" n="$2" i
+  local -a files=()
+  for ((i = 0; i < n; i++)); do files+=("$dir/body.$i"); done
+  awk '
+    FNR == 1 { f++ }                              # new input file → next 1-based index
+    !seen[f, $0]++ { u[f]++; L[f, u[f]] = $0 }    # first sight of a line: count + keep it
+    END {
+      best = 0
+      for (i = 1; i <= f; i++) {
+        for (j = i + 1; j <= f; j++) {
+          shared = 0
+          for (k = 1; k <= u[i]; k++) if ((j, L[i, k]) in seen) shared++
+          denom = (u[i] > u[j] ? u[i] : u[j])
+          if (denom == 0) continue
+          ratio = int(shared * 100 / denom)
+          if (ratio > best) best = ratio
+        }
+      }
+      print best
+    }
+  ' "${files[@]}"
 }
 
 # --- compare one name across all defining files ------------------------------
