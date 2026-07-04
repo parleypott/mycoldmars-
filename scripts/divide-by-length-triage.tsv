@@ -46,3 +46,4 @@ queen-scarlet-school/universe/index.html	consta=alphas[i]!=null?alphas[i]:(1-i/s
 translation/src/editor/Editor.jsx	constdotAngle=(fontIndex/FONT_SETS.length	SAFE	FONT_SETS is a module-level constant non-empty array
 translation/src/manual-steps.js	returnMath.round((stepsCompletedCount(steps,done)/steps.length	SAFE	early-return at :405 `if (steps.length === 0) return 0`
 public/reef/export.js	setBar((i+1)/frames.length	SAFE	run() guards `if (!frames.length) { setMsg(\047no frames to export\047); return; }` before any exporter is called, so frames.length is always > 0 in the progress-bar divisions (exportSequence/exportMP4/exportGIF). No NaN/Infinity possible.
+translation/src/srt-builder.js	:1/chunks.length	SAFE	chunks.length is always >= 1 (splitText returns at least [text]) and this divide runs INSIDE the for-loop over chunks, whose body never executes when chunks is empty. Equal-share fallback for the totalChars===0 blank-text case.

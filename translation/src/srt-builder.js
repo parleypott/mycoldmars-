@@ -100,7 +100,11 @@ export function buildSRT(translations, segments, opts = {}) {
     }
 
     const { translation: t, segment: seg } = group;
-    const text = t.translated || t.original;
+    // `|| ''` so a group with NEITHER a translated NOR an original string
+    // (both missing/empty — a blank segment) yields '' instead of `undefined`,
+    // whose `.split` would throw and CRASH the whole export. The blank text then
+    // flows through the totalChars===0 equal-share fallback below.
+    const text = (t.translated || t.original) || '';
     const startSec = timeToSeconds(seg.start);
     const endSec = timeToSeconds(seg.end);
     const duration = endSec - startSec;
@@ -127,7 +131,18 @@ export function buildSRT(translations, segments, opts = {}) {
 
     let cursor = startSec;
     for (let j = 0; j < chunks.length; j++) {
-      const proportion = chunks[j].length / totalChars;
+      // Proportion of the segment's duration this chunk gets, by its share of
+      // the text. When every chunk is empty (a blank/whitespace-only segment
+      // that still exceeds maxDuration — real in this pipeline: blank-text
+      // segments ship from bilingual-JSON underflow, and t.translated can come
+      // back empty), totalChars is 0 and `len/0` is NaN — which cascades to a
+      // NaN cursor and floors every remaining cue to 00:00:00,000, injecting
+      // non-monotonic zero-duration cues that strict SRT parsers reject. Fall
+      // back to an EQUAL share so the (empty) cues still tile the segment's real
+      // time monotonically. Byte-identical for every real (totalChars>0) input.
+      const proportion = totalChars > 0
+        ? chunks[j].length / totalChars
+        : 1 / chunks.length;
       let chunkDur = duration * proportion;
       // Hard cap each chunk at maxDuration. Without this, if splitText
       // returned fewer chunks than asked for, a single chunk could end up

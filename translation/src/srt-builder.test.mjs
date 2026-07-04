@@ -154,5 +154,40 @@ const cueCount = (srt) => (srt.match(/-->/g) || []).length;
   eq(cues.every(c => c.includes(' --> ')), true, 'every roomy cue has a valid time range');
 }
 
+// ---- buildSRT: a BLANK-text segment longer than maxDuration must not emit
+// NaN-timed / zero-duration cues. Empty/whitespace text makes totalChars === 0,
+// so the un-guarded `chunkLen / totalChars` was 0/0 = NaN, cascading to a NaN
+// cursor and flooring every cue to 00:00:00,000 (non-monotonic, zero-duration —
+// strict SRT parsers reject the file). The equal-share fallback tiles the
+// segment's real time instead. This mutation-locks that: reverting the guard to
+// `chunks[j].length / totalChars` makes every cue below 00:00:00,000-->same.
+{
+  const parseCue = (block) => {
+    const line = block.split('\r\n').find(l => l.includes(' --> '));
+    if (!line) return null;
+    const [a, b] = line.split(' --> ');
+    return { start: timeToSeconds(a), end: timeToSeconds(b) };
+  };
+  // 10s blank-text segment, maxDuration 3 → forced into the chunk branch with
+  // no characters to weigh.
+  for (const blank of ['', '   ']) {
+    const out = buildSRT(
+      [{ number: 1, translated: blank }],
+      [{ number: 1, start: '00:00:00,000', end: '00:00:10,000' }],
+      { maxWords: 10, maxDuration: 3 }
+    );
+    const cues = out.split('\r\n\r\n').filter(Boolean).map(parseCue).filter(Boolean);
+    eq(cues.length > 0, true, `blank(${JSON.stringify(blank)}) still emits at least one cue`);
+    eq(cues.every(c => c.end > c.start), true,
+       `blank(${JSON.stringify(blank)}) cues all have POSITIVE duration (no NaN/zero-dur collapse)`);
+    eq(cues.every(c => c.start >= 0 && c.end <= 10 + 1e-6), true,
+       `blank(${JSON.stringify(blank)}) cues stay inside the segment's real time`);
+    // monotonic, non-overlapping
+    let mono = true;
+    for (let i = 1; i < cues.length; i++) if (cues[i].start < cues[i - 1].end - 1e-6) mono = false;
+    eq(mono, true, `blank(${JSON.stringify(blank)}) cues are monotonic (not all pinned to 0)`);
+  }
+}
+
 console.log(`\nsrt-builder: ${pass}/${pass + fail} passed${fail ? `, ${fail} FAILED` : ''}`);
 process.exit(fail ? 1 : 0);
