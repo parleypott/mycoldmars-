@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { getEpisode, episodeFlag } from '../episode-config.js';
+import { shortChapterClause } from './chapter-clause.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -130,18 +131,6 @@ function chapterGenreLabel(genreId) {
   const genres = Array.isArray(getEpisode()?.genres) ? getEpisode().genres : [];
   const genre = genres.find((entry) => entry?.id === genreId);
   return (genre?.label || '').trim();
-}
-
-function shortChapterClause(text) {
-  const clean = String(text || '').replace(/\s+/g, ' ').trim();
-  if (!clean) return '';
-  const clause = clean
-    .replace(/^CH\b[:\s-]*/i, '')
-    .replace(/^[A-Z ]+\b(?=\s+\d+\b)/, (hit) => hit.trim())
-    .trim();
-  const cut = clause.match(/^(.{1,36}?)(?:[.:;!?]\s|$)/);
-  if (cut?.[1]) return cut[1].trim();
-  return clause.split(/\s{2,}|\s[-–—]\s|\s\(/)[0].trim();
 }
 
 function chapterTitleForRow(row, index) {
