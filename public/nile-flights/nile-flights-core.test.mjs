@@ -54,14 +54,15 @@ function extractConstLine(src, name) {
 // Bind the REAL shipped functions out of the HTML. pad/parse/fmtTime/dur are self-contained
 // single-line consts (fmtTime uses pad, so order matters); classifyGap is a self-contained
 // top-level function. A bare sandbox runs the exact live code.
-const { classifyGap, dur, parse, fmtTime, pad } = (() => {
+const { classifyGap, connMins, dur, parse, fmtTime, pad } = (() => {
   const body = `
     ${extractConstLine(HTML, 'pad')}
     ${extractConstLine(HTML, 'parse')}
     ${extractConstLine(HTML, 'fmtTime')}
     ${extractConstLine(HTML, 'dur')}
     ${extractFn(HTML, 'classifyGap')}
-    return { classifyGap, dur, parse, fmtTime, pad };
+    ${extractFn(HTML, 'connMins')}
+    return { classifyGap, connMins, dur, parse, fmtTime, pad };
   `;
   // eslint-disable-next-line no-new-func
   return new Function(body)();
@@ -129,6 +130,27 @@ function ok(name, cond) { if (cond) pass++; else { fail++; console.log('  FAIL:'
   // non-tight gaps always carry a head label
   ok('layover gap has a head', typeof classifyGap(200).head === 'string' && classifyGap(200).head.length > 0);
   ok('ground gap has a head', typeof classifyGap(2000).head === 'string' && classifyGap(2000).head.length > 0);
+}
+
+// ===================== connMins (tight-connection "⚠ N min connection" count) =====================
+// The tight-branch render shows `⚠ ${connMins(mins)} min connection`. classifyGap already flags a
+// negative/overlapping gap as tight (correct), but the RAW minute count leaked into the warning as
+// "-45 min connection" before this clamp — the sibling of the dur() reversed-leg bug. connMins is
+// Math.max(0, Math.round(mins)): byte-identical for every real positive tight connection, clamps the
+// bad-data case to "0 min". Load-bearing: drop the Math.max(0,...) and the reversed cases go RED.
+{
+  ok('connMins 40 -> 40 (real tight connection unchanged)', connMins(40) === 40);
+  ok('connMins 74 -> 74', connMins(74) === 74);
+  ok('connMins 0 -> 0', connMins(0) === 0);
+  ok('connMins rounds 59.4 -> 59', connMins(59.4) === 59);
+  ok('connMins rounds 59.6 -> 60', connMins(59.6) === 60);
+  // reversed/overlapping data (next departs before prev arrives) clamps to 0, never negative
+  ok('connMins reversed -45 -> 0 (not -45)', connMins(-45) === 0);
+  ok('connMins reversed -1.2 -> 0', connMins(-1.2) === 0);
+  // RED proof: an unclamped `Math.round(mins)` would leak "-45" into the warning string
+  const unclamped = (mins) => Math.round(mins);
+  ok('RED proof: unclamped round(-45) leaks -45', unclamped(-45) === -45);
+  ok('RED proof: shipped connMins(-45) does NOT leak -45', connMins(-45) === 0);
 }
 
 // ===================== parse (YYYY-MM-DD HH:MM -> local Date) =====================

@@ -175,6 +175,12 @@ function classifyGap(mins){
   const short=mins<=12*60;
   return {pill:short?"lay":"ground", tight:false, head:short?"⏱ Layover":"☾ On the ground"};
 }
+// Pure: the whole-minute count shown in the "⚠ N min connection" tight-connection warning.
+// Clamped at 0 so reversed/overlapping data (next departs before prev arrives at the same
+// airport — a real case when the pending TBD Aswan->Cairo leg is filled with a wrong AM/PM
+// or a forgotten overnight date-bump) renders "0 min connection", never "-45 min connection".
+// Byte-identical for every real (positive) tight connection. Sibling of the dur() clamp.
+function connMins(mins){ return Math.max(0, Math.round(mins)); }
 
 /* ---- state ---- */
 let state={bookings:{}};
@@ -205,7 +211,7 @@ function render(){
         const mins=(tDep-pArr)/60000;
         const g=classifyGap(mins);
         if(g.tight){
-          html+=`<div class="gap"><span class="pill warn"><span class="t">⚠ ${Math.round(mins)} min connection</span><span class="sub">in ${city} · too tight — book a later flight</span></span></div>`;
+          html+=`<div class="gap"><span class="pill warn"><span class="t">⚠ ${connMins(mins)} min connection</span><span class="sub">in ${city} · too tight — book a later flight</span></span></div>`;
         }else{
           html+=`<div class="gap"><span class="pill ${g.pill}"><span class="t">${g.head}</span><span>${dur(pArr,tDep)}</span><span class="sub">in ${city}</span></span></div>`;
         }
