@@ -1,0 +1,7 @@
+# md-stripper-triage.tsv — verdicts for find-divergent-md-stripper.mjs.
+# A candidate = a TTS-bound file that strips markdown to plaintext WITHOUT importing
+# the shared core (api/_lib/burma-essays-text.js). Columns: STATUS<TAB>file<TAB>reason.
+# STATUS: SAFE (judged a justified exception) | BUG (open — needs consolidation).
+# The repo currently has ZERO candidates (both real TTS strippers import the shared
+# core), so this ledger is intentionally empty. Add a row only when --check flags a
+# NEW file and you've judged it: prefer routing it through stripMarkdown over a SAFE.

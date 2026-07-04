@@ -188,7 +188,18 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // (scripts/stateful-global-regex-triage.tsv): a site is SAFE when lastIndex is
 // reset before the call or an .exec() sits in a drain-to-null loop; --check fails
 // only on a NEW untriaged .test()/.exec() on a global module regex.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs'].flatMap((s) =>
+// find-divergent-md-stripper flags a TTS-bound file that strips markdown to
+// PLAINTEXT (for speech) WITHOUT importing the shared, hardened core
+// (api/_lib/burma-essays-text.js → stripMarkdown) — the loop's single most-repeated
+// PROJECT vein (~30 stripMarkdown leak fixes), and a divergence the name-based
+// diff-divergent-fn scanner is blind to (a fresh inlined/renamed copy has no shared
+// name to match). The research-tts strip() twin already hit this once before it was
+// consolidated. HTML renderers (mdToHtml, which replace with `<em>$1</em>`, never a
+// bare `$1`) and non-TTS strippers (Hunter/Interpreter display cleaners) are
+// structurally excluded, so it starts GREEN. Ledger-backed
+// (scripts/md-stripper-triage.tsv): --check fails only on a NEW TTS stripper
+// outside the shared core.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
