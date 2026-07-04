@@ -179,7 +179,16 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // state-sync, Nile-flights, snapshot vault, commentbank corpus). Ledger-backed
 // (scripts/utf16-byte-cap-triage.tsv): base64/ASCII strings are SAFE (char == byte);
 // --check fails only on a NEW cap measured against a non-ASCII-capable `.length`.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs'].flatMap((s) =>
+// find-stateful-global-regex flags `.test()`/`.exec()` on a MODULE-LEVEL regex
+// bearing the `g`/`y` flag — the persistent-lastIndex trap where a reused global
+// regex returns TRUE/FALSE/TRUE… for the SAME input as its cursor walks and wraps
+// (or a single .exec() strands the cursor for the next caller). The burma editor
+// fixed this by hand (non-global TC_HAS twin for routing, lastIndex resets); no
+// watcher guarded the next one. Ledger-backed
+// (scripts/stateful-global-regex-triage.tsv): a site is SAFE when lastIndex is
+// reset before the call or an .exec() sits in a drain-to-null loop; --check fails
+// only on a NEW untriaged .test()/.exec() on a global module regex.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

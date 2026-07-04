@@ -39,3 +39,4 @@ scripts/find-spread-overflow.mjs	out	SAFE	sourceFiles() returns sorted file-path
 scripts/find-negative-slice.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-utf16-byte-cap.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-naive-json-extract.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-stateful-global-regex.mjs	out	SAFE	sorts absolute file PATHS for stable output order — deterministic lexical order is the intent, not numeric.

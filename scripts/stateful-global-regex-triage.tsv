@@ -1,0 +1,23 @@
+# stateful-global-regex triage ledger — judged `.test()`/`.exec()` sites whose
+# receiver is a MODULE-LEVEL regex bearing the `g` (or `y`) flag.
+# Columns: FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+# STATUS: SAFE (lastIndex is managed — reset before use, or a drain-to-null loop
+#         that self-resets) | BUG (open: a bare .test()/.exec() on a persistent
+#         /g regex with no reset and no full drain — intermittent wrong answer).
+# The question for each site: across repeated calls, can this regex's lastIndex
+# carry a nonzero cursor INTO this call? A `re.lastIndex = 0` immediately before,
+# or a `while ((m = re.exec(x)) !== null)` loop that always runs to null (which
+# resets the cursor), makes it safe. A single .test()/.exec() with neither is the
+# bug. Add a row here only after judging WHY a site is safe (or fixing it).
+# Key = whitespace-collapsed snippet, so it survives reformatting / line shifts.
+#
+burma-script/src/document-builder.js	TIMECODE3_RE_G.test(	SAFE	resets TIMECODE3_RE_G.lastIndex = 0 immediately before the .test() (the line above it); paired non-global twin TIMECODE_RE/PALAU_TIMECODE_RE used for the other .test() routes.
+burma-script/src/document-builder.js	match=DAY_LOCAL_G.exec(	SAFE	resets DAY_LOCAL_G.lastIndex = 0 before the loop AND drains `while ((match = DAY_LOCAL_G.exec(text)) !== null)` to null (self-resets the cursor).
+scripts/find-divide-by-length.mjs	m=DIV_LEN.exec(	SAFE	gate scanner: DIV_LEN.lastIndex = 0 before the `while ((m = DIV_LEN.exec(src)) !== null)` drain-to-null.
+scripts/find-naive-json-extract.mjs	m=LOCATOR.exec(	SAFE	gate scanner: LOCATOR.lastIndex = 0 before the `while ((m = LOCATOR.exec(src)) !== null)` drain-to-null.
+scripts/find-negative-slice.mjs	m=NEG_SLICE.exec(	SAFE	gate scanner: NEG_SLICE.lastIndex = 0 before the `while ((m = NEG_SLICE.exec(src)) !== null)` drain-to-null.
+scripts/find-spread-overflow.mjs	m=HEAD.exec(	SAFE	gate scanner: HEAD.lastIndex = 0 before the `while ((m = HEAD.exec(src)) !== null)` drain-to-null.
+scripts/find-truthy-zero.mjs	m=COERCE.exec(	SAFE	gate scanner: COERCE.lastIndex = 0 before the `while ((m = COERCE.exec(src)) !== null)` drain-to-null.
+scripts/find-truthy-zero.mjs	m=OR_NUM.exec(	SAFE	gate scanner: OR_NUM.lastIndex = 0 before the `while ((m = OR_NUM.exec(src)) !== null)` drain-to-null.
+scripts/find-tz-date-drift.mjs	m=NEW_DATE.exec(	SAFE	gate scanner: NEW_DATE.lastIndex = 0 before the `while ((m = NEW_DATE.exec(src)) !== null)` drain-to-null.
+scripts/find-utf16-byte-cap.mjs	m=CMP.exec(	SAFE	gate scanner: CMP.lastIndex = 0 before the `while ((m = CMP.exec(src)) !== null)` drain-to-null.
