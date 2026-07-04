@@ -153,6 +153,17 @@ export function mdToHtml(md) {
   html = html.replace(/~~~+([\s\S]*?)~~~+/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
+  // HTML COMMENTS (`<!-- editor note -->`). esc() has turned the delimiters into
+  // `&lt;!-- … --&gt;`, so without a rule the comment leaked into the reader as
+  // literal `<!-- … -->` text. A comment is meant to be INVISIBLE on the page, so
+  // drop it entirely — the TTS narrator (api/_lib/burma-essays-text.js) likewise
+  // strips `<!--…-->` so it is never read aloud, and the VISUAL reader was the lone
+  // leaking path. Runs AFTER code stashing, so a comment shown INSIDE a code span
+  // (`` `<!-- x -->` ``) is already an inert stub and survives verbatim; only real,
+  // out-of-code comments are removed. Non-greedy `[\s\S]*?` stops at the first
+  // `--&gt;`, so two comments on a line don't merge and a multi-line comment closes
+  // at its own terminator.
+  html = html.replace(/&lt;!--[\s\S]*?--&gt;/g, '');
   // CommonMark BACKSLASH ESCAPES. A `\` before any ASCII-punctuation char makes
   // that char LITERAL and strips its markdown meaning — `\*not italic\*` renders
   // the visible text `*not italic*`, `\#` a literal `#`, `\[x\]` literal brackets.
@@ -385,6 +396,19 @@ export function mdToHtml(md) {
   html = html.replace(/(^|[^\w])__(\S(?:[^_\n]*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
   html = html.replace(/(^|[^\w])_(\S(?:[^_\n]*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
   html = html.replace(/~~([^~\n]+?)~~/g, '<del>$1</del>');
+  // GFM/Obsidian HIGHLIGHT (`==important==`) -> <mark>. The TTS narrator
+  // (api/_lib/burma-essays-text.js) already unwraps `==…==` (so it isn't read aloud
+  // as "equals equals"); the VISUAL reader leaked the literal `==markers==`. Render
+  // a real highlight rather than stripping — the visual medium HAS color, so <mark>
+  // is the faithful rendering. FLANKING-AWARE like the `*em*`/`_em_` rules: the
+  // opener `==` must be immediately followed by a non-space, non-`=` char and the
+  // closer immediately preceded by one, so a whitespace-flanked chained comparison
+  // ("a == b == c", "x == y") is NOT mistaken for a highlight span and stays literal
+  // — a strictly tighter rule than the narrator's naive `==([^=]+)==`. `=` is
+  // untouched by esc() and by every transform above (setext/thematic-break use only
+  // `- * _`), so the markers survive intact to here. Runs after the emphasis passes,
+  // so a nested `==**bold**==` already rendered its <strong> and just gets wrapped.
+  html = html.replace(/==([^\s=](?:[^=\n]*?[^\s=])?)==/g, '<mark>$1</mark>');
   // URL capture allows one level of balanced parens so Wikipedia-style
   // disambiguation links — [Taiwan](…/Taiwan_(island)) — keep their closing
   // paren in the href instead of truncating at the first ')' and leaking a

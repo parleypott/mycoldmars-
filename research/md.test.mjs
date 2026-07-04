@@ -1130,5 +1130,54 @@ function fullOldMd(md) {
   ok(/\[\^1\]/.test(mixed), 'FIX: the coexisting footnote `[^1]` stays literal');
 }
 
+// ── HTML COMMENTS: dropped, not leaked (parity with the TTS narrator) ──────────
+// The narrator (api/_lib/burma-essays-text.js) strips `<!--…-->` so it is never
+// read aloud; the visual reader used to leak the comment as literal
+// `&lt;!-- … --&gt;` text. Mutation-proven: delete the
+// `html.replace(/&lt;!--[\s\S]*?--&gt;/g, '')` line in research/md.js and the
+// first two assertions below go RED (the escaped-comment text reappears).
+{
+  const c = mdToHtml('Before <!-- reviewer: verify this stat --> after.');
+  ok(!/reviewer: verify this stat/.test(c), 'MUTATION: HTML comment body is dropped');
+  ok(!/&lt;!--|--&gt;/.test(c), 'MUTATION: no escaped comment delimiters leak into the reader');
+  eq(c, '<p>Before  after.</p>', 'FIX: comment removed, surrounding prose intact');
+
+  // Multi-line comments close at their own terminator.
+  ok(!/secret/.test(mdToHtml('a\n<!--\nsecret\nnote\n-->\nb')),
+     'FIX: a multi-line HTML comment is fully removed');
+  // Two comments on one line don't merge (non-greedy): the text between survives.
+  ok(/keep me/.test(mdToHtml('<!-- one -->keep me<!-- two -->')),
+     'FIX: non-greedy strip keeps text between two comments');
+  // A comment shown INSIDE a code span is protected (stashed before the strip).
+  const inCode = mdToHtml('Use `<!-- x -->` in HTML.');
+  ok(/&lt;!-- x --&gt;/.test(inCode), 'REGRESSION: a comment inside a code span is preserved verbatim');
+}
+
+// ── ==highlight== renders as <mark>, flanking-aware (parity with the narrator) ─
+// The narrator unwraps `==…==`; the visual reader used to leak literal `==` marks.
+// Mutation-proven: delete the `==(...)==` -> <mark> line in research/md.js and the
+// first two assertions go RED (the literal `==` markers reappear).
+{
+  const h = mdToHtml('This is ==really important== to note.');
+  ok(/<mark>really important<\/mark>/.test(h), 'MUTATION: ==highlight== renders as <mark>');
+  ok(!/==/.test(h), 'MUTATION: the == markers do not leak into the reader');
+
+  // Single-char highlight via the optional inner group.
+  ok(/<mark>x<\/mark>/.test(mdToHtml('==x==')), 'FIX: single-char ==x== highlights');
+
+  // FLANKING: a whitespace-flanked chained comparison is NOT a highlight span.
+  const cmp = mdToHtml('if a == b == c then stop');
+  ok(!/<mark>/.test(cmp), 'FIX: "a == b == c" comparison is not mistaken for a highlight');
+  ok(/a == b == c/.test(cmp), 'FIX: the literal comparison text is preserved');
+  ok(!/<mark>/.test(mdToHtml('x == y')), 'FIX: a lone "x == y" is not highlighted');
+
+  // Nested emphasis inside a highlight still renders (emphasis runs first).
+  ok(/<mark><strong>hot<\/strong><\/mark>/.test(mdToHtml('==**hot**==')),
+     'FIX: ==**bold**== nests <strong> inside <mark>');
+  // A link inside a highlight still linkifies.
+  ok(/<mark>see <a href="https:\/\/x\.com"/.test(mdToHtml('==see [it](https://x.com)==')),
+     'FIX: a link inside a highlight still renders');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
