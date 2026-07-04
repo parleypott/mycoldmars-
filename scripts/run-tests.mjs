@@ -208,7 +208,16 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // (`>${esc(x)}<`) are both left alone — only the dangerous combination trips. Starts
 // GREEN (every attribute-context escaper in the repo is already quote-safe); --check
 // fails the moment a quote-unsafe escaper is dropped into an attribute.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs'].flatMap((s) =>
+// find-rangeerror-alloc flags `.repeat(<computed>)` and `new Array(<computed>)` /
+// `Array(<computed>)` whose count is not a plain integer literal — the allocators
+// THROW `RangeError` (crashing the whole render/handler synchronously) when the
+// count goes negative / NaN / fractional / ≥2^32, exactly the "computed count goes
+// negative under real data" class the loop fixed repeatedly (nile negative-minute
+// labels, etc.). `Array.from({length})` is the SAFE clamping sibling and is not
+// flagged. Ledger-backed (scripts/rangeerror-alloc-triage.tsv): starts GREEN (every
+// live site is `.length`-based or `Math.max(0,…)`-floored); --check fails only on a
+// NEW unclamped computed count.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

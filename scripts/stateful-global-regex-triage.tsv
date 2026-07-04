@@ -22,3 +22,4 @@ scripts/find-truthy-zero.mjs	m=OR_NUM.exec(	SAFE	gate scanner: OR_NUM.lastIndex 
 scripts/find-tz-date-drift.mjs	m=NEW_DATE.exec(	SAFE	gate scanner: NEW_DATE.lastIndex = 0 before the `while ((m = NEW_DATE.exec(src)) !== null)` drain-to-null.
 scripts/find-utf16-byte-cap.mjs	m=CMP.exec(	SAFE	gate scanner: CMP.lastIndex = 0 before the `while ((m = CMP.exec(src)) !== null)` drain-to-null.
 scripts/find-divergent-md-stripper.mjs	m=REPLACE_RE.exec(	SAFE	gate scanner: REPLACE_RE.lastIndex = 0 before the `while ((m = REPLACE_RE.exec(text)) !== null)` drain-to-null.
+scripts/find-rangeerror-alloc.mjs	m=HEAD.exec(	SAFE	gate scanner: HEAD.lastIndex = 0 before the `while ((m = HEAD.exec(src)) !== null)` drain-to-null.

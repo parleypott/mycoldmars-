@@ -1,0 +1,27 @@
+# rangeerror-alloc-triage.tsv — verdict ledger for find-rangeerror-alloc.mjs
+#
+# Every `.repeat(<computed>)` and `new Array(<computed>)` / `Array(<computed>)`
+# site in the repo whose count is not a plain non-negative integer literal.
+# The scanner lists them; this ledger records the human verdict so `--check`
+# stays green on judged-safe sites and fails only on a NEW (untriaged) one.
+#
+# Columns (TAB-separated):  FILE  <TAB>  SNIPPET-KEY  <TAB>  STATUS  <TAB>  REASON
+#   STATUS = SAFE (proven not to go negative/NaN/fractional/≥2^32) | BUG (open)
+#
+# A count is SAFE when it is provably a non-negative integer < 2^32:
+#   • `<arr>.length`         — always a nonneg int, capped well below 2^32
+#   • `Math.max(0, …)` / `Math.max(N, …)` — floored at a nonneg int
+# A raw `end - start` / user-driven count with no such floor would be a BUG
+# (clamp it, or use Array.from({length}) which clamps for you).
+#
+api/_lib/semantic-search.js	newArray(arr.length)	SAFE	arr.length — always a nonneg integer count
+api/burma-essays.js	newArray(items.length)	SAFE	items.length — always a nonneg integer count
+hunter/worker/backfill-continuous.mjs	.repeat(Math.max(0,15-String(BATCH_SIZE).length-String(COOLDOWN).length))	SAFE	Math.max(0, …) floors the pad count at 0
+hunter/worker/cross-tier-core.js	newArray(arr.length)	SAFE	arr.length — always a nonneg integer count
+hunter/worker/scene-detection-core.js	newArray(arr.length)	SAFE	arr.length — always a nonneg integer count
+pinglobe/src/game.js	newArray(this.clues.length)	SAFE	clues.length — always a nonneg integer count
+queen-scarlet-school/index.html	.repeat(Math.max(3,title.length))	SAFE	Math.max(3, …) floors the rule width at 3
+scripts/run-tests.mjs	newArray(tests.length)	SAFE	tests.length — always a nonneg integer count
+taiwan/index.html	newArray(allLabels.length)	SAFE	allLabels.length — always a nonneg integer count
+translation/src/api-client.js	newArray(items.length)	SAFE	items.length — always a nonneg integer count
+translation/src/api-client.js	newArray(segments.length)	SAFE	segments.length — always a nonneg integer count
