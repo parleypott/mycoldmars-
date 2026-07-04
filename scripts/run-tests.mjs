@@ -199,7 +199,16 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // structurally excluded, so it starts GREEN. Ledger-backed
 // (scripts/md-stripper-triage.tsv): --check fails only on a NEW TTS stripper
 // outside the shared core.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs'].flatMap((s) =>
+// find-attr-unsafe-escaper flags a locally-defined HTML escaper that entity-
+// encodes `& < >` but NOT quotes, whose output is interpolated into a QUOTED HTML
+// ATTRIBUTE (`foo="${esc(x)}"`) — the attribute-breakout XSS class the loop
+// hand-fixed ≥4× (Hunter escHtml, Interpreter main.js + dialogs.js, research/app.js),
+// each a "divergent-WEAKER escaper" that dropped the `"`→&quot; mapping. A quote-SAFE
+// escaper (maps `"`) and a quote-unsafe escaper used only in TEXT position
+// (`>${esc(x)}<`) are both left alone — only the dangerous combination trips. Starts
+// GREEN (every attribute-context escaper in the repo is already quote-safe); --check
+// fails the moment a quote-unsafe escaper is dropped into an attribute.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',
