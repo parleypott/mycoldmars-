@@ -430,7 +430,13 @@ function save(id,t) { localStorage.setItem('ep_'+id,t); }
 function load(id) { return parseFloat(localStorage.getItem('ep_'+id))||0; }
 function fmtDate(s) {
   if (!s) return '';
-  return new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  // ESSAYS is a hand-edited manifest, so e.date can be a typo ('2026-13-45',
+  // 'July 4') that makes new Date(...) an Invalid Date whose toLocaleDateString()
+  // returns the literal "Invalid Date" — which would render verbatim in the row.
+  // Degrade a bad value to '' (the same empty chip an absent date already shows).
+  const d = new Date(s+'T12:00:00');
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 
 function buildTicker() {

@@ -31,19 +31,25 @@
 # (1000K rollover) already play for their classes.
 #
 # WHAT IT FLAGS (scope — kept crisp for near-zero false positives)
-#   A "site" is an INLINE  new Date(<ARG>).toLocale...(  where <ARG> is a RAW VALUE:
-#   a bare identifier or member/index access (`then`, `row.updatedAt`, `r.at`) with
-#   NO operators. Deliberately OUT OF SCOPE (skipped, not flagged):
+#   A "site" is an INLINE  new Date(<ARG>).toLocale...(  in one of two shapes:
+#     (a) <ARG> is a RAW VALUE — a bare identifier or member/index access (`then`,
+#         `row.updatedAt`, `r.at`) with NO operators.
+#     (b) <ARG> is a STRING CONCATENATION — `new Date(x + 'T12:00:00')` — the ISO
+#         datetime form. This was ORIGINALLY out of scope on the assumption x is
+#         always a machine ISO day key (the Hunter calendar). That assumption BROKE:
+#         essays/index.html fed a HAND-EDITED manifest value (e.date) into this exact
+#         form, so a typo'd date rendered the literal "Invalid Date" on a live public
+#         page — the very class this gate exists to catch, slipping through the hole.
+#         Concat is now IN scope; a machine-key concat site (genuinely never Invalid)
+#         carries a `date-format-audit:ignore` marker to read GUARDED.
+#   Scanned file types: .js/.ts/.mjs/.jsx AND .html (inline <script>) — the essays
+#   bug lived in inline HTML, which the .js-only scan had also missed.
+#   Deliberately OUT OF SCOPE (skipped, not flagged):
 #     • new Date()            — argless, the current clock, ALWAYS valid.
-#     • new Date(a + 'T...')  — an explicitly-constructed ISO datetime (the Hunter
-#                               calendar form); the concatenation can't be Invalid
-#                               Date for a real ISO day key, and modelling it would
-#                               add false positives.
 #     • new Date(Date.now())  — a call expression; always valid.
-#   The raw-value inline form is the severe, recurring, mechanically-crisp one — so,
-#   like the storage-parse tool, this scopes to it. The two-step form
-#   (`const d = new Date(x); … d.toLocaleDateString()`) needs variable tracking and
-#   is FP-prone; not modelled here (documented gap).
+#     • everything under public/ and built bundles (dist/, assets/index-).
+#   The two-step form (`const d = new Date(x); … d.toLocaleDateString()`) needs
+#   variable tracking and is FP-prone; not modelled here (documented gap).
 #
 #   GUARDED — a validity guard appears in real code within ±W lines of the site:
 #             isNaN / getTime / isFinite / Number.isFinite / an `=== null` / `== null`
@@ -101,11 +107,19 @@ classify_file() {
     END {
       for (i=1; i<=NR; i++) {
         line=C[i]
-        # Inline new Date(ARG).toLocale where ARG has NO operators/parens/commas.
-        # The arg charclass forbids ( ) + - * / % , so it admits only a bare ident
-        # or dotted/bracket member access (and whitespace) — never a call, an
-        # arithmetic expr, or a string concatenation.
-        if (!match(line, /new[[:space:]]+Date\([^()+*\/%,-]*\)\.toLocale[A-Za-z]*\(/)) continue
+        # Two in-scope shapes of inline `new Date(ARG).toLocale…(`:
+        #  (a) BARE raw value — ARG has NO operators/parens/commas, so it admits only
+        #      a bare ident or dotted/bracket member access (`then`, `row.updatedAt`).
+        #  (b) STRING-CONCATENATION ISO form — `new Date(x + "T…")`. Safe ONLY when x
+        #      is a machine-generated ISO day key (the Hunter calendar); a HAND-AUTHORED
+        #      x (the essays manifest) can be Invalid Date, so it is IN scope and
+        #      classified GUARDED/NAIVE like the bare form. Machine-key concat sites
+        #      carry a `date-format-audit:ignore` marker (→ GUARDED).
+        # Try (a) first; else (b). They are mutually exclusive (bare forbids +, concat
+        # requires +), so whichever matches sets RSTART/RLENGTH for the arg extraction.
+        if (match(line, /new[[:space:]]+Date\([^()+*\/%,-]*\)\.toLocale[A-Za-z]*\(/)) {
+        } else if (match(line, /new[[:space:]]+Date\([^()]*\+[^()]*\)\.toLocale[A-Za-z]*\(/)) {
+        } else continue
         seg=substr(line, RSTART, RLENGTH)
         arg=seg
         sub(/^new[[:space:]]+Date\(/, "", arg)
@@ -127,7 +141,7 @@ classify_file() {
 scan_repo() {
   local files
   files=$(grep -rlE 'new[[:space:]]+Date\([^()]*\)\.toLocale' \
-            --include='*.js' --include='*.ts' --include='*.mjs' --include='*.jsx' . 2>/dev/null \
+            --include='*.js' --include='*.ts' --include='*.mjs' --include='*.jsx' --include='*.html' . 2>/dev/null \
           | grep -v node_modules | grep -vE '/dist/|public/|assets/index-' \
           | grep -vE '\.(test|spec)\.' || true)
   local f
@@ -178,9 +192,25 @@ JS
   cat >"$tmp/clock.js" <<'JS'
 const today = new Date().toLocaleDateString('en-US', { year: 'numeric' });
 JS
-  # Fixture 5: explicitly-constructed ISO datetime (concatenation) — out of scope,
-  # can't be Invalid Date for a real day key. MUST NOT appear.
-  cat >"$tmp/iso.js" <<'JS'
+  # Fixture 5: string-concatenation ISO form fed a HAND-AUTHORED value with NO guard —
+  # the essays-manifest bug. Now IN scope. A typo'd value renders "Invalid Date". NAIVE.
+  cat >"$tmp/iso-naive.js" <<'JS'
+const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+JS
+  # Fixture 5b: INLINE concatenation form with an isNaN guard within the window → GUARDED.
+  # (The essays fix uses the two-step `const d = new Date(x); … d.toLocale…()` form, which
+  # this inline gate deliberately does not model — so once fixed, essays simply drops out
+  # of the site list, exactly as intended.)
+  cat >"$tmp/iso-guarded.js" <<'JS'
+function fmtDate(s) {
+  if (isNaN(new Date(s + 'T12:00:00').getTime())) return '';
+  return new Date(s + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+}
+JS
+  # Fixture 5c: concatenation form with a machine ISO key + inspected ignore marker.
+  # GUARDED (the Hunter shoot-calendar form — day is a dateKey(), never Invalid).
+  cat >"$tmp/iso-ignored.js" <<'JS'
+// date-format-audit:ignore (day is a machine ISO key from dateKey(), never Invalid)
 const label = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
 JS
   # Fixture 6: a comment describing the OLD naive call must NOT read as a live site.
@@ -207,8 +237,14 @@ JS
   out=$(classify_file "$tmp/clock.js")
   assert "$out" "" "argless new Date() clock produces no site" || rc=1
 
-  out=$(classify_file "$tmp/iso.js")
-  assert "$out" "" "new Date(day + 'T...') ISO concatenation produces no site" || rc=1
+  out=$(classify_file "$tmp/iso-naive.js")
+  assert "$out" "NAIVE	$tmp/iso-naive.js:1" "concatenation form, hand value, no guard → NAIVE" || rc=1
+
+  out=$(classify_file "$tmp/iso-guarded.js")
+  assert "$out" "GUARDED	$tmp/iso-guarded.js:3" "inline concatenation form with isNaN guard → GUARDED" || rc=1
+
+  out=$(classify_file "$tmp/iso-ignored.js")
+  assert "$out" "GUARDED	$tmp/iso-ignored.js:2" "concatenation form with ignore marker → GUARDED" || rc=1
 
   out=$(classify_file "$tmp/comment.js")
   assert "$out" "" "comment describing the old naive call produces no site" || rc=1

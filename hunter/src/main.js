@@ -3904,6 +3904,7 @@ function renderShootCalendar(units) {
     const hours = Math.floor(d.duration / 3600);
     const mins = Math.floor((d.duration % 3600) / 60);
     const durStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    // date-format-audit:ignore (day is a machine ISO day key from byDay, never Invalid)
     const label = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekday = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
 
@@ -4055,6 +4056,7 @@ function renderScenes(units) {
 
   timeline.innerHTML = Object.entries(byDay).sort().map(([day, dayScenes]) => {
     const totalClips = dayScenes.reduce((s, sc) => s + sc.clips.length, 0);
+    // date-format-audit:ignore (day is a machine ISO day key from byDay, never Invalid)
     const dayLabel = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
     return `
