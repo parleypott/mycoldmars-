@@ -1009,5 +1009,43 @@ function fullOldMd(md) {
      'REGRESSION: backslash escapes are INERT inside code spans (verbatim)');
 }
 
+// ── TILDE fenced code blocks (`~~~`) render VERBATIM like ``` fences ──────────
+// CommonMark allows a 3+ tilde fence as an alternative to backticks; the canonical
+// reason to use `~~~` is to show a block that itself CONTAINS ``` backticks, so
+// research prose about code/markdown emits them. Before the fix, a tilde fence was
+// never stashed: its body ran through every heading/emphasis transform (`**x**` ->
+// <strong>, `# y` -> <h1> INSIDE the code) and the `~~~` markers leaked. The TTS
+// narrator (api/_lib/burma-essays-text.js) already drops tilde fences, so the
+// VISUAL reader was the lone leaking path. Mutation-proven: delete the tilde-stash
+// line in research/md.js and the load-bearing assertions below go RED.
+{
+  const body = mdToHtml('~~~js\nconst x = **not bold**;\n# not heading\n~~~');
+  eq(body, '<pre><code>const x = **not bold**;\n# not heading</code></pre>',
+     'FIX: tilde-fenced body renders verbatim in <pre><code>');
+  // LOAD-BEARING (mutation lock): the fenced body must NOT be transformed and the
+  // markers must NOT leak. Remove the tilde stash and every one of these fails.
+  ok(!/<strong>/.test(body), 'MUTATION: `**x**` inside a tilde fence is NOT bolded');
+  ok(!/<h1>/.test(body), 'MUTATION: `# y` inside a tilde fence is NOT a heading');
+  ok(!/~~~/.test(body), 'MUTATION: the `~~~` fence markers do not leak into the reader');
+
+  // A tilde fence containing ``` backticks preserves them as literal code text
+  // (the whole point of choosing `~~~`). Stashing tilde FIRST is what makes the
+  // inner ``` survive instead of being eaten as a nested backtick fence.
+  eq(mdToHtml('~~~\nshow: ```js\ncode();\n``` end\n~~~'),
+     '<pre><code>show: ```js\ncode();\n``` end</code></pre>',
+     'FIX: ``` backticks inside a tilde fence survive as literal code');
+
+  // GUARDS / REGRESSION: nothing about strikethrough, lone tildes, or backtick
+  // fences changes.
+  eq(mdToHtml('This is ~~struck~~ text.'), '<p>This is <del>struck</del> text.</p>',
+     'REGRESSION: inline ~~strike~~ (2 tildes) still renders <del>');
+  eq(mdToHtml('~~a~~ and ~~b~~'), '<p><del>a</del> and <del>b</del></p>',
+     'REGRESSION: adjacent 2-tilde strike spans unaffected by the 3+ fence rule');
+  eq(mdToHtml('Approx ~5 to ~10 items.'), '<p>Approx ~5 to ~10 items.</p>',
+     'REGRESSION: lone tildes in prose are left literal');
+  eq(mdToHtml('```js\nconst y = 1;\n```'), '<pre><code>const y = 1;</code></pre>',
+     'REGRESSION: backtick fences still render verbatim');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

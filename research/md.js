@@ -137,6 +137,20 @@ export function mdToHtml(md) {
   // carry no ) * # [ ` — so a stub passes every transform below intact.
   const stash = [];
   const stub = (rendered) => `\uE000${stash.push(rendered) - 1}\uE001`;
+  // TILDE fenced code blocks (`~~~`). CommonMark allows a fence of 3+ tildes as
+  // an alternative to backticks \u2014 the canonical reason to reach for `~~~` is to
+  // show a block that itself CONTAINS ``` backticks, so research prose about code
+  // or markdown emits them. Stash these FIRST (before the backtick pass) so a
+  // ``` run inside a tilde fence is preserved as literal code text, not mistaken
+  // for a nested backtick fence. Without this the tilde-fenced body was never
+  // protected: its content ran through every heading/emphasis transform below
+  // (`**x**` -> <strong>, `# y` -> <h1> INSIDE the code) and the `~~~` markers
+  // leaked into the reader \u2014 the TTS narrator (api/_lib/burma-essays-text.js)
+  // already drops tilde fences, so the VISUAL reader was the lone leaking path.
+  // esc() leaves `~` untouched, so the fences survive to here intact; the inline
+  // `~~strike~~` rule below needs 3+ tildes to be a fence, so 2-tilde strike
+  // spans are unaffected. Same fenceCode() info-string handling as backticks.
+  html = html.replace(/~~~+([\s\S]*?)~~~+/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
   // CommonMark BACKSLASH ESCAPES. A `\` before any ASCII-punctuation char makes
