@@ -569,13 +569,22 @@ function damageBunker(px, py, rad = 3) {
     }
   }
 }
+/* map a world pixel to a bunker's local cell index, or null if outside the grid.
+   Pure (no closure) so it can be unit-tested. Bounds each row by ITS OWN length
+   (b.cells[cy].length), matching damageBunker's per-row loop — NOT b.cells[0].length,
+   which silently assumes a rectangular grid and would mis-bound a ragged bunker. */
+function bunkerCellIndex(bunker, px, py) {
+  const cx = Math.floor(px - bunker.x);
+  const cy = Math.floor(py - bunker.y);
+  if (cy < 0 || cy >= bunker.cells.length) return null;
+  if (cx < 0 || cx >= bunker.cells[cy].length) return null;
+  return { cx, cy };
+}
 /* check projectile vs bunkers — true if hit */
 function hitBunker(px, py) {
   for (const b of state.bunkers) {
-    const cx = Math.floor(px - b.x);
-    const cy = Math.floor(py - b.y);
-    if (cx < 0 || cy < 0 || cy >= b.cells.length || cx >= b.cells[0].length) continue;
-    if (b.cells[cy][cx] === "G") return { b, cx, cy };
+    const idx = bunkerCellIndex(b, px, py);
+    if (idx && b.cells[idx.cy][idx.cx] === "G") return { b, cx: idx.cx, cy: idx.cy };
   }
   return null;
 }
