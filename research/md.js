@@ -226,11 +226,21 @@ export function mdToHtml(md) {
   // heading/emphasis/list/paragraph transform below intact, exactly like a code
   // span. A prose comparison ("a &lt; b &gt; c") carries spaces and a bare "&lt;3"
   // has no scheme/@, so neither matches — they stay literal, unchanged.
-  html = html.replace(/&lt;([a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]+?)&gt;/g, (whole, url) => {
+  // The `(?<!\]\()` lookbehind skips a `<url>` that is really an inline-link
+  // DESTINATION — `[label](<url>)` is CommonMark's angle-bracket dest form, and
+  // esc() leaves the `](` before the `&lt;` intact. Without this guard the
+  // autolink rule stashed the dest as an <a> BEFORE the inline `[label](url)`
+  // pass ran, and that stub then got jammed into the href attribute, producing a
+  // double-nested `<a href="<a …>…</a>">` — active corruption of a valid,
+  // citation-common link. Deferring these to the inline link pass (which now
+  // strips the &lt;…&gt; wrapper) renders one correct <a>. A standalone autolink
+  // after a link ("[a](x) &lt;https://b&gt;") is preceded by a space, not `](`,
+  // so it still matches here.
+  html = html.replace(/(?<!\]\()&lt;([a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]+?)&gt;/g, (whole, url) => {
     const href = safeHref(url);
     return href ? stub(`<a href="${href}" target="_blank" rel="noopener">${url}</a>`) : whole;
   });
-  html = html.replace(/&lt;([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+?)&gt;/g, (whole, mail) => {
+  html = html.replace(/(?<!\]\()&lt;([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+?)&gt;/g, (whole, mail) => {
     const href = safeHref(`mailto:${mail}`);
     return href ? stub(`<a href="${href}" target="_blank" rel="noopener">${mail}</a>`) : whole;
   });
@@ -397,7 +407,14 @@ export function mdToHtml(md) {
     // delimited token; only strip the remainder when it matches a title (else
     // keep the whole string — no regression for malformed/spaced dests).
     const m = dest.match(/^(\S+)\s+(?:"[^"]*"|'[^']*'|\([^()]*\))$/);
-    const href = safeHref(m ? m[1] : dest);
+    // CommonMark ANGLE-BRACKET destination: `[t](<url>)` (and `[t](<url> "title")`)
+    // wraps the dest in `< >` — esc()'d here to `&lt;…&gt;` — the explicit form an
+    // LLM reaches for when a URL is unusual. Strip the wrapper to the bare URL so
+    // safeHref sees a real scheme; without it the dest kept its `&lt;…&gt;` and
+    // safeHref built a broken relative href. (The autolink pass above, now guarded
+    // with a `](` lookbehind, no longer eats this before we get here.)
+    const url = (m ? m[1] : dest).replace(/^&lt;([\s\S]*)&gt;$/, '$1');
+    const href = safeHref(url);
     return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
   });
   // Reference-style link RESOLUTION, using the `refs` map collected above. Runs

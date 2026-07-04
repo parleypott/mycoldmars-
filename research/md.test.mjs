@@ -157,6 +157,43 @@ ok(mdToHtml('[x](foo bar baz)').includes('href="foo bar baz"'),
 ok(!/<a /.test(mdToHtml('[click me](javascript:alert(1))')),
    'paren-bearing javascript: payload still dropped, no <a>');
 
+// ── CommonMark ANGLE-BRACKET link DESTINATION: [t](<url>) ──
+// This is a valid, citation-common form. Before the fix, the autolink pass ate
+// the `<url>` inside the parens and stashed it as an <a> BEFORE the inline link
+// pass ran, so the stub was jammed into the href — producing a DOUBLE-NESTED
+// `<a href="<a href=…>…</a>">` (broken, non-clickable link) in a reader whose
+// whole job is real citations. The `href="<a` signature below is the exact
+// corruption; it must never appear. Fix = a `](` lookbehind on both autolink
+// passes + stripping the &lt;…&gt; wrapper in the inline link handler.
+{
+  const out = mdToHtml('[x](<https://a.com/b>)');
+  // RED PROOF: the corruption was a nested anchor inside the href attribute.
+  ok(!/href="<a/.test(out), 'angle-dest link is NOT double-nested (no href="<a)');
+  ok(!/&lt;|&gt;/.test(out), 'angle-dest link does not leak &lt;/&gt; brackets');
+  ok((out.match(/<a /g) || []).length === 1, 'angle-dest link renders exactly ONE anchor');
+  ok(out.includes('href="https://a.com/b"'), 'angle-dest bare URL becomes the href');
+  ok(/>x<\/a>/.test(out), 'angle-dest link keeps its label text');
+}
+// angle dest WITH a title: strip both wrapper and title, keep one clean link
+{
+  const out = mdToHtml('[x](<https://a.com/b> "Great Page")');
+  ok(out.includes('href="https://a.com/b"') && !/href="<a/.test(out) && !/Great Page/.test(out),
+     'angle-dest + title: wrapper and title stripped, single clean href');
+}
+// angle dest whose URL carries a balanced paren keeps the paren (Wikipedia-style)
+ok(mdToHtml('[T](<https://en.wikipedia.org/wiki/Taiwan_(island)>)')
+     .includes('href="https://en.wikipedia.org/wiki/Taiwan_(island)"'),
+   'angle-dest URL with a balanced paren is preserved');
+// SECURITY: a dangerous scheme in an angle dest is STILL dropped to plain text
+ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
+   'angle-dest javascript: scheme dropped, no <a>');
+// REGRESSION: a standalone autolink AFTER a link (space-separated, not `](`) still
+// linkifies — the lookbehind must not disarm real autolinks.
+{
+  const out = mdToHtml('[a](https://a.com) <https://b.com>');
+  ok((out.match(/<a /g) || []).length === 2, 'link + trailing standalone autolink = two anchors');
+}
+
 // ── code spans render VERBATIM (regression: their content used to be mangled) ──
 // Code was transformed into <pre>/<code> but its inner text still flowed through
 // every LATER transform, so a fenced block showing example markdown rendered a
