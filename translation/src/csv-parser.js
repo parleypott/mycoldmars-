@@ -135,9 +135,18 @@ export function getSequenceMetadata(segments) {
  * resolves exactly as before. The word-aware pass can only ADD precision when a
  * boundary match exists, never change a header that resolves correctly today.
  */
-export function findKeywordCol(cols, kw) {
+// Precise word-boundary keyword column ("start"/"end"/"duration" as a whole
+// word). Returns -1 when no column matches the keyword on a boundary. Shared by
+// findKeywordCol and pickTimecodeCol so the boundary regex lives in ONE place
+// (kw is always a controlled call-site literal; the user CSV cols are TESTED
+// against it, never interpolated).
+function keywordWordCol(cols, kw) {
   const wordRe = new RegExp(`(^|[^a-z])${kw}([^a-z]|$)`);
-  const wordIdx = cols.findIndex(c => wordRe.test(c));
+  return cols.findIndex(c => wordRe.test(c));
+}
+
+export function findKeywordCol(cols, kw) {
+  const wordIdx = keywordWordCol(cols, kw);
   if (wordIdx !== -1) return wordIdx;
   return cols.findIndex(c => c.includes(kw));
 }
@@ -152,11 +161,27 @@ export function findKeywordCol(cols, kw) {
  * substrings (a loose `includes` would let "Duration"→ no, but "Point"/"Outline"/
  * "Origin"-style headers collide). `c === 'in'` can only ever match a column
  * literally named "In", so it is collision-proof by construction.
+ *
+ * PRIORITY ORDER MATTERS. findKeywordCol has its own loose-`includes` fallback,
+ * and that fallback must NOT outrank the exact alias match — otherwise a chat /
+ * messaging export whose timecode columns are Trint-style "In"/"Out" but which
+ * also carries a substring-collision column ("Sender", "Legend", "Recommended")
+ * resolves End to that garbage column: findKeywordCol('end') returns "Sender"
+ * via `.includes('end')` (never reaching -1), so the real "Out" alias is never
+ * consulted, and every segment's end timecode is silently corrupted. So we
+ * interleave: precise word-boundary keyword match → exact alias → loose keyword
+ * substring. The loose pass stays as a last resort (glued "clipend" headers),
+ * exactly as before, but can no longer steal a column out from under an alias.
  */
 export function pickTimecodeCol(cols, keyword, aliases) {
-  const byKeyword = findKeywordCol(cols, keyword);
-  if (byKeyword !== -1) return byKeyword;
-  return cols.findIndex(c => aliases.includes(c));
+  // 1. precise word-boundary keyword ("Start time" / "End time")
+  const wordIdx = keywordWordCol(cols, keyword);
+  if (wordIdx !== -1) return wordIdx;
+  // 2. exact alias (Trint "In"/"Out") — must beat the loose substring fallback
+  const aliasIdx = cols.findIndex(c => aliases.includes(c));
+  if (aliasIdx !== -1) return aliasIdx;
+  // 3. loose keyword substring — last resort for unusual glued headers ("clipend")
+  return cols.findIndex(c => c.includes(keyword));
 }
 
 /**

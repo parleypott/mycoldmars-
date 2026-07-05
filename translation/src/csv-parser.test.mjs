@@ -15,6 +15,7 @@ import {
   parseSequenceInfo,
   getStats,
   findKeywordCol,
+  pickTimecodeCol,
 } from './csv-parser.js';
 
 let pass = 0, fail = 0;
@@ -262,6 +263,61 @@ eq(parseSequenceInfo('NO DATE HERE').dateFilmed, null, 'date: no leading 6-digit
   eq(segs[0].text, "I'm done flying. Nice to meet you, really.", 'trint: quoted cell with internal comma intact');
   eq(segs[1].start, '00:00:08.130', 'trint: second row In');
   eq(segs[1].end, '00:00:13.329', 'trint: second row Out');
+}
+
+// ── pickTimecodeCol: exact ALIAS must outrank the loose substring fallback ──
+// The bug: findKeywordCol has its own loose `includes(kw)` fallback. When the
+// timecode columns are ALIAS-named (Trint "In"/"Out") and a substring-collision
+// column ("Sender"/"Legend") is present, findKeywordCol('end') returned "Sender"
+// via includes() — never -1 — so the exact "Out" alias was never consulted and
+// every segment's END timecode silently read the Sender/Legend column. Reachable
+// on any chat/messaging CSV (Sender + In/Out), which then corrupts SRT/Premiere
+// exports with no error. Fix: word-boundary → exact alias → loose substring.
+{
+  const lower = a => a.map(s => s.toLowerCase());
+  const START = ['in', 'in time', 'tc in', 'timecode in', 'start time'];
+  const END = ['out', 'out time', 'tc out', 'timecode out', 'end time'];
+
+  // Headline: "Sender" + Trint In/Out. End must resolve to "out", not "sender".
+  const chat = lower(['Sender', 'In', 'Out', 'Text']);
+  eq(pickTimecodeCol(chat, 'end', END), 2, 'alias: End resolves to "Out" past the "Sender" substring collision');
+  eq(pickTimecodeCol(chat, 'start', START), 1, 'alias: Start resolves to "In"');
+
+  // RED-proof: the OLD order (findKeywordCol-with-loose-fallback THEN alias)
+  // mis-maps End→"Sender" (index 0). The fix must diverge from it here.
+  const oldPick = (cols, kw, aliases) => {
+    const wordRe = new RegExp(`(^|[^a-z])${kw}([^a-z]|$)`);
+    const w = cols.findIndex(c => wordRe.test(c));
+    const byKeyword = w !== -1 ? w : cols.findIndex(c => c.includes(kw)); // old findKeywordCol
+    if (byKeyword !== -1) return byKeyword;
+    return cols.findIndex(c => aliases.includes(c));
+  };
+  ok(oldPick(chat, 'end', END) === 0, 'RED-proof: old order mis-maps End→"Sender" (index 0)');
+  ok(pickTimecodeCol(chat, 'end', END) !== oldPick(chat, 'end', END), 'fix diverges from the buggy order on the collision');
+
+  // Other realistic substring-collision columns alongside alias timecodes.
+  eq(pickTimecodeCol(lower(['Legend', 'In', 'Out', 'Text']), 'end', END), 2, 'alias: "Legend" must not steal End');
+  eq(pickTimecodeCol(lower(['Recommended', 'In', 'Out', 'Text']), 'end', END), 2, 'alias: "Recommended" must not steal End');
+
+  // No-regression: precise word-boundary keyword still wins (Happy Scribe).
+  const hs = lower(['Number', 'Speaker', 'Start time', 'End time', 'Duration', 'Text']);
+  eq(pickTimecodeCol(hs, 'start', START), 2, 'no-regression: "Start time" resolves via word boundary');
+  eq(pickTimecodeCol(hs, 'end', END), 3, 'no-regression: "End time" resolves via word boundary');
+
+  // No-regression: pure Trint In/Out (no collision column).
+  const trint = lower(['In', 'Out', 'Duration', 'Text', 'Speaker', 'Status']);
+  eq(pickTimecodeCol(trint, 'start', START), 0, 'no-regression: pure Trint In → start');
+  eq(pickTimecodeCol(trint, 'end', END), 1, 'no-regression: pure Trint Out → end');
+
+  // No-regression: loose substring fallback preserved for glued headers with
+  // NO alias present (word -1, alias -1, includes wins) — exactly as before.
+  eq(pickTimecodeCol(lower(['clipstart', 'clipend', 'text']), 'end', END), 1, 'fallback: glued "clipend" still resolves via loose includes');
+
+  // End-to-end: a "Sender + In/Out" CSV must read END timecodes, not names.
+  const chatCsv = 'Sender,In,Out,Text\nJOHN,00:00:01.000,00:00:02.500,Hi\nJANE,00:00:02.500,00:00:04.000,Yo';
+  const chatSegs = parseCSV(chatCsv);
+  eq(chatSegs[0].end, '00:00:02.500', 'e2e: alias-import End carries the Out timecode, not the Sender name');
+  eq(chatSegs[1].end, '00:00:04.000', 'e2e: second row Out timecode intact');
 }
 
 console.log(fail === 0
