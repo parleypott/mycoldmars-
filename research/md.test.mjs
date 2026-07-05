@@ -273,6 +273,45 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
   const oldOl = fullOldMd('1. first\n2. second\n3. third');
   ok(!/<ol>/.test(oldOl) && /<li>first<\/li>/.test(oldOl), 'RED PROOF: old renderer emits orphan <li>, no <ol>');
 }
+// ── ordered lists honor a non-1 START NUMBER via <ol start="N"> ──
+// CommonMark numbers an ordered list from its FIRST item's value. The old wrap
+// discarded the digit and always emitted a bare <ol>, so a list beginning at any
+// number other than 1 — or a numbered run RESUMED after intervening prose —
+// rendered the wrong visible numbers (browsers renumber <ol> from 1). A very
+// common deep-research shape: "Step 3:"-style enumerations and lists split by an
+// explanatory paragraph.
+{
+  const nonOne = mdToHtml('3. Third item\n4. Fourth item');
+  ok(/<ol start="3">/.test(nonOne), 'FIX: list starting at 3 -> <ol start="3">');
+  ok(/<ol start="3"><li>Third item<\/li>/.test(nonOne), 'FIX: start attr on the opening <ol>, clean item text');
+  ok(!/3\. Third item/.test(nonOne), 'FIX: the "3." digit is consumed, not leaked into the item text');
+
+  // paren-delimited lists carry the start too
+  ok(/<ol start="9"><li>nine<\/li>/.test(mdToHtml('9) nine\n10) ten')), 'FIX: "9)"-delimited list -> <ol start="9">');
+
+  // a numbered run resumed after prose keeps counting from its own first number
+  const split = mdToHtml('1. a\n2. b\n\nSome prose.\n\n5. e\n6. f');
+  ok(/<ol><li>a<\/li>/.test(split), 'split list: the first run (starts at 1) stays a bare <ol>');
+  ok(/<ol start="5"><li>e<\/li>/.test(split), 'FIX: the resumed run honors its start (5)');
+
+  // CommonMark honors an explicit start of 0
+  ok(/<ol start="0"><li>zero<\/li>/.test(mdToHtml('0. zero\n1. one')), 'FIX: explicit start of 0 is honored');
+
+  // GUARD: a list that DOES start at 1 must emit a bare <ol> (no start attr) —
+  // byte-identical to the pre-fix output, so no regression on the common case.
+  eq(mdToHtml('1. first\n2. second'), '<ol><li>first</li>\n<li>second</li></ol>', 'GUARD: start-at-1 list is a bare <ol>, unchanged');
+  ok(!/start=/.test(mdToHtml('1. one\n2. two\n3. three')), 'GUARD: no spurious start attr on a 1-2-3 list');
+
+  // RED PROOF: the old wrap dropped the digit and always emitted a bare <ol>, so
+  // a 3-starting list mis-rendered as 1,2 (no start attr at all).
+  const oldNumbered = (md) => {
+    let h = String(md).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    h = h.replace(/^[ \t]*\d+[.)] (.*)$/gm, '<oli>$1</oli>');
+    h = h.replace(/(<oli>[\s\S]*?<\/oli>\n?)+/g, (m) => `<ol>${m.replace(/<(\/?)oli>/g, '<$1li>')}</ol>`);
+    return h;
+  };
+  ok(!/start=/.test(oldNumbered('3. Third\n4. Fourth')), 'RED PROOF: old wrap emits a bare <ol> for a 3-starting list (wrong numbers)');
+}
 // unordered lists stay <ul> (must not regress to <ol>)
 {
   const ulOut = mdToHtml('- a\n- b');

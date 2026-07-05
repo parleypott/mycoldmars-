@@ -343,7 +343,15 @@ export function mdToHtml(md) {
   // (api/_lib/burma-essays-text.js) already accepts both delimiters, so the
   // VISUAL reader was again the lone inconsistent path. `[.)]` claims both; the
   // `<oli>` marker still folds into the numbered <ol> wrap below.
-  html = html.replace(/^[ \t]*\d+[.)] (.*)$/gm, '<oli>$1</oli>');
+  // Capture the START NUMBER into the marker so the <ol> wrap below can honor a
+  // list that does NOT begin at 1. CommonMark numbers an ordered list from its
+  // FIRST item's value: "3. a\n4. b" is `<ol start="3">`, and a list CONTINUED
+  // after intervening prose ("...\n\n5. e\n6. f") keeps counting from 5. Dropping
+  // the digit here (the old `(.*)` capture) made every ordered list restart at 1,
+  // so a research report that enumerated "Step 3:"-style or resumed a numbered run
+  // rendered the WRONG visible numbers (browsers renumber a bare <ol> from 1). The
+  // `n="\d+"` attribute is digits-only, so it is inert through the inline passes.
+  html = html.replace(/^[ \t]*(\d+)[.)] (.*)$/gm, (_, n, t) => `<oli n="${n}">${t}</oli>`);
   // Triple emphasis `***word***` -> nested <strong><em>. Must run BEFORE the
   // `**bold**` and `*em*` passes: those would half-eat a `***…***` run into
   // crossed/malformed tags (<strong>*word</strong>* then a garbled <em>). The
@@ -536,7 +544,13 @@ export function mdToHtml(md) {
   // critically, so they get wrapped AT ALL (they used to be converted AFTER the
   // <ul> wrap, leaving every numbered list as orphan <li> with no container).
   html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
-  html = html.replace(/(<oli>[\s\S]*?<\/oli>\n?)+/g, (m) => `<ol>${m.replace(/<(\/?)oli>/g, '<$1li>')}</ol>`);
+  html = html.replace(/(<oli n="\d+">[\s\S]*?<\/oli>\n?)+/g, (m) => {
+    // The run is guaranteed to begin with the first item's <oli n="N"> marker.
+    const start = parseInt(m.match(/^<oli n="(\d+)">/)[1], 10);
+    const attr = Number.isFinite(start) && start !== 1 ? ` start="${start}"` : '';
+    const items = m.replace(/<oli n="\d+">/g, '<li>').replace(/<\/oli>/g, '</li>');
+    return `<ol${attr}>${items}</ol>`;
+  });
   // GFM tables: a single-newline block (no blank lines between rows) that the
   // paragraph split would otherwise fuse into one <p> of literal pipes.
   html = renderTables(html);
