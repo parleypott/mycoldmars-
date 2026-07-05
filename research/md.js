@@ -566,6 +566,19 @@ export function mdToHtml(md) {
     const inner = m.replace(/^(?:&gt;[ \t]?)+/gm, '').replace(/\n/g, '<br>');
     return `<blockquote>${inner}</blockquote>`;
   });
+  // Loose lists: CommonMark separates items with a blank line, but the <li>/<oli>
+  // wrap below only tolerates a SINGLE newline between items, so a loose list
+  // ("- a\n\n- b\n\n- c" — an extremely common deep-research shape, many LLMs put
+  // a blank line between every bullet) SHATTERED into one <ul>/<ol> per item: each
+  // bullet became its own single-item list with block margins, instead of one
+  // cohesive list. Collapse a blank-line gap that sits DIRECTLY between two
+  // consecutive item markers to a single newline — only that exact `</li>\n\n<li>`
+  // (and `</oli>\n\n<oli >`) adjacency, so a trailing blank BEFORE a non-item block
+  // is untouched and the list->paragraph boundary the paragraph pass relies on
+  // survives (a naive `\n*` in the wrap over-consumed that blank and mangled the
+  // following paragraph into `<p></ul>…</p>`). Byte-identical for every tight list.
+  html = html.replace(/(<\/li>)\n{2,}(?=<li>)/g, '$1\n');
+  html = html.replace(/(<\/oli>)\n{2,}(?=<oli )/g, '$1\n');
   // Wrap the runs of <li>/<oli> markers (converted up before the inline pass so a
   // `* ` bullet marker is never eaten by emphasis). Ordered items carry the <oli>
   // marker so this emits a numbered <ol> rather than a bulleted <ul> — and,

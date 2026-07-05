@@ -626,8 +626,8 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
      '<ul><li>a</li>\n<li>b</li>\n</ul>\n<h1>Head</h1>',
      'GUARD: a heading after a list is not <p>-wrapped (both blocks, no <p> needed)');
   eq(mdToHtml('- a\n\n- b'),
-     '<ul><li>a</li>\n</ul>\n<ul><li>b</li></ul>',
-     'GUARD: loose list (blank line between items) unchanged');
+     '<ul><li>a</li>\n<li>b</li></ul>',
+     'FIX: a loose list (blank line between items) is ONE <ul>, not one per item');
 }
 
 // ── NO-REGRESSION: normal markdown is byte-identical to the old renderer ──
@@ -1479,6 +1479,44 @@ function fullOldMd(md) {
   // NO-REGRESSION: a URL inside a code span stays literal (code is stashed early).
   ok(!/<a /.test(mdToHtml('`https://example.com`')),
      'NO-REGRESSION: a URL inside a code span is not linkified');
+}
+
+// ── LOOSE LISTS: a blank line between items must still be ONE list ──────────────
+{
+  // FIX: a loose bulleted list (blank line between every item — an extremely
+  // common LLM deep-research shape) rendered as one <ul> PER item before this,
+  // shattering into a stack of single-item lists. Must be ONE <ul>.
+  const looseUl = mdToHtml('- item one\n\n- item two\n\n- item three');
+  eq((looseUl.match(/<ul>/g) || []).length, 1,
+     'FIX: a loose bulleted list collapses to a SINGLE <ul>, not one per item');
+  eq((looseUl.match(/<li>/g) || []).length, 3,
+     'FIX: the loose <ul> still contains all three <li> items');
+
+  // FIX: the same for a loose ORDERED list.
+  const looseOl = mdToHtml('1. first\n\n2. second\n\n3. third');
+  eq((looseOl.match(/<ol/g) || []).length, 1,
+     'FIX: a loose ordered list collapses to a SINGLE <ol>, not one per item');
+  eq((looseOl.match(/<li>/g) || []).length, 3,
+     'FIX: the loose <ol> still contains all three <li> items');
+
+  // NO-REGRESSION (load-bearing): a tight list is byte-identical to before.
+  eq(mdToHtml('- a\n- b\n- c'),
+     '<ul><li>a</li>\n<li>b</li>\n<li>c</li></ul>',
+     'NO-REGRESSION: a tight bulleted list is unchanged by the loose-list fix');
+
+  // NO-REGRESSION (load-bearing): the list->paragraph boundary survives. A blank
+  // line between a list and a following paragraph must NOT be swallowed — the
+  // paragraph gets its own <p>, and the list closes cleanly (no `<p></ul>…`).
+  const listThenPara = mdToHtml('- a\n- b\n\nExplanatory paragraph.');
+  ok(/<\/ul>/.test(listThenPara) && /<p>Explanatory paragraph\.<\/p>/.test(listThenPara)
+     && !/<p><\/ul>/.test(listThenPara),
+     'NO-REGRESSION: a paragraph after a list keeps its <p> and the list closes cleanly');
+
+  // NO-REGRESSION: two genuinely SEPARATE lists (a paragraph between them) stay
+  // two lists — the fix only merges items with NO intervening content.
+  const twoLists = mdToHtml('- a\n- b\n\nMiddle paragraph.\n\n- x\n- y');
+  eq((twoLists.match(/<ul>/g) || []).length, 2,
+     'NO-REGRESSION: two lists separated by a paragraph stay two separate <ul>s');
 }
 
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
