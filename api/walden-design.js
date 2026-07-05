@@ -34,7 +34,7 @@ import {
   sanitizePlan,
   extractOpsFromText,
 } from './_lib/walden-ops.js';
-import { parseImageInput } from './_lib/walden-image-input.js';
+import { parseImageInput, attachInlineImages } from './_lib/walden-image-input.js';
 import { buildGeminiHistoryContents } from './_lib/gemini-chat-contents.js';
 import { coerceObjectBody } from './_lib/read-json-body.js';
 
@@ -212,11 +212,15 @@ When you reference an existing element for move/resize/rotate/delete/rename, use
   // The homeowner can attach reference photos (a pool style, their real yard, a mood board).
   const userParts = [{ text: message }];
   const imgs = Array.isArray(body.images) ? body.images.slice(0, 4) : [];
-  for (const im of imgs) {
-    const p = parseImageInput(im);
-    if (p && p.dataBase64.length < 8 * 1024 * 1024 * 1.4) {
-      userParts.push({ inlineData: { mimeType: p.mimeType, data: p.dataBase64 } });
-    }
+  const { parts: imageParts, dropped: droppedImages } = attachInlineImages(imgs);
+  userParts.push(...imageParts);
+  // Don't let an oversized reference photo vanish silently — the model would
+  // answer "blind" ("I don't see a reference image"). Tell it, so it surfaces
+  // the problem to the homeowner in prose (render mode returns a 413; chat
+  // mode keeps talking, so this note is how the homeowner finds out).
+  if (droppedImages > 0) {
+    const plural = droppedImages > 1;
+    userParts[0].text += `\n\n[System note: ${droppedImages} reference image${plural ? 's were' : ' was'} too large to attach (over ~8MB). You could NOT see ${plural ? 'them' : 'it'}. Tell the homeowner plainly and ask them to attach a smaller version.]`;
   }
   contents.push({ role: 'user', parts: userParts });
 

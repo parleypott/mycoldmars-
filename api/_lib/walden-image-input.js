@@ -36,3 +36,35 @@ export function parseImageInput(input) {
   }
   return null;
 }
+
+// Gemini's practical inline-image cap: ~8MB of source bytes, which is ~1.4× as
+// many base64 chars. Kept as one constant so the chat + render handlers agree.
+export const MAX_INLINE_IMAGE_BASE64 = Math.floor(8 * 1024 * 1024 * 1.4);
+
+// Turn a list of user-attached reference images into the Gemini `inlineData`
+// parts, dropping any that are too large to send inline. Returns the parts AND
+// a COUNT of how many were dropped for being oversized.
+//
+// Why the count matters: the render handler answers an oversized image with a
+// hard 413, but the chat handler keeps talking — so if we silently drop the
+// photo, the model answers "blind," as if the homeowner never attached anything
+// ("I don't see a reference image"). Returning `dropped` lets the caller tell
+// the model to surface it instead. An unparseable / non-image entry is skipped
+// silently (it's malformed input, not a too-large photo) and is NOT counted.
+//
+// Boundary matches the former inline check exactly. The old code kept an image
+// when `length < 8*1024*1024*1.4` (11744051.2); for an integer base64 length
+// that is `length <= 11744051`, i.e. drop when `length > 11744051` — which is
+// exactly `length > MAX_INLINE_IMAGE_BASE64` (the floored constant).
+export function attachInlineImages(images, maxBase64Len = MAX_INLINE_IMAGE_BASE64) {
+  const parts = [];
+  let dropped = 0;
+  const list = Array.isArray(images) ? images : [];
+  for (const im of list) {
+    const p = parseImageInput(im);
+    if (!p) continue;
+    if (p.dataBase64.length > maxBase64Len) { dropped++; continue; }
+    parts.push({ inlineData: { mimeType: p.mimeType, data: p.dataBase64 } });
+  }
+  return { parts, dropped };
+}

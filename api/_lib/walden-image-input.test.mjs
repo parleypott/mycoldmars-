@@ -6,7 +6,12 @@
 // 400 — so a JPEG pasted with the "jpg" spelling silently broke the render.
 // The fix normalizes the subtype to the canonical "image/jpeg".
 
-import { parseImageInput, normalizeImageMime } from './walden-image-input.js';
+import {
+  parseImageInput,
+  normalizeImageMime,
+  attachInlineImages,
+  MAX_INLINE_IMAGE_BASE64,
+} from './walden-image-input.js';
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -113,6 +118,81 @@ for (const url of [
 ]) {
   const r = parseImageInput(url);
   eq(ALLOWED.has(r.mimeType), true, `mimeType in allow-list for ${url.split(';')[0]}`);
+}
+
+// ── attachInlineImages: the oversized-image "answers blind" bug ─────────────
+// The chat handler kept talking after silently dropping an oversized reference
+// photo, so the model answered as if none were attached. attachInlineImages now
+// reports the drop count so the caller can tell the model to surface it.
+const dataUrl = (b64) => `data:image/png;base64,${b64}`;
+const small = 'A'.repeat(100);                                   // well under cap
+const oversized = 'B'.repeat(MAX_INLINE_IMAGE_BASE64 + 1);       // 1 char over cap → dropped
+const atCap = 'C'.repeat(MAX_INLINE_IMAGE_BASE64);               // exactly cap → kept (boundary)
+
+// happy path: every image fits → all parts, zero dropped (byte-identical shape)
+{
+  const r = attachInlineImages([dataUrl(small), dataUrl(small)]);
+  eq(r.dropped, 0, 'two small images: nothing dropped');
+  eq(r.parts.length, 2, 'two small images: two inlineData parts');
+  eq(r.parts[0], { inlineData: { mimeType: 'image/png', data: small } },
+     'part shape matches the former inline push exactly');
+}
+
+// THE BUG, LOCKED: an oversized image is counted as dropped, not silently lost
+{
+  const r = attachInlineImages([dataUrl(small), dataUrl(oversized)]);
+  eq(r.dropped, 1, 'BUG LOCK: oversized image is counted as dropped (not silent)');
+  eq(r.parts.length, 1, 'oversized image is NOT sent inline; the small one is');
+  eq(r.parts[0].inlineData.data, small, 'the surviving part is the small image');
+}
+
+// boundary: exactly at the cap is KEPT (matches old `length < cap` → drop when >)
+{
+  const r = attachInlineImages([dataUrl(atCap)]);
+  eq(r.dropped, 0, 'image exactly at the cap is kept (boundary matches old check)');
+  eq(r.parts.length, 1, 'at-cap image produces a part');
+}
+
+// unparseable / non-image entries are skipped SILENTLY — not counted as oversized
+{
+  const r = attachInlineImages(['', null, 'short', 'data:image/gif;base64,R0lGODlh', 12345, dataUrl(small)]);
+  eq(r.dropped, 0, 'malformed entries are skipped, NOT counted as too-large');
+  eq(r.parts.length, 1, 'only the one valid small image survives');
+}
+
+// all oversized → no parts, full count (this is the "answers blind" case)
+{
+  const r = attachInlineImages([dataUrl(oversized), dataUrl(oversized)]);
+  eq(r.dropped, 2, 'both oversized → dropped count is 2');
+  eq(r.parts.length, 0, 'both oversized → no inlineData parts');
+}
+
+// non-array / empty inputs degrade cleanly
+eq(attachInlineImages(null), { parts: [], dropped: 0 }, 'null images → empty result');
+eq(attachInlineImages(undefined), { parts: [], dropped: 0 }, 'undefined images → empty result');
+eq(attachInlineImages([]), { parts: [], dropped: 0 }, 'empty array → empty result');
+
+// RED proof: the OLD inline loop silently dropped the oversized image with no
+// signal at all — the caller had no way to know a photo went missing.
+{
+  function oldAttach(images) {
+    const parts = [];
+    const imgs = Array.isArray(images) ? images.slice(0, 4) : [];
+    for (const im of imgs) {
+      const p = parseImageInput(im);
+      if (p && p.dataBase64.length < 8 * 1024 * 1024 * 1.4) {
+        parts.push({ inlineData: { mimeType: p.mimeType, data: p.dataBase64 } });
+      }
+    }
+    return parts; // <-- no dropped count: the bug
+  }
+  const oldParts = oldAttach([dataUrl(small), dataUrl(oversized)]);
+  eq(oldParts.length, 1, 'RED PROOF: old loop dropped the oversized image…');
+  eq(typeof oldParts.dropped, 'undefined', '…and reported NOTHING about the drop (the bug)');
+  // GREEN: new helper keeps the exact same parts but ALSO reports the drop.
+  const nu = attachInlineImages([dataUrl(small), dataUrl(oversized)]);
+  eq(nu.parts.length, oldParts.length, 'GREEN: same surviving parts as the old loop');
+  eq(nu.dropped, 1, 'GREEN: and now the drop is reported');
 }
 
 // ── Summary ─────────────────────────────────────────────────────────────────
