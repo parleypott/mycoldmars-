@@ -54,17 +54,18 @@ function extractConstLine(src, name) {
 // Bind the REAL shipped functions out of the HTML. pad/parse/fmtTime/dur are self-contained
 // single-line consts (fmtTime uses pad, so order matters); classifyGap is a self-contained
 // top-level function. A bare sandbox runs the exact live code.
-const { classifyGap, connMins, dur, parse, fmtTime, pad, dayOnly, groundDaysLabel } = (() => {
+const { classifyGap, connMins, dur, parse, fmtTime, pad, dayOnly, dayKey, groundDaysLabel } = (() => {
   const body = `
     ${extractConstLine(HTML, 'pad')}
     ${extractConstLine(HTML, 'parse')}
     ${extractConstLine(HTML, 'fmtTime')}
     ${extractConstLine(HTML, 'dur')}
     ${extractConstLine(HTML, 'dayOnly')}
+    ${extractConstLine(HTML, 'dayKey')}
     ${extractFn(HTML, 'classifyGap')}
     ${extractFn(HTML, 'connMins')}
     ${extractFn(HTML, 'groundDaysLabel')}
-    return { classifyGap, connMins, dur, parse, fmtTime, pad, dayOnly, groundDaysLabel };
+    return { classifyGap, connMins, dur, parse, fmtTime, pad, dayOnly, dayKey, groundDaysLabel };
   `;
   // eslint-disable-next-line no-new-func
   return new Function(body)();
@@ -248,6 +249,61 @@ function ok(name, cond) { if (cond) pass++; else { fail++; console.log('  FAIL:'
   ok('RED proof: raw-ms variant still overnight here (both agree) but the ~2-day case diverges',
      badRaw(D('2026-06-21 00:30'), D('2026-06-23 23:30')) === '~3 days' &&
      groundDaysLabel(D('2026-06-21 00:30'), D('2026-06-23 23:30')) === '~2 days');
+}
+
+// ===================== dayKey: the day-header IDENTITY key =====================
+// dayKey drives the itinerary's date DIVIDERS: render() emits a new "day header" only when a leg's
+// dayKey differs from the previous leg's (`if(k!==curDay){curDay=k; ...}`). So dayKey is a pure
+// day-IDENTITY partition, compared ONLY against another dayKey output — never against the raw
+// "YYYY-MM-DD" data string. Its ONLY contract: same calendar day -> same key, different calendar
+// day -> different key. This block also permanently RETIRES a recurring false-positive: two prior
+// codebase surveys flagged dayKey's `getMonth()` (0-indexed, no +1) as an "off-by-one bug" that
+// would key Jan as month 0 instead of 01. It is NOT a bug — because the key is self-compared, the
+// 0-vs-1 base is irrelevant; what matters is that the (year,month,date) triple uniquely identifies
+// a calendar day. These assertions prove exactly that, and mutation-prove that dropping the DATE
+// component (collides distinct days -> a day header wrongly suppressed) or adding time-of-day
+// (splits one day -> a duplicate header) both break the contract.
+{
+  const D = (s) => parse(s);
+
+  // same calendar day, wildly different times-of-day -> SAME key (no duplicate day header)
+  ok('dayKey: same day, 00:05 vs 23:55 -> identical key',
+     dayKey(D('2026-06-15 00:05')) === dayKey(D('2026-06-15 23:55')));
+  // adjacent calendar days -> DIFFERENT keys (the divider fires)
+  ok('dayKey: Jun 15 vs Jun 16 -> different keys',
+     dayKey(D('2026-06-15 12:00')) !== dayKey(D('2026-06-16 12:00')));
+  // month rollover -> different keys
+  ok('dayKey: Jun 30 vs Jul 1 -> different keys',
+     dayKey(D('2026-06-30 23:00')) !== dayKey(D('2026-07-01 01:00')));
+  // year rollover -> different keys (guards the year component being present)
+  ok('dayKey: Dec 31 2026 vs Jan 1 2027 -> different keys',
+     dayKey(D('2026-12-31 12:00')) !== dayKey(D('2027-01-01 12:00')));
+  // FALSE-POSITIVE RETIREMENT: the 0-indexed month is self-consistent. A "+1-fixed" mirror
+  // produces a DIFFERENT string but the SAME partition — so it never changes any header decision.
+  const dayKeyPlus1 = (dt) => `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`;
+  let samePartition = true;
+  const days = ['2026-01-04 09:00', '2026-01-04 21:00', '2026-06-15 08:00', '2026-06-16 08:00',
+                '2026-12-31 23:00', '2027-01-01 00:30'];
+  for (let i = 0; i < days.length; i++) for (let j = 0; j < days.length; j++) {
+    const a = D(days[i]), b = D(days[j]);
+    if ((dayKey(a) === dayKey(b)) !== (dayKeyPlus1(a) === dayKeyPlus1(b))) { samePartition = false; }
+  }
+  ok('dayKey: 0-indexed month is a NON-bug — +1 mirror yields the identical day partition', samePartition);
+
+  // RED proof: a month-only key (drops the DATE) would COLLIDE two distinct June days and wrongly
+  // suppress the second day's header. Prove the shipped dayKey does NOT collide them.
+  const badMonthOnly = (dt) => `${dt.getFullYear()}-${dt.getMonth()}`;
+  ok('RED proof: a date-less key collides Jun 15 and Jun 16 (would drop a day divider)',
+     badMonthOnly(D('2026-06-15 12:00')) === badMonthOnly(D('2026-06-16 12:00')));
+  ok('RED proof: shipped dayKey keeps Jun 15 and Jun 16 distinct',
+     dayKey(D('2026-06-15 12:00')) !== dayKey(D('2026-06-16 12:00')));
+
+  // RED proof: a time-bearing key would SPLIT one calendar day into two headers.
+  const badWithTime = (dt) => `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}-${dt.getHours()}`;
+  ok('RED proof: a time-bearing key splits one day (00:05 vs 23:55 differ)',
+     badWithTime(D('2026-06-15 00:05')) !== badWithTime(D('2026-06-15 23:55')));
+  ok('RED proof: shipped dayKey keeps one calendar day as ONE key',
+     dayKey(D('2026-06-15 00:05')) === dayKey(D('2026-06-15 23:55')));
 }
 
 console.log(`nile-flights-core: ${pass} passed, ${fail} failed`);
