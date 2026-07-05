@@ -463,6 +463,52 @@ export function mdToHtml(md) {
     );
     html = html.replace(/\[([^\]\n]+)\]/g, (whole, label) => refLink(whole, label, label));
   }
+  // GFM extended autolinks (conservative subset): a BARE `http(s)://` URL typed
+  // directly in the prose — not wrapped in `<…>`, not a `[label](url)` / reference
+  // link — becomes a clickable <a>. Citation-heavy deep-research reports cite
+  // sources as raw URLs constantly; before this they rendered as non-clickable
+  // plain text (readable, but you couldn't click a source). STRICTLY ADDITIVE and
+  // regression-proof by construction: one left-to-right pass whose FIRST alternative
+  // matches an already-rendered anchor (`<a …>…</a>` — from the inline/reference
+  // link passes above; angle-bracket autolinks are already inert stubs) and returns
+  // it VERBATIM. Because the engine consumes a whole existing anchor when it reaches
+  // `<a`, the URL sitting inside its href/label is never separately matched — an
+  // existing link can NEVER be double-wrapped or altered. The SECOND alternative
+  // therefore only ever fires on genuinely bare URL text. safeHref still gates the
+  // scheme (defence-in-depth; only http(s) reaches here anyway) and quote-escapes
+  // the href; the whole string was esc()'d up front so the link TEXT carries no live
+  // `< > &`. Scoped to explicit `http(s)://` only — bare `www.`/email autolinks are
+  // deliberately excluded (ambiguous, and LLM reports emit full-scheme URLs). GFM
+  // trailing-punctuation handling: a run of sentence punctuation (. , ; : ! ? ' "),
+  // an UNBALANCED closing `)`, or a trailing escaped entity (`&gt;`/`&quot;`/… — a
+  // `>` or closing quote that followed the URL in prose) is peeled off the match and
+  // re-emitted as literal text, so "(see https://x.org/a_(b))." links
+  // `https://x.org/a_(b)` and keeps the `).`. Worst case a stray trailing char stays
+  // inside a NEW link — never a broken existing link. Runs after the inline+reference
+  // link passes (so anchors exist to protect) and after every emphasis pass (so a `_`
+  // or `~~` in the URL is already past its transform); the new anchor is emitted live
+  // and, like the inline links above, sails through the blockquote/paragraph passes
+  // (which only touch leading markers and newlines, never a URL's interior).
+  html = html.replace(/(<a [^>]*>[\s\S]*?<\/a>)|(https?:\/\/[^\s<]+)/g, (m, anchor, bare) => {
+    if (anchor) return anchor;
+    let url = bare;
+    for (;;) {
+      const last = url[url.length - 1];
+      if (last && '.,;:!?\'"'.includes(last)) { url = url.slice(0, -1); continue; }
+      if (last === ')' && (url.split(')').length - 1) > (url.split('(').length - 1)) {
+        url = url.slice(0, -1);
+        continue;
+      }
+      const ent = url.match(/&(?:gt|lt|quot|amp);$/);
+      if (ent) { url = url.slice(0, -ent[0].length); continue; }
+      break;
+    }
+    if (!url) return m;
+    const href = safeHref(url);
+    return href
+      ? `<a href="${href}" target="_blank" rel="noopener">${url}</a>` + m.slice(url.length)
+      : m;
+  });
   // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
   // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —
   // the marker leaked into the reader's report as a literal `>`. LLM research

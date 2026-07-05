@@ -1127,12 +1127,19 @@ function fullOldMd(md) {
   eq(ftn, '<p>text[^1]</p>\n<p>[^1]: note</p>',
      'FIX: `[^1]` ref + `[^1]: note` def render as honest literal text');
 
-  // The citation URL in a footnote definition stays VISIBLE to the reader.
+  // The citation URL in a footnote DEFINITION stays visible AND — since the
+  // GFM bare-autolink pass runs — becomes a clickable link (the definition line
+  // is honest visible prose; a clickable citation is exactly the improvement).
+  // The footnote REF itself (`[^src]`) still stays literal (asserted below), so
+  // the load-bearing footnote-guard behavior is unchanged; only the def's bare
+  // URL is now linkified, consistent with every other bare URL in the report.
   const withUrl = mdToHtml('See it[^src].\n\n[^src]: https://example.com/paper');
   ok(/example\.com\/paper/.test(withUrl),
      'FIX: the footnote definition URL is preserved (visible), not swallowed');
-  ok(!/<a [^>]*href="https:\/\/example\.com\/paper"/.test(withUrl),
-     'FIX: the footnote is not mis-linkified into a live <a>');
+  ok(/<a href="https:\/\/example\.com\/paper" target="_blank" rel="noopener">https:\/\/example\.com\/paper<\/a>/.test(withUrl),
+     'FIX: the footnote definition URL is now a clickable link (GFM bare autolink)');
+  ok(/See it\[\^src\]\./.test(withUrl),
+     'LOAD-BEARING: the footnote REF `[^src]` still stays literal, not linkified');
 
   // Word-id footnotes behave the same way.
   ok(!/<a /.test(mdToHtml('Claim[^note] here.\n\n[^note]: because reasons')),
@@ -1297,6 +1304,57 @@ function fullOldMd(md) {
   // NO-REGRESSION: a mid-line backslash not before a newline is untouched.
   ok(/C:\\Users/.test(mdToHtml('a path C:' + BS + 'Users here')),
      'NO-REGRESSION: a mid-line backslash is left alone');
+}
+
+// ── GFM EXTENDED AUTOLINKS: a bare http(s) URL in prose becomes clickable ──
+// Deep-research reports cite sources as raw URLs constantly; before this they
+// rendered as non-clickable plain text. The pass is strictly additive: existing
+// links (inline `[](url)`, reference, angle-bracket autolink) are matched by the
+// FIRST alternative and returned verbatim, so they can never be double-wrapped.
+{
+  // Baseline (mutation target): a bare URL now renders as a real link.
+  const bare = mdToHtml('See https://example.com/report for details.');
+  ok(/<a href="https:\/\/example\.com\/report" target="_blank" rel="noopener">https:\/\/example\.com\/report<\/a>/
+     .test(bare), 'FIX: a bare https URL becomes a clickable <a>');
+  // MUTATION: remove the bare-URL pass and this URL stays literal text (no <a>).
+  ok(/<a /.test(bare), 'MUTATION: bare URL is linkified (no <a> means the pass was reverted)');
+
+  // GFM trailing punctuation: a sentence-ending period is NOT part of the link.
+  eq(mdToHtml('link: https://example.com.'),
+     '<p>link: <a href="https://example.com" target="_blank" rel="noopener">https://example.com</a>.</p>',
+     'FIX: a trailing sentence period is peeled off the URL and kept as text');
+
+  // Unbalanced closing paren (from wrapping parens) is peeled; balanced kept.
+  eq(mdToHtml('(https://example.com)'),
+     '<p>(<a href="https://example.com" target="_blank" rel="noopener">https://example.com</a>)</p>',
+     'FIX: an unbalanced wrapping ) is peeled off the URL');
+  ok(/href="https:\/\/en\.wikipedia\.org\/wiki\/Taiwan_\(island\)"/
+     .test(mdToHtml('https://en.wikipedia.org/wiki/Taiwan_(island)')),
+     'FIX: a balanced ) inside the URL (Wikipedia disambiguation) is kept in the href');
+
+  // NO-REGRESSION (load-bearing): an EXISTING inline link is untouched — the URL
+  // inside its href/label is consumed by the anchor alternative, never re-matched.
+  eq(mdToHtml('[the report](https://example.com/r)'),
+     '<p><a href="https://example.com/r" target="_blank" rel="noopener">the report</a></p>',
+     'NO-REGRESSION: an existing [](url) link is not double-wrapped');
+  // A bare-looking URL as the VISIBLE label of an inline link stays single-wrapped.
+  const labelIsUrl = mdToHtml('[https://example.com](https://example.com)');
+  eq((labelIsUrl.match(/<a /g) || []).length, 1,
+     'NO-REGRESSION: a URL used as a link label is not turned into a nested <a>');
+
+  // SECURITY: a bare URL is still scheme-gated by safeHref, and its text carries
+  // no live markup (the whole string is esc()'d up front). Only http(s) is matched
+  // at all, so a javascript: scheme is never even a candidate — confirm no live js href.
+  ok(!/href="javascript:/.test(mdToHtml('javascript:alert(1) https://ok.com')),
+     'SECURITY: bare-URL pass only linkifies http(s), never a javascript: scheme');
+
+  // NO-REGRESSION: prose with no scheme (a bare domain / www.) is left as text.
+  ok(!/<a /.test(mdToHtml('visit example.com or www.example.com')),
+     'NO-REGRESSION: bare www./domain (no scheme) is deliberately NOT linkified');
+
+  // NO-REGRESSION: a URL inside a code span stays literal (code is stashed early).
+  ok(!/<a /.test(mdToHtml('`https://example.com`')),
+     'NO-REGRESSION: a URL inside a code span is not linkified');
 }
 
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
