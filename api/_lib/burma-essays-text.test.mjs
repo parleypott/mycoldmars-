@@ -151,6 +151,16 @@ eq(stripMarkdown('See ![Burma map][] here.'), 'See  here.', 'FIX: collapsed refe
 eq(stripMarkdown('See ![the map][fig1] here.').includes('!'), false, 'FIX: no "!" husk anywhere in the ref-image output');
 eq(stripMarkdown('See [the map][fig1] here.'), 'See the map here.', 'GUARD: a real ref-LINK (no !) still keeps its visible text');
 eq(stripMarkdown('Prices rose 5! Then fell.'), 'Prices rose 5! Then fell.', 'GUARD: a plain "!" in prose is untouched');
+// Wiki-style links ([[Page]] / [[Page|Display]]) — Obsidian/wiki syntax (Johnny's own
+// notes + the PAI memory system link this way). None of the single-bracket link rules
+// match double brackets, so pre-fix the WHOLE construct leaked into the audio ("open
+// bracket open bracket … close bracket close bracket"). RED-proof: the ref-link-use rule
+// alone can't touch it.
+eq('See [[Some Page]] here.'.replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1'), 'See [[Some Page]] here.', 'RED: single-bracket link rules leave [[wikilink]] fully intact');
+eq(stripMarkdown('See [[Some Page]] here.'), 'See Some Page here.', 'FIX: [[Page]] -> page name, brackets dropped');
+eq(stripMarkdown('Read [[Burma Essays|the essays]] now.'), 'Read the essays now.', 'FIX: [[Page|Display]] -> Obsidian display alias kept, page + brackets dropped');
+eq(stripMarkdown('See [[Some Page]] here.').includes('['), false, 'FIX: no "[" bracket husk anywhere in the wikilink output');
+eq(stripMarkdown('He wrote [sic] in the margin.'), 'He wrote [sic] in the margin.', 'GUARD: a single-bracket aside ([sic]) is NOT a wikilink and is untouched');
 // Footnotes — inline marker dropped, definition text kept.
 eq(stripMarkdown('A claim.[^1]\n\n[^1]: the source note.'), 'A claim.\n\nthe source note.', 'FIX: footnote marker dropped, def text kept');
 // Closed ATX heading — drop the trailing ###.

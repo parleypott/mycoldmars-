@@ -100,6 +100,15 @@ export function stripMarkdown(md) {
     // links are ubiquitous in geopolitical/historical essays, so it's a real
     // read-it-aloud leak, not a corner case. Mirrors the fix already shipped in
     // research/md.js's link/image transforms.
+    // Wiki-style links ([[Page]] / [[Page|Display]]) — Obsidian/wiki syntax Johnny
+    // uses in his own notes (the PAI memory system links memories this way). It is
+    // NOT standard CommonMark, so none of the single-bracket link rules below match
+    // the DOUBLE brackets; left alone the whole thing leaks into the audio (read as
+    // "open bracket open bracket Some Page close bracket close bracket"). Keep the
+    // DISPLAY text (the part after a "|", Obsidian's alias) when present, else the
+    // page name; drop the brackets. Runs BEFORE the reference-link rules so their
+    // single-bracket patterns never partially chew a "[[…]]" and strand a bracket.
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1')
     .replace(/\[!\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)\]\((?:[^()]|\([^()]*\))*\)/g, '')
     .replace(/!\[[^\]]*\]\((?:[^()]|\([^()]*\))+\)/g, '')  // images
     .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))+\)/g, '$1') // inline links -> link text
