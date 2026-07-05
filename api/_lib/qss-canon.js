@@ -1,5 +1,8 @@
 // Queen Scarlet's School — canonical world facts.
 //
+// (regex-literal escaper lives in the shared ./escape-regexp.js so this file and
+//  qss-signals.js can never drift — see obs 6441.)
+//
 // Anything that's TRUE about the story regardless of which block Henry's on.
 // Server-side modules import this and inject relevant facts into their
 // prompts (Wordy's TUTOR/DIRECTIONS/STORY/SCRIBE, the character-card
@@ -8,6 +11,8 @@
 //
 // Lookup is name-based and case-insensitive. New canonical characters get
 // added here; that's the only file to touch.
+
+import { escapeRegExp } from './escape-regexp.js';
 
 export const QSS_CANON = {
   // Always-present world facts, regardless of which characters are on-page.
@@ -45,9 +50,6 @@ function matchTerms(key, ch) {
   return terms.map(t => String(t || '').toLowerCase().trim()).filter(Boolean);
 }
 
-function escapeRegExp(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 // Whole-word match so "Scarlet" doesn't fire inside "scarletina" and a short
 // alias can't latch onto a longer word — same \b discipline as the b-roll and

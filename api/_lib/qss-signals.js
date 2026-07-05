@@ -3,6 +3,8 @@
 // are cheap reads) and the inline fixation hints we feed Wordy when he's
 // proposing directions for Henry.
 
+import { escapeRegExp } from './escape-regexp.js';
+
 // Known QSS canon characters. Caller can pass extras (parsed from the
 // bible) but these are the baseline always-detect set.
 const CANON_CHARACTERS = [
@@ -76,16 +78,11 @@ function wordCount(text) {
   return (text.match(/\S+/g) || []).length;
 }
 
-// Escape regex metacharacters so a vocabulary word (a character name, a
-// category verb) is matched LITERALLY when interpolated into a `\b…\b`
-// pattern. Without this, the moment someone adds 'Dr. Periwinkle', 'K.O.'
-// or any word carrying a regex metachar, `new RegExp` either silently
-// mis-matches (the '.' matches any char) or throws SyntaxError and crashes
-// the whole signal pass. Both call sites below funnel through this so they
-// can never drift apart again.
-function escapeRegExp(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+// escapeRegExp (used below to interpolate a vocabulary word — character name
+// or category verb — LITERALLY into a `\b…\b` pattern; without it a word with a
+// metachar like 'Dr. Periwinkle' or 'K.O.' either mis-matches or crashes the
+// signal pass) lives in the shared ./escape-regexp.js, imported at the top so it
+// can never drift from the qss-canon.js copy (obs 6441).
 
 function extractCharacters(text, extras = []) {
   if (!text) return [];
