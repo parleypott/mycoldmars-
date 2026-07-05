@@ -346,6 +346,28 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
   ok((multi.match(/<blockquote>/g) || []).length === 1, 'multi-line quote is a single <blockquote>');
 }
 {
+  // NESTED blockquotes (`>> inner`, `> > inner`): every marker in the leading run
+  // must be stripped, never leaked as a literal `>`. Flattened into one quote.
+  const nested = mdToHtml('> outer\n>> nested\n> back');
+  ok(!/&gt;/.test(nested), 'FIX: nested `>>` leaks NO literal &gt; marker');
+  ok(/<blockquote>outer<br>nested<br>back<\/blockquote>/.test(nested), 'nested quote flattens into one <blockquote>, markers stripped');
+  // a bare `>> deeply nested` (no outer single-marker line) still strips both
+  const deep = mdToHtml('>> deeply nested');
+  ok(/<blockquote>deeply nested<\/blockquote>/.test(deep), 'bare `>>` strips both markers');
+  ok(!/&gt;/.test(deep), 'bare `>>` leaks no &gt;');
+  // space-separated nesting `> > x` also collapses cleanly
+  const spaced = mdToHtml('> level one\n> > spaced');
+  ok(/<blockquote>level one<br>spaced<\/blockquote>/.test(spaced), '`> > ` spaced nesting strips both markers');
+  ok(!/&gt;/.test(spaced), 'spaced nesting leaks no &gt;');
+  // RED PROOF: the single-marker strip (old form) leaves the extra `&gt;` behind
+  const oldStrip = (m) => m.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (mm) =>
+    `<blockquote>${mm.replace(/^&gt;[ \t]?/gm, '').replace(/\n/g, '<br>')}</blockquote>`);
+  ok(/&gt;/.test(oldStrip('&gt;&gt; nested')), 'RED PROOF: old single-marker strip leaks a &gt; on `>>`');
+  // content that merely starts with a `>` after the real marker is NOT over-stripped
+  const arrow = mdToHtml('> -&gt; keep this arrow');
+  ok(/<blockquote>-&gt; keep this arrow<\/blockquote>/.test(mdToHtml('> -> keep this arrow')), 'a lone `>` in quote CONTENT is preserved, not eaten as a marker');
+}
+{
   // inline formatting survives inside a quote (transform runs after bold/italic/link)
   const rich = mdToHtml('> quoting **bold** and [a link](https://example.com) inside');
   ok(/<strong>bold<\/strong>/.test(rich), 'bold renders inside a blockquote');

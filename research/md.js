@@ -471,8 +471,17 @@ export function mdToHtml(md) {
   // space) and joining wrapped lines with <br>. Runs AFTER the inline transforms
   // so **bold**/*italic*/[links] inside a quote still render; the paragraph pass
   // already whitelists <blockquote> as block-level so it is not re-wrapped in <p>.
+  // NESTED quotes (`>> inner`, `> > inner`) esc() to a run of `&gt;` markers; a
+  // single-marker strip left every extra `&gt;` leaking into the reader as a
+  // literal `>`. Strip the WHOLE leading run of `&gt;`-markers per line — nesting
+  // depth is flattened into one <blockquote> (matching how the list transforms
+  // above drop nesting depth), but no marker ever leaks. `(?:&gt;[ \t]?)+` eats
+  // consecutive markers with their optional single space; content that merely
+  // starts with a lone `>` after the marker ("> -> arrow" -> `&gt; -&gt; arrow`)
+  // is safe — the second `&gt;` isn't at line-start-after-a-marker, so only the
+  // real leading marker run is consumed.
   html = html.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) => {
-    const inner = m.replace(/^&gt;[ \t]?/gm, '').replace(/\n/g, '<br>');
+    const inner = m.replace(/^(?:&gt;[ \t]?)+/gm, '').replace(/\n/g, '<br>');
     return `<blockquote>${inner}</blockquote>`;
   });
   // Wrap the runs of <li>/<oli> markers (converted up before the inline pass so a
