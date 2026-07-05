@@ -20,13 +20,28 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { buildRouteToFile, routeToSourcePath } from './sitemap-source.mjs';
 
 const DRY = process.argv.includes('--dry');
 const BASE = 'https://mycoldmars.com';
 const NOINDEX_RE = /name=["']?robots["']?[^>]*content=["'][^"']*noindex/i;
 
-// ISO date (UTC, day precision) for <lastmod>.
-const lastmod = new Date().toISOString().slice(0, 10);
+// Fallback <lastmod> for routes with no tracked source (build date, UTC day precision).
+const BUILD_DATE = new Date().toISOString().slice(0, 10);
+
+// TRUTHFUL <lastmod>: the last git commit date touching a route's source path, so a
+// page's lastmod reflects when it actually changed — not "today, every page, every run"
+// (a uniform now-stamp trains crawlers to discount lastmod entirely). Falls back to the
+// build date when the path is untracked or git is unavailable.
+function gitLastmod(path: string | null): string {
+  if (!path) return BUILD_DATE;
+  try {
+    const d = execSync(`git log -1 --format=%cs -- "${path}"`, { encoding: 'utf8' }).trim();
+    return d || BUILD_DATE;
+  } catch {
+    return BUILD_DATE;
+  }
+}
 
 // Map a tracked index.html path to its served route.
 //   hunter/index.html         -> /hunter/
@@ -65,15 +80,28 @@ const CANONICAL: Record<string, string> = {
   '/queen-scarlet-school/': '/universe/queen-scarlet/write/',
 };
 
-const routes = [...new Set([...navRoutes, ...EXTRA_ROUTES])]
-  .map((r) => CANONICAL[r] ?? r)
-  .filter((r) => !noindex.has(r))
-  .sort();
+// Resolve each route's TRUTHFUL lastmod from its ORIGINAL (pre-canonical) source path,
+// then serve the canonical <loc>. noindex is checked on the served loc.
+const routeToFile = buildRouteToFile(tracked);
+const buildDated: string[] = [];
+const entries = [...new Set([...navRoutes, ...EXTRA_ROUTES])]
+  .map((r) => {
+    const loc = CANONICAL[r] ?? r;
+    const src = routeToSourcePath(r, routeToFile);
+    if (!src) buildDated.push(loc);
+    return { loc, lastmod: gitLastmod(src) };
+  })
+  .filter((e) => !noindex.has(e.loc))
+  // Byte-for-byte with the previous default `.sort()` on the loc strings (ASCII, so
+  // code-unit order == the sort we shipped before) — the URL SET/ORDER is unchanged.
+  .sort((a, b) => (a.loc < b.loc ? -1 : a.loc > b.loc ? 1 : 0));
 
-const urls = routes
+const routes = entries.map((e) => e.loc);
+
+const urls = entries
   .map(
-    (r) =>
-      `  <url>\n    <loc>${BASE}${r}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`,
+    (e) =>
+      `  <url>\n    <loc>${BASE}${e.loc}</loc>\n    <lastmod>${e.lastmod}</lastmod>\n  </url>`,
   )
   .join('\n');
 
@@ -98,8 +126,9 @@ Sitemap: ${BASE}/sitemap.xml
 `;
 
 console.log(`routes in sitemap (${routes.length}):`);
-for (const r of routes) console.log(`  ${BASE}${r}`);
+for (const e of entries) console.log(`  ${BASE}${e.loc}  (lastmod ${e.lastmod})`);
 if (noindex.size) console.log(`excluded noindex routes: ${[...noindex].sort().join(', ')}`);
+if (buildDated.length) console.log(`build-dated (no tracked source): ${buildDated.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).join(', ')}`);
 
 if (!DRY) {
   writeFileSync('public/sitemap.xml', sitemap);
