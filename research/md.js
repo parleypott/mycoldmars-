@@ -485,6 +485,21 @@ export function mdToHtml(md) {
   // GFM tables: a single-newline block (no blank lines between rows) that the
   // paragraph split would otherwise fuse into one <p> of literal pipes.
   html = renderTables(html);
+  // A block-level element (list, heading, blockquote, table, hr) can directly
+  // FOLLOW a paragraph line with NO blank line between — LLM research reports
+  // emit a lead-in glued to a list constantly ("Key findings:\n- a\n- b"). The
+  // \n{2,} splitter below treats that whole run as ONE block; the leading text
+  // then fails the "starts with a block tag" test, so the entire run (list and
+  // all) gets <p>-wrapped with its newlines turned to <br> — producing invalid
+  // `<p>lead<br><ul><li>a</li><br><li>b</li></ul></p>` that renders wrong. Inject
+  // a paragraph break so the splitter separates the lead-in <p> from the block
+  // element. Mirrors the block whitelist below (minus <li>, which only exists
+  // inside an already-wrapped list, and <pre>, which is stashed as a placeholder
+  // at this point). The `[^\n>]` prefix requires the preceding char to be real
+  // text — a `>` (tag close) is excluded, so two ADJACENT block elements
+  // (`</ul>\n<ul>` from a loose list) are left untouched; after esc() every
+  // literal `>` in prose is `&gt;`, so `>` here only ever ends one of our tags.
+  html = html.replace(/([^\n>])\n(<(?:h[1-6]|hr|ul|ol|blockquote|table)[ >])/gi, '$1\n\n$2');
   html = html
     .split(/\n{2,}/)
     .map((block) => {

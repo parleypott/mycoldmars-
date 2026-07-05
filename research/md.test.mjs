@@ -1179,5 +1179,42 @@ function fullOldMd(md) {
      'FIX: a link inside a highlight still renders');
 }
 
+// ── A block element GLUED to a lead-in line (no blank line) interrupts the ──
+// paragraph. LLM research reports constantly write a lead-in immediately
+// followed by a list ("Key findings:\n- a\n- b") with no blank line between.
+// Before the fix the \n{2,} paragraph splitter treated the whole run as one
+// block; the lead-in text failed the "starts with a block tag" test, so the
+// entire run — list included — was <p>-wrapped with its newlines turned to
+// <br>, emitting invalid `<p>Key findings:<br><ul><li>a</li><br><li>b</li></ul></p>`
+// (a <ul> nested inside a <p>, with stray <br> between the items). MUTATION:
+// delete the pre-split paragraph-break injection in md.js and these go RED.
+{
+  const h = mdToHtml('Key findings:\n- a\n- b');
+  ok(/<p>Key findings:<\/p>/.test(h), 'MUTATION: lead-in glued to a list closes its own <p>');
+  ok(/<ul><li>a<\/li>\s*<li>b<\/li><\/ul>/.test(h), 'MUTATION: the list is a clean sibling <ul>');
+  ok(!/<ul>[\s\S]*<br>[\s\S]*<\/ul>/.test(h), 'MUTATION: no stray <br> injected between the list items');
+  ok(!/<p>[^<]*<ul>/.test(h), 'MUTATION: the <ul> is never nested inside a <p>');
+
+  // A glued ORDERED list, heading, blockquote, and table interrupt too.
+  ok(/<p>Steps:<\/p>\s*<ol>/.test(mdToHtml('Steps:\n1. first\n2. second')),
+     'FIX: lead-in glued to a numbered list interrupts into an <ol>');
+  ok(/<p>intro para<\/p>\s*<h2>Section<\/h2>/.test(mdToHtml('intro para\n## Section')),
+     'FIX: a heading interrupts a preceding paragraph line');
+  ok(/<p>He said:<\/p>\s*<blockquote>/.test(mdToHtml('He said:\n> a quote')),
+     'FIX: a blockquote interrupts a preceding paragraph line');
+  ok(/<p>Data:<\/p>\s*<table>/.test(mdToHtml('Data:\na | b\n--- | ---\n1 | 2')),
+     'FIX: a table interrupts a preceding paragraph line');
+
+  // A lead-in ending in an inline tag then `:` still splits (prefix is the `:`).
+  ok(/<p>Key <strong>findings<\/strong>:<\/p>\s*<ul>/.test(mdToHtml('Key **findings**:\n- a\n- b')),
+     'FIX: lead-in ending in bold + colon still interrupts into the list');
+
+  // NO-REGRESSION: two ADJACENT block elements (a loose list) are untouched —
+  // the `[^\n>]` prefix excludes a `>` (tag close), so no spurious break is
+  // injected between `</ul>` and the next `<ul>`.
+  const loose = mdToHtml('- one\n\n- two');
+  ok(!/<p>/.test(loose), 'FIX: a loose list injects no phantom <p> between its items');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
