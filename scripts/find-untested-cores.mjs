@@ -156,10 +156,42 @@ for (const f of sourceFiles) {
 none.sort((a, b) => a.localeCompare(b)); // explicit string comparator (satisfies find-bare-sort gate)
 
 const glue = none.filter((p) => GLUE_HINT.test(p));
-const gaps = none.filter((p) => !GLUE_HINT.test(p));
+const allGaps = none.filter((p) => !GLUE_HINT.test(p));
+
+// ── Triage ledger ──────────────────────────────────────────────────────────
+// The GLUE_HINT regex only catches STRUCTURAL glue (mount/gate/editor paths).
+// The remaining "gaps" are a mix of genuinely-untested logic AND files a human
+// has already judged not-a-gap (canvas render loops, documented stubs, thin
+// wrappers whose real logic is imported from a tested module). Without a memory,
+// every loop iteration re-opens and re-triages the SAME judged-glue files — this
+// iteration burned budget doing exactly that before adding this ledger. So mirror
+// the divergence scanner's blessed pattern: persist the judgment. Only UNTRIAGED
+// gaps are loud; GLUE/STUB/DELEGATED entries are suppressed to a summary count.
+// A path judged GAP stays visible (known, acknowledged, not yet locked).
+const LEDGER_PATH = resolve(ROOT, 'scripts', 'untested-cores-ledger.json');
+let ledger = {};
+try {
+  const raw = JSON.parse(readFileSync(LEDGER_PATH, 'utf8'));
+  // Corrupt-store guard: only adopt a real object-of-entries; anything else → {}.
+  if (raw && typeof raw === 'object' && raw.entries && typeof raw.entries === 'object' && !Array.isArray(raw.entries)) {
+    ledger = raw.entries;
+  }
+} catch { ledger = {}; } // missing / malformed ledger → behave like the pre-ledger census
+
+const SUPPRESS = new Set(['GLUE', 'STUB', 'DELEGATED']);
+const ledgerStatus = (p) => (ledger[p] && typeof ledger[p] === 'object' ? ledger[p].status : null);
+
+// Untriaged = a gap with no ledger verdict, OR one explicitly kept visible as GAP.
+const gaps = allGaps.filter((p) => !SUPPRESS.has(ledgerStatus(p)));
+const suppressed = allGaps.filter((p) => SUPPRESS.has(ledgerStatus(p)));
+
+// Ledger hygiene: an entry is STALE if its file vanished or is no longer a NONE
+// (it gained a direct/extraction test) — surface it so the ledger can be pruned.
+const noneSet = new Set(none);
+const staleLedger = Object.keys(ledger).filter((p) => !noneSet.has(p));
 
 if (JSON_OUT) {
-  console.log(JSON.stringify({ gaps, glue }, null, 2));
+  console.log(JSON.stringify({ gaps, suppressed, glue, staleLedger }, null, 2));
   process.exit(0);
 }
 
@@ -170,14 +202,28 @@ const totalLogic = sourceFiles.filter((f) => {
 console.log(`find-untested-cores — coverage census (import + source-EXTRACTION aware)`);
 console.log(`  logic modules scanned:        ${totalLogic}`);
 console.log(`  directly locked by a test:    ${totalLogic - none.length}`);
-console.log(`  NO direct test — likely gaps: ${gaps.length}`);
+console.log(`  UNTRIAGED gaps (look at these):${gaps.length}`);
+console.log(`  triaged glue/stub (suppressed):${suppressed.length} (judged not-a-gap in the ledger)`);
 console.log(`  NO direct test — likely glue: ${glue.length} (DOM/UI mounts, not unit-testable)`);
 console.log('');
 if (gaps.length) {
-  console.log('LIKELY COVERAGE GAPS (logic modules no test imports directly):');
-  for (const p of gaps) console.log('  • ' + p);
+  console.log('UNTRIAGED COVERAGE GAPS (no test imports them AND no ledger verdict — triage these):');
+  for (const p of gaps) {
+    const kept = ledgerStatus(p) === 'GAP' ? '  [known GAP]' : '';
+    console.log('  • ' + p + kept);
+  }
 } else {
-  console.log('No non-glue logic module is missing a direct test. Codebase is fully locked.');
+  console.log('No untriaged logic module is missing a direct test. Everything is locked or judged.');
+}
+if (suppressed.length) {
+  console.log('');
+  console.log(`Suppressed by ledger (already judged — see scripts/untested-cores-ledger.json):`);
+  for (const p of suppressed) console.log(`  · ${p} — ${ledgerStatus(p)}`);
+}
+if (staleLedger.length) {
+  console.log('');
+  console.log('⚠ STALE ledger entries (file gone OR now test-locked — prune from the ledger):');
+  for (const p of staleLedger) console.log('  ! ' + p);
 }
 console.log('');
 console.log('(Run with --json for the machine-readable list. NONE ≠ untested behavior —');
