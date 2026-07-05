@@ -138,6 +138,43 @@ for (const t of testFiles) {
   }
 }
 
+// SELF-TESTED GATE scripts: the loop's shape-scanner gates (scripts/find-*.mjs)
+// don't get a co-located *.test.mjs — they carry their OWN fixtures behind a
+// `--self-test` CLI mode, and the suite runner (scripts/run-tests.mjs) executes
+// that mode on every `bun run test` via its SHELL_GATES + BUN_GATES lists. So a
+// gate in those lists IS locked against regression, just through a different
+// mechanism than import/extraction. The import-only census was blind to this and
+// re-flagged find-inline-gemini-contents / find-naive-body-read (both in BUN_GATES)
+// AND sort-comparators.mjs (the shared classifier those gates import + self-test)
+// as untested "gaps" EVERY iteration — pure recurring triage waste. Resolve the
+// runner's gate list to absolute paths and follow each gate's relative imports one
+// level so the shared cores they exercise are covered too. Parsing the runner's
+// actual arrays (not a hardcoded list) means any FUTURE gate added to BUN_GATES is
+// auto-recognized with zero census edit.
+const selfTestedByRunner = new Set();
+try {
+  const runnerSrc = readFileSync(join(ROOT, 'scripts', 'run-tests.mjs'), 'utf8');
+  // Pull every gate basename out of the SHELL_GATES / BUN_GATES array literals.
+  const gateBasenames = [];
+  for (const m of runnerSrc.matchAll(/const\s+(?:SHELL|BUN)_GATES\s*=\s*\[([^\]]*)\]/g)) {
+    for (const lit of m[1].matchAll(/['"]([^'"]+\.(?:mjs|js|sh))['"]/g)) gateBasenames.push(lit[1]);
+  }
+  for (const b of gateBasenames) {
+    const gatePath = join(ROOT, 'scripts', b);
+    if (!existsSync(gatePath)) continue;
+    let real = gatePath; try { real = realpathSync(gatePath); } catch {}
+    selfTestedByRunner.add(real);
+    // Follow the gate's OWN relative imports one level (catches shared classifiers
+    // like sort-comparators.js that the gate imports and its --self-test exercises).
+    if (!/\.(mjs|js)$/.test(gatePath)) continue;
+    let gateSrc; try { gateSrc = readFileSync(gatePath, 'utf8'); } catch { continue; }
+    for (const spec of gateSrc.matchAll(SPEC_RE)) {
+      const dep = resolveSpec(gatePath, spec[1]);
+      if (dep) selfTestedByRunner.add(dep);
+    }
+  }
+} catch { /* runner unreadable → behave like the pre-self-test census */ }
+
 // Heuristic: modules that are almost certainly DOM/UI glue (not unit-testable).
 // Reported separately so a real NONE gap isn't buried under mount/render shells.
 const GLUE_HINT = /(\/mount\.js$|\/gate\.js$|\/auth\.js$|\/command-palette\.js$|\/account-menu\.js$|\/floating-windows\.js$|\/mac-window\.js$|extensions\/|editor\/|copilot\/|tags\/|\/globe\.js$|\/pins\.js$|\/walker\.js$)/;
@@ -151,6 +188,7 @@ for (const f of sourceFiles) {
   try { real = realpathSync(f); } catch {}
   if (importedByTests.has(real)) continue; // DIRECTLY locked by a test (static or dynamic)
   if (extractedByTests.has(real)) continue; // locked via source-extraction (readFileSync)
+  if (selfTestedByRunner.has(real)) continue; // gate script whose --self-test the suite runs
   none.push(relative(ROOT, f));
 }
 none.sort((a, b) => a.localeCompare(b)); // explicit string comparator (satisfies find-bare-sort gate)
