@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeError } from './normalize-db-error.js';
 
 let supabase = null;
 let initError = null;
@@ -28,23 +29,8 @@ function db() {
 
 export function isConfigured() { return !!supabase; }
 
-function normalizeError(err, context) {
-  if (!err) return new Error('Unknown error');
-  if (err.code === '23505') {
-    const e = new Error(`Already exists: ${err.message || err.details || ''}`);
-    e.code = 'CONSTRAINT';
-    e.context = context;
-    return e;
-  }
-  if (err.code === 'PGRST116') {
-    const e = new Error(context ? `${context}: not found` : 'Not found');
-    e.code = 'NOT_FOUND';
-    return e;
-  }
-  const e = new Error(err.message || String(err));
-  e.code = err.code;
-  return e;
-}
+// normalizeError now lives in ./normalize-db-error.js (pure + unit-tested,
+// twin-locked byte-for-byte against the Interpreter's tested copy).
 
 // ── Projects ──
 
