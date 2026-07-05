@@ -258,9 +258,12 @@ function ok(name, cond) { if (cond) pass++; else { fail++; console.log('  FAIL:'
 // "YYYY-MM-DD" data string. Its ONLY contract: same calendar day -> same key, different calendar
 // day -> different key. This block also permanently RETIRES a recurring false-positive: two prior
 // codebase surveys flagged dayKey's `getMonth()` (0-indexed, no +1) as an "off-by-one bug" that
-// would key Jan as month 0 instead of 01. It is NOT a bug — because the key is self-compared, the
-// 0-vs-1 base is irrelevant; what matters is that the (year,month,date) triple uniquely identifies
-// a calendar day. These assertions prove exactly that, and mutation-prove that dropping the DATE
+// would key Jan as month 0 instead of 01. It was never a live bug — the key is self-compared, so
+// the 0-vs-1 base was irrelevant; what matters is that the (year,month,date) triple uniquely
+// identifies a calendar day. The shipped dayKey now emits zero-padded ISO-8601 (`2026-01-04`,
+// month+1) so the key CONFORMS to the "YYYY-MM-DD" data format — the survey's premise is now
+// simply false, not merely harmless. These assertions prove the partition contract, lock the ISO
+// format, and mutation-prove that dropping the DATE
 // component (collides distinct days -> a day header wrongly suppressed) or adding time-of-day
 // (splits one day -> a duplicate header) both break the contract.
 {
@@ -278,17 +281,27 @@ function ok(name, cond) { if (cond) pass++; else { fail++; console.log('  FAIL:'
   // year rollover -> different keys (guards the year component being present)
   ok('dayKey: Dec 31 2026 vs Jan 1 2027 -> different keys',
      dayKey(D('2026-12-31 12:00')) !== dayKey(D('2027-01-01 12:00')));
-  // FALSE-POSITIVE RETIREMENT: the 0-indexed month is self-consistent. A "+1-fixed" mirror
-  // produces a DIFFERENT string but the SAME partition — so it never changes any header decision.
-  const dayKeyPlus1 = (dt) => `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`;
+  // ISO-8601 FORMAT LOCK: the key now zero-pads and +1's the month, so it matches the
+  // "YYYY-MM-DD" data string. A regression back to the bare `getMonth()` form (0-indexed,
+  // unpadded) breaks these exact-string assertions.
+  ok('dayKey: Jan 4 -> "2026-01-04" (zero-padded, month+1, ISO-8601)',
+     dayKey(D('2026-01-04 09:00')) === '2026-01-04');
+  ok('dayKey: Jun 15 -> "2026-06-15" (matches the YYYY-MM-DD data format)',
+     dayKey(D('2026-06-15 23:55')) === '2026-06-15');
+  ok('dayKey: Dec 31 -> "2026-12-31" (two-digit month needs no pad, still +1-correct)',
+     dayKey(D('2026-12-31 12:00')) === '2026-12-31');
+
+  // PARTITION EQUIVALENCE: the ISO form and the old 0-indexed unpadded form induce the SAME
+  // day partition — the format change never alters a header decision. (mirror = the old shipped form)
+  const dayKeyOld = (dt) => `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
   let samePartition = true;
   const days = ['2026-01-04 09:00', '2026-01-04 21:00', '2026-06-15 08:00', '2026-06-16 08:00',
                 '2026-12-31 23:00', '2027-01-01 00:30'];
   for (let i = 0; i < days.length; i++) for (let j = 0; j < days.length; j++) {
     const a = D(days[i]), b = D(days[j]);
-    if ((dayKey(a) === dayKey(b)) !== (dayKeyPlus1(a) === dayKeyPlus1(b))) { samePartition = false; }
+    if ((dayKey(a) === dayKey(b)) !== (dayKeyOld(a) === dayKeyOld(b))) { samePartition = false; }
   }
-  ok('dayKey: 0-indexed month is a NON-bug — +1 mirror yields the identical day partition', samePartition);
+  ok('dayKey: ISO form and the old 0-indexed form induce the IDENTICAL day partition', samePartition);
 
   // RED proof: a month-only key (drops the DATE) would COLLIDE two distinct June days and wrongly
   // suppress the second day's header. Prove the shipped dayKey does NOT collide them.
