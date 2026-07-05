@@ -334,7 +334,16 @@ export function mdToHtml(md) {
     (_, mark, text) =>
       `<li><input type="checkbox" disabled${mark === 'x' || mark === 'X' ? ' checked' : ''}>${text ? ' ' + text : ''}</li>`
   );
-  html = html.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
+  // CommonMark allows THREE bullet markers — `-`, `*`, AND `+` — so a `+ point`
+  // list is as valid as a `- ` one; LLM research prose emits `+` bullets often
+  // enough to reach the reader. The task-list rule just above already accepts
+  // `[-*+]`, but this generic rule long matched only `- `/`* `, so a plain `+ `
+  // bullet leaked into the reader as literal `+ text` glued after the list — the
+  // TTS narrator (api/_lib/burma-essays-text.js) already strips all three markers,
+  // so the VISUAL reader was again the lone inconsistent path. `[-*+] ` claims all
+  // three; `+` carries no emphasis/thematic-break meaning (those use `- * _`), so
+  // this is purely additive and byte-identical for every `-`/`*` list.
+  html = html.replace(/^[ \t]*(?:[-*+] )(.*)$/gm, '<li>$1</li>');
   // Ordered items. CommonMark allows BOTH `1.` and `1)` as ordered-list
   // delimiters, and LLM research prose emits paren-delimited lists ("1) foo\n
   // 2) bar") constantly. Matching only `\d+\. ` left a `1)` list leaking into the

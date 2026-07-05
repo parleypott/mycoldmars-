@@ -349,6 +349,36 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
   // A `-` bulleted item with emphasis was never mangled (only `* ` was), but lock it too.
   const dash = mdToHtml('- point with *stress*');
   ok(/<li>point with <em>stress<\/em><\/li>/.test(dash), '`-` bullet with *emphasis* renders cleanly');
+}
+// ── `+ ` bullets are valid CommonMark markers, same as `-`/`*` ──
+// The generic bullet rule long matched only `- `/`* `, so a `+ point` list leaked
+// into the reader as literal `+ text` glued after the list — even though the
+// task-list rule already accepts `[-*+]` and the TTS narrator strips all three.
+// RED PROOF: the old `(?:- |\* )` rule leaves the `+` line unconverted.
+{
+  const plus = mdToHtml('+ alpha\n+ beta');
+  ok(/<ul><li>alpha<\/li>/.test(plus) && /<li>beta<\/li><\/ul>/.test(plus),
+     'FIX: `+ ` bullets render as <li> inside <ul>');
+  ok(!/\+ alpha/.test(plus) && !/\+ beta/.test(plus),
+     'FIX: no literal `+ text` leaks into the reader');
+
+  // A doc mixing all THREE markers in one run folds into one <ul> (no leaked `+`).
+  const three = mdToHtml('- dash\n* star\n+ plus');
+  ok(!/\+ plus/.test(three), 'FIX: a `+` item in a mixed-marker run is not left literal');
+  ok((three.match(/<li>/g) || []).length === 3, 'FIX: all three marker items become <li>');
+
+  // A `+ ` item carrying emphasis renders the emphasis inside the <li>.
+  const plusEm = mdToHtml('+ point with *stress*');
+  ok(/<li>point with <em>stress<\/em><\/li>/.test(plusEm), '`+` bullet with *emphasis* renders cleanly');
+
+  // GUARD: a bare `+` in prose (no trailing space, e.g. "C++") is NOT a bullet.
+  const notBullet = mdToHtml('The language is C++ and fast.');
+  ok(!/<li>/.test(notBullet), 'GUARD: prose `+` (no `+ ` marker) is not turned into a list');
+
+  // RED PROOF: the genuine old bullet rule leaves the `+` line literal.
+  const oldBulletRule = (s) => s.replace(/^[ \t]*(?:- |\* )(.*)$/gm, '<li>$1</li>');
+  ok(/^\+ alpha$/m.test(oldBulletRule('+ alpha')),
+     'RED PROOF: old `(?:- |\\* )` rule leaves a `+ ` bullet unconverted');
 
   // RED PROOF: emphasis-before-list-conversion eats the `* ` marker and leaks a stray `*`.
   const oesc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
