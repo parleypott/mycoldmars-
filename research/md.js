@@ -515,7 +515,18 @@ export function mdToHtml(md) {
     .map((block) => {
       if (/^\s*<(h\d|hr|ul|ol|pre|li|p|blockquote|table)/i.test(block.trim())) return block;
       if (!block.trim()) return '';
-      return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+      // Every intra-paragraph newline becomes a <br> (this renderer preserves the
+      // author's line structure). But CommonMark hard-break MARKERS — a trailing
+      // `\` or trailing spaces right before the newline — must be DROPPED, not
+      // rendered. The old bare `\n`→`<br>` kept them, so `line one\` + newline
+      // leaked a literal backslash into the reader (`line one\<br>`) and a
+      // two-space break kept its trailing spaces. Strip an optional run of
+      // trailing spaces/tabs and one optional trailing backslash along with the
+      // newline. The `\` here is only ever a LITERAL one: a user-escaped `\\`
+      // was stubbed as a \uE0xx placeholder earlier (restored below, after this
+      // pass), so this never eats a real escaped backslash — only the bare
+      // line-continuation marker CommonMark also discards.
+      return `<p>${block.replace(/[ \t]*\\?\n/g, '<br>')}</p>`;
     })
     .join('\n');
   // Restore the stashed code spans, then unwrap a standalone fenced block that

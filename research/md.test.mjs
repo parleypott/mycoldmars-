@@ -1245,5 +1245,37 @@ function fullOldMd(md) {
   ok(!/<p>/.test(loose), 'FIX: a loose list injects no phantom <p> between its items');
 }
 
+// ── Hard-break markers are DROPPED, not rendered ──────────────────────────────
+// The paragraph pass converts every intra-paragraph newline to <br> (this renderer
+// preserves the author's line structure). CommonMark hard-break MARKERS — a trailing
+// `\` or trailing spaces right before the newline — must be dropped along with the
+// newline, not left in the reader. The old bare `\n`→`<br>` kept them: `word\`+newline
+// leaked a literal backslash (`word\<br>`) and a two-space break kept trailing spaces.
+{
+  const BS = String.fromCharCode(92); // a single literal backslash
+  const bsBreak = mdToHtml('line one' + BS + '\nline two');
+  eq(bsBreak, '<p>line one<br>line two</p>',
+     'FIX: a trailing backslash hard break drops the backslash');
+  // MUTATION: with the old bare `\n`→`<br>`, the backslash survives as a literal.
+  ok(!/line one\\<br>/.test(bsBreak), 'MUTATION: no stray backslash leaks before the <br>');
+
+  eq(mdToHtml('line one  \nline two'), '<p>line one<br>line two</p>',
+     'FIX: a two-space hard break drops the trailing spaces');
+
+  // NO-REGRESSION: a plain soft newline still becomes a <br> (line structure kept).
+  eq(mdToHtml('plain\nsoft'), '<p>plain<br>soft</p>',
+     'NO-REGRESSION: a plain newline still renders as <br>');
+
+  // NO-REGRESSION (load-bearing): a USER-escaped `\\` is an escaped literal
+  // backslash and must survive as `\`. It is stubbed as a \uE0xx placeholder
+  // BEFORE this pass and restored after, so the hard-break strip never eats it.
+  ok(/escaped \\ literal/.test(mdToHtml('escaped ' + BS + BS + ' literal')),
+     'NO-REGRESSION: an escaped \\\\ still renders one literal backslash');
+
+  // NO-REGRESSION: a mid-line backslash not before a newline is untouched.
+  ok(/C:\\Users/.test(mdToHtml('a path C:' + BS + 'Users here')),
+     'NO-REGRESSION: a mid-line backslash is left alone');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
