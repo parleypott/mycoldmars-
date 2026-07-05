@@ -540,6 +540,24 @@ export function mdToHtml(md) {
   // GFM tables: a single-newline block (no blank lines between rows) that the
   // paragraph split would otherwise fuse into one <p> of literal pipes.
   html = renderTables(html);
+  // A paragraph that FOLLOWS a list (blank line between) loses its <p> wrapper.
+  // The <li>/<oli> wrap above ends each group with a trailing `\n?`, which eats
+  // ONE of the two newlines of a blank-line separator — so "- a\n- b\n\nText"
+  // collapses to `<ul>…</ul>\nText` with a single newline left. The \n{2,}
+  // paragraph splitter then treats the whole run as ONE block; because it STARTS
+  // with `<ul>` it passes through the block whitelist verbatim, and the trailing
+  // paragraph is emitted as bare, unwrapped text glued to the list (no <p>, no
+  // block margins). Every other block (heading/blockquote/table/code) preserves
+  // its `\n\n`, so a list was the lone type that fused its following paragraph —
+  // an extremely common deep-research shape (bulleted findings, then a paragraph
+  // explaining them). Restore the blank line after a list closer that is followed
+  // by a single newline + real content, so the splitter separates them and the
+  // paragraph gets its <p>. Requiring a non-newline next char skips the case where
+  // the separator survived intact (`\n\n` already present) and a trailing list at
+  // end-of-string. Inserting a break before a following BLOCK element is harmless
+  // (both halves pass the whitelist verbatim and rejoin), so no exclusion is
+  // needed; it only ever ADDS the missing <p> around trailing prose/inline text.
+  html = html.replace(/(<\/(?:ul|ol)>)\n(?=[^\n])/g, '$1\n\n');
   // A block-level element (list, heading, blockquote, table, hr) can directly
   // FOLLOW a paragraph line with NO blank line between — LLM research reports
   // emit a lead-in glued to a list constantly ("Key findings:\n- a\n- b"). The

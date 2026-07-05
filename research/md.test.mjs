@@ -508,13 +508,50 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
      'GUARD: asterisk *italic* still renders');
 }
 
+// ── list → paragraph: trailing prose after a list gets its <p> wrapper ──
+// The <li>/<oli> wrap's trailing `\n?` ate one newline of a blank-line separator,
+// collapsing "…list…\n\nprose" to a single-newline run that the paragraph splitter
+// fused into the list block — so the trailing paragraph rendered as bare, unwrapped
+// text glued to the list (no <p>, no block margins). Every other block
+// (heading/blockquote/table/code) kept its <p>; a list was the lone leak, and it's
+// an extremely common deep-research shape (bulleted findings, then a paragraph).
+// RED PROOF: the old renderer emits the prose with no <p>; FIX wraps it; GUARD: a
+// BLOCK after a list stays fused (valid HTML, no spurious <p>) and a loose list is
+// unchanged.
+{
+  const listThenProse = '- first point\n- second point\n\nmore prose.';
+  const old = fullOldMd(listThenProse);
+  ok(/<\/ul>\nmore prose\./.test(old) && !/<p>more prose/.test(old),
+     'RED PROOF: old renderer leaves prose after a list unwrapped (no <p>)');
+  eq(mdToHtml(listThenProse),
+     '<ul><li>first point</li>\n<li>second point</li>\n</ul>\n<p>more prose.</p>',
+     'FIX: prose after an unordered list is wrapped in <p>');
+  eq(mdToHtml('1. a\n2. b\n\ntrailing paragraph.'),
+     '<ol><li>a</li>\n<li>b</li>\n</ol>\n<p>trailing paragraph.</p>',
+     'FIX: prose after an ordered list is wrapped in <p>');
+  eq(mdToHtml('1. one\n2. two\n\n*emph* after'),
+     '<ol><li>one</li>\n<li>two</li>\n</ol>\n<p><em>emph</em> after</p>',
+     'FIX: an inline-starting paragraph after a list is still wrapped');
+  eq(mdToHtml('- a\n- b\n\nPara one.\n\nPara two.'),
+     '<ul><li>a</li>\n<li>b</li>\n</ul>\n<p>Para one.</p>\n<p>Para two.</p>',
+     'FIX: first of several trailing paragraphs is wrapped too');
+  eq(mdToHtml('- a\n- b\n\n# Head'),
+     '<ul><li>a</li>\n<li>b</li>\n</ul>\n<h1>Head</h1>',
+     'GUARD: a heading after a list is not <p>-wrapped (both blocks, no <p> needed)');
+  eq(mdToHtml('- a\n\n- b'),
+     '<ul><li>a</li>\n</ul>\n<ul><li>b</li></ul>',
+     'GUARD: loose list (blank line between items) unchanged');
+}
+
 // ── NO-REGRESSION: normal markdown is byte-identical to the old renderer ──
 // (old===new on every input WITHOUT a dangerous scheme or breakout quote, since
 //  the only changes are the link transform and the ordered-list <ol> wrap — so
 //  ordered-list inputs are EXCLUDED here and locked explicitly above instead)
 const normalDocs = [
   '# Heading one\n\nsome **bold** and *italic* text.',
-  '## Findings\n\n- first point\n- second point\n\nmore prose.',
+  // (list → prose is NO LONGER byte-identical to the old renderer — the fix wraps
+  //  the trailing paragraph in <p>; locked explicitly in the list→paragraph block
+  //  above instead of this equivalence battery.)
   'inline `code` and a block:\n\n```\nconst x = 1;\n```',
   'a safe [citation](https://example.com/article) mid-sentence.',
   'mixed [link](https://a.com) and **bold** and `code` together.',
