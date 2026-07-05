@@ -479,6 +479,24 @@ ok(!/<table>/.test(notTbl), 'table: prose-pipe above a bare --- is NOT mistaken 
 // a normal paragraph containing a lone pipe is untouched
 ok(!/<table>/.test(mdToHtml('two paths: A | B, pick one.')), 'table: a lone inline pipe stays prose');
 
+// ── GFM column ALIGNMENT: the delimiter colons (:--/:-:/--:) drive text-align ──
+// Right-aligned numeric columns are the single most common table shape in a
+// research report; before this fix every table rendered left-aligned regardless.
+// FIX assertions (all RED if cellAlign/alignAttr is neutered):
+const tblAl = mdToHtml('| L | C | R |\n|:--|:-:|--:|\n| a | b | c |');
+ok(/<th style="text-align:left">L<\/th>/.test(tblAl), 'table-align: :-- header -> left');
+ok(/<th style="text-align:center">C<\/th>/.test(tblAl), 'table-align: :-: header -> center');
+ok(/<th style="text-align:right">R<\/th>/.test(tblAl), 'table-align: --: header -> right');
+ok(/<td style="text-align:right">c<\/td>/.test(tblAl), 'table-align: alignment applies to body cells too');
+// a MIXED table: only the colon-marked column is styled
+const tblMix = mdToHtml('| Name | Amt |\n| --- | --: |\n| Rent | 1200 |');
+ok(/<th>Name<\/th>/.test(tblMix) && /<td>Rent<\/td>/.test(tblMix),
+   'table-align: a plain --- column stays UNSTYLED (byte-identical to pre-fix)');
+ok(/<th style="text-align:right">Amt<\/th>/.test(tblMix) && /<td style="text-align:right">1200<\/td>/.test(tblMix),
+   'table-align: only the --: column carries the style');
+// ZERO-REGRESSION GUARD: a fully-unaligned table emits NO style attr at all
+ok(!/style=/.test(tblOut), 'table-align: unaligned table has no style attr (regression guard)');
+
 // ── esc still covers the raw-tag boundary ──
 eq(esc('<script>'), '&lt;script&gt;', 'esc neutralizes a tag');
 eq(esc('a & b'), 'a &amp; b', 'esc ampersand');

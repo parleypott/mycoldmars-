@@ -76,6 +76,22 @@ function splitTableRow(line) {
   return s.split('|').map((c) => c.trim());
 }
 
+// Read GFM column alignment from a delimiter cell: `:--`=left, `:-:`=center,
+// `--:`=right, plain `---`=none. Returns '' for none so a column with no colon
+// emits NO style attr (byte-identical to the pre-alignment output -> zero
+// regression on unaligned tables; right-aligned numeric columns are the single
+// most common shape in a research report, so honoring the colon matters).
+function cellAlign(cell) {
+  const c = cell.trim();
+  const left = c.startsWith(':');
+  const right = c.endsWith(':');
+  if (left && right) return 'center';
+  if (right) return 'right';
+  if (left) return 'left';
+  return '';
+}
+const alignAttr = (a) => (a ? ` style="text-align:${a}"` : '');
+
 // Render GFM pipe tables. LLM research reports (esp. deep-research runs) emit
 // these constantly; without this a table leaked into the reader as a literal
 // `| a | b |` paragraph. Runs AFTER the inline transforms so **bold**/[links]/
@@ -98,6 +114,9 @@ function renderTables(src) {
     ) {
       const headers = splitTableRow(header);
       const cols = headers.length;
+      // Per-column alignment from the delimiter row (padded to header width).
+      const delimCells = splitTableRow(delim);
+      const aligns = Array.from({ length: cols }, (_, k) => cellAlign(delimCells[k] ?? ''));
       const body = [];
       let j = i + 2;
       // Body rows continue until a blank line or a non-pipe line (the table ends).
@@ -105,11 +124,11 @@ function renderTables(src) {
         body.push(splitTableRow(lines[j]));
         j++;
       }
-      const thead = `<thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>`;
+      const thead = `<thead><tr>${headers.map((h, k) => `<th${alignAttr(aligns[k])}>${h}</th>`).join('')}</tr></thead>`;
       // Pad/truncate every body row to the header's column count (GFM behavior).
       const tbody = body.length
         ? `<tbody>${body
-            .map((r) => `<tr>${Array.from({ length: cols }, (_, k) => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`)
+            .map((r) => `<tr>${Array.from({ length: cols }, (_, k) => `<td${alignAttr(aligns[k])}>${r[k] ?? ''}</td>`).join('')}</tr>`)
             .join('')}</tbody>`
         : '';
       out.push(`<table>${thead}${tbody}</table>`);
