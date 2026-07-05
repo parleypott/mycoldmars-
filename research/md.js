@@ -499,7 +499,17 @@ export function mdToHtml(md) {
   // text — a `>` (tag close) is excluded, so two ADJACENT block elements
   // (`</ul>\n<ul>` from a loose list) are left untouched; after esc() every
   // literal `>` in prose is `&gt;`, so `>` here only ever ends one of our tags.
-  html = html.replace(/([^\n>])\n(<(?:h[1-6]|hr|ul|ol|blockquote|table)[ >])/gi, '$1\n\n$2');
+  // BUT a lead-in can END in an INLINE element and still be a lead-in that needs
+  // separating: a bolded label glued to its list — `**Key findings:**\n- a\n- b`,
+  // an extremely common deep-research pattern — renders to `<strong>Key
+  // findings:</strong>` whose trailing `>` the `[^\n>]` guard wrongly excluded, so
+  // the whole run still got <p>-wrapped into invalid
+  // `<p><strong>…</strong><br><ul>…</ul></p>`. So ALSO accept a preceding inline
+  // closing tag (</strong>, </em>, </del>, </mark>, </a> — the only inline tags
+  // this renderer emits before this stage; </code>/<pre> are still \uE0xx stubs
+  // here, already matched by [^\n>]). A BLOCK closer (</ul>, </li>, </h1>…) is NOT
+  // in that set, so the loose-list `</ul>\n<ul>` adjacency stays untouched.
+  html = html.replace(/((?:[^\n>]|<\/(?:strong|em|del|mark|a)>))\n(<(?:h[1-6]|hr|ul|ol|blockquote|table)[ >])/gi, '$1\n\n$2');
   html = html
     .split(/\n{2,}/)
     .map((block) => {

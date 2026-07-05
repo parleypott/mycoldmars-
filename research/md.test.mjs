@@ -1209,6 +1209,35 @@ function fullOldMd(md) {
   ok(/<p>Key <strong>findings<\/strong>:<\/p>\s*<ul>/.test(mdToHtml('Key **findings**:\n- a\n- b')),
      'FIX: lead-in ending in bold + colon still interrupts into the list');
 
+  // ── A lead-in that ENDS in an inline element (the label itself is bolded) ──
+  // glued to a list — `**Key findings:**\n- a\n- b`, an extremely common
+  // deep-research pattern. The rendered lead-in is `<strong>Key findings:</strong>`
+  // whose trailing `>` the original `[^\n>]` guard EXCLUDED, so the whole run was
+  // still <p>-wrapped into invalid `<p><strong>…</strong><br><ul>…</ul></p>`.
+  // MUTATION: revert the injection prefix to the bare `[^\n>]` and every FIX below
+  // goes RED (the inline-close alternation is what admits these).
+  {
+    const b = mdToHtml('**Key findings:**\n- first\n- second');
+    ok(/<p><strong>Key findings:<\/strong><\/p>\s*<ul>/.test(b),
+       'FIX: a fully-bolded lead-in label closes its own <p> before the list');
+    ok(!/<p>[\s\S]*?<br>[\s\S]*?<ul>/.test(b), 'MUTATION: no <br>+<ul> fused inside a <p>');
+    ok(!/<ul>[\s\S]*?<br>[\s\S]*?<li>/.test(b), 'MUTATION: no stray <br> between the list items');
+  }
+  ok(/<p><em>Note:<\/em><\/p>\s*<ul>/.test(mdToHtml('*Note:*\n- a\n- b')),
+     'FIX: an italic lead-in label interrupts into the list');
+  ok(/<p><strong><em>Critical:<\/em><\/strong><\/p>\s*<ul>/.test(mdToHtml('***Critical:***\n- a\n- b')),
+     'FIX: a bold-italic lead-in label interrupts into the list');
+  ok(/<p><a [^>]*>See report<\/a>:<\/p>\s*<ul>/.test(mdToHtml('[See report](https://x.com):\n- a\n- b')),
+     'FIX: a link lead-in interrupts into the list');
+  ok(/<p><strong>Steps:<\/strong><\/p>\s*<ol>/.test(mdToHtml('**Steps:**\n1. one\n2. two')),
+     'FIX: a bolded lead-in interrupts into an ordered list');
+  ok(/<p><strong>intro<\/strong><\/p>\s*<h2>Section<\/h2>/.test(mdToHtml('**intro**\n## Section')),
+     'FIX: a bolded lead-in interrupts into a heading');
+
+  // NO-REGRESSION: a bolded word mid-paragraph (NOT before a block) is untouched.
+  ok(/<p>This is <strong>bold<\/strong> text\.<\/p>/.test(mdToHtml('This is **bold** text.')),
+     'FIX: bold inside a plain paragraph injects no phantom break');
+
   // NO-REGRESSION: two ADJACENT block elements (a loose list) are untouched —
   // the `[^\n>]` prefix excludes a `>` (tag close), so no spurious break is
   // injected between `</ul>` and the next `<ul>`.
