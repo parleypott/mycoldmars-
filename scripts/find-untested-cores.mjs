@@ -29,7 +29,7 @@
 // judgment call (much of NONE is un-unit-testable DOM glue), so it never fails CI.
 
 import { readdirSync, statSync, readFileSync, existsSync, realpathSync } from 'node:fs';
-import { join, dirname, resolve, relative, extname } from 'node:path';
+import { join, dirname, resolve, relative, extname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -94,6 +94,50 @@ for (const t of testFiles) {
   }
 }
 
+// Source-EXTRACTION tests: the loop's DOMINANT pattern for DOM/handler-coupled
+// modules. Instead of importing the module (impossible — it touches window / edge
+// runtime), the suite reads the module's SOURCE with readFileSync and regex-extracts
+// a pure function to eval. reef/export.js alone has SIX such suites; qss-explorer,
+// nile-flights-state, analyze-render, cutter … are all locked this way. The old
+// import-only census flagged every one as an untested "gap" — a false signal that
+// costs a loop iteration real budget chasing coverage that already exists (it cost
+// THIS iteration exactly that). Detect them by resolving the file path a readFileSync
+// call reads, the SAME ABSOLUTE-PATH way imports are resolved (no basename guessing).
+//
+// Two forms appear in the corpus:
+//   readFileSync(new URL('./export.js', import.meta.url), 'utf8')   — relative spec
+//   readFileSync(join(APIDIR, 'qss-cast.js'), 'utf8')               — bare filename
+// Relative specs resolve exactly (resolveSpec). Bare filenames resolve ONLY when the
+// basename is UNIQUE across the source tree — an ambiguous 'db.js' / 'main.js' stays a
+// gap (conservative: we never hide a real gap, we only clear proven false positives).
+const byBasename = new Map();
+for (const f of sourceFiles) {
+  let real = f; try { real = realpathSync(f); } catch {}
+  const b = basename(real);
+  if (!byBasename.has(b)) byBasename.set(b, []);
+  byBasename.get(b).push(real);
+}
+const READ_CALL_RE = /read(?:File|FileSync)\s*\(/g;
+const JS_LIT_RE = /['"]([^'"]+\.(?:m?js))['"]/;
+const extractedByTests = new Set();
+for (const t of testFiles) {
+  let src;
+  try { src = readFileSync(t, 'utf8'); } catch { continue; }
+  for (const m of src.matchAll(READ_CALL_RE)) {
+    // The path arg is the FIRST .js/.mjs string literal after `readFileSync(`,
+    // whether wrapped in new URL(...) or join(DIR, ...). A fixed window is enough.
+    const lit = src.slice(m.index, m.index + 200).match(JS_LIT_RE);
+    if (!lit) continue;
+    const spec = lit[1];
+    let resolved = resolveSpec(t, spec); // handles ./ and ../ relative specs w/ ext
+    if (!resolved && !spec.includes('/')) {
+      const hits = byBasename.get(basename(spec)); // bare-filename → unique basename only
+      if (hits && hits.length === 1) resolved = hits[0];
+    }
+    if (resolved) extractedByTests.add(resolved);
+  }
+}
+
 // Heuristic: modules that are almost certainly DOM/UI glue (not unit-testable).
 // Reported separately so a real NONE gap isn't buried under mount/render shells.
 const GLUE_HINT = /(\/mount\.js$|\/gate\.js$|\/auth\.js$|\/command-palette\.js$|\/account-menu\.js$|\/floating-windows\.js$|\/mac-window\.js$|extensions\/|editor\/|copilot\/|tags\/|\/globe\.js$|\/pins\.js$|\/walker\.js$)/;
@@ -106,6 +150,7 @@ for (const f of sourceFiles) {
   let real = f;
   try { real = realpathSync(f); } catch {}
   if (importedByTests.has(real)) continue; // DIRECTLY locked by a test (static or dynamic)
+  if (extractedByTests.has(real)) continue; // locked via source-extraction (readFileSync)
   none.push(relative(ROOT, f));
 }
 none.sort((a, b) => a.localeCompare(b)); // explicit string comparator (satisfies find-bare-sort gate)
@@ -122,7 +167,7 @@ const totalLogic = sourceFiles.filter((f) => {
   try { return exportsFunction(readFileSync(f, 'utf8')); } catch { return false; }
 }).length;
 
-console.log(`find-untested-cores — coverage census (static + DYNAMIC import aware)`);
+console.log(`find-untested-cores — coverage census (import + source-EXTRACTION aware)`);
 console.log(`  logic modules scanned:        ${totalLogic}`);
 console.log(`  directly locked by a test:    ${totalLogic - none.length}`);
 console.log(`  NO direct test — likely gaps: ${gaps.length}`);
