@@ -1,0 +1,10 @@
+# inline-anthropic-messages triage ledger — judged exceptions for find-inline-anthropic-messages.mjs
+# Format: FILE <TAB> STATUS <TAB> REASON   (STATUS=SAFE downgrades a NAIVE the regex flags but a
+# human has confirmed cannot ship a leading assistant turn — e.g. a hand-rolled for-loop builder
+# that already drops leading assistant turns). A real inline builder should instead be routed
+# through api/_lib/anthropic-messages.js (normalizeAnthropicMessages). Blank lines and #-comments
+# are ignored.
+#
+# Empty at authoring time: every live Anthropic caller in api/ is GUARDED (the three multi-turn
+# handlers — qss-freestyle, devchat-respond, _lib/tutor-claude — route through the shared helper;
+# the rest are single-shot one-user-turn requests).

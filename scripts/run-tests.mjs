@@ -127,6 +127,15 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // class the loop fixed 5+ times. Ledger-backed
 // (scripts/inline-gemini-contents-triage.tsv): --check fails only on a NEW inline
 // builder, so the next handler that reintroduces one trips the suite on landing.
+// find-inline-anthropic-messages is the ANTHROPIC MIRROR of the above: it flags any
+// Anthropic Messages caller (api.anthropic.com / anthropic-version / .messages.create)
+// that builds its `messages` from an INLINE `history.map(m => ({role, content}))`
+// instead of the shared api/_lib/anthropic-messages.js normalizer — the SAME
+// leading-turn landmine on Anthropic's side ("first message must use the user role"
+// → 400), which bit the same feature area (Interpreter devchat, editorial copilot,
+// QSS Freestyle, cutter). Ledger-backed
+// (scripts/inline-anthropic-messages-triage.tsv): --check fails only on a NEW inline
+// builder, so the next handler that reintroduces one trips the suite on landing.
 // find-divide-by-length flags `<expr> / <arr>.length` sites — the NaN/Infinity
 // shape that bit MapKeys lineCentroid, route-geo, and the Hunter keep-rate math.
 // Ledger-backed (scripts/divide-by-length-triage.tsv): --check fails only on a
@@ -217,7 +226,7 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // flagged. Ledger-backed (scripts/rangeerror-alloc-triage.tsv): starts GREEN (every
 // live site is `.length`-based or `Math.max(0,…)`-floored); --check fails only on a
 // NEW unclamped computed count.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs'].flatMap((s) =>
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-inline-anthropic-messages.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

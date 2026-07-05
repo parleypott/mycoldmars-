@@ -26,6 +26,7 @@ hunter/worker/scene-detection.mjs	Object.entries(byDay)	SAFE	byDay keys are ISO 
 queen-scarlet-school/cast/index.html	lovedPortraits.map(p=>p.id).slice()	SAFE	builds an equality key (join compared to _lastConsistencyKey); any deterministic order works
 scripts/find-divide-by-length.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-inline-gemini-contents.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+scripts/find-inline-anthropic-messages.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-naive-body-read.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-truthy-zero.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-tz-date-drift.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
