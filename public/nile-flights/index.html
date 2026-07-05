@@ -198,6 +198,13 @@ let state={bookings:{}};
 let updatedAt=null;
 const bookableLegs=LEGS.filter(l=>!l.tbd);
 const CHECK_SVG='<svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#0d1117" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// Escape any dynamic string before it lands in innerHTML. The ONE user-entered,
+// server-round-tripped value on this page is the booker name (info.by, typed into
+// #who by Johnny/Marisa/the EA). A name containing < or & would otherwise corrupt
+// the card render (a "<" swallows text until the next ">"). Same render-integrity
+// class the repo has closed at every other innerHTML sink; kept inline because
+// this static page has no build step to import a shared helper.
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function isBooked(l){
   if(l.preBooked) return true;
@@ -250,7 +257,7 @@ function render(){
     const eaNote=l.eaNote?`<div class="note"><span class="t">📝 For ${l.eaNote.for}</span> ${l.eaNote.text}</div>`:"";
     let statusHtml;
     if(booked){
-      const who = info&&info.pre ? (info.by?`· ${info.by}`:"") : (info&&info.by?`· ${info.by}`:"");
+      const who = info&&info.by ? `· ${esc(info.by)}` : "";
       const when = info&&info.at ? `· ${fmtDate(new Date(info.at))}` : "";
       const label = info&&info.pre ? "Already booked" : "Booked";
       statusHtml=`<div class="status done">✓ ${label} <span class="by">${who} ${when}</span></div>`;
