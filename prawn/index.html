@@ -1645,6 +1645,13 @@
   function dateKey(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
+  // Stable localStorage key label for a shopping-list column. The <h4> text
+  // carries a LIVE count — "🍔 food (3)" — so keying the persisted checkmarks
+  // off the raw textContent silently reset every check the moment a new RSVP
+  // changed the count. Strip the trailing " (N)" so the key is count-independent.
+  function shopColKey(h4Text) {
+    return String(h4Text || '').replace(/\s*\(\d+\)\s*$/, '').trim();
+  }
   function addDays(d, n) {
     const x = new Date(d.getTime());
     x.setDate(x.getDate() + n);
@@ -1884,7 +1891,7 @@
     let checks = {};
     try { checks = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
     root.querySelectorAll('input[type=checkbox]').forEach((cb, i) => {
-      const colItem = cb.closest('.prep-shop-col')?.querySelector('h4')?.textContent || '';
+      const colItem = shopColKey(cb.closest('.prep-shop-col')?.querySelector('h4')?.textContent);
       const text = cb.parentElement.innerText.trim().slice(0, 80);
       const id = `${colItem}::${text}`;
       cb.dataset.id = id;
