@@ -53,6 +53,19 @@ export function stableColorFor(seed) {
   return FALLBACK_COLORS[h % FALLBACK_COLORS.length];
 }
 
+// PURE — accept a profile color ONLY at a valid CSS hex length (3/4/6/8 digits — #RGB, #RGBA,
+// #RRGGBB, #RRGGBBAA). This is the SAME shared user_profiles.color column the presence system reads,
+// and api/script-presence.js's validateHeartbeat already drops non-hex / 5- and 7-digit junk to null
+// so the client can paint a real fallback dot. Mirror that contract here: a malformed profile color
+// must fall back to stableColorFor() instead of riding into a Liveblocks caret as a colorless
+// userInfo.color. Returns the trimmed color or null. Exported for tests.
+const HEX_COLOR_RE = /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+export function validProfileColor(raw) {
+  if (typeof raw !== 'string') return null;
+  const c = raw.trim();
+  return HEX_COLOR_RE.test(c) ? c : null;
+}
+
 // PURE — shape the Liveblocks identity from what we know. A null userId (access-code / dev-mode
 // caller) becomes a per-request guest id: they passed OUR gate, they're just not attributable to a
 // profile. Profile fields are best-effort; every gap gets a sensible, stable fallback. Exported for tests.
@@ -63,7 +76,7 @@ export function collabIdentity(userId, profile, randomSuffix = null) {
     : 'guest-' + (randomSuffix || Math.random().toString(36).slice(2, 10));
   const rawName = profile && typeof profile.display_name === 'string' ? profile.display_name.trim() : '';
   const name = rawName || (attributed ? 'Teammate' : 'Guest');
-  const color = (profile && typeof profile.color === 'string' && profile.color) ? profile.color : stableColorFor(id);
+  const color = validProfileColor(profile && profile.color) || stableColorFor(id);
   return { id, name, color, attributed };
 }
 

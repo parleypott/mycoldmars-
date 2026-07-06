@@ -12,7 +12,7 @@ import assert from 'node:assert';
 delete process.env.ACCESS_CODE;
 delete process.env.LIVEBLOCKS_SECRET_KEY;
 
-const { default: handler, isValidCollabRoom, collabIdentity, stableColorFor, COLLAB_ROOM_RE } =
+const { default: handler, isValidCollabRoom, collabIdentity, stableColorFor, validProfileColor, COLLAB_ROOM_RE } =
   await import('./liveblocks-auth.js');
 
 let passed = 0, failed = 0;
@@ -81,6 +81,31 @@ ok('junk profile fields fall back instead of leaking junk', () => {
   const id = collabIdentity('u1', { display_name: '   ', color: 42 });
   assert.equal(id.name, 'Teammate');
   assert.equal(id.color, stableColorFor('u1'));
+});
+
+// The same shared user_profiles.color column presence validates (api/script-presence.js
+// validateHeartbeat drops non-hex / 5- and 7-digit junk). A malformed hand-set color must fall
+// back to a stable palette color, NOT ride into a Liveblocks caret as a colorless userInfo.color.
+ok('validProfileColor accepts only valid CSS hex lengths (3/4/6/8)', () => {
+  assert.equal(validProfileColor('#abc'), '#abc');
+  assert.equal(validProfileColor('#abcd'), '#abcd');
+  assert.equal(validProfileColor('#ff5b1f'), '#ff5b1f');
+  assert.equal(validProfileColor('  #FF5B1FCC  '), '#FF5B1FCC'); // trimmed, 8-digit
+  assert.equal(validProfileColor('#12345'), null);   // 5-digit is NOT a CSS color
+  assert.equal(validProfileColor('#1234567'), null); // 7-digit is NOT a CSS color
+  assert.equal(validProfileColor('red'), null);      // named colors not stored here
+  assert.equal(validProfileColor('ff5b1f'), null);   // missing '#'
+  assert.equal(validProfileColor(42), null);
+  assert.equal(validProfileColor(null), null);
+});
+
+ok('a malformed hand-set profile color falls back to a stable palette color (not colorless)', () => {
+  const bad = collabIdentity('u9', { display_name: 'Ed', color: '#12345' }); // 5-digit junk
+  assert.equal(bad.name, 'Ed');
+  assert.equal(bad.color, stableColorFor('u9'));           // fell back — the load-bearing assertion
+  assert.match(bad.color, /^#[0-9a-f]{6}$/i);              // a real, paintable color
+  const good = collabIdentity('u9', { display_name: 'Ed', color: '#0af' }); // valid short hex survives
+  assert.equal(good.color, '#0af');
 });
 
 ok('stableColorFor is deterministic and always a palette hex', () => {
