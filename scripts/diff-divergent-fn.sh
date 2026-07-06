@@ -40,15 +40,18 @@
 #   scripts/diff-divergent-fn.sh --self-test          # prove the classifier; exit!=0 on fail
 #
 # TRIAGE LEDGER: scripts/divergence-triage.tsv remembers which names were already
-# judged SAFE (a legit fork), BUG (open), or IGNORE (a same-name COLLISION — N
-# unrelated functions sharing a generic identifier like `handler`/`txt`/`items`,
-# never a real divergent copy). --scan tags each candidate; --new hides the
-# settled SAFE *and* IGNORE rows so a future iteration only eyeballs what's
-# genuinely new. A SAFE name whose overlap% later CHANGES is re-flagged "SAFE↻"
-# (the fork drifted further — re-check before trusting the old verdict); IGNORE
-# rows are EXEMPT from that re-review (collision overlap is meaningless noise that
-# drifts constantly, so a SAFE row could never silence them durably). Record
-# every verdict there.
+# judged SAFE (a legit fork of copies meant to stay in sync), FORK (an INTENTIONAL
+# per-app copy that is SUPPOSED to keep diverging), BUG (open), or IGNORE (a
+# same-name COLLISION — N unrelated functions sharing a generic identifier like
+# `handler`/`txt`/`items`, never a real divergent copy). --scan tags each
+# candidate; --new hides the settled SAFE, FORK *and* IGNORE rows so a future
+# iteration only eyeballs what's genuinely new. A SAFE name whose overlap% later
+# CHANGES is re-flagged "SAFE↻" (the fork drifted further — re-check before
+# trusting the old verdict, because SAFE copies are supposed to match). IGNORE and
+# FORK rows are EXEMPT from that re-review: for IGNORE the overlap is meaningless
+# collision noise, and for FORK the drift is EXPECTED (the two copies are meant to
+# differ per app), so a SAFE↻ re-flag there is pure recurring noise. Record every
+# verdict there.
 #
 # EXIT
 #   single-name mode : 0 if IDENTICAL (or <2 bodies), 1 if DIVERGENT
@@ -255,6 +258,15 @@ lookup_triage() {
 #   ""      (untriaged)            → NEW
 #   IGNORE  (same-name collision)  → IGNORE   — hidden permanently, NEVER re-flagged
 #                                               on sim drift (collision overlap is noise)
+#   FORK    (intentional per-app   → FORK     — hidden permanently, NEVER re-flagged on
+#            copy, drift EXPECTED)              sim drift. Unlike IGNORE these ARE real
+#                                               related copies (e.g. two apps' auth
+#                                               interceptors, two endpoints' getDoc) that
+#                                               are SUPPOSED to keep diverging — so their
+#                                               drift is not bug signal and re-review is
+#                                               pure recurring noise. Distinct from SAFE,
+#                                               which is for copies meant to stay in sync
+#                                               (there drift IS signal → SAFE↻ re-review).
 #   SAFE    + sim unchanged        → SAFE
 #   SAFE    + sim changed          → SAFE↻    — fork drifted, re-review before trusting
 #   anything else (BUG, …)         → echoed verbatim
@@ -263,6 +275,7 @@ triage_tag() {
   if [ -z "$status" ]; then echo NEW; return; fi
   case "$status" in
     IGNORE) echo IGNORE ;;
+    FORK)   echo FORK ;;
     SAFE)   if [ "$logged_sim" != "$cur_sim" ]; then echo "SAFE↻"; else echo SAFE; fi ;;
     *)      echo "$status" ;;
   esac
@@ -304,8 +317,11 @@ scan_mode() {
     # from the ledger's logged sim instead. --new output is byte-identical (IGNORE
     # hidden either way); full-scan shows the same IGNORE rows with the stable
     # logged sim (which the ledger designates reference-only, so no fidelity loss).
-    local led; led="$(lookup_triage "$name")"
-    if [ "$(printf '%s' "$led" | cut -f1)" = IGNORE ]; then
+    # FORK rows get the same fast path: they too are hidden permanently (triage_tag
+    # never re-flags them on sim drift) and by --new, so recomputing their live body
+    # overlap is wasted work. Emit the ledger's logged (reference-only) sim.
+    local led led_status; led="$(lookup_triage "$name")"; led_status="$(printf '%s' "$led" | cut -f1)"
+    if [ "$led_status" = IGNORE ] || [ "$led_status" = FORK ]; then
       printf '%s\t%s\t%s\n' "$(printf '%s' "$led" | cut -f2)" "$name" "$count" >> "$results"
       continue
     fi
@@ -315,7 +331,7 @@ scan_mode() {
   local total newcount=0 safecount=0
   total="$(grep -c . "$results" 2>/dev/null || echo 0)"
   if [ "$total" -gt 0 ]; then
-    echo "  STATUS    SIM%  NAME (files)   [SAFE=judged-fork · IGNORE=name-collision noise · BUG=open · NEW=untriaged · ↻=re-drifted]"
+    echo "  STATUS    SIM%  NAME (files)   [SAFE=judged-fork · FORK=intentional per-app fork · IGNORE=name-collision noise · BUG=open · NEW=untriaged · ↻=re-drifted]"
     # Annotate each row against the ledger, then (optionally) filter to NEW/↻/BUG.
     while IFS=$'\t' read -r sim name nfiles; do
       local rec status logged_sim tag
@@ -324,19 +340,19 @@ scan_mode() {
       logged_sim="$(printf '%s' "$rec" | cut -f2)"
       tag="$(triage_tag "$status" "$logged_sim" "$sim")"
       case "$tag" in
-        NEW|"SAFE↻") newcount=$((newcount + 1)) ;;   # actionable: needs a look
-        SAFE|IGNORE) safecount=$((safecount + 1)) ;;  # settled / noise
-        *) ;;                                         # BUG etc — count neither
+        NEW|"SAFE↻")     newcount=$((newcount + 1)) ;;   # actionable: needs a look
+        SAFE|IGNORE|FORK) safecount=$((safecount + 1)) ;; # settled / noise / intentional fork
+        *) ;;                                            # BUG etc — count neither
       esac
-      if [ "$only_new" -eq 1 ] && { [ "$tag" = SAFE ] || [ "$tag" = IGNORE ]; }; then
-        continue   # --new hides settled SAFE + collision-noise IGNORE; NEW/SAFE↻/BUG still shown
+      if [ "$only_new" -eq 1 ] && { [ "$tag" = SAFE ] || [ "$tag" = IGNORE ] || [ "$tag" = FORK ]; }; then
+        continue   # --new hides settled SAFE + collision IGNORE + intentional FORK; NEW/SAFE↻/BUG still shown
       fi
       printf '  %-8s %3s%%  %s (%s files)\n' "$tag" "$sim" "$name" "$nfiles"
     done < <(sort -rn "$results")
     echo "  → inspect any row with: $SELF NAME    (then record the verdict in $LEDGER)"
   fi
   rm -f "$results"
-  echo "→ $total drifted-copy candidate(s); $newcount need a look (NEW/re-drifted), $safecount settled (SAFE/IGNORE)." >&2
+  echo "→ $total drifted-copy candidate(s); $newcount need a look (NEW/re-drifted), $safecount settled (SAFE/FORK/IGNORE)." >&2
 }
 
 # --- self-test: prove the classifier on fixtures -----------------------------
@@ -437,6 +453,11 @@ EOF
   if [ "$(triage_tag IGNORE 93 93)" = IGNORE ] && [ "$(triage_tag IGNORE 93 41)" = IGNORE ]; then
     echo "  ✓ triage_tag: IGNORE stays IGNORE even when sim drifts (collision stays silenced)"
   else echo "  ✗ FAIL: triage_tag IGNORE re-flagged on sim drift"; pass=0; fail=1; fi
+  # FORK is the load-bearing new property: an intentional per-app copy whose drift is
+  # EXPECTED must stay FORK on a sim change (NOT become SAFE↻), or it re-flags forever.
+  if [ "$(triage_tag FORK 83 83)" = FORK ] && [ "$(triage_tag FORK 83 61)" = FORK ]; then
+    echo "  ✓ triage_tag: FORK stays FORK even when sim drifts (intentional per-app fork, drift expected)"
+  else echo "  ✗ FAIL: triage_tag FORK re-flagged on sim drift"; pass=0; fail=1; fi
   if [ "$(triage_tag BUG 60 55)" = BUG ]; then
     echo "  ✓ triage_tag: BUG echoed verbatim"
   else echo "  ✗ FAIL: triage_tag BUG passthrough"; pass=0; fail=1; fi
