@@ -171,10 +171,16 @@ function showErr(m){const e=$('#err');e.textContent=m;e.style.display='block';}
 // buildable zone AND disables every setback-violation warning (ev<NaN is always false).
 // numLS guarantees a finite number: absent/corrupt -> fallback. Byte-identical for a
 // clean stored number (the only thing the sliders ever write).
-function numLS(key,fallback){const v=parseFloat(localStorage.getItem(key));return Number.isFinite(v)?v:fallback;}
+// readLS guards the STORAGE ACCESS itself: in a storage-blocked browser (Safari
+// "Block All Cookies", an in-app webview) merely CALLING localStorage.getItem throws
+// a SecurityError. At boot, before any try/catch, that throw bricks the whole studio
+// (blank page). readLS returns null on any throw -> callers fall back exactly as they
+// do for an absent key, so the page still boots. Byte-identical when storage works.
+function readLS(key){try{return localStorage.getItem(key);}catch(_){return null;}}
+function numLS(key,fallback){const v=parseFloat(readLS(key));return Number.isFinite(v)?v:fallback;}
 /* 2D orientation state — persisted "forever until unlock" */
 let plan2dRot=numLS('walden-2d-rot',0);
-let plan2dLocked=localStorage.getItem('walden-2d-locked')==='1';
+let plan2dLocked=readLS('walden-2d-locked')==='1';
 /* ===== design engine (2D) — elements in EN feet, shared frame ===== */
 const _ALL=[...PARCEL_EN,...HOUSE_EN];
 const MIN_E=Math.min(..._ALL.map(p=>p[0])),MAX_E=Math.max(..._ALL.map(p=>p[0])),MIN_N=Math.min(..._ALL.map(p=>p[1])),MAX_N=Math.max(..._ALL.map(p=>p[1]));
@@ -444,7 +450,7 @@ function setMode(m){
 document.querySelectorAll('#bar button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 
 /* boot: reuse stored key if present (same origin as photoreal.html) */
-const saved=localStorage.getItem('walden-maps-key');
+const saved=readLS('walden-maps-key');
 if(saved){$('#key').value=saved;boot(saved);setMode('3d');}
 else{$('#gate').classList.add('hide');setMode('2d');}  // design works without the Google key; only 3D photoreal needs it
 </script>

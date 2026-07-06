@@ -39,10 +39,12 @@ function mockLS(store) {
   return { getItem: (k) => (k in store ? store[k] : null) };
 }
 
-// numLS references the global `localStorage`; pass a mock in as a same-named param.
+// numLS references the global `localStorage` (via the readLS access-guard); pass a mock
+// in as a same-named param, and prepend readLS so numLS can resolve it in the Function scope.
 function loadNumLS(source = html) {
+  const readSrc = extractFn(source, 'readLS');
   const src = extractFn(source, 'numLS');
-  return new Function('localStorage', src + '\nreturn numLS;');
+  return new Function('localStorage', readSrc + '\n' + src + '\nreturn numLS;');
 }
 const buildNumLS = (store, source = html) => loadNumLS(source)(mockLS(store));
 
@@ -133,7 +135,8 @@ check('mutation: dropping the Number.isFinite guard reintroduces NaN (proves the
   // reconstruct a buggy numLS that returns the parse verbatim
   const buggySrc = extractFn(html, 'numLS')
     .replace('return Number.isFinite(v)?v:fallback;', 'return v;');
-  const buggy = new Function('localStorage', buggySrc + '\nreturn numLS;')(mockLS({ k: 'abc' }));
+  const readSrc = extractFn(html, 'readLS');
+  const buggy = new Function('localStorage', readSrc + '\n' + buggySrc + '\nreturn numLS;')(mockLS({ k: 'abc' }));
   const v = buggy('k', 25);
   assert.ok(Number.isNaN(v), 'the buggy (guard-less) numLS should return NaN — confirming the guard is load-bearing');
 });
@@ -141,7 +144,8 @@ check('mutation: dropping the Number.isFinite guard reintroduces NaN (proves the
 check('mutation: changing the fallback path is caught by the absent-store cases', () => {
   const buggySrc = extractFn(html, 'numLS')
     .replace('return Number.isFinite(v)?v:fallback;', 'return Number.isFinite(v)?v:0;');
-  const buggy = new Function('localStorage', buggySrc + '\nreturn numLS;')(mockLS({}));
+  const readSrc = extractFn(html, 'readLS');
+  const buggy = new Function('localStorage', readSrc + '\n' + buggySrc + '\nreturn numLS;')(mockLS({}));
   assert.equal(buggy('walden-sb-struct', 25), 0, 'mutant ignores the passed fallback');
   // the real shipped numLS honors the fallback:
   assert.equal(buildNumLS({})('walden-sb-struct', 25), 25);
