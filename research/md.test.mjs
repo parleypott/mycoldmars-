@@ -230,6 +230,20 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
   ok(/<p>intro<\/p>/.test(out) && /<p>outro<\/p>/.test(out), 'surrounding prose still becomes paragraphs');
 }
 {
+  // a fenced code block INDENTED under a list item (a "steps"/methodology pattern
+  // deep-research reports emit constantly) must NOT leak invalid <p>-wrapped <pre>
+  // with a visible indent. The paragraph pass wraps the indented stub as
+  // `<p>   <pre>…</pre></p>`; the whitespace-tolerant unwrap must strip it.
+  const out = mdToHtml('1. Step one\n\n   ```\n   run this\n   ```\n\n2. Step two');
+  ok(/<pre><code>run this<\/code><\/pre>/.test(out), 'list-nested fence renders a clean <pre>');
+  ok(!/<p>\s*<pre>/.test(out), 'list-nested fence is NOT wrapped in a <p> (no invalid block-in-inline)');
+  ok(!/<p>\s+<pre>/.test(out), 'the meaningless leading indent does not leak into the reader');
+  // RED PROOF: the flush-only unwrap (/<p>(<pre>…)<\/p>/) left the indented case wrapped
+  ok(/<p>\s*<pre><code>run this<\/code><\/pre>\s*<\/p>/.test(
+       '<p>   <pre><code>run this</code></pre></p>'.replace(/<p>(<pre><code>[\s\S]*?<\/code><\/pre>)<\/p>/g, '$1')),
+     'RED PROOF: a flush-only unwrap fails to strip the <p> around an indented <pre>');
+}
+{
   // a blank line INSIDE a fenced block must not split the block into two paragraphs
   const out = mdToHtml('```\nline one\n\nline three\n```');
   ok(/<pre><code>line one\n\nline three<\/code><\/pre>/.test(out), 'FIX: blank line inside a fence stays inside the <pre>');

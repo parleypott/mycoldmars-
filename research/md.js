@@ -845,6 +845,14 @@ export function mdToHtml(md) {
   // the paragraph pass wrapped as a lone <p> (a <pre> is block-level and must
   // not nest inside <p> — this reproduces the pre-stash output exactly).
   html = html.replace(/\uE000(\d+)\uE001/g, (_, i) => stash[Number(i)]);
-  html = html.replace(/<p>(<pre><code>[\s\S]*?<\/code><\/pre>)<\/p>/g, '$1');
+  // The `\s*` inside the <p> is load-bearing: a fenced block INDENTED under a
+  // list item ("1. Step\n\n   ```\n   run\n   ```") arrives at the paragraph
+  // pass as leading spaces + the code stub, so it wraps as `<p>   <pre>…</pre></p>`.
+  // A flush-only unwrap (`<p><pre>`) missed that leading whitespace and leaked
+  // invalid HTML — a block-level <pre> nested in an inline <p>, stray indent
+  // visible — into the reader. Deep-research "steps"/methodology sections emit
+  // list-nested code constantly, so it's a real leak, not a corner case.
+  // Tolerating surrounding whitespace also drops the meaningless indent.
+  html = html.replace(/<p>\s*(<pre><code>[\s\S]*?<\/code><\/pre>)\s*<\/p>/g, '$1');
   return html;
 }
