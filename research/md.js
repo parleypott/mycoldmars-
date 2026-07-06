@@ -451,8 +451,20 @@ export function mdToHtml(md) {
   // (not just whitespace) stops a whitespace-padded triple like "a *** b *** c"
   // from being half-eaten into a spurious <strong> — the `**` opener refuses to
   // treat the third `*` of a `***` run as its first content char.
-  html = html.replace(/\*\*\*([^\s*](?:[^\n]*?[^\s*])?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*([^\s*](?:[^\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
+  //   The MIDDLE class is `(?:[^*\n]|\*(?!\*))*?` for `**` (and
+  // `(?:[^*\n]|\*(?!\*\*))*?` for `***`), NOT the old `[^\n]*?`. The old class
+  // let the non-greedy middle BRIDGE across a second delimiter run: "a **b** c
+  // **d** e" — two separate bold spans — was captured from the first `**` all the
+  // way to the last `**`, swallowing the middle `** c **` and bolding the whole
+  // stretch ("<strong>b** c **d</strong>"). Bolding several terms in one sentence
+  // is one of the most common shapes in a research report, so it reached the
+  // reader constantly. Allowing a SINGLE `*` (a star not followed by another) still
+  // lets a nested `*italic*` render inside `**bold**`, but a `**` run now ends the
+  // content, so the closer is claimed at the FIRST following `**` and each pair
+  // stays independent. (The `*`, `_`, `__`, `~~`, `==` rules never bridged: their
+  // middles already exclude the delimiter char; only `**`/`***` used `[^\n]*?`.)
+  html = html.replace(/\*\*\*([^\s*](?:(?:[^*\n]|\*(?!\*\*))*?[^\s*])?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*([^\s*](?:(?:[^*\n]|\*(?!\*))*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
   // Single `*em*` is FLANKING-AWARE per CommonMark: an opening `*` must be
   // immediately followed by a non-whitespace char (left-flanking) and a closing
   // `*` immediately preceded by one (right-flanking). The old `[^*\n]+` capture

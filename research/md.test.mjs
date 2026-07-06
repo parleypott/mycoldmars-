@@ -1595,5 +1595,47 @@ function fullOldMd(md) {
      'NO-REGRESSION: empty-label link with a dangerous scheme renders no <a>');
 }
 
+// ── Two `**bold**` (or `***bi***`) spans on ONE line must stay INDEPENDENT ──
+// The `**`/`***` emphasis rules use a permissive middle (they admit a nested
+// single `*italic*`), so the OLD `[^\n]*?` middle bridged across a second
+// delimiter run: "a **b** c **d** e" captured from the first `**` to the LAST
+// `**`, swallowing the middle `** c **` and bolding the whole stretch. Bolding
+// several terms in one sentence is one of the most common research-report shapes.
+// The fix restricts the middle to `(?:[^*\n]|\*(?!\*))*?` (star-not-star), which
+// still lets a nested `*italic*` render but claims the closer at the first
+// following `**`. Mutation-proof: reverting either middle to `[^\n]*?` turns
+// these RED.
+{
+  // RED PROOF: reconstruct the OLD permissive-middle bold rule and show it merges.
+  const oldBold = (md) => md.replace(/\*\*([^\s*](?:[^\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
+  ok(/<strong>b\*\* c \*\*d<\/strong>/.test(oldBold('a **b** c **d** e')),
+     'RED PROOF: old `**` middle merges two bold spans into one');
+
+  eq(mdToHtml('a **b** c **d** e'), '<p>a <strong>b</strong> c <strong>d</strong> e</p>',
+     'FIX: two `**bold**` spans on one line stay independent');
+  eq(mdToHtml('**Finding 1:** foo. **Finding 2:** bar.'),
+     '<p><strong>Finding 1:</strong> foo. <strong>Finding 2:</strong> bar.</p>',
+     'FIX: consecutive bolded labels each render their own <strong>');
+  eq(mdToHtml('***a*** x ***b***'),
+     '<p><strong><em>a</em></strong> x <strong><em>b</em></strong></p>',
+     'FIX: two `***bi***` spans on one line stay independent');
+  eq(mdToHtml('**b** and *i* and **d**'),
+     '<p><strong>b</strong> and <em>i</em> and <strong>d</strong></p>',
+     'FIX: bold/italic/bold on one line each pair correctly');
+  // NO-REGRESSION: a nested single `*italic*` inside `**bold**` still renders.
+  eq(mdToHtml('**bold *italic* bold**'),
+     '<p><strong>bold <em>italic</em> bold</strong></p>',
+     'NO-REGRESSION: nested *italic* inside **bold** survives the tighter middle');
+  eq(mdToHtml('**a *x* b** and **c *y* d**'),
+     '<p><strong>a <em>x</em> b</strong> and <strong>c <em>y</em> d</strong></p>',
+     'NO-REGRESSION: two bold spans each with nested italic pair correctly');
+  // NO-REGRESSION: a lone bold span is byte-identical to before.
+  eq(mdToHtml('text **bold** here'), '<p>text <strong>bold</strong> here</p>',
+     'NO-REGRESSION: a single **bold** span is unchanged');
+  // NO-REGRESSION: whitespace-flanked `**` (exponent) still not bolded.
+  eq(mdToHtml('2 ** 10 to 2 ** 20'), '<p>2 ** 10 to 2 ** 20</p>',
+     'NO-REGRESSION: whitespace-flanked `**` stays literal');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
