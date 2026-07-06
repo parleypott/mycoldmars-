@@ -27,7 +27,11 @@
     { "source": "/universe/:world/", "destination": "/queen-scarlet-school/library/index.html" },
 
     { "source": "/burma-script", "destination": "/burma-script/index.html" },
-    { "source": "/burma-script/", "destination": "/burma-script/index.html" }
+    { "source": "/burma-script/", "destination": "/burma-script/index.html" },
+
+    { "source": "/structure", "destination": "/structure/index.html" },
+    { "source": "/structure/:slug", "destination": "/structure/index.html" },
+    { "source": "/structure/:slug/", "destination": "/structure/index.html" }
   ],
   "redirects": [
     { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?newpress\\.press" }], "destination": "/deck-v2/", "permanent": false },
