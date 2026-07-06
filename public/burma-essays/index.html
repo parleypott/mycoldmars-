@@ -403,7 +403,7 @@ const fmt = (s) => {
   return (h ? h+':'+String(m).padStart(2,'0') : m) + ':' + String(ss).padStart(2,'0');
 };
 const lsKey = (id) => 'burma:pos:' + id;
-const localPos = (id) => { const v = parseFloat(localStorage.getItem(lsKey(id))); return Number.isFinite(v) ? v : 0; };
+const localPos = (id) => { let v = NaN; try { v = parseFloat(localStorage.getItem(lsKey(id))); } catch (e) {} return Number.isFinite(v) ? v : 0; };
 const setLocalPos = (id, p) => localStorage.setItem(lsKey(id), String(p));
 
 /* ---- offline store ----
@@ -640,7 +640,7 @@ $('rate').onclick = () => {
   const r = RATES[i]; localStorage.setItem('burma:rate', String(r));
   audio.playbackRate = r; $('rate').textContent = r + '×';
 };
-function currentRate(){ const r = parseFloat(localStorage.getItem('burma:rate')); return RATES.includes(r) ? r : 1; }
+function currentRate(){ let r = NaN; try { r = parseFloat(localStorage.getItem('burma:rate')); } catch (e) {} return RATES.includes(r) ? r : 1; }
 $('rate').textContent = currentRate() + '×';
 
 /* ---- sleep timer — off → 15 → 30 → 45 → 60 → off; gentle fade-pause when it fires.
@@ -978,7 +978,7 @@ function maybeShowIosInstall() {
   const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isSafari = !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);   // Chrome/FF/Edge on iOS use different share flows
   const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-  const dismissed = localStorage.getItem('burma:iosHintDismissed') === '1';
+  let dismissed = false; try { dismissed = localStorage.getItem('burma:iosHintDismissed') === '1'; } catch (e) {}
   if (isIOS && isSafari && !standalone && !dismissed) {
     setTimeout(() => $('iosInstall').classList.add('show'), 1400);
   }
