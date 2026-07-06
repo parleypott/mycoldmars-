@@ -114,6 +114,15 @@ ok(T.parseDate('', YEAR) === null, 'empty -> null');
 ok(T.parseDate(null, YEAR) === null, 'null -> null');
 ok(T.parseDate('sometime thursday', YEAR) === null, 'no date token -> null');
 ok(T.parseDate('13/40', YEAR) === null, 'invalid month/day -> null (slash branch rejects)');
+// impossible days must reject, not silently roll into the next month (a guest on the wrong column).
+// These go RED if the rollover-detection guard is removed (parseDate falls back to `day <= 31`).
+ok(T.parseDate('6/31', YEAR) === null, 'slash 6/31 (June has 30 days) -> null, not July 1');
+ok(T.parseDate('2/30', YEAR) === null, 'slash 2/30 -> null, not March 2');
+ok(T.parseDate('2/29/25', YEAR) === null, 'slash 2/29 in non-leap 2025 -> null, not March 1');
+eq(ymd(T.parseDate('2/29/28', YEAR)), [2028, 2, 29], 'slash 2/29 in leap 2028 -> valid Feb 29');
+ok(T.parseDate('Feb 30', YEAR) === null, 'month-name Feb 30 -> null, not March 2');
+ok(T.parseDate('November 31', YEAR) === null, 'month-name Nov 31 (30 days) -> null, not Dec 1');
+eq(ymd(T.parseDate('6/30', YEAR)), [2026, 6, 30], 'valid last-day-of-month stays byte-identical');
 ok(T.parseDate('Foozember 9', YEAR) === null, 'unknown month name -> null');
 eq(ymd(T.parseDate('1/1/27', YEAR)), [2027, 1, 1], 'next-year slash date');
 // slash branch wins when both present
