@@ -15,7 +15,14 @@
 import { readJsonBody } from './_lib/read-json-body.js';
 import { checkAccess, readHeader } from './_lib/access.js';
 
-export const config = { runtime: 'edge', maxDuration: 120 };
+// NODEJS runtime (not edge): the fc fact-check fires a multi-step Anthropic web_search that routinely
+// runs longer than the edge function wall-clock limit (~25s). On edge that timed out and Vercel returned
+// its own PLAIN-TEXT error page ("An error occurred…"), which the Workshop client then tried to JSON.parse
+// → "Unexpected token 'A' … is not valid JSON". The nodejs runtime honors maxDuration (proven by
+// api/nano-banana.js, which is nodejs + returns a web Response exactly like this handler), giving the web
+// search room to finish. Belt-and-suspenders: an in-handler AbortController (below) returns a clean JSON
+// timeout BEFORE the platform limit, so the client always gets JSON — never a platform error page.
+export const config = { runtime: 'nodejs', maxDuration: 120 };
 
 const MODEL = 'claude-sonnet-4-5-20250929';
 
@@ -193,7 +200,11 @@ export default async function handler(req) {
     messages: [{ role: 'user', content: prompt }],
   };
 
+  // Bound the upstream call so a slow (or hung) web_search returns a CLEAN JSON timeout instead of
+  // letting the platform kill the function and emit a non-JSON error page. 100s < the 120s maxDuration.
   let res;
+  const ac = new AbortController();
+  const killer = setTimeout(() => ac.abort(), 100_000);
   try {
     res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -203,9 +214,15 @@ export default async function handler(req) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(payload),
+      signal: ac.signal,
     });
   } catch (err) {
+    if (err?.name === 'AbortError') {
+      return json({ error: 'fact-check timed out — try again, or shorten the claim' }, 504);
+    }
     return json({ error: `anthropic unreachable: ${err?.message || err}` }, 502);
+  } finally {
+    clearTimeout(killer);
   }
 
   if (!res.ok) {

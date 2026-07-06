@@ -179,7 +179,21 @@ export function Workshop() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, marker: span.text, block: span.block, context: span.context }),
       });
-      const data = await res.json();
+      // SAFE PARSE — a timed-out / crashed function returns a plain-text platform error page, not our
+      // JSON. res.json() on that throws the cryptic "Unexpected token 'A', \"An error o\"... is not valid
+      // JSON". Read the body as text and JSON.parse it ourselves so a non-JSON response becomes a clean,
+      // human message ("timed out — try again") instead of a parser stack trace.
+      const rawBody = await res.text();
+      let data;
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        throw new Error(
+          res.status === 504 || /timed?\s*out|timeout/i.test(rawBody)
+            ? 'The fact-check timed out. Try again, or shorten the claim.'
+            : `The server hit an error (${res.status || 'network'}). Give it a moment and try again.`
+        );
+      }
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
       if (mode === 'tk') {
         const opts = (Array.isArray(data.options) ? data.options : []).map((o) => (typeof o === 'string' ? { text: o } : o));
