@@ -75,6 +75,7 @@ export function Workshop() {
   const [resolved, setResolved] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);   // seconds since VERIFY/GENERATE was clicked — the spinner ticks
   const [error, setError] = useState('');
   const [options, setOptions] = useState([]);   // [{text, angle?}]
   const [sources, setSources] = useState([]);   // [{claim, url}]
@@ -165,12 +166,25 @@ export function Workshop() {
     saveAll(all);
   }
 
+  // HARD CLIENT TIMEOUT — the "CHECKING… forever" fix (measured in prod: the fc web_search loop rode
+  // to Vercel's 120s FUNCTION_INVOCATION_TIMEOUT, and the browser fetch would sit even longer on a
+  // stalled connection). The server now bounds itself at 50s; this 70s AbortController is the
+  // belt-and-suspenders guarantee that the spinner ALWAYS resolves — to a verdict, or to a clean
+  // error — no matter what the platform does with the connection. 70s > server 50s + network slop,
+  // so in normal operation the server's own JSON timeout arrives first.
+  const FC_CLIENT_TIMEOUT_MS = 70_000;
+
   // Regenerate live via the backend. mode 'tk' → 5 options; mode 'fc' → verdict.
   async function generate() {
     if (!span) return;
     const mode = span.kind === 'fc' ? 'fc' : 'tk';
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setElapsed(0);
     if (mode === 'tk') { setOptions([]); setVetted(false); } else setVerdict(null);
+    // Tick the button label ("Checking… 12s") so the wait feels determinate, never infinite.
+    const t0 = Date.now();
+    const ticker = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    const ac = new AbortController();
+    const killer = setTimeout(() => ac.abort(), FC_CLIENT_TIMEOUT_MS);
     try {
       // Endpoint is configurable per episode (cloud.tkApi); every current episode uses the
       // shared burma-tk backend, so that stays the default.
@@ -178,6 +192,7 @@ export function Workshop() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, marker: span.text, block: span.block, context: span.context }),
+        signal: ac.signal,
       });
       // SAFE PARSE — a timed-out / crashed function returns a plain-text platform error page, not our
       // JSON. res.json() on that throws the cryptic "Unexpected token 'A', \"An error o\"... is not valid
@@ -203,9 +218,15 @@ export function Workshop() {
         setVerdict(data); persist({ verdict: data });
       }
     } catch (err) {
-      setError(err?.message || String(err));
+      setError(
+        err?.name === 'AbortError'
+          ? `The check timed out after ${Math.round(FC_CLIENT_TIMEOUT_MS / 1000)}s. Try again — or shorten the claim.`
+          : (err?.message || String(err))
+      );
     } finally {
-      setLoading(false);
+      clearTimeout(killer);
+      clearInterval(ticker);
+      setLoading(false); setElapsed(0);
     }
   }
 
@@ -277,7 +298,7 @@ export function Workshop() {
       {/* TK / FC: the live action (regenerate / verify) */}
       {(isTk || isFc) && (
         <button class="wp-ws-generate" onClick={generate} disabled={loading} data-kind={span.kind} data-secondary={isTk && vetted ? '1' : null}>
-          {loading ? (isFc ? 'Checking…' : 'Writing 5…') : genLabel}
+          {loading ? `${isFc ? 'Checking…' : 'Writing 5…'}${elapsed > 0 ? ` ${elapsed}s` : ''}` : genLabel}
         </button>
       )}
 

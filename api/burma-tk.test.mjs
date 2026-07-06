@@ -19,7 +19,7 @@
 // a null body and the handler rejects, failing these cases).
 
 import assert from 'node:assert';
-import handler, { tkPrompt, fcPrompt, rateLimitCheck, identityKey } from './burma-tk.js';
+import handler, { tkPrompt, fcPrompt, rateLimitCheck, identityKey, buildPayload, FC_UPSTREAM_TIMEOUT_MS } from './burma-tk.js';
 
 // The valid-marker path would reach the Anthropic fetch; unset the key so the handler
 // stops at the apiKey guard (500 'not set') BEFORE any network call — proving it runs
@@ -166,6 +166,86 @@ for (const bad of [null, 42, 'a string', [1, 2, 3], true]) {
   // Identity keying: a Bearer JWT keys per-user; otherwise per forwarded IP.
   ok('identityKey: uses the Bearer token', identityKey({ headers: { authorization: 'Bearer abc.def.ghi' } }).startsWith('jwt:'));
   ok('identityKey: falls back to IP', identityKey({ headers: { 'x-forwarded-for': '9.9.9.9, 1.1.1.1' } }) === 'ip:9.9.9.9');
+}
+
+// ── FIX 2026-07-06: the "CHECKING… forever" hang ──────────────────────────────────────────────
+// Measured in prod: a live fc request rode past the old 100s fetch-only AbortController to the
+// 120s FUNCTION_INVOCATION_TIMEOUT platform kill, returning a PLAIN-TEXT page after 120.1s. The
+// locks below pin the three levers of the fix.
+
+// (a) the server deadline is a HARD bound comfortably under every platform cap (60s clamp incl.).
+{
+  ok('timeout: FC_UPSTREAM_TIMEOUT_MS ≤ 55s (under the 60s platform clamp)', FC_UPSTREAM_TIMEOUT_MS <= 55_000);
+  ok('timeout: FC_UPSTREAM_TIMEOUT_MS ≥ 30s (room for a real 2-3 search verify)', FC_UPSTREAM_TIMEOUT_MS >= 30_000);
+}
+
+// (b) the payload is tuned for speed: current Sonnet, current web_search tool, max_uses 5→3.
+{
+  const p = buildPayload('fc', { marker: 'M', block: 'B', context: 'C' });
+  ok('payload fc: current model id (no stale date-pinned sonnet-4-5)', p.model === 'claude-sonnet-4-6');
+  const ws = (p.tools || []).find((t) => t.name === 'web_search');
+  ok('payload fc: web_search tool present', !!ws);
+  ok('payload fc: current web_search version (20260209, dynamic filtering)', ws && ws.type === 'web_search_20260209');
+  ok('payload fc: max_uses capped at 3 (was 5 — the latency lever)', ws && ws.max_uses === 3);
+  ok('payload fc: emit_verdict tool present', (p.tools || []).some((t) => t.name === 'emit_verdict'));
+  ok('payload fc: tool_choice auto (model must be free to search first)', p.tool_choice && p.tool_choice.type === 'auto');
+
+  const tk = buildPayload('tk', { marker: 'M', block: 'B', context: 'C' });
+  ok('payload tk: NO web_search', !(tk.tools || []).some((t) => t.name === 'web_search'));
+  ok('payload tk: emit_options forced', tk.tool_choice && tk.tool_choice.type === 'tool' && tk.tool_choice.name === 'emit_options');
+  ok('payload fc prompt: tells the model its search budget', String(p.messages[0].content).includes('at most 3 searches'));
+}
+
+// (c) the deadline WINS even when the upstream fetch never settles and IGNORES the abort signal —
+//     this is the exact prod failure mode (function rode to the platform kill). Promise.race
+//     guarantees our clean JSON 504 regardless of undici signal plumbing.
+{
+  const realFetch = globalThis.fetch;
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  process.env.BURMA_TK_TIMEOUT_MS = '60'; // test hook: 60ms deadline instead of 50s
+  try {
+    // hung fetch that ignores the signal entirely — never resolves, never rejects
+    globalThis.fetch = () => new Promise(() => {});
+    const r1 = await call({ body: { mode: 'fc', marker: 'the river is named after an elephant' } });
+    ok('hang: hung signal-ignoring fetch -> clean JSON 504 (never platform page)', r1.status === 504);
+    ok('hang: 504 body is structured with timeout flag', r1.body && r1.body.timeout === true && /verify in \d+s/.test(r1.body.error));
+
+    // well-behaved fetch that rejects with AbortError when the deadline aborts it
+    globalThis.fetch = (_url, { signal }) => new Promise((_res, rej) => {
+      signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    });
+    const r2 = await call({ body: { mode: 'fc', marker: 'claim two' } });
+    ok('hang: abort-respecting fetch -> same clean JSON 504', r2.status === 504 && r2.body && r2.body.timeout === true);
+
+    // tk mode gets the same guarantee with its own message
+    const r3 = await call({ body: { mode: 'tk', marker: 'gap text' } });
+    ok('hang: tk mode timeout -> 504 with tk wording', r3.status === 504 && /writing helper timed out/.test(r3.body.error));
+  } finally {
+    delete process.env.BURMA_TK_TIMEOUT_MS;
+  }
+
+  // (d) fast paths still work end-to-end under the race: success + upstream error both return
+  //     BEFORE the deadline (proving the race resolves on the upstream branch too).
+  process.env.BURMA_TK_TIMEOUT_MS = '5000';
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      content: [
+        { type: 'text', text: 'searching…' },
+        { type: 'tool_use', name: 'emit_verdict', input: { verdict: 'false', finding: 'Named after a mythical creature.', suggestedEdit: 'the line', sources: [{ label: 'src' }] } },
+      ],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const r4 = await call({ body: { mode: 'fc', marker: 'claim three' } });
+    ok('race: successful verdict flows through -> 200', r4.status === 200);
+    ok('race: verdict payload intact', r4.body && r4.body.mode === 'fc' && r4.body.verdict === 'false' && r4.body.finding.includes('mythical'));
+
+    globalThis.fetch = async () => new Response('overloaded', { status: 529 });
+    const r5 = await call({ body: { mode: 'fc', marker: 'claim four' } });
+    ok('race: anthropic error -> clean 502 JSON (not a hang, not a throw)', r5.status === 502 && /anthropic 529/.test(r5.body.error));
+  } finally {
+    delete process.env.BURMA_TK_TIMEOUT_MS;
+    delete process.env.ANTHROPIC_API_KEY; // restore the no-key state earlier cases rely on
+    globalThis.fetch = realFetch;
+  }
 }
 
 console.log(`burma-tk: ${pass} passed, ${fail} failed`);

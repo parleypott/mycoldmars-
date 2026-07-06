@@ -22,9 +22,20 @@ import { checkAccess, readHeader } from './_lib/access.js';
 // api/nano-banana.js, which is nodejs + returns a web Response exactly like this handler), giving the web
 // search room to finish. Belt-and-suspenders: an in-handler AbortController (below) returns a clean JSON
 // timeout BEFORE the platform limit, so the client always gets JSON — never a platform error page.
-export const config = { runtime: 'nodejs', maxDuration: 120 };
+export const config = { runtime: 'nodejs', maxDuration: 60 };
 
-const MODEL = 'claude-sonnet-4-5-20250929';
+// Current Sonnet (claude-sonnet-4-5-20250929 was the legacy pin). Sonnet 4.6 pairs with the
+// web_search_20260209 tool version (dynamic filtering — filters results in-container before they
+// hit the context window), which is both faster and cheaper than the old 20250305 search loop.
+const MODEL = 'claude-sonnet-4-6';
+
+// HARD TIME BOUNDS — the guarantee is "VERIFY CLAIM always resolves within ~a minute".
+//   server: abort the Anthropic call at 50s and return a clean JSON 504. This must sit BELOW
+//           every platform cap (maxDuration above, and the 60s clamp some Vercel plans apply
+//           regardless of the configured value) so the timeout is OURS — JSON, not an HTML
+//           error page from the gateway.
+//   client: Workshop.jsx carries its own 70s AbortController as the belt-and-suspenders bound.
+export const FC_UPSTREAM_TIMEOUT_MS = 50_000;
 
 // ── Per-identity rate limit (in-memory token bucket) ──────────────────────────────────────────────
 // burma-tk calls Anthropic on EVERY hit, so even an authenticated-but-scripted caller could run up
@@ -133,7 +144,7 @@ Write FIVE genuinely DISTINCT alternatives that could REPLACE the {TK} marker in
 }
 
 export function fcPrompt({ marker, block, context }) {
-  return `You are fact-checking a claim in Johnny Harris's Burma/Myanmar documentary script. Use web_search aggressively to verify. The {fc} marker states the claim or the fact to nail down:
+  return `You are fact-checking a claim in Johnny Harris's Burma/Myanmar documentary script. You have a strict time budget: use web_search efficiently (at most 3 searches — prefer 1-2 well-chosen queries), then commit to a verdict. If the evidence is thin after your searches, call emit_verdict anyway with verdict "unclear" and say what you found — never keep searching. The {fc} marker states the claim or the fact to nail down:
 
   CLAIM / FACT NEEDED: ${marker}
 
@@ -187,70 +198,114 @@ export default async function handler(req) {
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY not set on server' }, 500);
 
   const isFc = mode === 'fc';
-  const tool = isFc ? FC_TOOL : TK_TOOL;
-  const prompt = isFc ? fcPrompt({ marker, block, context }) : tkPrompt({ marker, block, context });
+  const payload = buildPayload(mode, { marker, block, context });
 
-  const payload = {
+  // HARD DEADLINE via Promise.race — not just an AbortController on the fetch.
+  //
+  // POST-MORTEM (measured in prod 2026-07-06): the previous version armed an AbortController(100s)
+  // around the fetch only, then cleared it before reading the body. A live fc request rode straight
+  // past 100s to the 120s maxDuration platform kill and returned Vercel's PLAIN-TEXT
+  // FUNCTION_INVOCATION_TIMEOUT page — the in-handler abort never delivered its JSON. The race
+  // below removes every dependence on undici's signal plumbing: whichever settles first WINS the
+  // handler, so the timeout branch returns clean JSON no matter where the upstream work is stuck
+  // (connect, headers, body read, parse). The abort is still fired as cleanup so the orphaned
+  // request doesn't keep the instance busy.
+  const ac = new AbortController();
+  const TIMED_OUT = Symbol('timed-out');
+  // Test hook: BURMA_TK_TIMEOUT_MS lets the suite exercise the timeout branch in milliseconds
+  // instead of waiting 50 real seconds. Unset in prod → FC_UPSTREAM_TIMEOUT_MS.
+  const timeoutMs = Number(process.env.BURMA_TK_TIMEOUT_MS) > 0
+    ? Number(process.env.BURMA_TK_TIMEOUT_MS)
+    : FC_UPSTREAM_TIMEOUT_MS;
+  // NOTE: deliberately NOT unref()'d — an unref'd timer never fires once the loop drains (e.g.
+  // the upstream promise is the only pending work), which would silently disarm the deadline.
+  // The race clears it the moment either branch settles, so it can't leak.
+  let deadlineTimer;
+  const deadline = new Promise((resolve) => {
+    deadlineTimer = setTimeout(() => { ac.abort(); resolve(TIMED_OUT); }, timeoutMs);
+  });
+
+  const upstream = (async () => {
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(payload),
+        signal: ac.signal,
+      });
+    } catch (err) {
+      if (err?.name === 'AbortError') return TIMED_OUT;
+      return json({ error: `anthropic unreachable: ${err?.message || err}` }, 502);
+    }
+
+    if (!res.ok) {
+      const t = await res.text();
+      return json({ error: `anthropic ${res.status}: ${t.slice(0, 400)}` }, 502);
+    }
+
+    const data = await res.json();
+    // Pull the tool_use block (the structured output). For fc the model may emit text +
+    // server_tool_use (web_search) blocks too — find the one matching our tool name.
+    const toolName = isFc ? FC_TOOL.name : TK_TOOL.name;
+    let toolInput = null;
+    for (const b of data.content ?? []) {
+      if (b.type === 'tool_use' && b.name === toolName) { toolInput = b.input; break; }
+    }
+
+    if (!toolInput) {
+      // Fallback: the model answered in prose instead of calling the tool. Surface the text
+      // so the client can at least show SOMETHING rather than a blank panel.
+      const text = (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+      return json({ error: 'model did not return structured output', raw: text.slice(0, 600) }, 502);
+    }
+
+    if (isFc) {
+      return json({ mode: 'fc', ...toolInput });
+    }
+    // Defensive: ensure 5 options, each with the expected shape.
+    const options = Array.isArray(toolInput.options) ? toolInput.options.slice(0, 5) : [];
+    return json({ mode: 'tk', options });
+  })().catch((err) => {
+    // Any unexpected throw inside the upstream work (body read aborted mid-stream, bad JSON from a
+    // proxy, …) resolves the race with clean JSON instead of crashing the function into a platform
+    // error page.
+    if (err?.name === 'AbortError') return TIMED_OUT;
+    return json({ error: `upstream failed: ${err?.message || err}` }, 502);
+  });
+
+  const winner = await Promise.race([upstream, deadline]);
+  clearTimeout(deadlineTimer);
+  if (winner === TIMED_OUT) {
+    return json({
+      error: isFc
+        ? `couldn't verify in ${Math.round(timeoutMs / 1000)}s — the web search ran long. Try again, or shorten the claim.`
+        : `the writing helper timed out — try again.`,
+      timeout: true,
+    }, 504);
+  }
+  return winner;
+}
+
+// Exported for tests: the exact Anthropic request body per mode. fc gets the current-generation
+// web_search tool (20260209 — dynamic filtering, results filtered before they hit context) capped
+// at 3 uses (was 5 — the biggest single latency lever), on the current Sonnet.
+export function buildPayload(mode, { marker, block, context }) {
+  const isFc = mode === 'fc';
+  const tool = isFc ? FC_TOOL : TK_TOOL;
+  return {
     model: MODEL,
     max_tokens: 2000,
     tools: isFc
-      ? [tool, { type: 'web_search_20250305', name: 'web_search', max_uses: 5 }]
+      ? [tool, { type: 'web_search_20260209', name: 'web_search', max_uses: 3 }]
       : [tool],
     tool_choice: isFc ? { type: 'auto' } : { type: 'tool', name: tool.name },
-    messages: [{ role: 'user', content: prompt }],
+    messages: [{ role: 'user', content: isFc ? fcPrompt({ marker, block, context }) : tkPrompt({ marker, block, context }) }],
   };
-
-  // Bound the upstream call so a slow (or hung) web_search returns a CLEAN JSON timeout instead of
-  // letting the platform kill the function and emit a non-JSON error page. 100s < the 120s maxDuration.
-  let res;
-  const ac = new AbortController();
-  const killer = setTimeout(() => ac.abort(), 100_000);
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(payload),
-      signal: ac.signal,
-    });
-  } catch (err) {
-    if (err?.name === 'AbortError') {
-      return json({ error: 'fact-check timed out — try again, or shorten the claim' }, 504);
-    }
-    return json({ error: `anthropic unreachable: ${err?.message || err}` }, 502);
-  } finally {
-    clearTimeout(killer);
-  }
-
-  if (!res.ok) {
-    const t = await res.text();
-    return json({ error: `anthropic ${res.status}: ${t.slice(0, 400)}` }, 502);
-  }
-
-  const data = await res.json();
-  // Pull the tool_use block (the structured output). For fc the model may emit text +
-  // server_tool_use (web_search) blocks too — find the one matching our tool name.
-  let toolInput = null;
-  for (const b of data.content ?? []) {
-    if (b.type === 'tool_use' && b.name === tool.name) { toolInput = b.input; break; }
-  }
-
-  if (!toolInput) {
-    // Fallback: the model answered in prose instead of calling the tool. Surface the text
-    // so the client can at least show SOMETHING rather than a blank panel.
-    const text = (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-    return json({ error: 'model did not return structured output', raw: text.slice(0, 600) }, 502);
-  }
-
-  if (isFc) {
-    return json({ mode: 'fc', ...toolInput });
-  }
-  // Defensive: ensure 5 options, each with the expected shape.
-  const options = Array.isArray(toolInput.options) ? toolInput.options.slice(0, 5) : [];
-  return json({ mode: 'tk', options });
 }
 
 function json(obj, status = 200) {
