@@ -92,6 +92,58 @@ function cellAlign(cell) {
 }
 const alignAttr = (a) => (a ? ` style="text-align:${a}"` : '');
 
+// Render the (already-inline-processed, `&gt;`-stripped) body of a blockquote.
+// The leading `> ` prefix hid list/heading/thematic-break markers from the
+// line-anchored block passes in mdToHtml (they run at absolute line-start, but a
+// quoted `- item` sits behind `&gt; `), so a quoted list/heading/rule leaked its
+// RAW marker into the reader (`> - a` -> `- a`, `> # x` -> `# x`). The TTS
+// narrator (api/_lib/burma-essays-text.js) strips the `>` markers FIRST so those
+// structures get processed — the VISUAL reader was the divergent-weaker path.
+// Re-run the marker passes here on the quote body: consecutive bullet/numbered
+// items fold into one nested <ul>/<ol>, an ATX heading (with optional closing
+// `#` run) and a thematic break convert, and every OTHER (prose) line joins with
+// <br> exactly as before. A plain `> quoted prose` block has no leading markers,
+// so every line falls to the prose run and the output is byte-identical to the
+// old `.replace(/\n/g, '<br>')` behavior — zero regression. (Inline transforms —
+// **bold**, [links], `code` — already ran on this text upstream, so a quoted
+// `- **bold** point` keeps its <strong>. Tables inside a blockquote stay as the
+// prior <br>-joined pipes: still rare, and not made worse.)
+function renderQuoteInner(body) {
+  const out = [];
+  let list = null; // { tag: 'ul'|'ol', items: [] }
+  let run = []; // buffered prose lines, joined with <br> like before
+  const flushList = () => {
+    if (list) { out.push(`<${list.tag}>${list.items.join('')}</${list.tag}>`); list = null; }
+  };
+  const flushRun = () => {
+    if (run.length) { out.push(run.join('<br>')); run = []; }
+  };
+  for (const line of body.split('\n')) {
+    let m;
+    if ((m = line.match(/^[ \t]*[-*+] (.*)$/))) {
+      flushRun();
+      if (!list || list.tag !== 'ul') { flushList(); list = { tag: 'ul', items: [] }; }
+      list.items.push(`<li>${m[1]}</li>`);
+    } else if ((m = line.match(/^[ \t]*\d+[.)] (.*)$/))) {
+      flushRun();
+      if (!list || list.tag !== 'ol') { flushList(); list = { tag: 'ol', items: [] }; }
+      list.items.push(`<li>${m[1]}</li>`);
+    } else if ((m = line.match(/^(#{1,6}) (.*?)(?:[ \t]+#+)?[ \t]*$/))) {
+      flushRun(); flushList();
+      out.push(`<h${m[1].length}>${m[2]}</h${m[1].length}>`);
+    } else if (/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line)) {
+      flushRun(); flushList();
+      out.push('<hr>');
+    } else {
+      flushList();
+      run.push(line);
+    }
+  }
+  flushRun();
+  flushList();
+  return out.join('');
+}
+
 // Render GFM pipe tables. LLM research reports (esp. deep-research runs) emit
 // these constantly; without this a table leaked into the reader as a literal
 // `| a | b |` paragraph. Runs AFTER the inline transforms so **bold**/[links]/
@@ -545,27 +597,6 @@ export function mdToHtml(md) {
       ? `<a href="${href}" target="_blank" rel="noopener">${url}</a>` + m.slice(url.length)
       : m;
   });
-  // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
-  // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —
-  // the marker leaked into the reader's report as a literal `>`. LLM research
-  // reports quote sources this way constantly. Collapse each run of consecutive
-  // `> ` lines into one <blockquote>, stripping the marker (+ its optional single
-  // space) and joining wrapped lines with <br>. Runs AFTER the inline transforms
-  // so **bold**/*italic*/[links] inside a quote still render; the paragraph pass
-  // already whitelists <blockquote> as block-level so it is not re-wrapped in <p>.
-  // NESTED quotes (`>> inner`, `> > inner`) esc() to a run of `&gt;` markers; a
-  // single-marker strip left every extra `&gt;` leaking into the reader as a
-  // literal `>`. Strip the WHOLE leading run of `&gt;`-markers per line — nesting
-  // depth is flattened into one <blockquote> (matching how the list transforms
-  // above drop nesting depth), but no marker ever leaks. `(?:&gt;[ \t]?)+` eats
-  // consecutive markers with their optional single space; content that merely
-  // starts with a lone `>` after the marker ("> -> arrow" -> `&gt; -&gt; arrow`)
-  // is safe — the second `&gt;` isn't at line-start-after-a-marker, so only the
-  // real leading marker run is consumed.
-  html = html.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) => {
-    const inner = m.replace(/^(?:&gt;[ \t]?)+/gm, '').replace(/\n/g, '<br>');
-    return `<blockquote>${inner}</blockquote>`;
-  });
   // Loose lists: CommonMark separates items with a blank line, but the <li>/<oli>
   // wrap below only tolerates a SINGLE newline between items, so a loose list
   // ("- a\n\n- b\n\n- c" — an extremely common deep-research shape, many LLMs put
@@ -591,6 +622,27 @@ export function mdToHtml(md) {
     const attr = Number.isFinite(start) && start !== 1 ? ` start="${start}"` : '';
     const items = m.replace(/<oli n="\d+">/g, '<li>').replace(/<\/oli>/g, '</li>');
     return `<ol${attr}>${items}</ol>`;
+  });
+  // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
+  // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —
+  // the marker leaked into the reader's report as a literal `>`. LLM research
+  // reports quote sources this way constantly. Collapse each run of consecutive
+  // `> ` lines into one <blockquote>, stripping the marker (+ its optional single
+  // space); renderQuoteInner then handles the body — inline **bold**/*italic*/
+  // [links] already rendered upstream, a quoted list/heading/rule folds into a
+  // real <ul>/<ol>/<h*>/<hr>, and prose lines join with <br> as before. Runs AFTER
+  // the two <li>/<oli> WRAP passes above ON PURPOSE: renderQuoteInner emits its own
+  // <ul>/<ol>, so running before the wrap would let the global `<li>`-run wrap
+  // grab the quote's inner items and double-nest them (`<ul><ul>…`). The paragraph
+  // pass below whitelists <blockquote> as block-level so it is not re-wrapped in <p>.
+  // NESTED quotes (`>> inner`, `> > inner`) esc() to a run of `&gt;` markers; strip
+  // the WHOLE leading run per line so no extra `&gt;` leaks. `(?:&gt;[ \t]?)+` eats
+  // consecutive markers with their optional single space; content that merely
+  // starts with a lone `>` after the marker ("> -> arrow" -> `&gt; -&gt; arrow`)
+  // is safe — the second `&gt;` isn't at line-start-after-a-marker.
+  html = html.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) => {
+    const inner = renderQuoteInner(m.replace(/^(?:&gt;[ \t]?)+/gm, ''));
+    return `<blockquote>${inner}</blockquote>`;
   });
   // GFM tables: a single-newline block (no blank lines between rows) that the
   // paragraph split would otherwise fuse into one <p> of literal pipes.

@@ -448,6 +448,46 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
   ok(/<p>A value 5 &gt; 3 in prose\.<\/p>/.test(mid), 'mid-line `>` stays escaped, not a blockquote');
   ok(!/<blockquote>/.test(mid), 'mid-line `>` does not spawn a <blockquote>');
 }
+{
+  // ── block STRUCTURE inside a blockquote renders, it does not leak its marker ──
+  // The `> ` prefix hides a quoted list/heading/rule from the line-anchored block
+  // passes, so before renderQuoteInner they leaked their RAW marker into the
+  // reader (`> - a` -> literal `- a`). The TTS narrator strips `>` first and DOES
+  // process them, so the visual reader was the divergent-weaker path.
+  const bqList = mdToHtml('> Key points:\n> - alpha\n> - beta');
+  ok(/<blockquote>Key points:<ul><li>alpha<\/li><li>beta<\/li><\/ul><\/blockquote>/.test(bqList),
+     'FIX: a bullet list inside a blockquote folds into one <ul> (no double-nest, no `<ul><ul>`)');
+  ok(!/<ul>\s*<ul>/.test(bqList), 'the quoted list is NOT double-wrapped by the global list-wrap pass');
+  ok(!/&gt;\s*- alpha|<br>- alpha/.test(bqList), 'no raw `- ` marker leaks into the quoted list');
+
+  const bqNum = mdToHtml('> Steps:\n> 1. one\n> 2. two');
+  ok(/<blockquote>Steps:<ol><li>one<\/li><li>two<\/li><\/ol><\/blockquote>/.test(bqNum),
+     'a numbered list inside a blockquote folds into one <ol>');
+  ok(!/<ol>\s*<ul>|1\. one/.test(bqNum), 'quoted ordered list is a real <ol>, not `<ol><ul>` and no leaked `1.`');
+
+  const bqHead = mdToHtml('> # Quoted title\n> and body');
+  ok(/<blockquote><h1>Quoted title<\/h1>and body<\/blockquote>/.test(bqHead),
+     'an ATX heading inside a blockquote renders as <h1>, not a leaked `#`');
+
+  // RED PROOF: the pre-fix behavior (join every quote line with <br>, no inner
+  // block processing) leaks the raw list marker instead of a <ul>.
+  const oldBq = (md) => {
+    let h = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    h = h.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) =>
+      `<blockquote>${m.replace(/^(?:&gt;[ \t]?)+/gm, '').replace(/\n/g, '<br>')}</blockquote>`);
+    return h;
+  };
+  ok(/<br>- alpha<br>- beta/.test(oldBq('> Key points:\n> - alpha\n> - beta')),
+     'RED PROOF: the old <br>-join blockquote leaks the raw `- ` list markers');
+}
+{
+  // Byte-identical guard: a PLAIN prose blockquote is unchanged by renderQuoteInner
+  // (no leading markers -> every line falls to the <br>-joined prose run).
+  ok(/<blockquote>line one<br>line two<\/blockquote>/.test(mdToHtml('> line one\n> line two')),
+     'prose blockquote stays exactly `line one<br>line two` (zero regression)');
+  ok(/<blockquote>-&gt; keep this arrow<\/blockquote>/.test(mdToHtml('> -> keep this arrow')),
+     'a lone `>`-arrow in quote content is still preserved, not folded into a list');
+}
 
 // ── GFM tables render as <table>, not a leaked `| a | b |` paragraph ──
 // LLM research reports (esp. deep-research runs) emit pipe tables constantly.
