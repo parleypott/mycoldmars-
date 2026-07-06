@@ -79,7 +79,6 @@ export default defineConfig({
         zanyplans: resolve(__dirname, 'zanyplans/index.html'),
         spin: resolve(__dirname, 'spin/index.html'),
         hakka: resolve(__dirname, 'hakka/index.html'),
-        animation: resolve(__dirname, 'animation/index.html'),
         essays: resolve(__dirname, 'essays/index.html'),
         eez: resolve(__dirname, 'eez/index.html'),
         modernMiddleEast: resolve(__dirname, 'modern-middle-east/index.html'),
