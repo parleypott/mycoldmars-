@@ -118,6 +118,44 @@ for (const game of TWINS) {
   ok(exists, 'modern-middle-east/src/main.js exists (third quiz game in the family, intentionally divergent)');
 }
 
+// ── answer-position fairness wiring: ALL THREE games (incl. the divergent modern-middle-east)
+//    must apply shuffleOptions in pickQuestions ──
+//
+// The hand-authored banks cluster the correct answer on ONE position (fascism 42/50 on index 1,
+// modern-middle-east 36/~65 on index 1), so a player who always picks the second option scores
+// ~84% knowing nothing. Commit 19a18e4 killed that "always pick B" tell by mapping every picked
+// question through shared shuffleOptions(). The pure function is mutation-locked in
+// quiz-answer.test.mjs, and the fascism/flyingmoney WIRING rides the engine byte-lock above — but
+// modern-middle-east's main.js is INTENTIONALLY divergent and exempt from that lock, so its wiring
+// is otherwise unguarded. mme is precisely the game where the exploit was worst, and it's the one
+// that could silently drop `.map(q => shuffleOptions(q))` in a refactor and quietly resurrect the
+// exploit with every other test still green. Lock the wiring for all three so the fairness property
+// can't regress in any family member.
+{
+  const FAMILY = ['fascism', 'flyingmoney', 'modern-middle-east'];
+  for (const game of FAMILY) {
+    const src = read(game, 'main.js');
+    // 1) the shared-core import must actually bring shuffleOptions in (a wired-but-unimported name
+    //    would ReferenceError at play time; an imported-but-unwired name is the silent regress).
+    ok(/import\s*\{[^}]*\bshuffleOptions\b[^}]*\}\s*from\s*['"][^'"]*shared\/quiz-answer\.js['"]/.test(src),
+       `${game}/src/main.js must import shuffleOptions from the shared answer core.`);
+    // 2) pickQuestions must APPLY it. Isolate the pickQuestions body (from its declaration to the
+    //    next top-level function or EOF) so a stray shuffleOptions reference elsewhere can't satisfy
+    //    the check — the fairness map has to live in the question-selection path itself.
+    const pqIdx = src.indexOf('function pickQuestions');
+    ok(pqIdx >= 0, `${game}/src/main.js must define pickQuestions (the question-selection path).`);
+    if (pqIdx >= 0) {
+      const after = src.slice(pqIdx + 'function pickQuestions'.length);
+      const nextFn = after.indexOf('\nfunction ');
+      const body = nextFn >= 0 ? after.slice(0, nextFn) : after;
+      ok(/shuffleOptions\s*\(/.test(body),
+         `${game}/src/main.js pickQuestions no longer applies shuffleOptions — the answer-position ` +
+         `"always pick B" exploit (commit 19a18e4) has silently regressed for this game. Restore ` +
+         `\`.map((q) => shuffleOptions(q))\` on the picked pool.`);
+    }
+  }
+}
+
 // ── coverage guard: a NEW shared src/*.js logic file must not sneak into one twin unlocked ──
 {
   const srcJs = (game) => new Set(
