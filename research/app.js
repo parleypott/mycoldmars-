@@ -59,7 +59,14 @@ window.fetch = gFetch;
 // ----- session model -----
 const SESSIONS_KEY = "research-hub-sessions-v1";
 function loadSessions() {
-  return parseSessionList(localStorage.getItem(SESSIONS_KEY));
+  // renderHistory() calls this at module boot, so the read must survive a
+  // storage-blocked browser: the bare `localStorage.getItem` getter throws
+  // SecurityError there (iOS Safari "Block All Cookies", a sandboxed webview),
+  // and unguarded at boot that throw white-screens the whole research hub.
+  // parseSessionList already tolerates a null/garbage value → degrade to [].
+  let raw = null;
+  try { raw = localStorage.getItem(SESSIONS_KEY); } catch {}
+  return parseSessionList(raw);
 }
 function saveSessions(arr) {
   try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(arr.slice(0, 60))); } catch {}

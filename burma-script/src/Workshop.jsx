@@ -83,7 +83,12 @@ export function Workshop() {
   const [verdict, setVerdict] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [width, setWidth] = useState(() => {
-    const v = parseInt(localStorage.getItem(LS_WS_WIDTH) || '', 10);
+    // Runs on mount (Editor renders <Workshop/> at boot). Guard the getter so a
+    // storage-blocked browser doesn't throw SecurityError inside render and blank
+    // the editor — degrade to the CSS default width.
+    let raw = '';
+    try { raw = localStorage.getItem(LS_WS_WIDTH) || ''; } catch {}
+    const v = parseInt(raw, 10);
     return Number.isFinite(v) && v >= 340 ? v : 0; // 0 → use the CSS default
   });
   const asideRef = useRef(null);

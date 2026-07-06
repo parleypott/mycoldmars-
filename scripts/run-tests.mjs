@@ -226,7 +226,13 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // flagged. Ledger-backed (scripts/rangeerror-alloc-triage.tsv): starts GREEN (every
 // live site is `.length`-based or `Math.max(0,…)`-floored); --check fails only on a
 // NEW unclamped computed count.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-inline-anthropic-messages.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs'].flatMap((s) =>
+// find-unguarded-boot-localstorage flags every bare `localStorage` access NOT
+// lexically inside a try block — the storage-blocked-browser SecurityError brick
+// hand-fixed 8+ times this week (nile-flights, essays, laserspace, walden-3d,
+// walden-2d, westchester, burma-essays, hakka/night-market). Ledger-backed
+// (scripts/unguarded-boot-localstorage-triage.tsv): --check fails only on a NEW
+// untriaged unguarded access, forcing a boot-vs-deferred judgment before merge.
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-inline-anthropic-messages.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-unguarded-boot-localstorage.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

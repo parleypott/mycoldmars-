@@ -127,7 +127,13 @@
       }
     }
 
-    const entries = parseFeedbackList(localStorage.getItem('pg-feedback'));
+    // Boot read — guard the localStorage getter so a storage-blocked browser
+    // (iOS "Block All Cookies", sandboxed webview) degrades to an empty list
+    // instead of white-screening the feedback viewer. parseFeedbackList already
+    // tolerates null → [].
+    let pgRaw = null;
+    try { pgRaw = localStorage.getItem('pg-feedback'); } catch {}
+    const entries = parseFeedbackList(pgRaw);
     const container = document.getElementById('entries');
     const countEl = document.getElementById('count');
     const emptyEl = document.getElementById('empty');

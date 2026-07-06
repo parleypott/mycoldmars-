@@ -81,8 +81,10 @@ with check (bucket_id = 'hunter-uploads');
   </div>
 
   <script>
-    // Auto-replace Supabase project URL if available
-    const url = localStorage.getItem('supabase_url') || '';
+    // Auto-replace Supabase project URL if available. Guard the boot-time getter
+    // so a storage-blocked browser doesn't throw SecurityError and blank the page.
+    let url = '';
+    try { url = localStorage.getItem('supabase_url') || ''; } catch {}
     if (url) {
       const projectRef = url.match(/https:\/\/([^.]+)/)?.[1];
       if (projectRef) {

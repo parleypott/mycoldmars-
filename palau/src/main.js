@@ -202,7 +202,17 @@ const THEMES = {
 };
 
 const THEME_ORDER = ['neon', 'realistic'];
-let currentTheme = readTheme(localStorage, 'palau-theme', 'neon', (t) => !!THEMES[t]);
+// Guard the localStorage REFERENCE, not just the read: in a storage-blocked
+// browser (iOS Safari "Block All Cookies", Firefox dom.storage disabled, a
+// sandboxed webview) the bare `localStorage` getter throws SecurityError when
+// merely EVALUATED to pass as an argument — before readTheme runs, so readTheme's
+// own internal try can't catch it. Unguarded here at module boot that throw kills
+// the whole script and the map never initializes (dead page). Keep the default on
+// any throw; a normal browser is byte-identical (readTheme returns the saved value).
+let currentTheme = 'neon';
+try {
+  currentTheme = readTheme(localStorage, 'palau-theme', 'neon', (t) => !!THEMES[t]);
+} catch { /* blocked storage getter — keep the 'neon' default */ }
 
 // ─── Create Map ───
 const map = new mapboxgl.Map({

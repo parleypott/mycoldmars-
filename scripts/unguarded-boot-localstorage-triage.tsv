@@ -1,0 +1,68 @@
+# unguarded-boot-localstorage-triage.tsv — verdicts for find-unguarded-boot-localstorage.mjs
+#
+# One row per UNGUARDED bare-`localStorage` access (a site NOT lexically inside a
+# try block). The gate FAILS `--check` on any flagged site NOT listed here (NEW),
+# so a newly-added unguarded access must be judged before it can merge. Judge:
+# is it reached during SYNCHRONOUS page boot (a top-level statement, an init IIFE,
+# or a function called at load)? If yes it can white-screen a storage-blocked
+# browser (iOS "Block All Cookies", sandboxed webview) — GUARD it (try/catch or a
+# safeLsGet wrapper), don't add a SAFE row. If it only runs later from a user
+# handler / an async chain whose caller .catch()es / a node-only script, it can't
+# brick boot — mark SAFE with the reason.
+#
+# FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON   (# = comment / blank skipped)
+burma-script/migrate-probe.mjs	localStorage.setItem(LS_DOC,rawIn)	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	ok(bakKeys.length&&localStorage.getItem(bakKeys[0])===rawIn,	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	constafter=JSON.parse(localStorage.getItem(LS_DOC))	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	ok(localStorage.getItem(LS_MIGRATED)==='1','6a.migrationmarkerset')	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	constafter2=JSON.parse(localStorage.getItem(LS_DOC))	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	localStorage.setItem(LS_DOC,corruptRaw)	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	ok(localStorage.getItem(LS_DOC)===corruptRaw,'7b.FALLBACK:originalbytesleftuntouched')	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	localStorage.setItem(LS_DOC,rawIn)	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/migrate-probe.mjs	ok(snapKey&&localStorage.getItem(snapKey)===rawIn,'8.snapshotDocbacksupbeforewipe')	SAFE	node proof/test harness (runs migrate-doc.js under node); not a shipped browser page — cannot brick a user
+burma-script/src/cloud-sync.js	if(typeoflocalStorage!=='undefined'&&localStorage)	SAFE	deferred cloud-sync path (not module boot); value-use is try-wrapped; typeof-idiom is the node/SSR availability guard; dependency-injected storage
+burma-script/src/cloud-sync.js	(typeoflocalStorage!=='undefined'&&localStorage)	SAFE	deferred cloud-sync path (not module boot); value-use is try-wrapped; typeof-idiom is the node/SSR availability guard; dependency-injected storage
+burma-script/src/recovery.js	conststorage=deps.storage||(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	conststorage=deps.storage||(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	conststorage=deps.storage||(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	conststorage=deps.storage||(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	conststorage=deps.storage||(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+burma-script/src/recovery.js	(typeoflocalStorage!=='undefined'?localStorage:null)	SAFE	recovery exports called INSIDE try at main.jsx:671/691 (RecoveryBanner); deferred not boot; dependency-injected storage; typeof-idiom node guard
+hakka/src/main.js	localStorage.setItem('hk-studied',JSON.stringify([...studied]))	SAFE	setItem in the save handler (deferred user action, not module boot)
+night-market/src/main.js	localStorage.setItem('nm-studied',JSON.stringify([...studied]))	SAFE	setItem in the save handler (deferred user action, not module boot)
+palau/src/main.js	saveTheme(localStorage,'palau-theme',currentTheme)	SAFE	saveTheme in the vibes CLICK handler (deferred, not boot); saveTheme try-wraps the write
+pinglobe-feedback/index.html	localStorage.removeItem('pg-feedback')	SAFE	removeItem in the clear-button click handler (deferred, not boot)
+pinglobe/src/main.js	conststored=parseFeedbackList(localStorage.getItem('pg-feedback'))	SAFE	read+write in the feedback-SUBMIT click handler (deferred, not boot)
+pinglobe/src/main.js	localStorage.setItem('pg-feedback',JSON.stringify(stored))	SAFE	read+write in the feedback-SUBMIT click handler (deferred, not boot)
+public/burma-essays/index.html	constsetLocalPos=(id,p)=>localStorage.setItem(lsKey(id),String(p))	SAFE	write in a user-action handler (pause/offline-toggle/rate/dismiss), deferred not boot
+public/burma-essays/index.html	localStorage.setItem('burma:offline',JSON.stringify([...s]))	SAFE	write in a user-action handler (pause/offline-toggle/rate/dismiss), deferred not boot
+public/burma-essays/index.html	constdropDetailLocal=(id)=>localStorage.removeItem('burma:detail:'+id)	SAFE	write in a user-action handler (pause/offline-toggle/rate/dismiss), deferred not boot
+public/burma-essays/index.html	localStorage.setItem('burma:rate',String(r))	SAFE	write in a user-action handler (pause/offline-toggle/rate/dismiss), deferred not boot
+public/burma-essays/index.html	localStorage.setItem('burma:iosHintDismissed','1')	SAFE	write in a user-action handler (pause/offline-toggle/rate/dismiss), deferred not boot
+public/walden-3d/photoreal.html	localStorage.setItem('walden-maps-key',k)	SAFE	setItem/removeItem in the maps-key save/clear handler (deferred, not boot)
+public/walden-3d/photoreal.html	localStorage.removeItem('walden-maps-key')	SAFE	setItem/removeItem in the maps-key save/clear handler (deferred, not boot)
+public/walden-3d/studio.html	localStorage.setItem('walden-maps-key',k)	SAFE	setItem in save handlers (deferred user action, not module boot)
+public/walden-3d/studio.html	localStorage.setItem('walden-2d-rot',plan2dRot)	SAFE	setItem in save handlers (deferred user action, not module boot)
+public/walden-3d/studio.html	localStorage.setItem('walden-2d-locked',plan2dLocked?'1':'0')	SAFE	setItem in save handlers (deferred user action, not module boot)
+public/walden-3d/studio.html	localStorage.setItem('walden-2d-rot',plan2dRot)	SAFE	setItem in save handlers (deferred user action, not module boot)
+public/walden-3d/studio.html	localStorage.setItem('walden-sb-struct',sbStruct)	SAFE	setItem in save handlers (deferred user action, not module boot)
+public/walden-3d/studio.html	localStorage.setItem('walden-sb-pool',sbPool)	SAFE	setItem in save handlers (deferred user action, not module boot)
+public/walden/index.html	localStorage.setItem(SCENES,JSON.stringify(o))	SAFE	setItem in scene-save (deferred, not boot)
+public/walden/index.html	localStorage.setItem(SCENES,JSON.stringify(o))	SAFE	setItem in scene-save (deferred, not boot)
+public/westchester/index.html	i<localStorage.length	SAFE	clearFetchCache: localStorage.length/key in the clear-cache handler (deferred, not boot)
+public/westchester/index.html	constk=localStorage.key(i)	SAFE	clearFetchCache: localStorage.length/key in the clear-cache handler (deferred, not boot)
+queen-scarlet-school/index.html	localStorage.setItem(LS_LIST,JSON.stringify(l))	SAFE	deferred runtime paths (save / autoSpeak after a wordy turn / persistLocalIdOnly after save), not module boot
+queen-scarlet-school/index.html	if(localStorage.getItem('qss:auto_speak')==='off')return	SAFE	deferred runtime paths (save / autoSpeak after a wordy turn / persistLocalIdOnly after save), not module boot
+queen-scarlet-school/index.html	constraw=localStorage.getItem(LS_KEY(state.name))	SAFE	deferred runtime paths (save / autoSpeak after a wordy turn / persistLocalIdOnly after save), not module boot
+queen-scarlet-school/index.html	localStorage.setItem(LS_KEY(state.name),JSON.stringify(obj))	SAFE	deferred runtime paths (save / autoSpeak after a wordy turn / persistLocalIdOnly after save), not module boot
+todo/index.html	localStorage.setItem(STORAGE_KEY,JSON.stringify(state))	SAFE	setItem persist (deferred, not boot)
+translation/src/command-palette.js	returnparseRecent(localStorage.getItem(RECENT_KEY))	SAFE	loadRecent: the Cmd-K palette-open path (deferred, not boot)
+translation/src/db.js	if(localStorage.getItem(MIGRATION_KEY))return	SAFE	async migrateLocalStorageToSupabase — a sync SecurityError becomes a rejected promise caught by main.js:7525 .catch(); not a boot brick
+translation/src/db.js	localStorage.setItem(MIGRATION_KEY,JSON.stringify(	SAFE	async migrateLocalStorageToSupabase — a sync SecurityError becomes a rejected promise caught by main.js:7525 .catch(); not a boot brick
+translation/src/db.js	localStorage.setItem(MIGRATION_KEY,JSON.stringify(	SAFE	async migrateLocalStorageToSupabase — a sync SecurityError becomes a rejected promise caught by main.js:7525 .catch(); not a boot brick
+translation/src/snapshot.js	constv=localStorage.getItem(snapKey(id))	SAFE	snapshotStats: no boot caller (only tests); deferred stats path; readIndex is array-guarded
+translation/src/sot-hunter.js	returnparseFeedbackList(localStorage.getItem(FEEDBACK_KEY))	SAFE	loadFeedback: deferred feedback ops (no boot caller), not module boot

@@ -7126,7 +7126,10 @@
       fallbackInit();
     }
     function fallbackInit() {
-      const last = localStorage.getItem(LS_LAST);
+      // Boot path — guard the getter so a storage-blocked browser degrades to a
+      // fresh story instead of throwing SecurityError and blanking the app.
+      let last = null;
+      try { last = localStorage.getItem(LS_LAST); } catch {}
       if (last) { const d = loadStory(last); if (d) { bootStory(last, d); return; } }
       newStory(false);
     }

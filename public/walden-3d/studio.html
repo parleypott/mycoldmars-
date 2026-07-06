@@ -445,7 +445,7 @@ function setMode(m){
   document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   const act=document.querySelector('#bar button.on');$('#bar .gl').style.width=act.offsetWidth+'px';$('#bar .gl').style.transform=`translateX(${act.offsetLeft-4}px)`;
   if(m==='2d'){build2D();buildDesignUI();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='design · place, drag, measure setbacks';$('#hint').style.display='none';applyRot2d();}
-  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';setPlace(null);if(!localStorage.getItem('walden-maps-key'))$('#gate').classList.remove('hide');}
+  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';setPlace(null);if(!readLS('walden-maps-key'))$('#gate').classList.remove('hide');}
 }
 document.querySelectorAll('#bar button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 
