@@ -508,7 +508,14 @@ export function mdToHtml(md) {
   // `[alt](url)` remnant is never linkified. A linked image `[![alt](img)](url)`
   // degrades to a plain text link (its alt becomes the link label).
   html = html.replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))*)\)/g, (_, alt) => alt);
-  html = html.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, dest) => {
+  // Inline links `[label](dest)`. The label capture allows one level of BALANCED
+  // brackets — `[ref [1]](url)` / `[Smith [2023]](url)` — because citation-heavy
+  // research prose nests a bracketed marker inside the link text; the old
+  // `[^\]]+` stopped at the FIRST inner `]`, so `[ (` never lined up and the whole
+  // link leaked as literal `[ref [1]](url)`. The `*` also admits an EMPTY label
+  // `[](url)` (a model wrapping a bare URL) — rendered with the URL as its own
+  // visible text instead of leaking a `[]` husk with an autolinked dest.
+  html = html.replace(/\[((?:[^\[\]]|\[[^\]]*\])*)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_, label, dest) => {
     // Split off an optional CommonMark link TITLE: `[t](url "title")` /
     // `(url 'title')` / `(url (title))`. The title is metadata, never part of
     // the href — LLM research prose emits titled links constantly. Before this,
@@ -527,7 +534,10 @@ export function mdToHtml(md) {
     // with a `](` lookbehind, no longer eats this before we get here.)
     const url = (m ? m[1] : dest).replace(/^&lt;([\s\S]*)&gt;$/, '$1');
     const href = safeHref(url);
-    return href ? `<a href="${href}" target="_blank" rel="noopener">${label}</a>` : label;
+    // Empty label (`[](url)`) shows the URL as its own text; both are already
+    // esc()'d so this stays safe whether or not a valid href resolves.
+    const text = label || url;
+    return href ? `<a href="${href}" target="_blank" rel="noopener">${text}</a>` : text;
   });
   // Reference-style link RESOLUTION, using the `refs` map collected above. Runs
   // after the inline `[label](url)` pass (those are already <a> tags, so no bare

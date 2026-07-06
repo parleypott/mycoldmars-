@@ -1559,5 +1559,41 @@ function fullOldMd(md) {
      'NO-REGRESSION: two lists separated by a paragraph stay two separate <ul>s');
 }
 
+// ── Inline links: BRACKETED link text + EMPTY label ──
+// Citation-heavy research prose nests a bracketed marker inside link text
+// (`[Smith [2023]](url)`) and sometimes wraps a bare URL in an empty label
+// (`[](url)`). The old `[^\]]+` label capture stopped at the first inner `]`,
+// so the `](` never lined up and the WHOLE link leaked as literal markdown; an
+// empty label was skipped entirely, leaking a `[]` husk. Now the label admits
+// one level of balanced brackets and an empty label renders the URL as text.
+{
+  const nested = mdToHtml('See [ref [1]](https://example.com) here.');
+  ok(/<a href="https:\/\/example\.com" target="_blank" rel="noopener">ref \[1\]<\/a>/.test(nested),
+     'FIX: bracketed link text [ref [1]](url) linkifies with the brackets kept in the label');
+  ok(!/\]\(/.test(nested.replace(/href="[^"]*"/g, '')),
+     'MUTATION: no raw ](  leaks outside the href — the old [^\\]]+ label capture is gone');
+
+  const smith = mdToHtml('[Smith [2023]](https://doi.org/x)');
+  ok(/<a [^>]*>Smith \[2023\]<\/a>/.test(smith),
+     'FIX: [Smith [2023]](url) keeps the nested citation bracket in the link text');
+
+  const empty = mdToHtml('[](https://example.com/report)');
+  ok(/<a href="https:\/\/example\.com\/report" target="_blank" rel="noopener">https:\/\/example\.com\/report<\/a>/
+     .test(empty),
+     'FIX: empty-label [](url) renders the URL as its own visible link text');
+  ok(!/\[\]/.test(empty), 'MUTATION: no leftover [] husk from the empty label');
+
+  // NO-REGRESSION: an ordinary link is byte-identical to before.
+  ok(/^<p><a href="https:\/\/x\.com" target="_blank" rel="noopener">plain<\/a><\/p>$/
+     .test(mdToHtml('[plain](https://x.com)')),
+     'NO-REGRESSION: a plain [label](url) link renders exactly as before');
+  // NO-REGRESSION: a stray `[a]` (no following `(`) is NOT swallowed as a link.
+  ok(/\[a\] and <a [^>]*>b<\/a>/.test(mdToHtml('[a] and [b](https://x.com)')),
+     'NO-REGRESSION: bare [a] stays literal; only the real [b](url) linkifies');
+  // NO-REGRESSION: a dangerous scheme in an empty-label link stays inert text.
+  ok(!/<a /.test(mdToHtml('[](javascript:alert(1))')),
+     'NO-REGRESSION: empty-label link with a dangerous scheme renders no <a>');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
