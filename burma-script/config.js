@@ -36,7 +36,7 @@ export const BURMA = {
     // round-trip); it only changes WHO can hold the pen at once. The save engine stays as the
     // local durability + cloud version-history snapshot layer. Verified live 2026-07-06 with a
     // two-browser concurrent-edit test before this flag was enabled.
-    collab: false, // DISABLED 2026-07-06: collab-vendor boot crash (Pi TDZ) — re-enable after bundling fix
+    collab: true, // real-time co-editing via Liveblocks + Yjs (room `script-burma`)
   },
   blocksData: scriptData.blocks || [],
   storage: {

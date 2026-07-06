@@ -107,14 +107,30 @@ export default defineConfig(({ mode }) => {
         // mobile / cold cache.
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          // linkifyjs is a dependency of @tiptap/extension-link (a StarterKit member → editor-vendor).
+          // It MUST be pinned to editor-vendor and MUST be matched BEFORE the collab rule below.
+          // ROOT CAUSE of the prod-only "Cannot access 'Pi' before initialization" (TDZ) crash:
+          // the collab rule's `id.includes('yjs')` is a naive substring test, and the string
+          // "linkif·yjs" ends in "yjs" — so linkifyjs was being swept into collab-vendor. That made
+          // editor-vendor import linkifyjs FROM collab-vendor, while collab-vendor already imports
+          // PluginKey (prosemirror-state, in editor-vendor) and calls `new PluginKey('y-sync')` at
+          // module top-level. Two chunks importing each other can't be init-ordered, so collab-vendor
+          // ran before editor-vendor finished defining PluginKey (minified `Pi`) → TDZ → blank page.
+          // Dev masked it (unminified, no forced chunk split). Pinning linkifyjs here + scoping the
+          // yjs match to a path boundary (below) removes the back-edge: collab-vendor → editor-vendor
+          // is now one-directional, so editor-vendor always initializes first.
+          if (/[\\/]linkifyjs?[\\/]/.test(id)) return 'editor-vendor';
           // COLLAB — keep the realtime stack OUT of editor-vendor (which every script session
           // loads). These packages are only reachable through the dynamically-imported
           // collab-runtime chunk, so grouping them here means a non-collab session never fetches
           // a byte of yjs/liveblocks. MUST come before the '@tiptap' catch-all below, or
           // @tiptap/y-tiptap + the collaboration extensions would leak into editor-vendor.
+          // NOTE: yjs / y-protocols / y-tiptap are matched with path-boundary regexes (not bare
+          // substrings) so a package like linkifyjs that merely CONTAINS "yjs" is never captured.
           if (
-            id.includes('y-tiptap') || id.includes('yjs') || id.includes('@liveblocks') ||
-            id.includes('extension-collaboration') || id.includes('y-protocols') || id.includes('lib0')
+            /[\\/]y-tiptap[\\/]/.test(id) || /[\\/]yjs[\\/]/.test(id) || id.includes('@liveblocks') ||
+            id.includes('extension-collaboration') || /[\\/]y-protocols[\\/]/.test(id) ||
+            /[\\/]lib0[\\/]/.test(id)
           ) return 'collab-vendor';
           if (id.includes('@tiptap') || id.includes('prosemirror')) return 'editor-vendor';
           if (id.includes('wavesurfer')) return 'wavesurfer';
