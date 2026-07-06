@@ -5,7 +5,7 @@
  *
  * Run: bun api/script-doc.test.mjs
  */
-const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP } = await import('./script-doc.js');
+const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP, stalePayload } = await import('./script-doc.js');
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL ' + m); } };
@@ -101,6 +101,40 @@ eq(toRevisionId(''), null, 'r9. empty rejected');
 }
 ok(toRevisionView(null) === null, 'rv11. null row -> null');
 ok(REVISION_LIST_CAP === 50, 'rv12. list capped at 50 (light metadata payload)');
+
+/* ---- stalePayload: the { doc, version, updated_by } wire shape for 409s and GET ---- */
+// This is the same-user false-conflict contract: a refused PUT must hand back WHO wrote the version
+// it lost to, so the client can tell "my own other tab" from "genuinely another person". null means
+// UNKNOWN and the client falls back to the full ANOTHER-DEVICE banner (safe default).
+{
+  const row = { doc: DOC('cloud copy'), version: 11, updated_by: 'u-1' };
+  const p1 = stalePayload(row, true);
+  eq(p1.version, 11, 'sp1. version coerced from the row');
+  eq(p1.updated_by, 'u-1', 'sp2. attributed writer carried through the 409');
+  ok(p1.doc === row.doc, 'sp3. current cloud doc handed back so the client can snapshot-and-adopt');
+}
+{
+  const p2 = stalePayload({ doc: DOC('x'), version: 3, updated_by: null }, true);
+  eq(p2.updated_by, null, 'sp4. unattributed row (pre-attribution / access-code writer) -> null, not undefined');
+}
+{
+  const p3 = stalePayload({ doc: DOC('x'), version: 3 }, true);
+  eq(p3.updated_by, null, 'sp5. missing updated_by column value -> null');
+}
+{
+  const p4 = stalePayload({ doc: DOC('x'), version: 3, updated_by: '' }, true);
+  eq(p4.updated_by, null, 'sp6. empty-string writer -> null (proof-or-nothing)');
+}
+{
+  const p5 = stalePayload({ doc: DOC('x'), version: 3, updated_by: 42 }, true);
+  eq(p5.updated_by, null, 'sp7. non-string writer -> null');
+}
+{
+  const p6 = stalePayload(null, false);
+  eq(p6.doc, null, 'sp8. no row -> empty doc');
+  eq(p6.version, 0, 'sp9. no row -> version 0');
+  eq(p6.updated_by, null, 'sp10. no row -> null writer');
+}
 
 console.log(`\nscript-doc: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

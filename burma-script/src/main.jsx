@@ -451,6 +451,12 @@ function SaveStatus() {
   // silently clear, and the pill must NEVER read "Saved to cloud" while it stands. Both docs are
   // already snapshotted to .conflict.<ts> by handlePushResult; this just surfaces the reload banner.
   const [cloudConflict, setCloudConflict] = useState(false);
+  // SAME-USER conflict (wp-cloud-conflict-own) — the conflicting cloud version was written by the
+  // SAME signed-in user (Johnny's own other tab / expired-token session). Data treatment upstream is
+  // identical (snapshots + latch), but the UI must be CALM: a gentle amber "reload" note like the
+  // cross-tab stale notice, never the alarming red ANOTHER-DEVICE banner. Sticky until reload for the
+  // same reason cloudConflict is: pushes are latched, so the pill must not go green.
+  const [ownConflict, setOwnConflict] = useState(false);
   const [, setNowTick] = useState(0);           // forces the relative-time label to re-render
 
   useEffect(() => {
@@ -490,6 +496,10 @@ function SaveStatus() {
     const onCloudSaving = () => setCloud((c) => (c === 'conflict' ? c : 'syncing'));
     // The two-device divergence. Sticky red-ish state: cloud := 'conflict', surface the reload banner.
     const onCloudConflict = () => { setCloud('conflict'); setCloudConflict(true); };
+    // SAME-USER divergence — cloud state still flips to 'conflict' (the pill must honestly say
+    // "NEWER VERSION ON CLOUD · RELOAD" and never a false green while pushes are latched), but the
+    // banner is the CALM own-tab note, not the red alert.
+    const onCloudConflictOwn = () => { setCloud('conflict'); setOwnConflict(true); };
     window.addEventListener('wp-dirty', onDirty);
     window.addEventListener('wp-saved', onSaved);
     window.addEventListener('wp-save-degraded', onDegraded);
@@ -499,6 +509,7 @@ function SaveStatus() {
     window.addEventListener('wp-cloud-saved', onCloudSaved);
     window.addEventListener('wp-cloud-offline', onCloudOffline);
     window.addEventListener('wp-cloud-conflict', onCloudConflict);
+    window.addEventListener('wp-cloud-conflict-own', onCloudConflictOwn);
     // RACE FIX: consume a failure detected before this listener existed (pre-render startup).
     if (INITIAL_SAVE_FAILURE) {
       setState('failed');
@@ -515,6 +526,7 @@ function SaveStatus() {
       window.removeEventListener('wp-cloud-saved', onCloudSaved);
       window.removeEventListener('wp-cloud-offline', onCloudOffline);
       window.removeEventListener('wp-cloud-conflict', onCloudConflict);
+      window.removeEventListener('wp-cloud-conflict-own', onCloudConflictOwn);
     };
   }, []);
 
@@ -560,6 +572,17 @@ function SaveStatus() {
             another device saved a newer version of this script while you were editing — your latest
             change here was NOT merged to the cloud. Both versions are safely backed up. Reload to pull
             the newer version, then re-apply your change.
+            {' '}
+            <button class="wp-save-banner-act" onClick={() => location.reload()}>RELOAD</button>
+          </span>
+        </div>
+      )}
+      {ownConflict && !cloudConflict && (
+        <div class="wp-save-banner is-stale" role="status" aria-live="polite">
+          <span class="wp-save-banner-lab">↻ YOU EDITED THIS ELSEWHERE</span>
+          <span class="wp-save-banner-msg">
+            you saved a newer version of this script from another tab or session of your own — no one
+            else touched it. Everything is safely backed up. Reload to keep going from the newest version.
             {' '}
             <button class="wp-save-banner-act" onClick={() => location.reload()}>RELOAD</button>
           </span>

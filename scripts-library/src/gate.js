@@ -162,6 +162,17 @@ function wireGateForms() {
 export async function ensureUnlocked() {
   installApiFetchInterceptor();
 
+  // IDENTITY SEAM for the engine (same-user false-conflict fix): mirror the signed-in user's auth id
+  // to a window global the episode engine's cloud-sync can read WITHOUT importing the library (the
+  // engine stays library-agnostic). cloud-sync compares this against a 409's `updated_by` to tell
+  // "my own other tab/session" from "genuinely another person" — and it fails SAFE: when this is
+  // null/undefined (signed out, open mode, standalone read-only page) the engine treats identity as
+  // unknown and keeps the full ANOTHER-DEVICE banner. onAuthChange fires immediately with the cached
+  // user and again on every sign-in/out/token-refresh, so the global tracks the whole session.
+  onAuthChange((user) => {
+    try { window.__wpCurrentUserId = (user && user.id) || null; } catch {}
+  });
+
   // Open mode — no auth configured. Mount immediately.
   if (!authRequired()) { hideGate(); return; }
 

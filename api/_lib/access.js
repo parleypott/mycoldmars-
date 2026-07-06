@@ -31,7 +31,10 @@ export const BEARER_JWT_SHAPE = /^Bearer\s+(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+
 
 // Module-level cache. Edge runtime keeps the module alive across
 // requests in the same instance, so this is per-instance. Key: JWT
-// string. Value: { ok, expiresAt }.
+// string. Value: { ok, userId, expiresAt }. userId is the Supabase auth
+// user id the token resolved to (null when verification failed or the
+// body carried no id) — cached alongside ok so requestUserId() below
+// costs zero extra round-trips on the hot save path.
 const _jwtCache = new Map();
 const JWT_CACHE_TTL_MS = 60_000;
 const JWT_CACHE_MAX = 200;
@@ -59,25 +62,52 @@ export function pruneJwtCache(cache, now, max = JWT_CACHE_MAX) {
   }
 }
 
+// Verify a bearer JWT against /auth/v1/user and resolve WHO it belongs to.
+// Returns { ok, userId } — userId is the Supabase auth user id (string) or
+// null when the verify failed / the body had no id. Results (both fields)
+// are cached per token for JWT_CACHE_TTL_MS.
 async function verifyBearerJwt(token) {
   const now = Date.now();
   // Trim the cache lazily on the hot path (no-op until it's over the cap).
   pruneJwtCache(_jwtCache, now);
   const cached = _jwtCache.get(token);
-  if (cached && cached.expiresAt > now) return cached.ok;
+  if (cached && cached.expiresAt > now) return { ok: cached.ok, userId: cached.userId ?? null };
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-  if (!supaUrl || !anon) return false;
+  if (!supaUrl || !anon) return { ok: false, userId: null };
   let ok = false;
+  let userId = null;
   try {
     const r = await fetch(`${supaUrl}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${token}`, apikey: anon },
       signal: AbortSignal.timeout(5000),
     });
     ok = r.ok;
+    if (r.ok) {
+      const body = await r.json().catch(() => null);
+      userId = (body && typeof body.id === 'string' && body.id) ? body.id : null;
+    }
   } catch {}
-  _jwtCache.set(token, { ok, expiresAt: now + JWT_CACHE_TTL_MS });
-  return ok;
+  _jwtCache.set(token, { ok, userId, expiresAt: now + JWT_CACHE_TTL_MS });
+  return { ok, userId };
+}
+
+// WHO is making this request? Resolves the Authorization bearer JWT to the
+// Supabase auth user id, or null when there is no JWT / it doesn't verify /
+// the caller came in on the legacy x-access-code path (identity unknown).
+// Best-effort by design: callers use this for ATTRIBUTION (e.g. script-doc's
+// updated_by), never for access control — checkAccess remains the gate.
+// NEVER throws.
+export async function requestUserId(req) {
+  try {
+    const auth = readHeader(req, 'authorization');
+    const m = BEARER_JWT_SHAPE.exec(auth);
+    if (!m) return null;
+    const { ok, userId } = await verifyBearerJwt(m[1]);
+    return ok ? (userId || null) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function checkAccess(req) {
@@ -95,7 +125,7 @@ export async function checkAccess(req) {
   const m = BEARER_JWT_SHAPE.exec(auth);
   if (m) {
     const token = m[1];
-    if (await verifyBearerJwt(token)) return null;
+    if ((await verifyBearerJwt(token)).ok) return null;
   }
 
   return new Response(JSON.stringify({

@@ -1,7 +1,7 @@
 export const config = { runtime: 'edge' };
 
 import { pgrValue } from './_lib/pgrest.js';
-import { checkAccess } from './_lib/access.js';
+import { checkAccess, requestUserId } from './_lib/access.js';
 
 /**
  * Script Library — GENERALIZED per-project cloud doc (Enterprise Wave 2).
@@ -16,13 +16,17 @@ import { checkAccess } from './_lib/access.js';
  *   • appends every accepted doc to public.script_doc_revisions — an append-only history so no save
  *     can ever destroy the previous version (the "restore forever" backstop)
  *
- *   GET  /api/script-doc?project=<slug|uuid>            -> { doc, version }  ({doc:null,version:0} empty)
+ *   GET  /api/script-doc?project=<slug|uuid>            -> { doc, version, updated_by }
+ *        ({doc:null,version:0,updated_by:null} empty). updated_by is the auth user id that wrote the
+ *        current row (null for pre-attribution rows / access-code writers).
  *   GET  /api/script-doc?project=<slug|uuid>&revisions=1 -> { revisions: [ {id,version,source,created_at,
  *        user_id,user_name,user_color} ] }   METADATA ONLY (no doc bodies), newest first, capped ~50.
  *   GET  /api/script-doc?project=<slug|uuid>&revision=<id> -> { doc, version }  one past revision's full doc
  *   PUT  /api/script-doc?project=<slug|uuid>  { doc, version, baseVersion? }
- *        accepted -> { version }               (also writes a revisions row)
- *        stale    -> 409 { doc, version }       (the current row, so the client snapshots-and-adopts)
+ *        accepted -> { version }               (also writes a revisions row; stamps updated_by)
+ *        stale    -> 409 { doc, version, updated_by }  (the current row + WHO wrote it, so the client
+ *                    can tell "my own other tab/session" from "genuinely another person" and only
+ *                    raise the ANOTHER-DEVICE banner for the latter — the false-conflict fix)
  *
  * The legacy burma_script_docs row is intentionally NOT touched by this endpoint — it stays as a
  * fallback until the client is fully cut over. DB access uses the service-role key (bypasses RLS);
@@ -81,7 +85,11 @@ export default async function handler(req) {
 
       const pid = await resolveProjectId(projectRef);
       if (!pid) return err(404, 'NO_PROJECT', 'unknown project');
-      return await putDoc(pid, v);
+      // WHO is writing — the JWT's auth user id, or null (access-code path / dev mode / no JWT).
+      // Attribution only, never access control: it stamps script_docs.updated_by so a later 409 can
+      // tell the refused client whether the conflicting version is its OWN user's work.
+      const userId = await requestUserId(req);
+      return await putDoc(pid, v, userId);
     }
 
     return err(405, 'METHOD', `Method ${req.method} not allowed`);
@@ -104,11 +112,11 @@ async function resolveProjectId(ref) {
 /* ------------------------------------------------------------------- read */
 
 async function getDoc(pid) {
-  const r = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version`);
+  const r = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version,updated_by`);
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json();
-  if (!rows.length) return ok({ doc: null, version: 0 });
-  return ok({ doc: rows[0].doc ?? null, version: toVersion(rows[0].version) });
+  if (!rows.length) return ok({ doc: null, version: 0, updated_by: null });
+  return ok(stalePayload(rows[0], true));
 }
 
 /* -------------------------------------------------------- revision history (read) */
@@ -166,28 +174,32 @@ async function resolveProfiles(userIds) {
 
 /* ------------------------------------------------------------------ write */
 
-async function putDoc(pid, { doc, version, baseVersion }) {
-  // Read current stored version to decide accept vs 409.
-  const cur = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version`);
+async function putDoc(pid, { doc, version, baseVersion }, userId = null) {
+  // Read current stored version to decide accept vs 409. updated_by rides along so a refusal can
+  // tell the client WHO wrote the version it lost to (the same-user false-conflict fix).
+  const cur = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version,updated_by`);
   if (!cur.ok) return err(502, 'DB_READ', await cur.text());
   const curRows = await cur.json();
   const exists = curRows.length > 0;
   const stored = exists ? toVersion(curRows[0].version) : 0;
 
   if (!isWriteAcceptable({ version, baseVersion, stored })) {
-    return err409({ doc: exists ? (curRows[0].doc ?? null) : null, version: stored });
+    return err409(stalePayload(exists ? curRows[0] : null, exists));
   }
 
   const nowIso = new Date().toISOString();
+  // ATTRIBUTION — stamp WHO wrote this version. null is honest "unknown" (access-code / dev-mode
+  // writers): the client treats an unknown author as a possibly-different user and keeps the banner.
+  const updatedBy = (typeof userId === 'string' && userId) ? userId : null;
   if (!exists) {
     const ins = await sb(`/rest/v1/script_docs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({ project_id: pid, doc, version, updated_at: nowIso }),
+      body: JSON.stringify({ project_id: pid, doc, version, updated_by: updatedBy, updated_at: nowIso }),
     });
     if (ins.ok) {
       const row = (await ins.json())[0];
-      await appendRevision(pid, doc, version); // history from the very first save
+      await appendRevision(pid, doc, version, 'autosave', updatedBy); // history from the very first save
       await touchProject(pid, nowIso);
       return ok({ version: toVersion(row?.version ?? version) });
     }
@@ -202,32 +214,32 @@ async function putDoc(pid, { doc, version, baseVersion }) {
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({ doc, version, updated_at: nowIso }),
+      body: JSON.stringify({ doc, version, updated_by: updatedBy, updated_at: nowIso }),
     }
   );
   if (!upd.ok) return err(502, 'DB_WRITE', await upd.text());
   const updated = await upd.json();
   if (updated.length) {
-    await appendRevision(pid, doc, version);
+    await appendRevision(pid, doc, version, 'autosave', updatedBy);
     await touchProject(pid, nowIso);
     return ok({ version: toVersion(updated[0].version) });
   }
 
-  // 0 rows — a concurrent writer won. Re-read and 409 with the current row.
-  const re = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version`);
+  // 0 rows — a concurrent writer won. Re-read and 409 with the current row (incl. its author).
+  const re = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version,updated_by`);
   const reRows = re.ok ? await re.json() : [];
-  const reStored = reRows.length ? toVersion(reRows[0].version) : 0;
-  return err409({ doc: reRows.length ? (reRows[0].doc ?? null) : null, version: reStored });
+  return err409(stalePayload(reRows.length ? reRows[0] : null, reRows.length > 0));
 }
 
 // Append-only history. Best-effort: a failed revision write never fails the (already-durable) save —
-// but it's the backstop that makes "one bad save can't destroy the last good one" true.
-async function appendRevision(pid, doc, version, source = 'autosave') {
+// but it's the backstop that makes "one bad save can't destroy the last good one" true. user_id
+// attributes the revision to its author (the history list already resolves it to a name/colour).
+async function appendRevision(pid, doc, version, source = 'autosave', userId = null) {
   try {
     await sb(`/rest/v1/script_doc_revisions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ project_id: pid, doc, version, source }),
+      body: JSON.stringify({ project_id: pid, doc, version, source, user_id: userId ?? null }),
     });
   } catch {}
 }
@@ -247,6 +259,20 @@ async function touchProject(pid, iso) {
 function toVersion(v) {
   const n = Math.floor(Number(v));
   return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// PURE — shape the current script_docs row into the { doc, version, updated_by } wire payload used by
+// BOTH the 409 refusal and the plain GET. updated_by is the auth user id that wrote the stored
+// version, or null when unknown (pre-attribution rows, access-code writers, no row). The client's
+// same-user conflict check depends on this field: a non-null id matching the signed-in user means
+// "your own other tab/session", anything else keeps the full ANOTHER-DEVICE treatment. Exported for tests.
+function stalePayload(row, exists) {
+  if (!exists || !row || typeof row !== 'object') return { doc: null, version: 0, updated_by: null };
+  return {
+    doc: row.doc ?? null,
+    version: toVersion(row.version),
+    updated_by: (typeof row.updated_by === 'string' && row.updated_by) ? row.updated_by : null,
+  };
 }
 
 // The DB-level guard clause for the guarded UPDATE — this is what makes the write ATOMIC, and it must
@@ -353,4 +379,4 @@ function withCors(res) {
   return new Response(res.body, { status: res.status, headers: h });
 }
 
-export { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP };
+export { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP, stalePayload };

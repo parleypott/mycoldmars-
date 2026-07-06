@@ -60,6 +60,12 @@ function conflictKey() {
 const EVT_CLOUD_SAVED = 'wp-cloud-saved';
 const EVT_CLOUD_OFFLINE = 'wp-cloud-offline';
 const EVT_CLOUD_CONFLICT = 'wp-cloud-conflict';
+// wp-cloud-conflict-own — a push 409 whose conflicting cloud version was written by the SAME
+// signed-in user (Johnny's own leftover tab / post-token-expiry session — NOT another person).
+// Same DATA treatment as a real conflict (both-sides snapshots + latch, identical safety), but the
+// UI shows a calm "synced elsewhere — reload" note instead of the alarming ANOTHER-DEVICE banner.
+// Only emitted when BOTH identities are POSITIVELY known and equal; any doubt → the scary banner.
+const EVT_CLOUD_CONFLICT_OWN = 'wp-cloud-conflict-own';
 // wp-cloud-saving — a cloud PUT is IN FLIGHT. Fired right before the fetch so the pill can show an
 // honest amber "SYNCING TO CLOUD…" pending state instead of a premature green "SAVED TO CLOUD".
 // Resolves to one of the three terminal events above once the PUT settles.
@@ -71,6 +77,28 @@ function emit(type, detail) {
       window.dispatchEvent(new CustomEvent(type, { detail }));
     }
   } catch {}
+}
+
+// ── SAME-USER CONFLICT DETECTION (the false ANOTHER-DEVICE fix) ──────────────────────────────────
+// The signed-in user's auth id, published by the library shell (scripts-library/src/gate.js sets
+// window.__wpCurrentUserId after auth). The engine reads it through this seam so it never imports the
+// library. Returns a non-empty string or null — null means IDENTITY UNKNOWN. NEVER throws.
+export function currentCloudUserId() {
+  try {
+    const v = (typeof window !== 'undefined' && window) ? window.__wpCurrentUserId : null;
+    return (typeof v === 'string' && v) ? v : null;
+  } catch { return null; }
+}
+
+// Is a 409's conflicting cloud version POSITIVELY this same user's own work (their other tab, or a
+// pre-token-expiry session)? True ONLY when BOTH sides are known non-empty strings AND equal. Every
+// doubt — no signed-in id, server didn't attribute the row (updated_by null, e.g. pre-attribution
+// writes or access-code writers), mismatched types — returns false, which keeps the full
+// ANOTHER-DEVICE banner. Correctness over cleverness: we only soften the alarm on positive proof.
+export function isOwnCloudConflict(updatedBy, selfId = currentCloudUserId()) {
+  if (typeof updatedBy !== 'string' || !updatedBy) return false;
+  if (typeof selfId !== 'string' || !selfId) return false;
+  return updatedBy === selfId;
 }
 
 // ── LATCH-ON-CONFLICT (two-device concurrent-edit hard stop) ─────────────────────────────────────
@@ -221,7 +249,13 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch, baseVe
       // snapshots BOTH docs and raises the conflict banner. The event is fired there, once, with the
       // local doc in hand — not here, where we only know the cloud side.
       const body = await res.json().catch(() => ({}));
-      return { ok: false, stale: true, doc: body?.doc ?? null, version: toInt(body?.version) };
+      // updatedBy — WHO wrote the cloud version we lost to (the server's updated_by). null when the
+      // server predates the field / the writer was unattributed. handlePushResult compares it to the
+      // signed-in user to separate "my own other tab" from "genuinely another person".
+      return {
+        ok: false, stale: true, doc: body?.doc ?? null, version: toInt(body?.version),
+        updatedBy: (typeof body?.updated_by === 'string' && body.updated_by) ? body.updated_by : null,
+      };
     }
     // Any other non-2xx (500 NO_DB, 404 table-missing routed as error, 502 …) => cloud unavailable.
     emit(EVT_CLOUD_OFFLINE, { status: res?.status });
@@ -565,6 +599,33 @@ export function handlePushResult(result, localDoc) {
   // strictly-greater its way over the newer cloud doc. Freeze the cloud mirror until a reload/reconcile
   // merges the newer doc. The LOCAL save path is untouched — saveDoc keeps persisting every keystroke.
   setCloudLatch();
+  // ── SAME-USER vs ANOTHER-PERSON (the recurring false-banner fix) ────────────────────────────────
+  // Everything above this line — both-sides snapshots, IDB mirrors, the push latch — ran identically
+  // for both cases: the DATA safety of a divergence never depends on who caused it. What differs is
+  // ONLY the alarm. A 409 whose cloud version was written by the SAME signed-in user is not "another
+  // device" in any sense that should scare Johnny — it's his own leftover tab or a post-token-expiry
+  // session of himself. isOwnCloudConflict demands POSITIVE proof (server attributed the row AND the
+  // client knows who's signed in AND they match); unknown identity on EITHER side falls through to
+  // the full ANOTHER-DEVICE banner — never weaker than today's behaviour.
+  let ownConflict = false;
+  try { ownConflict = isOwnCloudConflict(result.updatedBy); } catch { ownConflict = false; }
+  if (ownConflict) {
+    // Calm signal: same detail payload, quiet event. The UI shows a gentle "you edited this in
+    // another tab — reload" note (like the cross-tab stale notice), not the red two-device alert.
+    emit(EVT_CLOUD_CONFLICT_OWN, {
+      cloudVersion: toInt(result.version),
+      localSnapshot,
+      cloudSnapshot,
+      sameUser: true,
+    });
+    try {
+      console.info('[burma] cloud push 409 from YOUR OWN other session (updated_by matches the ' +
+        'signed-in user): cloud is at v' + toInt(result.version) + '. Not another device. Both copies ' +
+        'preserved (' + localSnapshot + ' local, ' + cloudSnapshot + ' cloud); reload to continue from ' +
+        'the newest version.');
+    } catch {}
+    return { conflict: true, sameUser: true, localSnapshot, cloudSnapshot, cloudVersion: toInt(result.version) };
+  }
   // Raise the conflict banner. Carry the recovery keys + cloud version so the UI/console can point
   // Johnny straight at his preserved edit. This is the signal that REPLACES the old false green.
   emit(EVT_CLOUD_CONFLICT, {
@@ -879,4 +940,4 @@ function defaultReadLocal() {
   return { hasDoc: true, version, doc };
 }
 
-export { EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT, toInt, defaultReadLocal };
+export { EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT, EVT_CLOUD_CONFLICT_OWN, toInt, defaultReadLocal };
