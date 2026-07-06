@@ -49,7 +49,7 @@ export const PALAU = {
     inlineSotName: true,               // document-builder.js — SOT sequence name bold INLINE in body
     normalizeTableRows: true,          // document-builder.js — split stacked full-width rows on load
     rebuildFromSourceWhenPristine: true, // migrate-doc.js — rebuild doc from source blocks when byte-pristine
-    collab: true,                      // collab.js — real-time co-editing (Liveblocks + Yjs, room `script-palau`)
+    collab: false, // DISABLED 2026-07-06: collab-vendor boot crash (Pi TDZ) — re-enable after bundling fix                      // collab.js — real-time co-editing (Liveblocks + Yjs, room `script-palau`)
   },
   storage: {
     DOC: 'script_palau_doc_v2',
