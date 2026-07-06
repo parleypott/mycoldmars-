@@ -3744,16 +3744,22 @@ T政要數據, 含黨派、電話、傳真、郵箱、出生地點、工作地�
         const anchor = el.dataset.anchor;
         const url = location.origin + location.pathname + '#' + anchor;
         history.replaceState(null, '', '#' + anchor);
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(() => {
-            el.classList.add('copied');
-            setTimeout(() => el.classList.remove('copied'), 1400);
-          });
-        } else {
+        const flash = () => { el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 1400); };
+        // execCommand path — the fallback for browsers with no async Clipboard API, AND the recovery
+        // path when writeText() REJECTS. The Clipboard API rejects whenever the document isn't focused
+        // or permission is denied (common in real use); without a .catch() that rejection copied nothing,
+        // flashed nothing, and surfaced as an uncaught promise rejection. Route it here so the link still
+        // copies and the "copied" feedback still shows.
+        const legacyCopy = () => {
           const ta = document.createElement('textarea');
           ta.value = url; document.body.appendChild(ta); ta.select();
-          try { document.execCommand('copy'); el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 1400); } catch {}
+          try { document.execCommand('copy'); flash(); } catch {}
           document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(flash).catch(legacyCopy);
+        } else {
+          legacyCopy();
         }
       });
     });
