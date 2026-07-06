@@ -423,10 +423,18 @@ export function mdToHtml(md) {
   // sails through every inline transform below, and the plain `<li>` still folds
   // into the <ul> wrap. The task TEXT flows through the same inline passes as any
   // list item. Requires the GFM space after the bullet, so prose "[x]" is safe.
+  // The leading `[ \t]*` is now CAPTURED (not just consumed) so an indented item
+  // carries its depth as a `data-d="<cols>"` attribute — the nest pass below folds
+  // deeper items into real sublists. A ZERO-indent item still emits a BARE `<li>`
+  // (no attr), so every flat/top-level list is byte-identical to before and the
+  // wrap + nest passes treat it exactly as they always did. Tab counts as 4 cols.
   html = html.replace(
-    /^[ \t]*(?:[-*+])[ \t]+\[([ xX])\][ \t]*(.*)$/gm,
-    (_, mark, text) =>
-      `<li><input type="checkbox" disabled${mark === 'x' || mark === 'X' ? ' checked' : ''}>${text ? ' ' + text : ''}</li>`
+    /^([ \t]*)(?:[-*+])[ \t]+\[([ xX])\][ \t]*(.*)$/gm,
+    (_, ind, mark, text) => {
+      const d = ind.replace(/\t/g, '    ').length;
+      const box = `<input type="checkbox" disabled${mark === 'x' || mark === 'X' ? ' checked' : ''}>${text ? ' ' + text : ''}`;
+      return d ? `<li data-d="${d}">${box}</li>` : `<li>${box}</li>`;
+    }
   );
   // CommonMark allows THREE bullet markers — `-`, `*`, AND `+` — so a `+ point`
   // list is as valid as a `- ` one; LLM research prose emits `+` bullets often
@@ -437,7 +445,10 @@ export function mdToHtml(md) {
   // so the VISUAL reader was again the lone inconsistent path. `[-*+] ` claims all
   // three; `+` carries no emphasis/thematic-break meaning (those use `- * _`), so
   // this is purely additive and byte-identical for every `-`/`*` list.
-  html = html.replace(/^[ \t]*(?:[-*+] )(.*)$/gm, '<li>$1</li>');
+  html = html.replace(/^([ \t]*)(?:[-*+] )(.*)$/gm, (_, ind, t) => {
+    const d = ind.replace(/\t/g, '    ').length;
+    return d ? `<li data-d="${d}">${t}</li>` : `<li>${t}</li>`;
+  });
   // Ordered items. CommonMark allows BOTH `1.` and `1)` as ordered-list
   // delimiters, and LLM research prose emits paren-delimited lists ("1) foo\n
   // 2) bar") constantly. Matching only `\d+\. ` left a `1)` list leaking into the
@@ -454,7 +465,10 @@ export function mdToHtml(md) {
   // so a research report that enumerated "Step 3:"-style or resumed a numbered run
   // rendered the WRONG visible numbers (browsers renumber a bare <ol> from 1). The
   // `n="\d+"` attribute is digits-only, so it is inert through the inline passes.
-  html = html.replace(/^[ \t]*(\d+)[.)] (.*)$/gm, (_, n, t) => `<oli n="${n}">${t}</oli>`);
+  html = html.replace(/^([ \t]*)(\d+)[.)] (.*)$/gm, (_, ind, n, t) => {
+    const d = ind.replace(/\t/g, '    ').length;
+    return d ? `<oli n="${n}" data-d="${d}">${t}</oli>` : `<oli n="${n}">${t}</oli>`;
+  });
   // Triple emphasis `***word***` -> nested <strong><em>. Must run BEFORE the
   // `**bold**` and `*em*` passes: those would half-eat a `***…***` run into
   // crossed/malformed tags (<strong>*word</strong>* then a garbled <em>). The
@@ -667,20 +681,59 @@ export function mdToHtml(md) {
   // is untouched and the list->paragraph boundary the paragraph pass relies on
   // survives (a naive `\n*` in the wrap over-consumed that blank and mangled the
   // following paragraph into `<p></ul>…</p>`). Byte-identical for every tight list.
-  html = html.replace(/(<\/li>)\n{2,}(?=<li>)/g, '$1\n');
+  html = html.replace(/(<\/li>)\n{2,}(?=<li[ >])/g, '$1\n');
   html = html.replace(/(<\/oli>)\n{2,}(?=<oli )/g, '$1\n');
   // Wrap the runs of <li>/<oli> markers (converted up before the inline pass so a
   // `* ` bullet marker is never eaten by emphasis). Ordered items carry the <oli>
   // marker so this emits a numbered <ol> rather than a bulleted <ul> — and,
   // critically, so they get wrapped AT ALL (they used to be converted AFTER the
   // <ul> wrap, leaving every numbered list as orphan <li> with no container).
-  html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
-  html = html.replace(/(<oli n="\d+">[\s\S]*?<\/oli>\n?)+/g, (m) => {
-    // The run is guaranteed to begin with the first item's <oli n="N"> marker.
-    const start = parseInt(m.match(/^<oli n="(\d+)">/)[1], 10);
+  html = html.replace(/(<li(?: data-d="\d+")?>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
+  html = html.replace(/(<oli n="\d+"(?: data-d="\d+")?>[\s\S]*?<\/oli>\n?)+/g, (m) => {
+    // The run is guaranteed to begin with the first item's <oli n="N"…> marker.
+    const start = parseInt(m.match(/^<oli n="(\d+)"/)[1], 10);
     const attr = Number.isFinite(start) && start !== 1 ? ` start="${start}"` : '';
-    const items = m.replace(/<oli n="\d+">/g, '<li>').replace(/<\/oli>/g, '</li>');
+    const items = m
+      .replace(/<oli n="\d+"( data-d="\d+")?>/g, (_, dd) => `<li${dd || ''}>`)
+      .replace(/<\/oli>/g, '</li>');
     return `<ol${attr}>${items}</ol>`;
+  });
+  // NEST indented list items into real sublists. The marker passes above tag any
+  // INDENTED item with `data-d="<cols>"`; a flat/top-level list carries NO such
+  // attr, so this pass returns it BYTE-IDENTICAL (the `includes('data-d="')` gate
+  // makes every flat list a guaranteed no-op — the reason the top-level GUARD
+  // assertions stay green). Only a list that actually had indented items is
+  // rebuilt: items are re-parsed in order and folded by RELATIVE depth (a deeper
+  // item becomes a child of the nearest shallower one) via a small stack, so the
+  // absolute column count never matters — only the ordering. LLM deep-research
+  // reports lean on multi-level bullet outlines constantly; before this the reader
+  // FLATTENED every sub-point onto one level (documented tradeoff), losing the
+  // hierarchy the author encoded. The rebuilt sublist inherits the parent's tag
+  // (<ul>/<ol>), so a bullet outline nests under bullets and a numbered outline
+  // under numbers; the top-level <ol start="N"> is preserved, sub-lists renumber
+  // from 1 (browser default) — acceptable, and no worse than the old flat render.
+  // Runs BEFORE the blockquote pass, whose own lists (renderQuoteInner) are emitted
+  // later and self-contained, so this never double-processes them.
+  html = html.replace(/<(ul|ol)( start="\d+")?>([\s\S]*?)<\/\1>/g, (whole, tag, startAttr, inner) => {
+    if (!inner.includes('data-d="')) return whole;
+    const items = [];
+    inner.replace(/<li(?: data-d="(\d+)")?>([\s\S]*?)<\/li>/g, (_, d, body) => {
+      items.push({ depth: d ? parseInt(d, 10) : 0, body });
+      return '';
+    });
+    const root = { children: [] };
+    const stack = [{ node: root, depth: -1 }];
+    for (const it of items) {
+      while (stack.length > 1 && stack[stack.length - 1].depth >= it.depth) stack.pop();
+      const node = { body: it.body, children: [] };
+      stack[stack.length - 1].node.children.push(node);
+      stack.push({ node, depth: it.depth });
+    }
+    const emit = (nodes, top) =>
+      `<${tag}${top ? startAttr || '' : ''}>` +
+      nodes.map((n) => `<li>${n.body}${n.children.length ? emit(n.children, false) : ''}</li>`).join('') +
+      `</${tag}>`;
+    return emit(root.children, true);
   });
   // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
   // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —

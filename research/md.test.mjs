@@ -569,28 +569,46 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
      'GUARD: a table delimiter row is not swallowed by the <hr> transform');
 }
 
-// ── indented / nested list items convert instead of leaking literal markers ──
-// The bullet/number regexes used to require the marker at absolute line-start, so
-// LLM sub-points nested with 2-4 spaces of indent ("- point\n    - sub") were left
-// unconverted and leaked into the reader as literal `- sub` text stranded between
-// <ul> blocks. Allowing a leading `[ \t]*` folds them into the list as flat <li>
-// (nesting depth dropped, but no literal marker leaks).
+// ── indented list items nest into real sublists (not flattened, not leaked) ──
+// The bullet/number regexes once required the marker at absolute line-start, so
+// LLM sub-points nested with 2-4 spaces of indent ("- point\n    - sub") leaked
+// into the reader as literal `- sub` text. A first fix folded them in as FLAT <li>
+// (no literal marker, but the hierarchy was dropped). This now captures each item's
+// indent as a depth and rebuilds the list as a genuine NESTED <ul>/<ol> — the
+// multi-level bullet outline an LLM deep-research report actually wrote is rendered
+// with its hierarchy intact. The marker pass tags an indented item with
+// `data-d="<cols>"`; the nest pass folds deeper items under the nearest shallower
+// one. Zero-indent items stay BARE <li>, so flat lists are byte-identical.
 // (Mutation-lock: revert either list regex to `^(?:- |\* )` / `^\d+\. ` in md.js
-//  and the FIX assertions go RED while the top-level GUARDs stay green.)
+//  and the nesting/no-leak assertions go RED while the top-level GUARDs stay green.
+//  Delete the nest pass and the STRUCTURE assertions go RED — the sub-items collapse
+//  back to one flat level — while the leak/GUARD assertions stay green.)
 {
   const nested = mdToHtml('Top points:\n\n- First item\n    - nested sub-item\n    - another sub\n- Second item');
   ok(/<li>nested sub-item<\/li>/.test(nested) && /<li>another sub<\/li>/.test(nested),
      'FIX: indented `- ` sub-items convert to <li>');
   ok(!/- nested sub-item/.test(nested) && !/- another sub/.test(nested),
-     'FIX: no literal `- ` marker leaks between the <ul> blocks');
-  ok((nested.match(/<ul>/g) || []).length === 1, 'FIX: sub-items fold into a single <ul>, not stranded outside it');
-  // indented ordered items too
+     'FIX: no literal `- ` marker leaks between the items');
+  // STRUCTURE: the two sub-items nest as a sublist INSIDE the first item — an inner
+  // <ul> opens right after "First item" and closes before its </li>, and the whole
+  // thing lives in one outer <ul> (so there are exactly two <ul> opens).
+  ok((nested.match(/<ul>/g) || []).length === 2, 'FIX: an indented run opens a real nested <ul>');
+  ok(/<li>First item<ul><li>nested sub-item<\/li><li>another sub<\/li><\/ul><\/li>/.test(nested),
+     'FIX: sub-items nest INSIDE their parent <li>, not as siblings');
+  ok(/<li>Second item<\/li><\/ul>$/.test(nested), 'FIX: the dedented item returns to the outer list');
+  // indented ordered items nest into a real inner <ol> too
   const numNest = mdToHtml('Steps:\n\n1. one\n   2. sub-step\n3. three');
-  ok(/<ol>/.test(numNest) && /<li>sub-step<\/li>/.test(numNest) && !/2\. sub-step/.test(numNest),
-     'FIX: indented `N. ` sub-items convert to <li> inside the <ol>');
-  // GUARD: top-level (zero-indent) lists are byte-identical to before.
+  ok(/<li>one<ol><li>sub-step<\/li><\/ol><\/li><li>three<\/li><\/ol>$/.test(numNest) && !/2\. sub-step/.test(numNest),
+     'FIX: indented `N. ` sub-item nests inside the parent <ol> item');
+  // deep (3-level) nesting folds correctly by relative depth
+  const deep = mdToHtml('- a\n  - b\n    - c\n- d');
+  ok(/<ul><li>a<ul><li>b<ul><li>c<\/li><\/ul><\/li><\/ul><\/li><li>d<\/li><\/ul>/.test(deep),
+     'FIX: three indent levels build three nested <ul>s');
+  // GUARD: top-level (zero-indent) lists are BYTE-IDENTICAL to before (no data-d,
+  // so the nest pass is a proven no-op — this is the regression firewall).
   eq(mdToHtml('- a\n- b'), '<ul><li>a</li>\n<li>b</li></ul>', 'GUARD: top-level bullets unchanged');
   eq(mdToHtml('1. first\n2. second'), '<ol><li>first</li>\n<li>second</li></ol>', 'GUARD: top-level numbers unchanged');
+  eq(mdToHtml('3. c\n4. d'), '<ol start="3"><li>c</li>\n<li>d</li></ol>', 'GUARD: ordered start number unchanged');
   // RED PROOF: the genuine old renderer leaves the indented marker as literal text.
   const old = fullOldMd('- First item\n    - nested sub-item\n- Second item');
   ok(/- nested sub-item/.test(old) && !/<li>nested sub-item<\/li>/.test(old),
