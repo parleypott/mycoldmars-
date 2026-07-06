@@ -1432,6 +1432,9 @@ async function cloudPull(initial){
           _cloudUpdatedAt = data.updated_at;
           try{ localStorage.setItem(LAST_SYNCED_KEY, data.updated_at || ''); }catch(e){}
           adoptRemoteState(data.state, _hadLocalState);
+          // Fresh device: the cloud camera was framed for someone else's
+          // screen — re-frame the adopted board for this viewport.
+          if(!_hadLocalState) fitView();
         }
       }else if(data.updated_at && data.updated_at !== _cloudUpdatedAt){
         _cloudUpdatedAt = data.updated_at;
