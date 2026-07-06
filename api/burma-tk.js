@@ -154,7 +154,7 @@ Nearby script: ${context || '(none)'}
 Verify against primary/reputable sources. Then call emit_verdict exactly once with: a verdict, a one-line finding, a suggestedEdit (the corrected fact written as a ready-to-drop line in the script's plain VO voice, no braces — this replaces the {fc} marker), and sources.`;
 }
 
-export default async function handler(req) {
+async function innerHandler(req) {
   if (req.method !== 'POST') {
     return json({ error: 'POST only' }, 405);
   }
@@ -313,4 +313,72 @@ function json(obj, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+// ────────────────────── Vercel Node adapter ──────────────────────
+// THE "CHECKING… 60s → FUNCTION_INVOCATION_TIMEOUT" ROOT CAUSE (reproduced in prod 2026-07-06):
+// this handler was moved to `runtime: 'nodejs'` (for maxDuration) but kept the WEB handler shape —
+// `handler(req) -> Response`. Vercel's Node runtime invokes the default export with
+// (IncomingMessage, ServerResponse) and IGNORES a returned web Response, so `res` was never ended
+// and EVERY request — even a bare GET that should be an instant 405 — hung to the 60s platform
+// wall and came back as Vercel's plain-text error page. The 50s Promise.race deadline above never
+// mattered: its clean JSON 504 was returned into the void.
+//
+// nano-banana.js (the endpoint this file's runtime comment pointed at as proof) works precisely
+// because it carries this adapter — mirrored here: Node-style (req, res) is bridged into a web
+// Request, innerHandler runs unchanged, and the web Response is written back through `res`.
+// Web-style single-arg invocation (edge, tests, the vite dev middleware) passes straight through.
+
+async function buildWebRequest(req) {
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    if (v == null) continue;
+    headers.set(k, Array.isArray(v) ? v.join(', ') : String(v));
+  }
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers.host || 'localhost';
+  const url = `${proto}://${host}${req.url || '/'}`;
+  // Body: Vercel's Node adapter pre-parses JSON onto req.body when the request has
+  // Content-Type: application/json. If not, fall back to reading the raw stream.
+  let body;
+  const method = (req.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    if (req.body !== undefined && req.body !== null) {
+      body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    } else {
+      body = await new Promise((resolve, reject) => {
+        let buf = '';
+        req.on('data', (chunk) => { buf += chunk; });
+        req.on('end', () => resolve(buf));
+        req.on('error', reject);
+      });
+    }
+  }
+  return new Request(url, { method, headers, body: body || undefined });
+}
+
+async function sendWebResponse(res, response) {
+  res.statusCode = response.status;
+  for (const [k, v] of response.headers) res.setHeader(k, v);
+  const buf = Buffer.from(await response.arrayBuffer());
+  res.end(buf);
+}
+
+export default async function handler(req, res) {
+  // Express-style — Node runtime (what Vercel actually calls with runtime:'nodejs').
+  if (res !== undefined) {
+    try {
+      const webReq = await buildWebRequest(req);
+      const response = await innerHandler(webReq);
+      await sendWebResponse(res, response);
+    } catch (e) {
+      console.error('[burma-tk]', e);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'INTERNAL', message: (e && e.message) || String(e) }));
+    }
+    return;
+  }
+  // Web-style — single-arg invocation (edge fallback, unit tests, dev middleware).
+  return innerHandler(req);
 }

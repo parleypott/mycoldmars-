@@ -78,10 +78,16 @@ function mintBlockId() {
   return 'blk_' + Math.random().toString(36).slice(2, 9);
 }
 
-// Pure (state, dispatch, range, typeName) -> boolean, like doAddRowsBelow — ONE ProseMirror
+// Pure (state, dispatch, range, typeName, opts) -> boolean, like doAddRowsBelow — ONE ProseMirror
 // transaction that deletes the "/chapter" trigger text AND inserts the new block, so a single
 // undo removes both and autosave/backup fire exactly once. Exported for the headless suite.
-export function doInsertStructureBlock(state, dispatch, range, typeName) {
+//
+// opts.withSubtitle — the /section shape: a chapterBlock born with TWO paragraphs, title +
+// subtitle. Under the chapter-frames doctrine the FIRST paragraph renders as the big book-chapter
+// serif ("GROUND 1") and every following paragraph as the quiet italic subtext ("Yongon - Arrival
+// and lay of the land") — so /section inserts that full header, ready to type into, where
+// /chapter only mints the bare one-line title slot.
+export function doInsertStructureBlock(state, dispatch, range, typeName, opts = {}) {
   const { schema } = state;
   const blockType = schema.nodes[typeName];
   if (!blockType) return false;
@@ -99,7 +105,11 @@ export function doInsertStructureBlock(state, dispatch, range, typeName) {
   if (typeName === 'chapterBlock') attrs.genre = DEFAULT_CHAPTER_GENRE;
   // createAndFill satisfies the '(paragraph | bulletList | orderedList)+' content spec with
   // one empty paragraph — the same "heading paragraph" slot blockToNode builds, just untyped.
-  const block = blockType.createAndFill(attrs);
+  // withSubtitle builds the two-slot /section shape explicitly (title + subtitle paragraphs).
+  const paraType = schema.nodes.paragraph;
+  const block = (opts.withSubtitle && paraType)
+    ? blockType.create(attrs, [paraType.create(), paraType.create()])
+    : blockType.createAndFill(attrs);
   if (!block) return false;
 
   // Resolve the (post-delete) cursor spot and walk up to the nearest tableRow ancestor.
@@ -160,12 +170,12 @@ export function doInsertStructureBlock(state, dispatch, range, typeName) {
   return true;
 }
 
-function insertStructureBlock(editor, range, typeName) {
+function insertStructureBlock(editor, range, typeName, opts) {
   // READ-ONLY SHARE: the suggestion plugin never mounts in read-only, but gate the mutation
   // here too so no code path can ever insert a block into a reader's frozen doc.
   if (isReadOnly()) return false;
   const { state, view } = editor;
-  const done = doInsertStructureBlock(state, view.dispatch, range, typeName);
+  const done = doInsertStructureBlock(state, view.dispatch, range, typeName, opts);
   if (done) view.focus();
   return done;
 }
@@ -194,6 +204,10 @@ export const SLASH_ITEMS = [
   // STRUCTURE — block-level inserts, grouped above the inline tag list.
   makeItem('chapter',   ['ch'],           (editor, range) => insertStructureBlock(editor, range, 'chapterBlock'), { group: 'structure', hint: 'CH' }),
   makeItem('scene',     ['sc'],           (editor, range) => insertStructureBlock(editor, range, 'sceneBlock'),   { group: 'structure', hint: 'SC' }),
+  // /section — the full act header (Image-11 shape): big serif title + italic subtitle line,
+  // i.e. a chapterBlock with BOTH paragraphs pre-built. Title it "GROUND 1" / "HISTORY 2" and the
+  // genre tag reclassifies from the heading like any chapter.
+  makeItem('section',   ['sec', 'header', 'title'], (editor, range) => insertStructureBlock(editor, range, 'chapterBlock', { withSubtitle: true }), { group: 'structure', hint: 'SEC' }),
   // MARKS — the inline direction-mark kinds.
   makeItem('archive',   [],               (editor, range) => setArchiveMark(editor, range)),
   makeItem('oncam',     ['on cam', 'on cam to film'], (editor, range) => setDirectionMark(editor, range, 'oncam')),

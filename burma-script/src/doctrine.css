@@ -399,4 +399,12 @@
    the untouched look is preserved but the knob works again). */
 .wp-tcell-content .wp-body,
 .wp-cart:not(.wp-chapter) .wp-body { line-height: calc(var(--doc-lead) + 0.28); }
-.wp-dhl { margin: 0 1px; }
+.wp-dhl { margin: 0 2px; }
+
+/* B-ROLL / DIRECTION TAG LINES IN A FULL-WIDTH ROW — the Image-12 crush. A bare paragraph in a
+   1-col row (the classic "general coverage of …" broll line under a chapter header) carries NONE
+   of a cartridge's own padding, so its chip sat pressed against the row gridlines above and below.
+   Give the 1-col row's bare prose the vertical air the split cells already enjoy (their 15px cell
+   padding). Cartridge children (.wp-cart) are untouched — they own their chrome. */
+.wp-trow[data-cols="1"] .wp-tcell-content > p:first-child { padding-top: 9px; }
+.wp-trow[data-cols="1"] .wp-tcell-content > p:last-child { padding-bottom: 9px; }

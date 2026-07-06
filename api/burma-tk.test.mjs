@@ -248,5 +248,48 @@ for (const bad of [null, 42, 'a string', [1, 2, 3], true]) {
   }
 }
 
+// ---- VERCEL NODE ADAPTER (the "CHECKING… -> FUNCTION_INVOCATION_TIMEOUT" root cause) ----
+// runtime:'nodejs' invokes the default export with (IncomingMessage, ServerResponse) and IGNORES
+// a returned web Response. The old web-only handler therefore never ended `res`: EVERY request --
+// even a bare GET -- hung to the 60s platform wall (reproduced in prod 2026-07-06). Lock the fix:
+// Node-style invocation must WRITE the response through `res`, for the cheap 405 and a body-carrying
+// POST alike; web-style single-arg invocation (edge/tests/dev-middleware) must keep working (it is
+// exercised by every `call()` above).
+function mockNodeRes() {
+  const out = { statusCode: 0, headers: {}, body: null, ended: false };
+  return {
+    out,
+    setHeader(k, v) { out.headers[String(k).toLowerCase()] = v; },
+    end(buf) { out.body = buf != null ? String(buf) : ''; out.ended = true; },
+    set statusCode(v) { out.statusCode = v; },
+    get statusCode() { return out.statusCode; },
+  };
+}
+{
+  // GET through the NODE-STYLE path -> instant 405 written to res (this exact call hung 60s in prod).
+  const res = mockNodeRes();
+  await handler({ method: 'GET', headers: { host: 'x' }, url: '/api/burma-tk' }, res);
+  ok('node adapter: GET ends res with 405 (never hangs)', res.out.ended && res.out.statusCode === 405);
+  ok('node adapter: 405 body is our JSON, not a platform page', /POST only/.test(res.out.body || ''));
+
+  // POST with Vercel's pre-parsed req.body object -> flows through validation to the marker guard.
+  const res2 = mockNodeRes();
+  await handler({ method: 'POST', headers: { host: 'x', 'content-type': 'application/json' }, url: '/api/burma-tk', body: { mode: 'fc' } }, res2);
+  ok('node adapter: pre-parsed JSON body reaches validation (400 marker required)',
+    res2.out.ended && res2.out.statusCode === 400 && /marker required/.test(res2.out.body || ''));
+
+  // POST with a raw stream body (no pre-parse) -> adapter reads the stream.
+  const { Readable } = await import('node:stream');
+  const stream = Readable.from([Buffer.from(JSON.stringify({ mode: 'fc', marker: 'x' }))]);
+  stream.method = 'POST';
+  stream.headers = { host: 'x', 'content-type': 'application/json' };
+  stream.url = '/api/burma-tk';
+  const res3 = mockNodeRes();
+  await handler(stream, res3);
+  // no ANTHROPIC_API_KEY in the test env -> the valid body runs all the way to the key guard (500).
+  ok('node adapter: raw stream body read end-to-end (hits the api-key guard, not a hang)',
+    res3.out.ended && res3.out.statusCode === 500 && /ANTHROPIC_API_KEY/.test(res3.out.body || ''));
+}
+
 console.log(`burma-tk: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

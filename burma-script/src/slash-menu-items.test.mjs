@@ -22,16 +22,16 @@ let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
 // --- 1. Command set is structure (2) + the eight director marks, structure first -------
-ok('SLASH_ITEMS is the ten commands in order (structure above the tags)', () => {
+ok('SLASH_ITEMS is the eleven commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['chapter', 'scene', 'archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction', 'break'],
+    ['chapter', 'scene', 'section', 'archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction', 'break'],
   );
 });
 
-ok('chapter + scene are group:structure; every tag is group:mark', () => {
+ok('chapter + scene + section are group:structure; every tag is group:mark', () => {
   for (const it of SLASH_ITEMS) {
-    const want = (it.title === 'chapter' || it.title === 'scene') ? 'structure' : 'mark';
+    const want = (it.title === 'chapter' || it.title === 'scene' || it.title === 'section') ? 'structure' : 'mark';
     assert.equal(it.group, want, `${it.title} should be group:${want}`);
   }
 });
@@ -57,6 +57,9 @@ ok('the shortcut aliases Johnny types resolve to their command', () => {
   const cases = [
     ['ch', 'chapter'],
     ['sc', 'scene'],
+    ['sec', 'section'],
+    ['header', 'section'],
+    ['title', 'section'],
     ['fc', 'factcheck'],
     ['source', 'factcheck'],
     ['anim', 'animation'],

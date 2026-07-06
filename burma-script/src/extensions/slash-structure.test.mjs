@@ -152,6 +152,45 @@ ok('/chapter inserts an empty chapter row below; trigger removed; undo restores;
   assert.deepEqual(clone(state.doc.toJSON()), before, 'single undo restores the original doc');
 });
 
+// ── /section — the Image-11 full header: chapterBlock born with title + subtitle slots ──────
+ok('/section inserts a chapter row with TWO paragraphs (title + subtitle); undo restores; round-trips', () => {
+  const docJson = { type: 'doc', content: [row([vo('vo_1', 'Arriving in Yangon /section')])] };
+  let state = makeState(docJson, 4);
+  const range = triggerRange(state.doc, '/section');
+  const before = clone(state.doc.toJSON());
+  const dispatch = (tr) => { state = state.apply(tr); };
+
+  assert.equal(doInsertStructureBlock(state, dispatch, range, 'chapterBlock', { withSubtitle: true }), true);
+  assert.equal(state.doc.childCount, 2, 'doc has host row + section row');
+  assert.equal(state.doc.child(0).textContent.trim(), 'Arriving in Yangon', 'trigger text removed');
+  const section = state.doc.child(1).child(0).child(0);
+  assert.equal(section.type.name, 'chapterBlock', '/section IS a chapterBlock (frames doctrine styles it)');
+  assert.equal(section.attrs.genre, DEFAULT_CHAPTER_GENRE, 'born untagged; reclassifies from the typed title');
+  assert.ok(section.attrs.blockId, 'blockId minted');
+  assert.equal(section.childCount, 2, 'TWO slots: big serif title + italic subtitle');
+  assert.equal(section.child(0).type.name, 'paragraph');
+  assert.equal(section.child(0).content.size, 0, 'empty title slot');
+  assert.equal(section.child(1).type.name, 'paragraph');
+  assert.equal(section.child(1).content.size, 0, 'empty subtitle slot');
+
+  // Cursor lands in the title (first) paragraph, not the subtitle.
+  const $from = state.selection.$from;
+  let inChapter = false;
+  for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === 'chapterBlock') inChapter = true;
+  assert.ok(inChapter, 'selection sits in the new section header');
+
+  // Mirror-schema round-trip (the save-gate law) + docToBlocks flatten.
+  const reparsed = docFrom(state.doc.toJSON());
+  reparsed.check();
+  assert.deepEqual(clone(reparsed.toJSON()), clone(state.doc.toJSON()), 'mirror schema round-trip byte-exact');
+  const blocks = docToBlocks(state.doc.toJSON());
+  assert.equal(blocks[1].type, 'chapter');
+
+  // ONE undo removes trigger-delete + insert together.
+  undo(state, dispatch);
+  assert.deepEqual(clone(state.doc.toJSON()), before, 'single undo restores the original doc');
+});
+
 // ── 2: /scene — same law, sceneBlock shape ──────────────────────────────────────────────────
 ok('/scene inserts an empty scene row below; trigger removed; undo restores; round-trips', () => {
   const docJson = { type: 'doc', content: [row([vo('vo_1', 'Walking the market /scene')])] };

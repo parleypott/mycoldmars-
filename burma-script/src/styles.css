@@ -258,7 +258,11 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    amber (this needs action, not patience). A strong burnt-orange with the inked border + a steadily
    pulsing mark so it reads as "do something" — the work is backed up, but you must reload to merge. */
 .wp-save-pill.is-cloud-conflict { background: #e8853a; color: #1f1d18; border-color: var(--ink); }
-.wp-dchip{ font-family:var(--mono); font-size:.78em; border:1.5px solid var(--ink); border-radius:5px; padding:1px 7px; margin:0 1px; cursor:pointer; user-select:none; white-space:normal; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+/* Johnny (Image-12): "b roll tag still way too crushed up there. needs space and padding."
+   The chip was a 1px-vertical sliver pressed into its line — real inner air now (3px 10px), a
+   touch of horizontal separation, and display:inline-block so the chip carries its own line box
+   (top/bottom margin actually applies) instead of riding the paragraph's baseline crush. */
+.wp-dchip{ font-family:var(--mono); font-size:.78em; border:1.5px solid var(--ink); border-radius:5px; padding:3px 10px; margin:2px 2px; display:inline-block; cursor:pointer; user-select:none; white-space:normal; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
 .wp-dchip[data-kind="archive"][data-status="needed"], .wp-dchip[data-kind="factcheck"][data-status="todo"]{ background:#f2d4d4; }
 .wp-dchip[data-kind="archive"][data-status="found"], .wp-dchip[data-kind="factcheck"][data-status="sourced"]{ background:#d9e8d0; }
 .wp-dchip[data-kind="animation"]{ background:#ccc2ea; }
@@ -284,7 +288,11 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   box-decoration-break: clone;
   border: 1.5px solid transparent;
   border-radius: 5px;
-  padding: 1px 7px;
+  /* Johnny (Image-12): "b roll tag still way too crushed … needs space and padding". Real air
+     inside the chip — the old 1px vertical padding read as a bare highlight, not a chip. The
+     roomier cell line-height (doctrine.css CELL PROSE BREATHING ROOM) absorbs the taller box,
+     so wrapped chip runs inside dense paragraphs still don't collide line-to-line. */
+  padding: 3px 10px;
   font-weight: 700;
   font-style: normal;   /* Johnny: not italic — upright chip text */
 }
