@@ -2998,6 +2998,10 @@ function secondsToTimecode(totalSeconds) {
    const secs = Math.floor(totalSeconds % 60);
    return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}:00`;
 }
+/* Escape one CSV field per RFC 4180: wrap in double-quotes, double any internal
+   quote. Applied to EVERY column at final assembly (not per-piece) so a stray "
+   in card text, a label tag, or a timecode source can't break the marker row. */
+function csvField(v){ return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
 
 document.getElementById('outline-export-markers-btn').addEventListener('click', () => {
    if(state.cards.length === 0){ showToast('Add some cards to your board before exporting timeline markers.', 'info'); return; }
@@ -3048,23 +3052,26 @@ document.getElementById('outline-export-markers-btn').addEventListener('click', 
         
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = c.text || '';
-        let cleanText = tempDiv.textContent || tempDiv.innerText || 'Empty Card';
-        cleanText = cleanText.replace(/"/g, '""');
+        const cleanText = tempDiv.textContent || tempDiv.innerText || 'Empty Card';
 
         const ft = getFootageType(c.footageType).label;
         const label = c.labelTag ? `[Label: ${c.labelTag}] ` : '';
         const src = c.source ? `[Timecode: ${c.source}] ` : '';
         const status = c.status ? `[Status: ${c.status.toUpperCase()}] ` : '';
-        
-        const markerName = `${status}${ft}`.replace(/"/g, '""');
-        const markerDesc = `${label}${src}${cleanText}`.substring(0, 1000); 
+
+        const markerName = `${status}${ft}`;
+        // Build the RAW description, THEN truncate — escaping is the final step
+        // (csvField below), so a truncation boundary can never split an escaped
+        // "" pair into a lone quote that corrupts the row.
+        const markerDesc = `${label}${src}${cleanText}`.substring(0, 1000);
 
         let pColor = "Green";
         if (c.status === 'missing') pColor = "Red";
         else if (c.status === 'review') pColor = "Yellow";
         else if (c.status === 'timeline') pColor = "Blue";
-        
-        csvContent += `"${markerName}","${markerDesc}","${startTC}","${endTC}","${durTC}","Comment","${pColor}"\n`;
+
+        // Escape EVERY field at assembly — label/src/timecodes included, not just cleanText.
+        csvContent += [markerName, markerDesc, startTC, endTC, durTC, 'Comment', pColor].map(csvField).join(',') + '\n';
         cumulativeSeconds += durSecs;
      });
    });

@@ -1149,7 +1149,7 @@ const saveState = debounce(() => { try{ localStorage.setItem(STORAGE_KEY, JSON.s
 const history = { stack: [], index: -1, limit: 60 };
 function snapshot(){ return JSON.stringify({ cards: state.cards, connections: state.connections, frames: state.frames, boardMeta: state.boardMeta }); }
 function pushHistory(){ const snap = snapshot(); history.stack = history.stack.slice(0, history.index + 1); history.stack.push(snap); if(history.stack.length > history.limit) history.stack.shift(); history.index = history.stack.length - 1; updateUndoRedoButtons(); }
-function restoreSnapshot(snap){ const data = JSON.parse(snap); state.cards = data.cards; state.connections = data.connections; state.frames = data.frames || []; state.boardMeta = data.boardMeta || state.boardMeta; rebuildAll(); saveState(); }
+function restoreSnapshot(snap){ let data; try{ data = JSON.parse(snap); }catch(e){ return; } if(!data || typeof data !== 'object') return; state.cards = data.cards; state.connections = data.connections; state.frames = data.frames || []; state.boardMeta = data.boardMeta || state.boardMeta; rebuildAll(); saveState(); }
 function undo(){ if(history.index <= 0) return; history.index--; restoreSnapshot(history.stack[history.index]); updateUndoRedoButtons(); }
 function redo(){ if(history.index >= history.stack.length - 1) return; history.index++; restoreSnapshot(history.stack[history.index]); updateUndoRedoButtons(); }
 function updateUndoRedoButtons(){ document.getElementById('tb-undo').disabled = history.index <= 0; document.getElementById('tb-redo').disabled = history.index >= history.stack.length - 1; }
