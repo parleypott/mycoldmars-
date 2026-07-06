@@ -84,7 +84,7 @@ async function boot(key){
 $('#go').onclick=()=>{const k=$('#key').value.trim();if(!k)return;localStorage.setItem('walden-maps-key',k);boot(k);};
 $('#key').addEventListener('keydown',e=>{if(e.key==='Enter')$('#go').click();});
 $('#reset').onclick=()=>{localStorage.removeItem('walden-maps-key');location.reload();};
-const saved=localStorage.getItem('walden-maps-key');
+let saved=null; try{ saved=localStorage.getItem('walden-maps-key'); }catch(e){}
 if(saved){ $('#key').value=saved; boot(saved); }
 </script>
 </body>

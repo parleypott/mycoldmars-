@@ -10,7 +10,7 @@
 // RED proof below reconstructs that old inline form and asserts it throws on the
 // exact inputs the fix survives, so a reversion to the unguarded form fails here.
 
-import { parseStudiedSet } from './studied-store.js';
+import { parseStudiedSet, safeLsGet } from './studied-store.js';
 
 let passed = 0, failed = 0;
 function ok(cond, msg) { if (cond) { passed++; } else { failed++; console.error('  ✗ ' + msg); } }
@@ -67,6 +67,36 @@ for (const raw of crashers) {
 // single characters (size 3). The fix correctly yields an empty Set instead.
 ok(oldInline('"abc"').size === 3, 'old inline mis-seeds chars from a bare string');
 ok(parseStudiedSet('"abc"').size === 0, 'fix yields empty Set for a bare string (not char-seeded)');
+
+// ── safeLsGet: crash-safe storage ACCESS guard ──────────────────────────────
+// parseStudiedSet guards the VALUE; safeLsGet guards the ACT of touching the
+// store. main.js reads 'nm-studied' at MODULE TOP LEVEL, so a bare
+// localStorage.getItem there THROWS on a storage-blocked browser (Safari "Block
+// All Cookies", in-app webviews) and blanks the whole tool before the grid
+// renders. safeLsGet degrades to null; parseStudiedSet(null) -> empty Set.
+{
+  const realLS = globalThis.localStorage;
+  // Happy path: safeLsGet returns exactly what the store holds (byte-identical to
+  // a bare getItem), and the whole chain yields the studied Set.
+  globalThis.localStorage = { getItem: (k) => k === 'nm-studied' ? JSON.stringify(['a', 'b']) : null };
+  ok(safeLsGet('nm-studied') === JSON.stringify(['a', 'b']), 'safeLsGet returns the stored value on the happy path');
+  eqSet(parseStudiedSet(safeLsGet('nm-studied')), ['a', 'b'], 'safeLsGet -> parseStudiedSet yields the studied Set');
+
+  // Storage-blocked: getItem THROWS. The OLD bare read propagates the throw
+  // (RED proof — this is the boot brick); safeLsGet swallows it and returns null.
+  const blocked = { getItem: () => { throw new DOMException('blocked', 'SecurityError'); } };
+  globalThis.localStorage = blocked;
+  let bareThrew = false;
+  try { blocked.getItem('nm-studied'); } catch { bareThrew = true; }
+  ok(bareThrew, 'a bare localStorage.getItem THROWS on a blocked store (the boot brick this guards)');
+  let safeThrew = false, safeVal = 'x';
+  try { safeVal = safeLsGet('nm-studied'); } catch { safeThrew = true; }
+  ok(!safeThrew, 'safeLsGet does NOT throw on a blocked store');
+  ok(safeVal === null, 'safeLsGet degrades to null on a blocked store');
+  eqSet(parseStudiedSet(safeLsGet('nm-studied')), [], 'blocked store -> empty studied Set (tool still boots)');
+
+  globalThis.localStorage = realLS;
+}
 
 console.log(`\nstudied-store (night-market): ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

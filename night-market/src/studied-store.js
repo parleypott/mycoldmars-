@@ -24,3 +24,21 @@ export function parseStudiedSet(raw) {
     return new Set();
   }
 }
+
+// Crash-safe localStorage READ for the studied-progress key. main.js reads it at
+// MODULE TOP LEVEL, before the grid renders — and merely ACCESSING localStorage
+// throws a SecurityError in storage-blocked contexts (Safari "Block All Cookies",
+// the Gmail/Slack in-app webviews people tap links from). A bare
+// localStorage.getItem(key) there would abort the whole module → blank grid, no
+// recovery. This is the storage-ACCESS sibling of the value-corruption crash
+// parseStudiedSet already fixes: parseStudiedSet guards what the store CONTAINS;
+// this guards the act of TOUCHING the store. Degrade to null on throw —
+// parseStudiedSet turns null into an empty Set. Byte-identical to a bare
+// localStorage.getItem(key) on the happy path.
+export function safeLsGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}

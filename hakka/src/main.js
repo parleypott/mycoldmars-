@@ -5,14 +5,14 @@
 import './style.css';
 import foods from './data/foods.js';
 import { initUI } from './ui.js';
-import { parseStudiedSet } from './studied-store.js';
+import { parseStudiedSet, safeLsGet } from './studied-store.js';
 
 const grid = document.getElementById('food-grid');
 const ui = initUI();
 
 // Track studied foods — guarded against a corrupt/non-array store (a bad
 // 'hk-studied' value used to crash the whole tool at load; see studied-store.js).
-const studied = parseStudiedSet(localStorage.getItem('hk-studied'));
+const studied = parseStudiedSet(safeLsGet('hk-studied'));
 updateProgress();
 
 foods.forEach((food, idx) => {
