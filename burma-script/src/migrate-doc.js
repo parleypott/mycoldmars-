@@ -637,8 +637,21 @@ function sourceComparableBlocks(blocks) {
   }));
 }
 
+// A row the author added on purpose with the "+" row tool carries a `pairu_` pairId
+// (table.js mintUserPairId). While still EMPTY it exports no blocks, so a doc that is
+// otherwise byte-pristine would compare EQUAL to source and the rebuild below would
+// silently discard the freshly-added row on the next load. A pairu_ row anywhere in
+// the tree is a deliberate user edit — the doc is NOT pristine, skip the rebuild.
+// (Exported for the add-rows suite.)
+export function hasUserAddedRow(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'tableRow' && typeof node.attrs?.pairId === 'string' && node.attrs.pairId.startsWith('pairu_')) return true;
+  return Array.isArray(node.content) && node.content.some(hasUserAddedRow);
+}
+
 function palauSourceRebuildCandidate(original) {
   if (!episodeFlag('rebuildFromSourceWhenPristine')) return null;
+  if (hasUserAddedRow(original)) return null;
   const episode = getEpisode();
   const savedComparable = sourceComparableBlocks(docToBlocks(ensureTableDoc(original)));
   const sourceComparable = sourceComparableBlocks(episode?.blocksData || []);

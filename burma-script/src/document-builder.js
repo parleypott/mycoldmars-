@@ -729,6 +729,19 @@ function splitPalauFullWidthRow(row) {
   return blocks.map((block) => fullWidthRow(block));
 }
 
+// A row the author DELIBERATELY added with the "+" row tool (table.js doAddRowsBelow) carries a
+// `pairu_`-prefixed pairId. Such a row must survive the empty-band culler below even while it is
+// still word-less — the author just created it to type into; silently dropping it on the next
+// load would be data-loss of intent. Once typed into, rowHasVisibleWords keeps it anyway.
+// RECURSIVE: Palau's stale-doc shape nests rows (tableRow > tableCell > tableRow), and
+// splitPalauFullWidthRow re-wraps a nested row into a fresh full-width row whose own attrs
+// carry no pairId — so the pairu_ marker must be found at ANY depth of the candidate row.
+const isUserAddedRow = (node) => {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'tableRow' && typeof node.attrs?.pairId === 'string' && node.attrs.pairId.startsWith('pairu_')) return true;
+  return Array.isArray(node.content) && node.content.some(isUserAddedRow);
+};
+
 function normalizePalauTableDoc(doc) {
   if (!isPalauEpisodeNow() || !doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
   const content = [];
@@ -736,8 +749,9 @@ function normalizePalauTableDoc(doc) {
     const splitRows = row?.type === 'tableRow' ? splitPalauFullWidthRow(row) : [row];
     for (const splitRow of splitRows) {
       // Drop only rows that carry no visible words at all; this removes stray empty grid bands
-      // without touching any real script text or timecodes.
-      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow)) continue;
+      // without touching any real script text or timecodes. Rows the author added on purpose
+      // with the "+" row tool (pairu_ pairId) are KEPT even while still empty.
+      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow) && !isUserAddedRow(splitRow)) continue;
       content.push(splitRow);
     }
   }

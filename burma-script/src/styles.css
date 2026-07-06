@@ -745,24 +745,79 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-trow[data-cols="1"] .wp-tcell-content > .wp-chapter:last-child { margin-bottom: 11px; }
 
 /* ---- SPLIT row: LEFT = SAID (narration/VO) · RIGHT = SHOWN (visual) ---------
-   The ONLY divider a row ever shows: a single 1px hairline between columns,
-   painted on cells after the first. No outer border, no grid. */
+   A split row reads as a REAL table row: the cells STRETCH to equal height so
+   the centre divider is a solid line running the FULL height of the row (the
+   old flex-start alignment cut the divider off at the shorter cell — Johnny:
+   "the dividing line in the middle isn't an actual line"). Exactly ONE crisp
+   divider: a 1.5px border-left on cells after the first, flush (no margin gap);
+   the breathing room comes from cell padding on BOTH sides of the line. */
 .wp-trow[data-cols="2"] .wp-trow-cells,
-.wp-trow[data-cols="3"] .wp-trow-cells { align-items: flex-start; }
+.wp-trow[data-cols="3"] .wp-trow-cells { align-items: stretch; }
 
 .wp-trow[data-cols="2"] .wp-tcell:first-child,
 .wp-trow[data-cols="3"] .wp-tcell:first-child { flex: 1.2 1 0; }
 
 .wp-tcell + .wp-tcell {
-  border-left: 1px solid var(--ep-grid-rule);   /* the ONE centre divider (doctrine table grid) */
-  margin-left: 22px;
-  padding-left: 22px;
+  border-left: 1.5px solid var(--ep-grid-rule);   /* the ONE centre divider (doctrine table grid) */
+  margin-left: 0;
+  padding-left: 0;
 }
 
+/* Generous cell padding — the table's "well-built" feel. ~16px of air on each
+   side of the divider, ~10px vertical in both lanes (the doctrine used to crush
+   split-row cells to 2px). The first cell keeps its left edge on the frame's own
+   padding so said-lane text stays aligned with full-width rows above it. */
+.wp-trow[data-cols="2"] .wp-tcell,
+.wp-trow[data-cols="3"] .wp-tcell { padding: 10px 16px; }
+.wp-trow[data-cols="2"] .wp-tcell:first-child,
+.wp-trow[data-cols="3"] .wp-tcell:first-child { padding-left: 0; }
+
 /* In a split, stacked cartridges inside a cell keep their own 11px gaps; the
-   last one's trailing margin is the row gap, same rhythm as full-width. */
+   LAST one sheds its trailing margin — the cell's own bottom padding is the
+   row rhythm now, so the gridline sits evenly below both lanes. */
 .wp-trow[data-cols="2"] .wp-tcell-content > .wp-cart:last-child,
-.wp-trow[data-cols="3"] .wp-tcell-content > .wp-cart:last-child { margin-bottom: 11px; }
+.wp-trow[data-cols="3"] .wp-tcell-content > .wp-cart:last-child { margin-bottom: 0; }
+
+/* ---- ADD-ROW TOOL: the "+" on every row's bottom edge ----------------------
+   A small round "+" pinned to the centre of the row's bottom edge, straddling
+   the gridline like a table's own insert affordance. Hidden until row hover
+   (same reveal discipline as the split grip and drag grip); the ONE accent on
+   hover. Left-click adds one row below; right-click opens the add-N menu. */
+.wp-row-add {
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  z-index: 6;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 0;
+}
+.wp-row-add-btn {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 0 1px;
+  border: 1.5px solid var(--ep-grid-rule);
+  border-radius: 50%;
+  background: var(--face);
+  color: var(--label-2);
+  box-shadow: none;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease);
+}
+.wp-trow:hover .wp-row-add-btn { opacity: .6; }
+.wp-row-add-btn:hover,
+.wp-row-add-btn:focus-visible { opacity: 1; color: var(--ep-accent); border-color: var(--ep-accent); }
+
+/* The right-click "Add rows" menu — inherits the flat wp-slash/convert menu look. */
+.wp-addrows-menu { min-width: 150px; }
 
 /* ============================================================
    CARTRIDGE ANATOMY — shared by all block types
@@ -1445,7 +1500,8 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   @page { margin: 16mm 14mm; }
   html, body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .wp-screw, .wp-rack-head, .wp-rack-foot, .wp-outline, .wp-spine, .wp-grip, .wp-cap-num,
-  .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta { display: none !important; }
+  .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
+  .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag { display: none !important; }
   .wp-page { padding: 0 !important; }
   .wp-device { border: 0 !important; border-radius: 0 !important; padding: 0 !important; max-width: none !important; background: #fff !important; transform: none !important; }
   .wp-cart { border: 0 !important; border-radius: 0 !important; margin: 0 0 6pt !important; background: none !important; break-inside: avoid; page-break-inside: avoid; }

@@ -137,10 +137,15 @@
 .wp-sot-cart .wp-cart-body { box-shadow: inset 2px 0 0 var(--ep-sot-accent); }
 .wp-sot-cart .wp-dir-head { padding-right: 52px; }
 
-/* ───────────────────────── SPLIT-ROW = FLAT TABLE CELLS ─────────────────────────
+/* ───────────────────────── SPLIT-ROW = SOLID TABLE CELLS ─────────────────────────
    In a said|shown split the cartridge chrome (border, spine, box) melts away so
-   the two lanes read as plain table cells inside the chapter grid, not nested
-   boxes. */
+   the two lanes read as table cells inside the chapter grid, not nested boxes —
+   but the cells themselves are ROOMY, not crushed. The old 2px cart-body padding
+   was Johnny's "no padding / crummy formatting" complaint; the outer breathing
+   room now lives on the CELL (styles.css: 10px vertical, 16px each side of the
+   divider) and the cart-body keeps a small 4px cushion so stacked cartridges in
+   one lane don't touch. Chapters / SOT cartridges keep their full chrome — this
+   section only governs the said|shown WRITING rows. */
 .wp-trow[data-cols="2"] .wp-cart,
 .wp-trow[data-cols="3"] .wp-cart {
   border: 0;
@@ -151,9 +156,38 @@
 .wp-trow[data-cols="2"] .wp-spine,
 .wp-trow[data-cols="3"] .wp-spine { display: none; }
 .wp-trow[data-cols="2"] .wp-cart-body,
-.wp-trow[data-cols="3"] .wp-cart-body { padding: 2px 0; }
+.wp-trow[data-cols="3"] .wp-cart-body { padding: 4px 0; }
 .wp-trow[data-cols="2"] .wp-sot-cart .wp-cart-body,
 .wp-trow[data-cols="3"] .wp-sot-cart .wp-cart-body { box-shadow: none; }
+
+/* BARE CELL PROSE READS LIKE BODY PROSE — a fresh split's shown lane and every
+   "+"-added row open with a bare paragraph (no cartridge wrapper), which used to
+   fall through to the editor's default font and read off-menu ("the formatting
+   is pretty crummy"). Bare paragraphs directly inside a cell now read with the
+   same reading face / size / lead as cartridge body prose. */
+.wp-tcell-content > p {
+  font-family: var(--doc-read);
+  font-size: var(--doc-size);
+  line-height: calc(var(--doc-lead) + 0.28);
+  color: var(--body);
+  margin: 0 0 6px;
+}
+.wp-tcell-content > p:last-child { margin-bottom: 0; }
+
+/* THE SHOWN LANE IS BOLD BY DEFAULT — anything typed in the RIGHT (visual) column
+   renders bold with no per-character marks: the weight is inherited by the cell's
+   prose (paragraphs + stripped cart bodies alike). Chips, labels and mono chrome
+   declare their own weights, so nothing fights the direction-chip styling; the
+   said lane stays at normal reading weight. */
+.wp-tcell[data-role="shown"] .wp-tcell-content { font-weight: 650; }
+
+/* ROW GRIDLINES — every split writing row closes with a clean 1px rule so rows
+   read as TABLE rows even outside a chapter frame. Frame member rows already get
+   this from the wp-chframe rule below — the :not() keeps the line single. */
+.wp-trow[data-cols="2"]:not(.wp-chframe),
+.wp-trow[data-cols="3"]:not(.wp-chframe) {
+  border-bottom: 1px solid var(--ep-grid-rule);
+}
 
 /* ───────────────────────── CHAPTER FRAMES ─────────────────────────
    The chapter-frames plugin (extensions/chapter-frames.js) tags each run of
@@ -188,8 +222,9 @@
 
 /* Horizontal gridlines — every member row (but the last) gets a divider, so a
    chapter reads like a table. The vertical centre divider is the shared
-   styles.css hairline (.wp-tcell + .wp-tcell), now painted with --ep-grid-rule;
-   we do NOT double it here. */
+   styles.css rule (.wp-tcell + .wp-tcell, a solid 1.5px full-height line painted
+   with --ep-grid-rule); we do NOT double it here, and split rows inside a frame
+   are excluded from the non-frame gridline rule above for the same reason. */
 .wp-trow.wp-chframe:not(.wp-chframe-last) {
   border-bottom: 1px solid var(--ep-grid-rule);
 }

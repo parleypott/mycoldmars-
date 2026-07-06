@@ -18,6 +18,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 import { episodeFlag } from '../episode-config.js';
+import { isReadOnly } from '../read-mode.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -175,6 +176,164 @@ export function doMergeRow(state, dispatch, rowPos) {
   return true;
 }
 
+// ---- ADD ROWS BELOW (THE ROW TOOL) ---------------------------------------
+// A tiny "+" at the bottom edge of every row. Click = ONE empty row below; right-click = a
+// small menu to add 1 / 5 / 10 / 20 at once. The inserted rows MATCH the source row's column
+// structure — below a 2-column said|shown row you get a fresh empty said|shown pair (cursor
+// ready in the said lane); below a full-width row you get a fresh full-width row. One
+// ProseMirror transaction per gesture, so undo pulls all N rows back out in one step and
+// autosave/backup fire exactly as for any other edit.
+//
+// pairu_ pairIds — every inserted row is stamped with a `pairu_` (user-added) pairId. Paired
+// rows need a pairId anyway for the said|shown blocks to round-trip docToBlocks →
+// buildEditorDocument as ONE row; the pairu_ prefix ALSO marks the row as deliberately
+// user-added, which document-builder's Palau load-normalizer reads to KEEP a still-empty
+// added row instead of culling it as a stray word-less grid band. The row persists until
+// the author types into it or deletes it.
+let mintCounter = 0;
+export function mintUserPairId() {
+  mintCounter = (mintCounter + 1) % 1e6;
+  return `pairu_${Date.now().toString(36)}_${mintCounter.toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// Insert `count` empty rows directly below the row at rowPos, cloning its column structure
+// (same cell count, same role per cell, one empty paragraph per cell). Pure
+// (state, dispatch) -> boolean like doSplitRow/doMergeRow. Count is clamped to 1..50.
+//
+// DEPTH: rows are usually top-level, but Palau's real saved doc NESTS its said|shown rows
+// inside a wrapper row's cell (tableRow > tableCell > tableRow — the schema allows it,
+// tableRow is group:'block' and cells hold block+). So unlike moveRow (top-level only),
+// this inserts the new rows as SIBLINGS of the source row at WHATEVER depth it lives:
+// below a nested 2-col row you get a nested 2-col row, inside the same cell. The insert
+// is schema-checked; an impossible parent returns false instead of throwing mid-chain.
+export function doAddRowsBelow(state, dispatch, rowPos, count = 1) {
+  const n = Math.max(1, Math.min(50, Math.floor(Number(count) || 1)));
+  const { schema, doc, tr } = { schema: state.schema, doc: state.doc, tr: state.tr };
+  if (typeof rowPos !== 'number' || rowPos < 0 || rowPos > doc.content.size) return false;
+  const row = doc.nodeAt(rowPos);
+  if (!row || row.type.name !== 'tableRow') return false;
+  const cellType = schema.nodes.tableCell;
+  const rowType = schema.nodes.tableRow;
+  if (!cellType || !rowType) return false;
+
+  const roles = [];
+  row.forEach((cell) => roles.push(cell.attrs?.role || 'full'));
+  if (!roles.length) roles.push('full');
+
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const cells = roles.map((role) => cellType.create({ role }, emptyParagraph(schema)));
+    rows.push(rowType.create({ cols: cells.length, pairId: mintUserPairId() }, cells));
+  }
+
+  // The parent (doc, or a cell for nested rows) must accept tableRow siblings here.
+  const $row = doc.resolve(rowPos);
+  const index = $row.index($row.depth);
+  if (!$row.parent.canReplaceWith(index + 1, index + 1, rowType)) return false;
+
+  if (dispatch) {
+    const insertAt = rowPos + row.nodeSize;
+    tr.insert(insertAt, rows);
+    // Cursor into the FIRST new row's FIRST cell (the said lane on a split row): row open (+1),
+    // cell open (+1), paragraph open (+1).
+    try {
+      const sel = TextSelection.create(tr.doc, Math.min(insertAt + 3, tr.doc.content.size));
+      tr.setSelection(sel);
+    } catch {}
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+}
+
+// ---- the right-click "add N rows" menu -----------------------------------
+// A single live menu instance, styled by the shared convert/slash menu CSS so it reads
+// exactly like the engine's other calm floating menus. Keyboard driven, click-away closed.
+const ADD_ROW_CHOICES = [
+  { label: 'Add 1 row', count: 1 },
+  { label: 'Add 5 rows', count: 5 },
+  { label: 'Add 10 rows', count: 10 },
+  { label: 'Add 20 rows', count: 20 },
+];
+
+let openAddMenu = null;
+function closeOpenAddMenu() {
+  if (openAddMenu) { openAddMenu.close(); openAddMenu = null; }
+}
+
+function createAddRowsMenu(editor, rowPos, x, y) {
+  let activeIndex = 0;
+  const menu = el('div', 'wp-addrows-menu wp-convert-menu wp-slash-menu', { contenteditable: 'false', role: 'menu' });
+  const head = el('div', 'wp-convert-head');
+  head.textContent = 'Add rows below';
+  menu.appendChild(head);
+
+  const buttons = [];
+  let onDocDown = null;
+  let onKey = null;
+  let onScroll = null;
+
+  const close = () => {
+    if (!menu.parentNode) return;
+    if (onDocDown) document.removeEventListener('mousedown', onDocDown, true);
+    if (onKey) document.removeEventListener('keydown', onKey, true);
+    if (onScroll) {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    }
+    menu.remove();
+  };
+
+  const paintActive = () => buttons.forEach((b, i) => b.classList.toggle('is-active', i === activeIndex));
+  const pick = (index) => {
+    const item = ADD_ROW_CHOICES[index];
+    if (!item) return;
+    close();
+    editor.chain().focus().addRowsBelow(rowPos, item.count).run();
+  };
+
+  ADD_ROW_CHOICES.forEach((item, index) => {
+    const button = el('button', 'wp-convert-item wp-slash-item', { type: 'button', role: 'menuitem' });
+    const label = el('span', 'wp-convert-label');
+    label.textContent = item.label;
+    button.appendChild(label);
+    button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+    button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+    buttons.push(button);
+    menu.appendChild(button);
+  });
+
+  paintActive();
+  document.body.appendChild(menu);
+
+  // Fixed-position near the pointer, clamped to the viewport (same discipline as the
+  // convert / slash / timecode menus).
+  menu.style.position = 'fixed';
+  menu.style.top = `${y}px`;
+  menu.style.left = `${x}px`;
+  const box = menu.getBoundingClientRect();
+  if (box.right > window.innerWidth - 8) menu.style.left = `${Math.max(8, window.innerWidth - box.width - 8)}px`;
+  if (box.bottom > window.innerHeight - 8) menu.style.top = `${Math.max(8, window.innerHeight - box.height - 8)}px`;
+
+  onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); editor.view.focus(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = (activeIndex + 1) % ADD_ROW_CHOICES.length; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = (activeIndex - 1 + ADD_ROW_CHOICES.length) % ADD_ROW_CHOICES.length; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); activeIndex = 0; paintActive(); buttons[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); activeIndex = ADD_ROW_CHOICES.length - 1; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); pick(activeIndex); }
+  };
+  onDocDown = (e) => { if (!menu.contains(e.target)) close(); };
+  onScroll = () => close();
+
+  document.addEventListener('keydown', onKey, true);
+  setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
+  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('resize', onScroll);
+  requestAnimationFrame(() => { if (buttons[0]) buttons[0].focus(); });
+
+  return { menu, close };
+}
+
 // --- tableCell — a column slot. Holds block+ (cartridges). The cell owns NO chrome of its
 // own; its only job is to be a flex column. The hairline between split columns is painted by
 // CSS on cells after the first (.wp-tcell + .wp-tcell { border-left }).
@@ -269,6 +428,11 @@ export const TableRow = Node.create({
         if (pos == null) return false;
         return doMergeRow(state, dispatch, pos);
       },
+      addRowsBelow: (rowPos, count = 1) => ({ state, dispatch }) => {
+        const pos = rowPosFromSelection(state, rowPos);
+        if (pos == null) return false;
+        return doAddRowsBelow(state, dispatch, pos, count);
+      },
     };
   },
   addNodeView() {
@@ -362,12 +526,49 @@ export const TableRow = Node.create({
         dom.appendChild(handle);
       }
 
+      // ---- ADD-ROW TOOL (ALL SCRIPTS) ----------------------------------
+      // A tiny "+" pinned to the row's bottom edge, revealed on row hover like the drag
+      // grip. Left-click = one empty row below (matching this row's column structure);
+      // right-click = the add-1/5/10/20 menu. Never mounted in read-only share mode —
+      // a reader's browser gets no write affordance at all.
+      let addWrap = null;
+      if (!isReadOnly()) {
+        addWrap = el('div', 'wp-row-add', { contenteditable: 'false' });
+        const addBtn = el('button', 'wp-row-add-btn', {
+          type: 'button',
+          contenteditable: 'false',
+          title: 'Add a row below · right-click to add many',
+          'aria-label': 'add row below',
+        });
+        addBtn.textContent = '+';
+        addBtn.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;   // left-click only; right-click is the menu's
+          e.preventDefault();
+          e.stopPropagation();
+          const pos = typeof getPos === 'function' ? getPos() : getPos;
+          if (typeof pos !== 'number') return;
+          editor.chain().focus().addRowsBelow(pos, 1).run();
+        });
+        addBtn.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const pos = typeof getPos === 'function' ? getPos() : getPos;
+          if (typeof pos !== 'number') return;
+          closeOpenAddMenu();
+          openAddMenu = createAddRowsMenu(editor, pos, e.clientX, e.clientY);
+        });
+        addWrap.appendChild(addBtn);
+        dom.appendChild(addWrap);
+      }
+
       const content = el('div', 'wp-trow-cells');
       dom.appendChild(content);
       return {
         dom,
         contentDOM: content,
-        ignoreMutation: (m) => spine.contains(m.target) || (handle && (handle === m.target || handle.contains(m.target))),
+        ignoreMutation: (m) => spine.contains(m.target)
+          || (handle && (handle === m.target || handle.contains(m.target)))
+          || (addWrap && (addWrap === m.target || addWrap.contains(m.target))),
         update(updated) {
           if (updated.type.name !== 'tableRow') return false;
           paintCols(updated);
