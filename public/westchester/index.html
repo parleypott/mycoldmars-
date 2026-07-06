@@ -6712,7 +6712,8 @@ const MAP_STYLES = {
   }
 };
 const savedStyleKey = (() => {
-  const s = localStorage.getItem(STYLE_KEY);
+  let s = null;
+  try { s = localStorage.getItem(STYLE_KEY); } catch (e) { /* storage-blocked → default */ }
   return MAP_STYLES[s] ? s : 'detailed';
 })();
 let currentStyleKey = savedStyleKey;
