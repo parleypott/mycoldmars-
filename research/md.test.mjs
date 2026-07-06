@@ -1682,5 +1682,56 @@ function fullOldMd(md) {
      'NO-REGRESSION: a ```lang fenced block still drops its info string');
 }
 
+// ── HTML ENTITY & NUMERIC CHARACTER REFERENCES (no double-escape) ──
+// esc() up front turns every raw `&` into `&amp;`, so an entity the model actually
+// emitted double-escaped: `&amp;` -> `&amp;amp;` (renders literal "&amp;"), `&copy;`
+// -> `&amp;copy;` (renders "&copy;"). Research prose emits these constantly. The
+// entity-collapse pass restores a `&amp;`-followed-by-valid-entity-body to a single
+// reference so it renders the intended char — while a BARE `&` (no `;`-terminated
+// body) stays `&amp;`, and entities inside code spans stay literal.
+{
+  // RED PROOF: reconstruct the OLD renderer WITHOUT the entity-collapse pass and
+  // show it double-escapes — "AT&amp;T" leaks the literal "&amp;" into the reader.
+  const oldNoCollapse = (md) => {
+    let h = esc(md);
+    // (all other transforms are irrelevant for a plain "AT&amp;T" line)
+    return `<p>${h}</p>`;
+  };
+  ok(oldNoCollapse('AT&amp;T').includes('&amp;amp;'),
+     'RED PROOF: without the collapse, a model-emitted &amp; double-escapes to &amp;amp;');
+
+  // FIX: a model-emitted entity renders as its intended character (single reference).
+  eq(mdToHtml('AT&amp;T merger'), '<p>AT&amp;T merger</p>',
+     'FIX: &amp; entity renders one & (not &amp;amp;)');
+  eq(mdToHtml('&copy; 2026 Newpress'), '<p>&copy; 2026 Newpress</p>',
+     'FIX: named entity &copy; survives as a single reference');
+  eq(mdToHtml('the &lt;div&gt; wrapper'), '<p>the &lt;div&gt; wrapper</p>',
+     'FIX: &lt;/&gt; in HTML discussion render as inert < > text, not &amp;lt;');
+  eq(mdToHtml('snowman &#9731; here'), '<p>snowman &#9731; here</p>',
+     'FIX: decimal numeric reference &#9731; is preserved');
+  eq(mdToHtml('apostrophe &#x27; mark'), '<p>apostrophe &#x27; mark</p>',
+     'FIX: hex numeric reference &#x27; is preserved');
+
+  // NO-REGRESSION: a BARE ampersand (not a `;`-terminated entity) still escapes.
+  eq(mdToHtml('AT&T and R&D'), '<p>AT&amp;T and R&amp;D</p>',
+     'NO-REGRESSION: raw & (AT&T, R&D) stays &amp;');
+  eq(mdToHtml('5 & 6 and 7 & 8'), '<p>5 &amp; 6 and 7 &amp; 8</p>',
+     'NO-REGRESSION: a lone & with no entity body stays &amp;');
+  ok(mdToHtml('link http://x.com/?a=1&b=2&c=3 end').includes('a=1&amp;b=2&amp;c=3'),
+     'NO-REGRESSION: query-string & (no `;`) stays &amp; — url intact');
+  eq(mdToHtml('5 < 6 holds'), '<p>5 &lt; 6 holds</p>',
+     'NO-REGRESSION: a raw < still escapes to &lt;');
+
+  // SECURITY: an entity inside a code span stays LITERAL (CommonMark leaves code
+  // entities untouched) — the code stub is restored AFTER the collapse pass.
+  eq(mdToHtml('`AT&amp;T`'), '<p><code>AT&amp;amp;T</code></p>',
+     'SECURITY: &amp; inside a code span stays double-escaped (literal &amp;)');
+  // SECURITY: raw numeric refs for < > stay REFERENCES (inert text), never a live tag.
+  ok(!/<script/i.test(mdToHtml('x &#60;script&#62;alert(1)&#60;/script&#62; y')),
+     'SECURITY: raw &#60;script&#62; collapses to inert references, no live <script>');
+  ok(mdToHtml('x &#60;script&#62; y').includes('&#60;script&#62;'),
+     'SECURITY: the numeric < > references are preserved as inert visible text');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

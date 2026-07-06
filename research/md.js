@@ -754,6 +754,26 @@ export function mdToHtml(md) {
       return `<p>${block.replace(/[ \t]*\\?\n/g, '<br>')}</p>`;
     })
     .join('\n');
+  // CommonMark ENTITY & NUMERIC CHARACTER REFERENCES. esc() up front turned every
+  // raw `&` into `&amp;`, so an entity the model actually emitted — `&amp;`, `&lt;`,
+  // `&copy;`, `&#169;`, `&#x27;` — became DOUBLE-escaped (`&amp;` -> `&amp;amp;`),
+  // rendering the literal text "&amp;"/"&copy;" in the reader instead of the char.
+  // Research prose (and the web pages it summarises) emit entities constantly:
+  // "AT&amp;T", "R&amp;D", "&copy; 2026", `&lt;div&gt;` in HTML discussion. Collapse
+  // an `&amp;` that is IMMEDIATELY followed by a valid entity BODY (named, decimal,
+  // or hex) back to a single `&…;` so it renders as the intended character. Runs
+  // BEFORE the code-stub restore, so entities inside a code span/block (which
+  // CommonMark leaves LITERAL) are still stubbed and stay `&amp;` verbatim.
+  // XSS-safe: the result is a character REFERENCE — the SAME inert class esc()
+  // itself emits and relies on. HTML decodes references in text/data context to
+  // inert character tokens (a decoded `<` never opens a tag), so `&amp;lt;script&gt;`
+  // -> `&lt;script&gt;` -> visible text "<script>", never live markup. A bare `&`
+  // (AT&T, "5 & 6", "?a=1&b=2") is NOT followed by a `;`-terminated entity body,
+  // so it stays `&amp;` — real query strings use `&key=value`, never `&word;`.
+  html = html.replace(
+    /&amp;(#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[a-zA-Z][a-zA-Z0-9]{0,31};)/g,
+    '&$1'
+  );
   // Restore the stashed code spans, then unwrap a standalone fenced block that
   // the paragraph pass wrapped as a lone <p> (a <pre> is block-level and must
   // not nest inside <p> — this reproduces the pre-stash output exactly).
