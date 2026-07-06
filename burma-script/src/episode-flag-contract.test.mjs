@@ -108,18 +108,14 @@ const burmaFlags = enabledFlags(burmaBlock);
 const palauFlags = enabledFlags(palauBlock);
 
 // ---- LOCK A: PALAU-COMPLETENESS — every engine flag is enabled in Palau ----
-// EXCEPTION: some engine flags are genuine OPT-IN feature toggles, not Palau-era affordances that
-// must always be on. Their off-state is intentional and load-bearing, so requiring them in Palau's
-// config here would be wrong — it'd force-enable a feature that's deliberately disabled.
-//   • collab — real-time co-editing (Liveblocks + Yjs). DISABLED on all scripts by hotfix 1f2bb66
-//     (2026-07-06): the bundled collab-vendor chunk crashes boot with a TDZ error
-//     ("Cannot access 'Pi' before initialization"), so editors run in single-writer mode. It is a
-//     toggle, not a Palau affordance — Palau does NOT "silently lose" anything by having it off;
-//     it loses a feature that doesn't work yet. Re-enable in palau-script/config.js AFTER the
-//     collab-vendor bundling/TDZ fix. (LOCK C still fires if a NON-read flag is ever enabled.)
-const INTENTIONALLY_OPTIONAL = new Set(['collab']);
+// Every flag the engine reads must be ON in Palau's config, else Palau silently loses that
+// affordance. STRICT, no exemptions. (History: the `collab` flag was briefly exempted here by
+// hotfix 1f2bb66 (2026-07-06) while its bundled collab-vendor chunk crashed boot with a TDZ error
+// — "Cannot access 'Pi' before initialization". That was fixed in 71770be (linkifyjs was being
+// greedy-matched into collab-vendor, creating a two-chunk import cycle) and collab was re-enabled
+// on burma/palau/palau2. The exemption is gone; if collab is ever disabled again, this lock RED-fires
+// as it should.)
 for (const f of codeFlags) {
-  if (INTENTIONALLY_OPTIONAL.has(f)) continue;
   ok(palauFlags.has(f), `A: engine flag '${f}' is enabled in Palau config (else Palau silently loses it)`);
 }
 
