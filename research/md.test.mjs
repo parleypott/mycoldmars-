@@ -1430,6 +1430,32 @@ function fullOldMd(md) {
   ok(/<p>Data:<\/p>\s*<table>/.test(mdToHtml('Data:\na | b\n--- | ---\n1 | 2')),
      'FIX: a table interrupts a preceding paragraph line');
 
+  // ── The INVERSE glue case: a heading (or <hr>) DIRECTLY followed by body prose ──
+  // with no blank line — "## Section\nBody..." — the single most common shape an
+  // LLM emits. The \n{2,} splitter kept `<h2>Section</h2>\nBody` as ONE block that
+  // STARTS with <h2>, so it passed the block whitelist verbatim and the prose was
+  // emitted BARE (no <p>, no block margins). The `</h[1-6]>|<hr>` + `\n(?=[^\n])`
+  // injection restores the missing blank line. MUTATION: delete that replace in
+  // md.js and every "gets its <p>" FIX below goes RED (the prose stays unwrapped).
+  {
+    const h = mdToHtml('## Title\nBody right after.');
+    ok(/<h2>Title<\/h2>\s*<p>Body right after\.<\/p>/.test(h),
+       'FIX: prose glued under a heading gets its own <p>');
+    ok(!/<h2>Title<\/h2>\s*Body/.test(h), 'MUTATION: the prose is not left bare after the </h2>');
+  }
+  ok(/<h3>Head<\/h3>\s*<p><strong>Bold<\/strong> intro<\/p>/.test(mdToHtml('### Head\n**Bold** intro')),
+     'FIX: an inline-leading prose line glued under a heading still gets its <p>');
+  ok(/<h1>Big Title<\/h1>\s*<p>Body\.<\/p>/.test(mdToHtml('Big Title\n=========\nBody.')),
+     'FIX: prose glued under a SETEXT heading gets its <p>');
+  ok(/<hr>\s*<p>After rule\.<\/p>/.test(mdToHtml('a\n\n---\nAfter rule.')),
+     'FIX: prose glued under a thematic break gets its <p>');
+  // NO-REGRESSION: a heading with the blank line ALREADY present is byte-identical,
+  // and a heading followed by a real block (list) is untouched (both pass verbatim).
+  eq(mdToHtml('## Title\n\nBody.'), '<h2>Title</h2>\n<p>Body.</p>',
+     'NO-REGRESSION: a heading + blank line + prose is unchanged (no double blank)');
+  ok(/<h2>Title<\/h2>\s*<ul><li>one<\/li>/.test(mdToHtml('## Title\n- one\n- two')),
+     'NO-REGRESSION: a heading directly followed by a list still renders the list');
+
   // A lead-in ending in an inline tag then `:` still splits (prefix is the `:`).
   ok(/<p>Key <strong>findings<\/strong>:<\/p>\s*<ul>/.test(mdToHtml('Key **findings**:\n- a\n- b')),
      'FIX: lead-in ending in bold + colon still interrupts into the list');

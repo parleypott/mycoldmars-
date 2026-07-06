@@ -393,6 +393,25 @@ export function mdToHtml(md) {
   // A GFM table's delimiter row (`| --- | --- |`) carries `|`, which is neither
   // a marker nor a space, so it never matches here and reaches renderTables intact.
   html = html.replace(/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, '<hr>');
+  // A heading (or thematic break) can be DIRECTLY followed by body prose with NO
+  // blank line between — LLM research reports write "## Section\nBody text..."
+  // constantly. The \n{2,} paragraph splitter below treats that whole run as ONE
+  // block; because it STARTS with a block tag (<h2>/<hr>) it passes the block
+  // whitelist verbatim, so the trailing prose is emitted BARE — no <p>, no block
+  // margins, glued straight onto the </h2>. (This is the inverse of the two
+  // already-fixed glue cases: list->paragraph at the `</ul>\n` restore below, and
+  // paragraph->block just above the split.) Insert the missing blank line after a
+  // heading close / <hr> that is followed by a single newline + real content, so
+  // the splitter separates them and the prose gets its <p>. Placed HERE — right
+  // after the ATX/setext/thematic passes and BEFORE the list/blockquote/table
+  // passes — so the only block tags present are top-level <h1-6>/<hr> (a QUOTED
+  // heading is still a raw `&gt; ##` line, a list is still a `- ` line): this can
+  // never insert a break INSIDE a <blockquote>/<table> and split its innards.
+  // Requiring a non-newline next char skips the already-separated `\n\n` case (no
+  // double blank); inserting a break before a following BLOCK element is harmless
+  // (both halves pass the whitelist verbatim and rejoin), so it only ever ADDS the
+  // missing <p> around trailing prose. Byte-identical when a blank line is present.
+  html = html.replace(/(<\/h[1-6]>|<hr>)\n(?=[^\n])/g, '$1\n\n');
   // List MARKERS are block structure and must be claimed BEFORE the inline
   // emphasis pass. A `* ` bullet (asterisk + space) is unambiguously a list
   // marker in CommonMark — emphasis can never be immediately followed by
