@@ -375,6 +375,18 @@ function readHiScore(raw) {
   return Number.isFinite(v) ? v : 0;
 }
 
+// Boot-time READ access is crash-safe. readHiScore guards the PARSE, but merely
+// ACCESSING localStorage.getItem throws a SecurityError in a storage-blocked
+// browser (Safari "Block All Cookies", in-app webviews like the Gmail/Slack
+// in-app browser). That access happens in the `const state = {...}` init at
+// module load, so an uncaught throw there kills the whole game module before it
+// ever renders — a blank page. This is the READ twin of saveHiScore's guarded
+// WRITE: swallow the failure and boot with hi=0 (no persistence this session).
+function readStoredHi(store, key) {
+  try { return store.getItem(key); }
+  catch { return null; }
+}
+
 // Persist a new high score, crash-safe. localStorage.setItem THROWS in Safari/
 // Firefox Private Browsing (a QuotaExceededError even for a tiny int write). This
 // is the WRITE twin of readHiScore's guarded READ: an uncaught throw here fires
@@ -399,7 +411,7 @@ const state = {
   octopusTimer: 600,
   bunkers: [],
   score: 0,
-  hi: readHiScore(localStorage.getItem("laserspaceHi")),
+  hi: readHiScore(readStoredHi(localStorage, "laserspaceHi")),
   lives: 3,
   level: 1,
   paused: false,

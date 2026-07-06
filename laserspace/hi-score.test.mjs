@@ -135,8 +135,12 @@ t('WRITE twin: a healthy store persists the score as a string and returns true',
 t('source-binding: index.html uses readHiScore + Number.isFinite, not the raw parseInt at the hi: site', () => {
   assert.ok(/function readHiScore\s*\(/.test(html), 'readHiScore must be defined');
   assert.ok(/Number\.isFinite\(v\)\s*\?\s*v\s*:\s*0/.test(html), 'NaN guard must be present');
-  assert.ok(/hi:\s*readHiScore\(localStorage\.getItem\("laserspaceHi"\)\)/.test(html),
-    'the hi: field must call readHiScore');
+  // The boot read routes the PARSE through readHiScore and the ACCESS through the
+  // crash-safe readStoredHi (guards SecurityError in storage-blocked browsers).
+  assert.ok(/hi:\s*readHiScore\(readStoredHi\(localStorage,\s*"laserspaceHi"\)\)/.test(html),
+    'the hi: field must call readHiScore(readStoredHi(...))');
+  assert.ok(!/hi:\s*readHiScore\(localStorage\.getItem\("laserspaceHi"\)\)/.test(html),
+    'the raw localStorage.getItem access at the hi: boot site must be gone');
   assert.ok(!/hi:\s*parseInt\(localStorage\.getItem\("laserspaceHi"\)/.test(html),
     'the old inline parseInt form must be gone from the hi: field');
   // the WRITE site must route through the crash-safe helper, not raw setItem
