@@ -17,6 +17,7 @@ import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap';
 import { collabRoomId, shouldSeedRoom } from './collab.js';
+import { providerSynced } from './collab-sync-wait.js';
 import { fetchCloud } from './cloud-sync.js';
 import { ensureTableDoc } from './document-builder.js';
 import { primeVersionFloor } from './migrate-doc.js';
@@ -35,32 +36,9 @@ function fallbackCaretUser() {
   return { name: 'someone', color };
 }
 
-// Resolve when the provider has completed its initial sync with the Liveblocks room (so the
-// fragment's emptiness is KNOWN, not just "not yet downloaded"). Resolves `true` on sync,
-// `false` on timeout — the caller must NOT seed on false (an undownloaded room isn't empty).
-function providerSynced(provider, timeoutMs = 15000) {
-  return new Promise((resolve) => {
-    if (provider.synced) return resolve(true);
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(true);
-    };
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(!!provider.synced);
-    }, timeoutMs);
-    function cleanup() {
-      clearTimeout(timer);
-      try { provider.off('synced', done); } catch {}
-    }
-    try { provider.on('synced', done); } catch { done(); }
-  });
-}
+// providerSynced (the "is the room's emptiness KNOWN?" gate) is extracted to ./collab-sync-wait.js
+// — it's the one dep-free, load-bearing decision in this heavy module, so it lives where a plain
+// node test can lock it. Imported above; behavior here is byte-identical to the old inline copy.
 
 // ONE-SHOT ROOM SEED. Called from the editor's onCreate in collab mode. Await initial sync, then
 // seed the Y.Doc from the current cloud doc ONLY IF the room is genuinely empty (no fragment
