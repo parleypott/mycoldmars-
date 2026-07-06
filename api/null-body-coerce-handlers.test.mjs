@@ -1,17 +1,15 @@
-// Mutation-lock for the null-body 500 crash class across three handlers the
+// Mutation-lock for the null-body 500 crash class across handlers the
 // repo-wide gate (scripts/find-naive-body-read.mjs) flagged as MISSED by prior
 // null-body sweeps:
-//   api/generate-plan.js        (Walden masterplan renderer — handleGenPlan)
 //   api/qss-block-summaries.js  (QSS story-spine block summaries)
-//   api/walden-design.js        (Walden design collaborator — mode dispatch)
+// (generate-plan.js and walden-design.js were also covered here until the
+// walden app + its serverless surface were removed on 2026-07-06.)
 //
 // Each read its POST body inside a try/catch that ONLY caught req.json()
 // REJECTING (malformed JSON). A structurally-valid JSON literal `null` (or a
 // number / string / array) PARSES successfully, slips past the catch, and the
 // next RAW body access crashed into an unhandled HTTP 500:
-//   generate-plan       → handleGenPlan(body) → `body.photo` on null
 //   qss-block-summaries → `selectSummarizableBlocks(body.blocks)` on null
-//   walden-design       → `body.mode` dispatch on null
 //
 // Fix: route the parsed body through coerceObjectBody (api/_lib/read-json-body.js)
 // so a non-object body becomes {} and each handler's own field validation returns
@@ -33,9 +31,7 @@ delete process.env.ACCESS_CODE;
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://test.local';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-key';
 
-const generatePlan = (await import('./generate-plan.js')).default;
 const blockSummaries = (await import('./qss-block-summaries.js')).default;
-const waldenDesign = (await import('./walden-design.js')).default;
 
 function post(bodyStr) {
   return new Request('https://x.test/api', {
@@ -61,9 +57,7 @@ async function check(label, fn) {
 }
 
 const HANDLERS = [
-  ['generate-plan', generatePlan],
   ['qss-block-summaries', blockSummaries],
-  ['walden-design', waldenDesign],
 ];
 
 for (const [name, handler] of HANDLERS) {

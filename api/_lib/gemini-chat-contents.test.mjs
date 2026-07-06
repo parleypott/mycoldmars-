@@ -102,8 +102,8 @@ ok('cutter buildChatContents uses window 12',
 
 // ════════════════════════════════════════════════════════════════════════════
 // buildGeminiHistoryContents — the history-only helper used by callers whose new
-// user turn carries non-text parts (walden-design attaches reference images). It
-// must do the SAME leading-model-turn drop but NOT append a user turn.
+// user turn carries non-text parts (e.g. nano-banana attaches reference images).
+// It must do the SAME leading-model-turn drop but NOT append a user turn.
 // ════════════════════════════════════════════════════════════════════════════
 
 // inline RED proof: the OLD inline nano-banana / walden map had NO drop, so a
@@ -172,28 +172,24 @@ ok('chat builder = history helper + appended user turn',
      [...buildGeminiHistoryContents(clean, { window: 10 }), { role: 'user', parts: [{ text: 'q3' }] }]));
 
 // ════════════════════════════════════════════════════════════════════════════
-// SOURCE-BINDING — the four newly-consolidated Gemini call sites must import the
-// shared builder and carry NO surviving inline `history.map(... parts:[{ text`
+// SOURCE-BINDING — the consolidated Gemini call sites must import the shared
+// builder and carry NO surviving inline `history.map(... parts:[{ text`
 // contents copy. (The line-716 nano-banana CLAUDE messages map is a DIFFERENT,
 // Anthropic-shaped builder — deliberately out of scope — so we assert on the
-// Gemini `parts:[{ text` shape specifically.)
+// Gemini `parts:[{ text` shape specifically. walden-design.js was also bound
+// here until the walden app + its serverless surface were removed 2026-07-06.)
 // ════════════════════════════════════════════════════════════════════════════
 const here = dirname(fileURLToPath(import.meta.url));
 const apiDir = join(here, '..');
 const stripComments = (s) => s.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const nano = stripComments(readFileSync(join(apiDir, 'nano-banana.js'), 'utf8'));
-const walden = stripComments(readFileSync(join(apiDir, 'walden-design.js'), 'utf8'));
 
 ok('nano-banana imports the shared builder',
   /from '\.\/_lib\/gemini-chat-contents\.js'/.test(nano) && /buildGeminiChatContents/.test(nano));
-ok('walden-design imports the shared history helper',
-  /from '\.\/_lib\/gemini-chat-contents\.js'/.test(walden) && /buildGeminiHistoryContents/.test(walden));
 // no surviving inline Gemini contents copy (history.map → parts:[{ text ...}])
 const inlineGeminiCopy = /history\.map\([\s\S]{0,140}parts:\s*\[\{\s*text/;
 ok('nano-banana has no inline Gemini contents map (only the shared builder)',
   !inlineGeminiCopy.test(nano));
-ok('walden-design has no inline Gemini contents map',
-  !inlineGeminiCopy.test(walden));
 
 // ════════════════════════════════════════════════════════════════════════════
 // APPENDED-MESSAGE COERCION — the new user turn is the one part present in EVERY
