@@ -426,8 +426,14 @@ function fmt(s) {
   // a bare MM:SS rendered it "77:47". Sub-hour output is byte-identical to before.
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
-function save(id,t) { localStorage.setItem('ep_'+id,t); }
-function load(id) { return parseFloat(localStorage.getItem('ep_'+id))||0; }
+// Merely accessing localStorage throws a SecurityError when storage is blocked
+// (Safari "Block All Cookies", or an in-app webview like the Gmail/Slack browser a
+// listener taps the link from). load() runs at boot inside render() for every essay,
+// so an unguarded throw would abort the whole list → blank page. Guard both: happy
+// path is byte-identical (load still returns parseFloat||0), a blocked store degrades
+// to a no-op save / 0 resume so the player still renders and plays.
+function save(id,t) { try { localStorage.setItem('ep_'+id,t); } catch {} }
+function load(id) { try { return parseFloat(localStorage.getItem('ep_'+id))||0; } catch { return 0; } }
 function fmtDate(s) {
   if (!s) return '';
   // ESSAYS is a hand-edited manifest, so e.date can be a typo ('2026-13-45',
