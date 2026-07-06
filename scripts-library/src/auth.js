@@ -15,6 +15,7 @@
 //   authRequired()                  — true when Supabase is configured
 
 import { supabase } from './supa.js';
+import { tokenExpiresWithin } from './auth-token.js';
 
 let _user = null;
 const _listeners = new Set();
@@ -78,6 +79,23 @@ export async function getAccessToken() {
   try {
     const { data } = await supabase.auth.getSession();
     return data?.session?.access_token || null;
+  } catch { return null; }
+}
+
+// Return a NON-EXPIRING access token, forcing a refresh when the current one is stale. getSession()
+// returns the cached token (which may already be past its exp if the client's background auto-refresh
+// hasn't fired — e.g. a backgrounded tab); refreshSession() forces a new one from the refresh token.
+// This is what keeps a long editing session's cloud saves from silently 401-ing into "cloud offline".
+// NEVER throws — returns the freshest token it can, or null.
+export async function getFreshAccessToken() {
+  if (!supabase) return null;
+  try {
+    let tok = null;
+    try { const { data } = await supabase.auth.getSession(); tok = data?.session?.access_token || null; } catch {}
+    if (!tok || tokenExpiresWithin(tok)) {
+      try { const { data } = await supabase.auth.refreshSession(); tok = data?.session?.access_token || tok; } catch {}
+    }
+    return tok || null;
   } catch { return null; }
 }
 

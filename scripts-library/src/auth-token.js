@@ -20,3 +20,23 @@ export function readSupabaseAccessTokenSync() {
   } catch {}
   return null;
 }
+
+// Is this JWT expired, or within `skewSec` of expiring? A Supabase access token lives ~1 hour; the
+// interceptor used to inject whatever sat in localStorage with NO expiry check, so after ~an hour of
+// editing every /api write 401'd and the save pill silently dropped to "CLOUD OFFLINE" (the exact
+// mid-session token-expiry trap the audit flagged). We decode the JWT's `exp` claim and treat a
+// missing/unparseable exp as "expiring" (fail safe → force a refresh) rather than injecting a token we
+// can't vouch for. Pure + synchronous so the interceptor can gate its refresh on it. NEVER throws.
+export function tokenExpiresWithin(token, skewSec = 60) {
+  try {
+    if (!token || typeof token !== 'string') return true;
+    const part = token.split('.')[1];
+    if (!part) return true;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json);
+    if (!payload || typeof payload.exp !== 'number') return true; // unknown expiry → refresh
+    return payload.exp * 1000 <= Date.now() + skewSec * 1000;
+  } catch {
+    return true; // can't read it → force a refresh rather than send a token we can't verify
+  }
+}

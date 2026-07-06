@@ -8,8 +8,8 @@
 // If Supabase isn't configured (no VITE_SUPABASE_URL/ANON_KEY), the app runs
 // OPEN — the gate never shows and boot() proceeds immediately (Palau posture).
 
-import { bootstrap, signInWithPassword, sendMagicLink, currentUser, onAuthChange, authRequired } from './auth.js';
-import { readSupabaseAccessTokenSync } from './auth-token.js';
+import { bootstrap, signInWithPassword, sendMagicLink, currentUser, onAuthChange, authRequired, getFreshAccessToken } from './auth.js';
+import { readSupabaseAccessTokenSync, tokenExpiresWithin } from './auth-token.js';
 
 // ── Fetch interceptor: Bearer JWT on same-origin /api/* ──────────────────────
 function installApiFetchInterceptor() {
@@ -28,11 +28,33 @@ function installApiFetchInterceptor() {
         const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
         if (!headers.has('authorization')) {
           try {
-            const tok = readSupabaseAccessTokenSync();
+            // Prefer the sync-read token, but if it's expired/expiring, force a refresh FIRST so a
+            // long editing session's saves never 401 into "cloud offline" with a stale JWT.
+            let tok = readSupabaseAccessTokenSync();
+            if (!tok || tokenExpiresWithin(tok)) {
+              const fresh = await getFreshAccessToken();
+              if (fresh) tok = fresh;
+            }
             if (tok) headers.set('Authorization', `Bearer ${tok}`);
           } catch {}
         }
         init.headers = headers;
+
+        // Send it, and if the server still says 401 (token died between check and send, or a clock
+        // skew), refresh ONCE and retry. A 401'd write never touched the DB, so retrying is safe and
+        // idempotent. This is the belt to the refresh-first suspenders — together they keep cloud sync
+        // alive across a token expiry instead of silently dropping to "SAVED ON THIS DEVICE · OFFLINE".
+        const res = await originalFetch(input, init);
+        if (res && res.status === 401) {
+          try {
+            const fresh = await getFreshAccessToken();
+            if (fresh) {
+              headers.set('Authorization', `Bearer ${fresh}`);
+              return await originalFetch(input, { ...init, headers });
+            }
+          } catch {}
+        }
+        return res;
       }
     } catch {}
     return originalFetch(input, init);
