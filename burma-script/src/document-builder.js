@@ -736,11 +736,14 @@ function splitPalauFullWidthRow(row) {
 // RECURSIVE: Palau's stale-doc shape nests rows (tableRow > tableCell > tableRow), and
 // splitPalauFullWidthRow re-wraps a nested row into a fresh full-width row whose own attrs
 // carry no pairId — so the pairu_ marker must be found at ANY depth of the candidate row.
-const isUserAddedRow = (node) => {
+// CANONICAL: this is the ONE source of the pairu_ predicate. migrate-doc.js (the pristine-source
+// rebuild guard) and the add-rows suite import it from here instead of hand-copying the body, so
+// the two data-loss guards can never drift apart.
+export function hasUserAddedRow(node) {
   if (!node || typeof node !== 'object') return false;
   if (node.type === 'tableRow' && typeof node.attrs?.pairId === 'string' && node.attrs.pairId.startsWith('pairu_')) return true;
-  return Array.isArray(node.content) && node.content.some(isUserAddedRow);
-};
+  return Array.isArray(node.content) && node.content.some(hasUserAddedRow);
+}
 
 function normalizePalauTableDoc(doc) {
   if (!isPalauEpisodeNow() || !doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
@@ -751,7 +754,7 @@ function normalizePalauTableDoc(doc) {
       // Drop only rows that carry no visible words at all; this removes stray empty grid bands
       // without touching any real script text or timecodes. Rows the author added on purpose
       // with the "+" row tool (pairu_ pairId) are KEPT even while still empty.
-      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow) && !isUserAddedRow(splitRow)) continue;
+      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow) && !hasUserAddedRow(splitRow)) continue;
       content.push(splitRow);
     }
   }

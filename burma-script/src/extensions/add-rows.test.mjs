@@ -23,6 +23,7 @@ import { history, undo } from '@tiptap/pm/history';
 import { doAddRowsBelow, mintUserPairId } from './table.js';
 import { ensureTableDoc } from '../document-builder.js';
 import { hasUserAddedRow } from '../migrate-doc.js';
+import { hasUserAddedRow as hasUserAddedRowCanonical } from '../document-builder.js';
 import { setEpisode } from '../episode-config.js';
 import { BURMA } from '../../config.js';
 import { PALAU } from '../../../palau-script/config.js';
@@ -214,6 +215,11 @@ const makeState = (...rows) => EditorState.create({
   const nested = { type: 'tableRow', attrs: { cols: 1 }, content: [{ type: 'tableCell', attrs: { role: 'full' }, content: [emptyPairuRow] }] };
   ok(hasUserAddedRow({ type: 'doc', content: [nested] }) === true, 'hasUserAddedRow: finds a NESTED pairu_ row');
   ok(hasUserAddedRow({ type: 'doc', content: [plainRow] }) === false, 'hasUserAddedRow: legacy pairIds do not trip it');
+  // TWIN-LOCK — the pristine-rebuild guard (migrate-doc) and the empty-band culler (document-builder)
+  // MUST share ONE predicate, or the two data-loss guards can silently drift apart. Assert they are
+  // the very same function object, not two hand-copied bodies. This goes RED the instant anyone
+  // re-inlines a local copy in either file.
+  ok(hasUserAddedRow === hasUserAddedRowCanonical, 'hasUserAddedRow: migrate-doc re-exports the ONE canonical predicate (no twin)');
 }
 
 console.log(`${pass} passed, ${fail} failed`);

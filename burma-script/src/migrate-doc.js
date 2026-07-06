@@ -33,7 +33,11 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { DirectionMark } from './extensions/direction-chip.js';
-import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument } from './document-builder.js';
+import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument, hasUserAddedRow } from './document-builder.js';
+// Re-export the CANONICAL pairu_ predicate (defined once in document-builder.js) so callers that
+// already depend on migrate-doc's surface — the pristine-source rebuild guard below and the
+// add-rows suite — resolve the same single implementation instead of a divergent hand-copy.
+export { hasUserAddedRow };
 import { isReadOnly } from './read-mode.js';
 import {
   idbPutSnapshot, idbPutDoc, idbReadDoc, idbDocProbe, idbAvailable, compressDoc, decompressDoc,
@@ -637,18 +641,12 @@ function sourceComparableBlocks(blocks) {
   }));
 }
 
-// A row the author added on purpose with the "+" row tool carries a `pairu_` pairId
-// (table.js mintUserPairId). While still EMPTY it exports no blocks, so a doc that is
-// otherwise byte-pristine would compare EQUAL to source and the rebuild below would
-// silently discard the freshly-added row on the next load. A pairu_ row anywhere in
-// the tree is a deliberate user edit — the doc is NOT pristine, skip the rebuild.
-// (Exported for the add-rows suite.)
-export function hasUserAddedRow(node) {
-  if (!node || typeof node !== 'object') return false;
-  if (node.type === 'tableRow' && typeof node.attrs?.pairId === 'string' && node.attrs.pairId.startsWith('pairu_')) return true;
-  return Array.isArray(node.content) && node.content.some(hasUserAddedRow);
-}
-
+// The pristine-source rebuild must NOT fire when the author added a row on purpose with the "+"
+// row tool: such a row carries a `pairu_` pairId (table.js mintUserPairId) and, while still EMPTY,
+// exports no blocks — so a doc that is otherwise byte-pristine would compare EQUAL to source and the
+// rebuild below would silently discard the freshly-added row on the next load. hasUserAddedRow (the
+// canonical predicate, imported from document-builder.js) finds a pairu_ row at ANY depth: its
+// presence means the doc is a deliberate user edit, so we skip the rebuild.
 function palauSourceRebuildCandidate(original) {
   if (!episodeFlag('rebuildFromSourceWhenPristine')) return null;
   if (hasUserAddedRow(original)) return null;
