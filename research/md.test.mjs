@@ -1637,5 +1637,50 @@ function fullOldMd(md) {
      'NO-REGRESSION: whitespace-flanked `**` stays literal');
 }
 
+// ── Multi-backtick inline code spans (CommonMark) ─────────────────────────────
+// A run of N>=2 backticks opens a span that closes at the next run of EXACTLY N
+// backticks, letting the content carry SHORTER backtick runs verbatim — the
+// canonical way to show a literal backtick. The renderer only had a single-tick
+// rule, so ``a`b`` was mis-parsed: the inner tick prematurely closed a spurious
+// single <code>a</code> span and the closing `` leaked as literal backticks.
+// A code sample that itself contains a backtick is exactly what forces a
+// double-tick span, so technical research reports (shell, markdown, code) reach it.
+{
+  // RED PROOF: the old renderer had ONLY the single-tick rule. Reconstruct it and
+  // show it mis-spans ``a`b`` — it wraps just `a` and leaks the inner+closing ticks.
+  const oldInlineTickOnly = (md) => {
+    const h = esc(md).replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`);
+    return `<p>${h}</p>`;
+  };
+  ok(oldInlineTickOnly('run ``a`b`` now').includes('<code>a</code>b'),
+     'RED PROOF: single-tick-only renderer mis-spans a ``a`b`` double-tick span');
+
+  // FIX: the double-tick span renders its full content, inner backtick and all.
+  eq(mdToHtml('run ``a`b`` now'), '<p>run <code>a`b</code> now</p>',
+     'FIX: ``a`b`` renders one code span containing the literal backtick');
+  eq(mdToHtml('use ``console.log(`hi`)`` here'),
+     '<p>use <code>console.log(`hi`)</code> here</p>',
+     'FIX: a real code sample with an inner `backtick` survives verbatim');
+  // CommonMark space-strip: `` ` `` shows a lone backtick (one leading+trailing
+  // space peeled when both are present and the content is not all-spaces).
+  eq(mdToHtml('type `` ` `` to show'), '<p>type <code>`</code> to show</p>',
+     'FIX: `` ` `` renders a bare <code>`</code> (space-stripped)');
+  // Two separate double-tick spans on one line stay independent (non-greedy body +
+  // exactly-N closer), never merging across the middle prose.
+  eq(mdToHtml('``a`` and ``b``'), '<p><code>a</code> and <code>b</code></p>',
+     'FIX: two double-tick spans on one line stay independent');
+
+  // NO-REGRESSION: a single-tick span is byte-identical to before.
+  eq(mdToHtml('a `code` b'), '<p>a <code>code</code> b</p>',
+     'NO-REGRESSION: a lone `code` single-tick span is unchanged');
+  eq(mdToHtml('run `a*b*c` now'), '<p>run <code>a*b*c</code> now</p>',
+     'NO-REGRESSION: single-tick span still shields its `*` from emphasis');
+  // NO-REGRESSION: a ``` fenced block is still a <pre><code> (stashed first).
+  eq(mdToHtml('```\nconst x=1;\n```'), '<pre><code>const x=1;</code></pre>',
+     'NO-REGRESSION: a ``` fenced block is untouched by the multi-tick rule');
+  eq(mdToHtml('```js\nconst x=1;\n```'), '<pre><code>const x=1;</code></pre>',
+     'NO-REGRESSION: a ```lang fenced block still drops its info string');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

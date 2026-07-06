@@ -223,6 +223,29 @@ export function mdToHtml(md) {
   // spans are unaffected. Same fenceCode() info-string handling as backticks.
   html = html.replace(/~~~+([\s\S]*?)~~~+/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
   html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
+  // MULTI-backtick inline code spans (CommonMark). A run of N>=2 backticks opens
+  // a span that closes at the next run of EXACTLY N backticks, so the content can
+  // carry SHORTER backtick runs verbatim — this is the canonical way to show a
+  // literal backtick, e.g. ``a`b`` -> <code>a`b</code>, or `` ` `` -> <code>`</code>.
+  // The single-backtick rule below only handles N=1, so a 2+-tick span was
+  // mis-parsed: ``a`b`` rendered `<code>a</code>b`` ` — the inner tick prematurely
+  // closed a spurious single span and the closing run leaked into the reader as
+  // literal backticks. Research reports about code, shell, or markdown emit these
+  // whenever the code sample itself contains a backtick. Runs AFTER the ``` fence
+  // stash (a real fenced block is already an inert stub) and BEFORE the single-tick
+  // rule (so a lone `code` still matches that). `(?!\`)` on the closer rejects a run
+  // LONGER than N (the real closer is elsewhere); the greedy `(\`{2,})` opener
+  // claims the full opening run. Per CommonMark, ONE leading + trailing space is
+  // stripped when both are present and the content isn't all spaces (that is what
+  // lets `` ` `` render a bare backtick). Content is already esc()'d up-front, so
+  // stashing it keeps it verbatim and XSS-safe, exactly like the single-tick span.
+  html = html.replace(/(`{2,})([\s\S]+?)\1(?!`)/g, (_, ticks, c) => {
+    let body = c;
+    if (body.length > 1 && body.startsWith(' ') && body.endsWith(' ') && body.trim() !== '') {
+      body = body.slice(1, -1);
+    }
+    return stub(`<code>${body}</code>`);
+  });
   html = html.replace(/`([^`]+)`/g, (_, c) => stub(`<code>${c}</code>`));
   // HTML COMMENTS (`<!-- editor note -->`). esc() has turned the delimiters into
   // `&lt;!-- … --&gt;`, so without a rule the comment leaked into the reader as
