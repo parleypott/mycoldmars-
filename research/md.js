@@ -486,6 +486,20 @@ export function mdToHtml(md) {
   // content, so the closer is claimed at the FIRST following `**` and each pair
   // stays independent. (The `*`, `_`, `__`, `~~`, `==` rules never bridged: their
   // middles already exclude the delimiter char; only `**`/`***` used `[^\n]*?`.)
+  // CROSSED-RUN emphasis, claimed BEFORE the independent passes below. A span
+  // opened `***`/closed `**` (or opened `**`/closed `***`) with a lone `*` on the
+  // other side is standard CommonMark for italicising the FIRST (`***word* rest**`)
+  // or LAST (`**rest *word***`) piece of a bold phrase — LLM research prose emits
+  // both. The `***`/`**`/`*` passes each pair their OWN delimiters, so left to them
+  // these two shapes emit CROSSED tags (`<em><strong>word</em> rest</strong>`) —
+  // invalid HTML the browser only silently reparses. That is exactly the malformed
+  // nesting the `***` pass just below was written to avoid; these two runs finish
+  // the job. Each edge is flanking-pinned (non-space, non-`*`) like every rule
+  // here, and each interior is star-free, so a run fires ONLY on the exact crossed
+  // shape — `***a***`, `**a**`, `**a *b* c**`, `*a **b** c*` never match and are
+  // left byte-identical for the correctly-nested passes to handle.
+  html = html.replace(/\*\*\*([^\s*][^*\n]*?)\*([^*\n]*?[^\s*])\*\*/g, '<strong><em>$1</em>$2</strong>');
+  html = html.replace(/\*\*([^\s*][^*\n]*?)\*([^\s*][^*\n]*?)\*\*\*/g, '<strong>$1<em>$2</em></strong>');
   html = html.replace(/\*\*\*([^\s*](?:(?:[^*\n]|\*(?!\*\*))*?[^\s*])?)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*([^\s*](?:(?:[^*\n]|\*(?!\*))*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
   // Single `*em*` is FLANKING-AWARE per CommonMark: an opening `*` must be

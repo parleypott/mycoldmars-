@@ -1637,6 +1637,56 @@ function fullOldMd(md) {
      'NO-REGRESSION: whitespace-flanked `**` stays literal');
 }
 
+// ── CROSSED-RUN emphasis: `***a* b**` / `**a *b***` nest correctly ────────────
+// Italicising the FIRST word of a bold phrase is `***word* rest**`; the LAST word
+// is `**rest *word***`. Both are standard CommonMark and LLM research prose emits
+// them. The independent `***`/`**`/`*` passes each pair their own delimiters, so
+// left alone these two shapes emit CROSSED tags — `<em><strong>word</em> rest</strong>`
+// — invalid HTML the browser only silently reparses. A pre-pass claims each shape
+// correctly nested. Mutation-proof: without the pre-pass the output is crossed.
+{
+  // RED PROOF: reconstruct the OLD independent-pass behavior (no pre-pass) and show
+  // it crosses the tags on the first-word-italic shape.
+  const oldCrossed = (md) => {
+    let h = esc(md);
+    h = h.replace(/\*\*\*([^\s*](?:(?:[^*\n]|\*(?!\*\*))*?[^\s*])?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    h = h.replace(/\*\*([^\s*](?:(?:[^*\n]|\*(?!\*))*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
+    h = h.replace(/(^|[^*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '$1<em>$2</em>');
+    return `<p>${h}</p>`;
+  };
+  ok(/<em><strong>very<\/em> important<\/strong>/.test(oldCrossed('This is ***very* important**.')),
+     'RED PROOF: without the pre-pass, ***a* b** emits crossed <em><strong>…</em>…</strong>');
+
+  // FIX: first-word-italic and last-word-italic both nest correctly now.
+  eq(mdToHtml('This is ***very* important**.'),
+     '<p>This is <strong><em>very</em> important</strong>.</p>',
+     'FIX: ***a* b** -> <strong><em>a</em> b</strong> (first word italic in a bold phrase)');
+  eq(mdToHtml('**bold and *italic to end***'),
+     '<p><strong>bold and <em>italic to end</em></strong></p>',
+     'FIX: **a *b*** -> <strong>a <em>b</em></strong> (last word italic in a bold phrase)');
+  eq(mdToHtml('***a* b**'),
+     '<p><strong><em>a</em> b</strong></p>',
+     'FIX: single-char first-word italic ***a* b** nests correctly');
+
+  // NO-REGRESSION: the correctly-nested shapes the independent passes already
+  // handled must stay byte-identical — the pre-pass must NOT fire on them.
+  eq(mdToHtml('A ***fully bold italic*** word.'),
+     '<p>A <strong><em>fully bold italic</em></strong> word.</p>',
+     'NO-REGRESSION: ***a*** (both-triple) stays <strong><em>a</em></strong>');
+  eq(mdToHtml('**bold *italic* bold**'),
+     '<p><strong>bold <em>italic</em> bold</strong></p>',
+     'NO-REGRESSION: **a *b* c** (italic in the middle) unchanged');
+  eq(mdToHtml('*italic and **bold to end***'),
+     '<p><em>italic and <strong>bold to end</strong></em></p>',
+     'NO-REGRESSION: *a **b*** (already correctly nested) unchanged');
+  eq(mdToHtml('**a** and **b** here'),
+     '<p><strong>a</strong> and <strong>b</strong> here</p>',
+     'NO-REGRESSION: two plain bold spans unaffected by the crossed-run pre-pass');
+  eq(mdToHtml('***start*** middle ***end***'),
+     '<p><strong><em>start</em></strong> middle <strong><em>end</em></strong></p>',
+     'NO-REGRESSION: two ***bi*** spans on one line stay independent');
+}
+
 // ── Multi-backtick inline code spans (CommonMark) ─────────────────────────────
 // A run of N>=2 backticks opens a span that closes at the next run of EXACTLY N
 // backticks, letting the content carry SHORTER backtick runs verbatim — the
