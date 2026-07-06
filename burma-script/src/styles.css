@@ -774,7 +774,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    split-row cells to 2px). The first cell keeps its left edge on the frame's own
    padding so said-lane text stays aligned with full-width rows above it. */
 .wp-trow[data-cols="2"] .wp-tcell,
-.wp-trow[data-cols="3"] .wp-tcell { padding: 10px 16px; }
+.wp-trow[data-cols="3"] .wp-tcell { padding: 15px 16px; }
 .wp-trow[data-cols="2"] .wp-tcell:first-child,
 .wp-trow[data-cols="3"] .wp-tcell:first-child { padding-left: 0; }
 
@@ -869,7 +869,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-grip:hover { color: var(--ink); }
 
 /* BODY */
-.wp-cart-body { flex: 1; min-width: 0; padding: 11px 14px; }
+.wp-cart-body { flex: 1; min-width: 0; padding: 15px 16px; }
 .wp-body { min-width: 0; }
 .ProseMirror-selectednode { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; border-radius: 11px; }
 
