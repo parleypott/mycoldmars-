@@ -2,27 +2,38 @@ import assert from 'node:assert/strict';
 import { SLASH_ITEMS } from './extensions/slash-menu.js';
 
 // Lock the burma-script "/" slash-command contract — the menu Johnny types into to
-// drop director marks (oncam / factcheck / animation / 3d / broll / archive / direction /
-// break) while editing scripts. SLASH_ITEMS + its per-item match() are imported LIVE (not
-// re-implemented), so this test tracks the real shipped object and cannot drift from it.
+// insert STRUCTURE blocks (/chapter, /scene) and drop director marks (oncam / factcheck /
+// animation / 3d / broll / archive / direction / break) while editing scripts. SLASH_ITEMS +
+// its per-item match() are imported LIVE (not re-implemented), so this test tracks the real
+// shipped object and cannot drift from it.
 //
-// Two things get locked:
+// Three things get locked:
 //   1. The command SET + the shortcut ALIASES Johnny relies on (/fc, /anim, /threed, …) —
 //      so a rename or an accidental deletion of a command/alias fails the suite.
 //   2. The match() semantics: PREFIX match (startsWith), case-insensitive, trimmed. This is
 //      the load-bearing behavior — a regression to substring (includes) matching would make
 //      "/cam" surface "oncam" and turn the menu noisy, and dropping trim/lowercase would make
 //      "/FC " (a realistic keystroke) match nothing.
+//   3. The GROUPING: chapter/scene carry group:'structure' (block-level inserts, rendered
+//      above the tag list under their own head + divider); every mark carries group:'mark'.
+//      (The insert transaction itself is locked by slash-structure.test.mjs.)
 
 let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
-// --- 1. Command set is exactly the eight director marks, in order ---------------------
-ok('SLASH_ITEMS is the eight commands in order', () => {
+// --- 1. Command set is structure (2) + the eight director marks, structure first -------
+ok('SLASH_ITEMS is the ten commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction', 'break'],
+    ['chapter', 'scene', 'archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction', 'break'],
   );
+});
+
+ok('chapter + scene are group:structure; every tag is group:mark', () => {
+  for (const it of SLASH_ITEMS) {
+    const want = (it.title === 'chapter' || it.title === 'scene') ? 'structure' : 'mark';
+    assert.equal(it.group, want, `${it.title} should be group:${want}`);
+  }
 });
 
 ok('every item is well-formed (title / aliases / run / match)', () => {
@@ -44,6 +55,8 @@ const find = (t) => SLASH_ITEMS.find((i) => i.title === t);
 
 ok('the shortcut aliases Johnny types resolve to their command', () => {
   const cases = [
+    ['ch', 'chapter'],
+    ['sc', 'scene'],
     ['fc', 'factcheck'],
     ['source', 'factcheck'],
     ['anim', 'animation'],
