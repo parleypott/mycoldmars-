@@ -296,9 +296,18 @@ function updateProgress(){
 }
 
 /* ---- booking actions ---- */
+// Crash-safe localStorage. Merely ACCESSING window.localStorage throws a SecurityError
+// in restricted contexts — storage blocked, some in-app webviews (the Gmail/Slack
+// browser Marisa may tap the link from), Safari "Block All Cookies". These reads run at
+// BOOT, before render()/load(), so an unguarded throw here aborts the whole script and
+// leaves a permanently blank timeline stuck on "syncing…". Degrade to the default (or a
+// no-op write) instead. lsGet is byte-identical to the old `getItem(k)||d` on the happy
+// path. Same crash-safe-storage class the repo closed on the theme toggles.
+const lsGet=(k,d)=>{try{return localStorage.getItem(k)||d;}catch(e){return d;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 const whoInput=document.getElementById("who");
-whoInput.value=localStorage.getItem("nile-booker")||"Marisa";
-whoInput.addEventListener("change",()=>localStorage.setItem("nile-booker",whoInput.value.trim()||"EA"));
+whoInput.value=lsGet("nile-booker","Marisa");
+whoInput.addEventListener("change",()=>lsSet("nile-booker",whoInput.value.trim()||"EA"));
 
 function toggle(id){
   const cur=state.bookings[id]&&state.bookings[id].booked;
