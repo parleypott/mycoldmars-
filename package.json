@@ -11,17 +11,23 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/genai": "^1.52.0",
+    "@liveblocks/client": "^3.22.0",
+    "@liveblocks/node": "^3.22.0",
+    "@liveblocks/yjs": "^3.22.0",
     "@preact/preset-vite": "^2.10.5",
     "@sentry/browser": "^10.53.1",
     "@sentry/vercel-edge": "^10.53.1",
     "@supabase/supabase-js": "^2.104.1",
     "@tiptap/core": "^3.22.4",
     "@tiptap/extension-bubble-menu": "^3.22.4",
+    "@tiptap/extension-collaboration": "3.22.4",
+    "@tiptap/extension-collaboration-caret": "3.22.4",
     "@tiptap/extension-highlight": "^3.22.4",
     "@tiptap/pm": "^3.22.4",
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
     "@tiptap/suggestion": "3.22.4",
+    "@tiptap/y-tiptap": "^3.0.6",
     "butterchurn": "^2.6.7",
     "butterchurn-presets": "^2.4.7",
     "fflate": "^0.8.2",
@@ -34,7 +40,8 @@
     "tus-js-client": "^4.3.1",
     "use-sync-external-store": "^1.6.0",
     "wavesurfer.js": "^7.12.6",
-    "world-atlas": "^2.0.2"
+    "world-atlas": "^2.0.2",
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

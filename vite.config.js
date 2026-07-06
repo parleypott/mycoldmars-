@@ -1,7 +1,63 @@
 import { resolve } from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
+// LOCAL LIVEBLOCKS AUTH (collab Phase 1) — dev-only middleware that serves POST
+// /api/liveblocks-auth from the LOCAL handler (api/liveblocks-auth.js) instead of proxying it.
+// Two reasons: (a) the proxy target may not have the endpoint deployed yet, and (b) the token
+// mint needs LIVEBLOCKS_SECRET_KEY from .env.local, which should be exercised locally, not via a
+// remote deployment's env. configureServer middlewares run BEFORE vite's internal proxy, so this
+// wins for exactly this one path; every other /api/* call proxies exactly as before. Registered
+// only when a secret is present — without one, dev behaves as it always did (the path proxies).
+function localLiveblocksAuthPlugin(env) {
+  return {
+    name: 'local-liveblocks-auth',
+    apply: 'serve',
+    configureServer(server) {
+      if (!env.LIVEBLOCKS_SECRET_KEY) return;
+      server.middlewares.use('/api/liveblocks-auth', (req, res) => {
+        (async () => {
+          // Surface .env.local vars to the handler (edge handlers read process.env at request time).
+          for (const k of [
+            'LIVEBLOCKS_SECRET_KEY', 'ACCESS_CODE',
+            'SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+            'SUPABASE_ANON_KEY', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
+          ]) {
+            if (env[k] && !process.env[k]) process.env[k] = env[k];
+          }
+          const chunks = [];
+          for await (const c of req) chunks.push(c);
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(req.headers)) {
+            if (typeof v === 'string') headers.set(k, v);
+            else if (Array.isArray(v)) headers.set(k, v.join(', '));
+          }
+          const { default: handler } = await import('./api/liveblocks-auth.js');
+          const request = new Request('http://localhost' + (req.originalUrl || req.url || '/'), {
+            method: req.method,
+            headers,
+            body: (req.method === 'GET' || req.method === 'HEAD') ? undefined : Buffer.concat(chunks),
+            duplex: 'half',
+          });
+          const response = await handler(request);
+          res.statusCode = response.status;
+          response.headers.forEach((v, k) => res.setHeader(k, v));
+          res.end(await response.text());
+        })().catch((e) => {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: { code: 'DEV_AUTH', message: String((e && e.message) || e) } }));
+        });
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  // .env.local (gitignored) carries the Liveblocks keys; loadEnv with the '' prefix exposes the
+  // non-VITE_ vars to the dev middleware above. Vite still only ships VITE_* vars to the client.
+  const env = loadEnv(mode, __dirname, '');
+  return {
+  plugins: [localLiveblocksAuthPlugin(env)],
   // Local dev proxies /api to the URL in MCM_DEV_API. Defaults to the
   // prod Vercel deployment so existing workflows keep working, but
   // setting MCM_DEV_API=https://preview-branch.vercel.app in .env.local
@@ -51,6 +107,15 @@ export default defineConfig({
         // mobile / cold cache.
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          // COLLAB — keep the realtime stack OUT of editor-vendor (which every script session
+          // loads). These packages are only reachable through the dynamically-imported
+          // collab-runtime chunk, so grouping them here means a non-collab session never fetches
+          // a byte of yjs/liveblocks. MUST come before the '@tiptap' catch-all below, or
+          // @tiptap/y-tiptap + the collaboration extensions would leak into editor-vendor.
+          if (
+            id.includes('y-tiptap') || id.includes('yjs') || id.includes('@liveblocks') ||
+            id.includes('extension-collaboration') || id.includes('y-protocols') || id.includes('lib0')
+          ) return 'collab-vendor';
           if (id.includes('@tiptap') || id.includes('prosemirror')) return 'editor-vendor';
           if (id.includes('wavesurfer')) return 'wavesurfer';
           if (id.includes('@supabase/supabase-js')) return 'supabase';
@@ -110,4 +175,5 @@ export default defineConfig({
       },
     },
   },
+  };
 });

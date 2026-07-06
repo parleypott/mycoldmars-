@@ -12,6 +12,7 @@ import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, rehydrateLocalFromNewest, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, readLatestSavedRaw, ensureResetBackup, LS_DOC_FALLBACK, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly, docsDiffer, snapshotDocConflictAsync } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
+import { isCollabEnabled, prepareCollab } from './collab.js';
 import { captureWriteTokenFromUrl } from './write-token.js';
 import { requestPersistentStorage, pruneIfLowHeadroom } from './storage-persist.js';
 import { idbPruneGlobal } from './recovery-store.js';
@@ -1242,6 +1243,19 @@ async function startup() {
     if (p && p.low) console.info('[burma] storage headroom low (ratio ' + (p.ratio || 0).toFixed(2) + ') — pruned ' + p.pruned + ' recovery snapshot(s) before the wall');
   }).catch(() => {});
 
+  // ── COLLAB (Phase 1) — Liveblocks + Yjs, behind the per-episode `collab` feature flag ─────────
+  // When the flag is on, connect the realtime session BEFORE render so the editor mounts straight
+  // onto the shared Y.Doc (canonical for the session). The single-writer reconcile/bootstrap
+  // machinery below is SKIPPED in collab mode — its adopt-reload / conflict paths solve a problem
+  // Yjs doesn't have — while all the LOCAL durability machinery (rehydrate, migration, recovery)
+  // keeps running unchanged. If the runtime fails to load/connect, collabActive stays false and
+  // this session falls back to the full single-writer engine — collab can never brick the editor.
+  let collabActive = false;
+  if (isCollabEnabled()) {
+    try { collabActive = !!(await prepareCollab()); }
+    catch (e) { console.warn('[burma] collab prepare failed — falling back to single-writer engine:', e); }
+  }
+
   // BOOT READ SIDE (palau-v2) — recover the newest canonical doc BEFORE migration or render so a
   // quota-full edit parked in `.z`/IDB is the doc every downstream path reasons from on reload.
   let resolved = await rehydrateLocalFromNewest();
@@ -1272,7 +1286,9 @@ async function startup() {
     render(<App recoveredDoc={recoveredDoc} />, el);
     // LOCAL-ONLY (Palau): no cloud reconcile at all — the local doc IS the source of truth, so we
     // never fetch, never go "offline", and never snapshot a cloud conflict. Burma still reconciles.
-    if (!EPISODE.localOnly) reconcileOnLoad({
+    // COLLAB: the Y.Doc is canonical and the editor ignores the local doc — reconcile's adopt/reload
+    // and keep-local-push would fight the room. Local stays a durability snapshot only.
+    if (!EPISODE.localOnly && !collabActive) reconcileOnLoad({
       saveDoc,
       primeVersionFloor,
       ...(recoveredRead ? {
@@ -1298,6 +1314,16 @@ async function startup() {
         }
       })
       .catch((e) => console.warn('[burma] cloud sync reconcile skipped:', e));
+    return;
+  }
+
+  // FRESH DEVICE + COLLAB — no local doc, but the editor's content comes from the synced Y.Doc
+  // (seeded once from the cloud inside the collab path), so the single-writer cloud bootstrap
+  // below is unnecessary and its local seed-write could only confuse the snapshot machinery.
+  // Render immediately; the room fills the editor as sync arrives.
+  if (collabActive) {
+    console.info('[burma] collab: fresh device — rendering straight onto the shared room (no bootstrap)');
+    render(<App />, el);
     return;
   }
 

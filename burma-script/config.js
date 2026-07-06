@@ -31,6 +31,12 @@ export const BURMA = {
   features: {
     chipChrome: true, chapterFrames: true, dayFold: true,
     rowDragReorder: true, convertMenu: true, archiveOwnLine: true,
+    // COLLAB (Phase 1) — real-time co-editing via Liveblocks + Yjs (room `script-burma`). NOT a
+    // data-touching flag: the saved doc's shape/content is untouched (spike-proven lossless
+    // round-trip); it only changes WHO can hold the pen at once. The save engine stays as the
+    // local durability + cloud version-history snapshot layer. Verified live 2026-07-06 with a
+    // two-browser concurrent-edit test before this flag was enabled.
+    collab: true,
   },
   blocksData: scriptData.blocks || [],
   storage: {

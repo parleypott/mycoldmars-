@@ -29,10 +29,11 @@ import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './do
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
 import { Workshop } from './Workshop.jsx';
-import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
+import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, primeVersionFloor, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+import { getCollabSession } from './collab.js';
 
 export let LS_DOC = '';
 
@@ -258,8 +259,16 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   // pagehide/visibility/storage listeners, no cloud push. A reader's browser has no code path that
   // can write LS_DOC or PUT the cloud. (saveDoc/pushDoc also refuse independently — defense in depth.)
   const readOnly = isReadOnly();
+  // COLLAB (Phase 1) — non-null ONLY when main.jsx prepared a Liveblocks/Yjs session (episode
+  // `collab` flag on, runtime loaded, never in read-only). When null, EVERYTHING below behaves
+  // byte-identically to the pre-collab engine — the flag-off path is the existing engine.
+  const collab = readOnly ? null : getCollabSession();
   const initial = useMemo(() => seedDoc(sourceBlocks, readOnlyDoc, recoveredDoc), [sourceBlocks, readOnlyDoc, recoveredDoc]);
   const saveTimer = useRef(null);
+  // COLLAB — the periodic read-only cloud snapshot's state: has the doc changed since the last
+  // accepted push, and what version did the last LOCAL save stamp (the version the push carries).
+  const cloudSnapshotDirty = useRef(false);
+  const lastSnapshotVersion = useRef(0);
   // PERF-3/PERF-7/ux-10 — telemetry (full-doc getJSON + nodeText word-recount + outline rebuild)
   // used to run SYNCHRONOUSLY on every keystroke. That is the one keystroke-latency cost that
   // scales with doc size (a full plain-object copy of the ~167KB tree allocated per keypress, then
@@ -358,8 +367,42 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       }
     }
   }
+  // COLLAB FLUSH — the demoted save path for collab sessions ("demote, don't delete"). The Yjs
+  // room is the canonical doc; this keeps the LOCAL data-loss-proofing machinery alive (saveDoc's
+  // dual-write durability, quota escalation, backups, recovery, export — all unchanged) as a
+  // read-only SNAPSHOT of the converged doc. What it deliberately RETIRES for the session:
+  //   • the version-CAS / strictly-greater cloud push + handlePushResult 409 conflict machinery
+  //     (Yjs merges concurrent edits; a "conflict" is not a thing that can happen to the doc), and
+  //   • the cross-tab conflict guard (two collab tabs hold the SAME converged content, so the
+  //     guard's "another tab is newer" refusal is meaningless churn — syncBaseVersion() adopts the
+  //     on-disk version before every write, which structurally disarms it without touching saveDoc).
+  // The cloud mirror happens on the periodic snapshot timer below, not per-flush.
+  function collabFlush(editor) {
+    if (!editor) return;
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    if (seededOverUnreadableDoc) {
+      // Same latch as flushSave: never overwrite preserved-but-unreadable original bytes.
+      try {
+        window.dispatchEvent(new CustomEvent('wp-save-failed', {
+          detail: { kind: 'corrupt', message: 'your previous saved script could not be read and was preserved — new edits are NOT being saved over it. Export now to keep them.' },
+        }));
+      } catch {}
+      return;
+    }
+    if (isReloadingForAdopt()) return;
+    if (isReloadingForReset()) return;
+    // Adopt the on-disk version as this tab's base (see the header comment): in collab the local
+    // store is a snapshot of a CONVERGED doc, so "newest write wins" is always correct locally.
+    try { syncBaseVersion(); } catch {}
+    const json = editor.getJSON();
+    const res = saveDoc(json); // same guarded writer: empty-doc clobber guard, quota, read-back.
+    if (res.ok) {
+      if (res.version > 0) lastSnapshotVersion.current = res.version;
+      cloudSnapshotDirty.current = true; // the snapshot timer pushes the cloud mirror.
+    }
+  }
   const flushRef = useRef(flushSave);
-  flushRef.current = flushSave;
+  flushRef.current = collab ? collabFlush : flushSave;
 
   const editor = useEditor({
     extensions: [
@@ -380,6 +423,12 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
         // editor.getJSON() (the doc), never the history, so it rebuilds fresh on every load and never
         // adds to the storage pressure that caused the original quota crash.
         history: { depth: 100, newGroupDelay: 750 },
+        // COLLAB — native undo history MUST be off in a collab session (spike ground truth): the
+        // Collaboration extension ships its own Y.UndoManager-backed undo/redo that only rolls back
+        // YOUR OWN changes, never a teammate's. `undoRedo` is the v3 StarterKit key (History was
+        // renamed UndoRedo); `history` rides along for any legacy alias. Spread of null = no-op, so
+        // the non-collab config above is untouched when the flag is off.
+        ...(collab ? { undoRedo: false, history: false } : null),
       }),
       Dropcursor.configure({ color: '#d23b2c', width: 2 }),
       Gapcursor,
@@ -396,8 +445,14 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // in read-only sessions too — the panel that drives it is edit-only (gated below), and its
       // replace commands refuse when the editor is non-editable.
       FindReplace,
+      // COLLAB — Collaboration (binds the Y.Doc; the Yjs binding carries every PM transaction,
+      // including the NodeViews' — spike-proven lossless) + CollaborationCaret (teammates' colored
+      // cursors/selections via the Liveblocks awareness provider). Empty when the flag is off.
+      ...(collab ? collab.extensions() : []),
     ],
-    content: initial,
+    // COLLAB — content comes from the synced Y.Doc, never from `content` (passing both would
+    // double-seed). The room is seeded once from the cloud doc in onCreate (seedIfEmpty).
+    content: collab ? null : initial,
     autofocus: false,
     // PERF-4 — the real per-keystroke win is `shouldRerenderOnTransaction: false`: ProseMirror
     // mutates its own DOM in place without bouncing this component through React/Preact on every
@@ -417,6 +472,15 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // Hand the live editor up so the Exports panel can read the current doc JSON
       // (docToBlocks) for the worklist exports — always reflecting live edits/reorders.
       onEditorReady?.(editor);
+      if (collab) {
+        // ONE-SHOT ROOM SEED — after the provider's initial sync, seed the Y.Doc from the current
+        // cloud doc ONLY if the room is genuinely empty (guarded twice: here and inside the
+        // runtime's shouldSeedRoom). A non-empty room / a newer Y.Doc is NEVER overwritten.
+        collab.seedIfEmpty(editor).catch(() => {});
+        // Swap the caret's fallback identity for the server-issued one (real name + color from
+        // user_profiles via the auth endpoint) as soon as the room connection delivers it.
+        collab.wireCaretIdentity(editor);
+      }
     },
     onUpdate({ editor }) {
       // PERF-3/PERF-7/ux-10 — fire the cheap dirty event INSTANTLY (it's just a CustomEvent), but
@@ -560,8 +624,41 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   // eager on-hidden flush from stomping the sibling's newer doc. Reloading is the clean recovery —
   // it re-seeds from disk and re-syncs the base. (We never lose anything either way: a stomp
   // attempt is caught by the guard and snapshotted to a .conflict key.)
+  // COLLAB — PERIODIC READ-ONLY CLOUD SNAPSHOT. The Yjs room is canonical; every ~20s (only when
+  // the doc actually changed) we mirror the converged editor JSON up to /api/script-doc so the
+  // append-only cloud version history, the `?read` share view, and the fresh-device recovery
+  // paths all keep working. Deliberately QUIET: a 409 just means another collaborator's snapshot
+  // landed first — the content converges via Yjs, so we prime our version stamp past the cloud's,
+  // re-stamp locally, and let the next tick carry it. NO handlePushResult here: no conflict
+  // banners, no .conflict snapshots, no push latch — those belong to the single-writer engine.
+  useEffect(() => {
+    if (!collab || !editor || readOnly) return undefined;
+    const tick = () => {
+      if (!cloudSnapshotDirty.current) return;
+      const version = lastSnapshotVersion.current || getKnownBaseVersion();
+      if (!(version > 0)) return;
+      cloudSnapshotDirty.current = false;
+      const json = editor.getJSON();
+      Promise.resolve(pushDoc(json, version))
+        .then((pr) => {
+          if (pr && pr.stale === true) {
+            // A teammate's snapshot is ahead. Benign by construction (Yjs already merged the
+            // content) — advance our stamp past theirs and retry on the next tick.
+            const cv = Math.floor(Number(pr.version)) || 0;
+            try { if (cv > 0) primeVersionFloor(cv); } catch {}
+            try { flushRef.current(editor); } catch {} // re-stamp local save above the cloud version
+            cloudSnapshotDirty.current = true;
+          }
+        })
+        .catch(() => {});
+    };
+    const id = setInterval(tick, 20000);
+    return () => clearInterval(id);
+  }, [editor]);
+
   useEffect(() => {
     if (readOnly) return; // READ-ONLY SHARE: a reader never reacts to cross-tab writes — it's frozen.
+    if (collab) return;   // COLLAB: tabs converge through the Yjs room — the reload banner would fight it.
     const onStorage = (e) => {
       if (!e) return;
       // Only care about the doc itself or its version stamp changing under us.
