@@ -22,6 +22,11 @@
     <button class="btn" id="add-octagon-btn">+ Octagon</button>
     <button class="btn" id="add-line-btn">+ Line</button>
     <button class="btn" id="add-country-btn">+ Country</button>
+    <button class="btn" id="add-oldmap-btn">+ Old Map</button>
+    <div id="skin-toggle" title="Basemap skin">
+      <button class="skin-btn" data-skin="earthen">Earthen</button>
+      <button class="skin-btn" data-skin="satellite">Satellite</button>
+    </div>
     <span id="route-info"></span>
     <span id="draw-mode-hint" class="hidden">DRAWING — click to add points · double-click or <kbd>Enter</kbd> to finish · <kbd>Esc</kbd> cancel</span>
 
@@ -114,6 +119,12 @@
       <span class="lp-count" id="shapes-count">0</span>
     </div>
     <div id="shapes-list"></div>
+    <div id="oldmaps-divider" class="hidden"></div>
+    <div id="oldmaps-header" class="hidden">
+      <span class="lp-title">OLD MAPS</span>
+      <span class="lp-count" id="oldmaps-count">0</span>
+    </div>
+    <div id="oldmaps-list"></div>
     <div id="draw-bar" class="hidden">
       <span class="db-label">DRAW</span>
       <input type="range" id="draw-slider" min="0" max="1000" step="1" value="0">
@@ -169,6 +180,24 @@
       <input id="cp-search" type="text" placeholder="Search countries…" autocomplete="off" spellcheck="false">
       <div id="cp-list"></div>
       <div id="cp-hint">↵ add top match · esc close</div>
+    </div>
+  </div>
+
+  <div id="oldmap-picker" class="hidden">
+    <div id="om-card">
+      <div id="om-title">ADD OLD MAP</div>
+      <input id="om-url" type="text" placeholder="Paste an Allmaps annotation URL or XYZ tile template…" autocomplete="off" spellcheck="false">
+      <div id="om-status"></div>
+      <div id="om-hint">
+        Works with any georeferenced paper map. From
+        <strong>davidrumsey.oldmapsonline.org</strong>, hit Georeference on a map
+        (or find it on <strong>viewer.allmaps.org</strong>) and paste the
+        annotation link here. Raw <code>{z}/{x}/{y}</code> tile URLs work too.
+      </div>
+      <div class="om-actions">
+        <button class="btn ghost" id="om-close">Cancel</button>
+        <button class="btn primary" id="om-add">Add Map</button>
+      </div>
     </div>
   </div>
 

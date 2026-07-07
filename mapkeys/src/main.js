@@ -16,6 +16,7 @@ import {
 import { computeGifRange } from './gif-range.js';
 import { EASINGS, totalDuration, resolveKeyframeSegment } from './playback-timing.js';
 import { searchCountries as rankCountries } from './country-search.js';
+import { classifyOldMapInput, annotationBounds, annotationLabel } from './oldmap-resolve.js';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
@@ -49,6 +50,37 @@ const PAL = {
   fog:   '#e0d4b8',
 };
 
+// ─── Skins (basemap) ───
+// Earthen = outdoors recolored + de-noised (the original look).
+// Satellite = pure imagery, no labels/roads — recolor & hillshade don't apply.
+const SKINS = {
+  earthen:   { label: 'Earthen',   style: 'mapbox://styles/mapbox/outdoors-v12', earthen: true },
+  satellite: { label: 'Satellite', style: 'mapbox://styles/mapbox/satellite-v9', earthen: false },
+};
+const SKIN_LS_KEY = 'mapkeys_skin_v1';
+let currentSkin = (() => {
+  try {
+    const s = localStorage.getItem(SKIN_LS_KEY);
+    return SKINS[s] ? s : 'earthen';
+  } catch { return 'earthen'; }
+})();
+
+function setSkin(name) {
+  if (!SKINS[name] || name === currentSkin) return;
+  currentSkin = name;
+  try { localStorage.setItem(SKIN_LS_KEY, name); } catch {}
+  syncSkinButtons();
+  // setStyle wipes all sources/layers; the style.load handler rebuilds
+  // overlays, routes, and shapes on top of the new skin.
+  map.setStyle(SKINS[name].style);
+}
+
+function syncSkinButtons() {
+  document.querySelectorAll('.skin-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.skin === currentSkin);
+  });
+}
+
 // Restore last camera position so a reload picks up where you left off.
 const CAMERA_LS_KEY = 'mapkeys_last_camera';
 let isPlayingBack = false;  // local flag (updated by play/stop). Avoids any
@@ -68,7 +100,7 @@ console.info('[mapkeys] loaded camera:', lastCam || '(none — using defaults)')
 
 const map = new mapboxgl.Map({
   container: 'map',
-  style: 'mapbox://styles/mapbox/outdoors-v12',
+  style: SKINS[currentSkin].style,
   projection: 'globe',
   center: lastCam?.center ?? [20, 20],
   zoom: lastCam?.zoom ?? 1.8,
@@ -127,8 +159,9 @@ map.on('style.load', () => {
   }
   map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.3 });
 
-  // ── Hillshade — subtle ridge emphasis
-  if (!map.getLayer('mk-hillshade')) {
+  // ── Hillshade — subtle ridge emphasis (earthen only; satellite imagery
+  // carries its own real shading)
+  if (SKINS[currentSkin].earthen && !map.getLayer('mk-hillshade')) {
     // Insert under labels if possible
     const layers = map.getStyle().layers;
     const firstSymbol = layers.find(l => l.type === 'symbol')?.id;
@@ -146,7 +179,7 @@ map.on('style.load', () => {
   }
 
   // ── Recolor base style toward earthen minimal
-  const recolor = [
+  const recolor = SKINS[currentSkin].earthen ? [
     ['background', 'background-color', PAL.paper],
     ['land', 'background-color', PAL.paper],
     ['landcover', 'fill-color', PAL.paper],
@@ -157,7 +190,7 @@ map.on('style.load', () => {
     // Water — flat earthen tone, no bathymetry depth shading
     ['water', 'fill-color', PAL.ocean],
     ['waterway', 'line-color', '#a89e80'],
-  ];
+  ] : [];
   for (const [id, prop, val] of recolor) {
     if (map.getLayer(id)) {
       try { map.setPaintProperty(id, prop, val); } catch (_) {}
@@ -190,6 +223,10 @@ map.on('style.load', () => {
   // Route sources are now created per-layer when a KML is uploaded.
   // After style.load (or restyle), recreate any persisted layer's
   // sources/layers — they get blown away by Mapbox on style change.
+  // Overlays first so old-map rasters sit under routes and shapes.
+  for (const overlay of state.overlays) {
+    ensureOverlayOnMap(overlay);
+  }
   for (const layer of state.layers) {
     ensureLayerOnMap(layer);
   }
@@ -217,6 +254,7 @@ const state = {
   selectedId: null,
   nextId: 1,
   layers: [],             // [{ id, name, coords, cumDist, totalDist, style, visible }]
+  overlays: [],           // [{ id, name, kind, source, tiles, opacity, visible, bounds }]
   activeLayerId: null,    // which layer the route-style controls bind to
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
@@ -367,6 +405,7 @@ function snapshotForUndo(label) {
       style: { ...l.style }, visible: l.visible,
     })),
     keyframes: JSON.parse(JSON.stringify(state.keyframes)),
+    overlays: state.overlays.map(o => ({ ...o })),
     activeShapeId: state.activeShapeId,
     activeLayerId: state.activeLayerId,
     selectedId: state.selectedId,
@@ -382,6 +421,7 @@ function undo() {
   // Tear down current map artifacts
   for (const s of state.shapes) removeShapeFromMap(s);
   for (const l of state.layers) removeLayerFromMap(l);
+  for (const o of state.overlays) removeOverlayFromMap(o);
   // Rebuild state from snapshot
   state.shapes = snap.shapes.map(hydrateShape).filter(Boolean);
   state.layers = snap.layers.map(l => {
@@ -393,10 +433,12 @@ function undo() {
     };
   });
   state.keyframes = snap.keyframes;
+  state.overlays = (snap.overlays || []).map(o => ({ ...o }));
   state.activeShapeId = snap.activeShapeId;
   state.activeLayerId = snap.activeLayerId;
   state.selectedId = snap.selectedId;
-  // Re-attach to map
+  // Re-attach to map (overlays first — they sit under routes/shapes)
+  for (const o of state.overlays) ensureOverlayOnMap(o);
   for (const l of state.layers) ensureLayerOnMap(l);
   for (const s of state.shapes) { ensureShapeOnMap(s); redrawShape(s); }
   setRouteSources(state.previewProgress);
@@ -404,6 +446,7 @@ function undo() {
   saveLayers();
   renderLayersPanel();
   renderShapesPanel();
+  renderOverlaysPanel();
   renderKeyframes();
   renderEditor();
   showRouteUI();
@@ -1033,6 +1076,171 @@ function applyShapeStateAtKeyframe(kf) {
   }
 }
 
+// ─── Old-map overlays (georeferenced paper maps as raster tiles) ───
+
+function overlaySourceIds(id) {
+  return { src: `oldmap-src-${id}`, layer: `oldmap-${id}` };
+}
+
+// Overlays live above the basemap/hillshade but below every route, shape,
+// and UI layer. Returns the id of the first such layer to insert before.
+function overlayBeforeId() {
+  for (const l of map.getStyle().layers) {
+    if (/^(route-|shape-|mk-sel|mk-ce)/.test(l.id)) return l.id;
+  }
+  return undefined;
+}
+
+function ensureOverlayOnMap(overlay) {
+  const ids = overlaySourceIds(overlay.id);
+  if (!map.getSource(ids.src)) {
+    map.addSource(ids.src, {
+      type: 'raster',
+      tiles: [overlay.tiles],
+      tileSize: 256,
+      maxzoom: 20,
+    });
+  }
+  if (!map.getLayer(ids.layer)) {
+    map.addLayer({
+      id: ids.layer,
+      type: 'raster',
+      source: ids.src,
+      paint: {
+        'raster-opacity': overlay.visible ? overlay.opacity : 0,
+        'raster-fade-duration': 0,
+      },
+    }, overlayBeforeId());
+  }
+  applyOverlayStyle(overlay);
+}
+
+function removeOverlayFromMap(overlay) {
+  const ids = overlaySourceIds(overlay.id);
+  if (map.getLayer(ids.layer)) map.removeLayer(ids.layer);
+  if (map.getSource(ids.src)) map.removeSource(ids.src);
+}
+
+function applyOverlayStyle(overlay) {
+  const ids = overlaySourceIds(overlay.id);
+  if (!map.getLayer(ids.layer)) return;
+  map.setPaintProperty(ids.layer, 'raster-opacity', overlay.visible ? overlay.opacity : 0);
+}
+
+async function addOldMapFromInput(raw) {
+  const classified = classifyOldMapInput(raw);
+  if (!classified) throw new Error('That doesn’t look like a map URL.');
+
+  const overlay = {
+    id: 'om_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+    name: 'Old map',
+    kind: classified.kind,
+    source: classified.kind === 'allmaps' ? classified.annotation : classified.tiles,
+    tiles: classified.tiles,
+    opacity: 1,
+    visible: true,
+    bounds: null,
+  };
+
+  // For Allmaps annotations, fetch label + GCP bounds so we can name the
+  // overlay and fly to it. Failure here is fatal — if the annotation can't
+  // be read, the tile proxy can't warp it either.
+  if (classified.kind === 'allmaps') {
+    const res = await fetch(classified.annotation, { headers: { accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Couldn’t load that map (HTTP ${res.status}).`);
+    const doc = await res.json();
+    const isGeoref = JSON.stringify(doc).includes('georeferencing');
+    if (!isGeoref) throw new Error('That URL isn’t a georeference annotation.');
+    overlay.name = annotationLabel(doc) || 'Old map';
+    overlay.bounds = annotationBounds(doc);
+  } else {
+    try {
+      overlay.name = new URL(classified.tiles.replace(/\{[zxy]\}/g, '0')).hostname;
+    } catch { /* keep default */ }
+  }
+
+  snapshotForUndo('add old map');
+  state.overlays.push(overlay);
+  ensureOverlayOnMap(overlay);
+  backfillOverlayIntoKeyframes(overlay);
+  saveLayers();
+  renderOverlaysPanel();
+  showRouteUI();
+  if (overlay.bounds) map.fitBounds(overlay.bounds, { padding: 60, duration: 1200 });
+  return overlay;
+}
+
+function deleteOverlay(id) {
+  const overlay = state.overlays.find(o => o.id === id);
+  if (!overlay) return;
+  snapshotForUndo('delete old map');
+  removeOverlayFromMap(overlay);
+  state.overlays = state.overlays.filter(o => o.id !== id);
+  for (const kf of state.keyframes) {
+    if (kf.overlays) delete kf.overlays[id];
+  }
+  saveLayers();
+  renderOverlaysPanel();
+  showRouteUI();
+}
+
+function setOverlayVisible(id, visible) {
+  const overlay = state.overlays.find(o => o.id === id);
+  if (!overlay) return;
+  overlay.visible = visible;
+  applyOverlayStyle(overlay);
+  saveLayers();
+  renderOverlaysPanel();
+}
+
+function fitToOverlay(overlay) {
+  if (overlay.bounds) map.fitBounds(overlay.bounds, { padding: 60, duration: 800 });
+}
+
+// ── Overlay keyframing — opacity animates between keyframes, so a paper
+// map can fade up over the satellite (or dissolve away) during playback.
+
+function captureOverlaysForKeyframe() {
+  const out = {};
+  for (const o of state.overlays) out[o.id] = { opacity: o.opacity, visible: o.visible };
+  return out;
+}
+
+function backfillOverlayIntoKeyframes(overlay) {
+  for (const kf of state.keyframes) {
+    if (!kf.overlays) kf.overlays = {};
+    if (!kf.overlays[overlay.id]) {
+      kf.overlays[overlay.id] = { opacity: overlay.opacity, visible: overlay.visible };
+    }
+  }
+}
+
+function applyOverlayKfState(overlay, st) {
+  if (!st) return;
+  if (typeof st.opacity === 'number') overlay.opacity = st.opacity;
+  if (typeof st.visible === 'boolean') overlay.visible = st.visible;
+  applyOverlayStyle(overlay);
+}
+
+function applyOverlayStateAtKeyframe(kf) {
+  for (const overlay of state.overlays) {
+    applyOverlayKfState(overlay, kf.overlays?.[overlay.id]);
+  }
+}
+
+function interpolateOverlaysAtTime(a, b, eased) {
+  for (const overlay of state.overlays) {
+    const oa = a.overlays?.[overlay.id];
+    const ob = b.overlays?.[overlay.id];
+    if (!oa && !ob) continue;
+    if (!oa) { applyOverlayKfState(overlay, ob); continue; }
+    if (!ob) { applyOverlayKfState(overlay, oa); continue; }
+    overlay.opacity = lerp(oa.opacity, ob.opacity, eased);
+    overlay.visible = oa.visible || ob.visible;
+    applyOverlayStyle(overlay);
+  }
+}
+
 // ─── Selection indicator (visual highlight on the active shape/route) ───
 const SEL_SRC = 'mk-sel-src';
 const SEL_HALO = 'mk-sel-halo';
@@ -1411,6 +1619,7 @@ function addKeyframe() {
     duration: 4.0,
     easing: 'easeInOut',
     shapes: captureShapesForKeyframe(),
+    overlays: captureOverlaysForKeyframe(),
   };
   state.keyframes.push(kf);
   state.selectedId = kf.id;
@@ -1442,6 +1651,7 @@ function selectKeyframe(id, jump = true) {
       state.previewProgress = kf.progress;
       setRouteSources(kf.progress);
       applyShapeStateAtKeyframe(kf);
+      applyOverlayStateAtKeyframe(kf);
       syncDrawSlider();
       syncShapeStyleInputs();
     }
@@ -1461,6 +1671,7 @@ function applyAtTime(timeSec) {
     state.previewProgress = kf.progress;
     setRouteSources(kf.progress);
     applyShapeStateAtKeyframe(kf);
+    applyOverlayStateAtKeyframe(kf);
     syncDrawSlider();
     return;
   }
@@ -1481,6 +1692,7 @@ function applyAtTime(timeSec) {
   state.previewProgress = progress;
   setRouteSources(progress);
   interpolateShapesAtTime(a, b, eased);
+  interpolateOverlaysAtTime(a, b, eased);
   syncDrawSlider();
 }
 
@@ -1626,6 +1838,7 @@ function updateSelectedKeyframe() {
   Object.assign(kf, captureView());
   kf.progress = state.previewProgress;
   kf.shapes = captureShapesForKeyframe();
+  kf.overlays = captureOverlaysForKeyframe();
   renderKeyframes();
   flashUpdateConfirmation();
 }
@@ -1668,6 +1881,7 @@ function saveLayers() {
       shapes: shapesMinimal,
       activeShapeId: state.activeShapeId,
       keyframes: state.keyframes,
+      overlays: state.overlays.map(serializeOverlay),
     }));
   } catch (err) {
     console.warn('[mapkeys] saveLayers failed (likely quota):', err.message);
@@ -1692,6 +1906,27 @@ function serializeShape(s) {
     fillOpacity: s.fillOpacity,
     visible: s.visible,
     preview: s.preview,
+  };
+}
+
+function serializeOverlay(o) {
+  return {
+    id: o.id, name: o.name, kind: o.kind, source: o.source, tiles: o.tiles,
+    opacity: o.opacity, visible: o.visible, bounds: o.bounds,
+  };
+}
+
+function hydrateOverlay(raw) {
+  if (!raw || !raw.id || typeof raw.tiles !== 'string') return null;
+  return {
+    id: raw.id,
+    name: raw.name || 'Old map',
+    kind: raw.kind === 'xyz' ? 'xyz' : 'allmaps',
+    source: raw.source || raw.tiles,
+    tiles: raw.tiles,
+    opacity: typeof raw.opacity === 'number' ? raw.opacity : 1,
+    visible: raw.visible !== false,
+    bounds: Array.isArray(raw.bounds) ? raw.bounds : null,
   };
 }
 
@@ -1757,6 +1992,9 @@ function loadLayersFromLS() {
       state.shapes = parsed.shapes.map(hydrateShape).filter(Boolean);
       state.activeShapeId = parsed.activeShapeId || null;
     }
+    if (Array.isArray(parsed.overlays)) {
+      state.overlays = parsed.overlays.map(hydrateOverlay).filter(Boolean);
+    }
     if (Array.isArray(parsed.keyframes)) {
       // Restore keyframes saved alongside shapes (so shape keyframe state persists).
       state.keyframes = parsed.keyframes.map(k => ({
@@ -1770,7 +2008,7 @@ function loadLayersFromLS() {
       }
       state.selectedId = state.keyframes[0]?.id ?? null;
     }
-    console.info(`[mapkeys] restored ${state.layers.length} layer(s), ${state.shapes.length} shape(s), ${state.keyframes.length} keyframe(s) from localStorage`);
+    console.info(`[mapkeys] restored ${state.layers.length} layer(s), ${state.shapes.length} shape(s), ${state.overlays.length} old map(s), ${state.keyframes.length} keyframe(s) from localStorage`);
   } catch (err) {
     console.warn('[mapkeys] loadLayers failed:', err.message);
   }
@@ -1873,12 +2111,16 @@ function showRouteUI() {
   const info = document.getElementById('route-info');
   const hasLayers = state.layers.length > 0;
   const hasShapes = state.shapes.length > 0;
-  panel.classList.toggle('hidden', !hasLayers && !hasShapes);
+  const hasOverlays = state.overlays.length > 0;
+  panel.classList.toggle('hidden', !hasLayers && !hasShapes && !hasOverlays);
   drawBar.classList.toggle('hidden', !hasLayers);
   document.getElementById('layers-count').textContent = state.layers.length;
   document.getElementById('shapes-count').textContent = state.shapes.length;
+  document.getElementById('oldmaps-count').textContent = state.overlays.length;
   document.getElementById('shapes-header').classList.toggle('hidden', !hasShapes);
   document.getElementById('shapes-divider').classList.toggle('hidden', !(hasLayers && hasShapes));
+  document.getElementById('oldmaps-header').classList.toggle('hidden', !hasOverlays);
+  document.getElementById('oldmaps-divider').classList.toggle('hidden', !(hasOverlays && (hasLayers || hasShapes)));
   if (hasLayers) {
     const a = activeLayer();
     info.textContent = a ? `${a.coords.length} pts · ${Math.round(a.totalDist)} km` : '';
@@ -2048,6 +2290,55 @@ function renderShapesPanel() {
       fitToShape(shape);
     });
     row.addEventListener('click', () => selectShape(shape.id));
+    list.appendChild(row);
+  }
+}
+
+// ─── Old-maps panel rendering ───
+
+function renderOverlaysPanel() {
+  const list = document.getElementById('oldmaps-list');
+  list.innerHTML = '';
+  if (state.overlays.length === 0) return;
+  for (const overlay of state.overlays) {
+    const row = document.createElement('div');
+    row.className = 'layer-row oldmap-row';
+    if (!overlay.visible) row.classList.add('hidden-layer');
+    row.innerHTML = `
+      <input type="checkbox" class="layer-vis" ${overlay.visible ? 'checked' : ''} title="Toggle visibility">
+      <span class="shape-glyph">🗺</span>
+      <div class="layer-meta">
+        <div class="layer-name" title="${overlay.name}">${overlay.name}</div>
+        <div class="oldmap-opacity">
+          <input type="range" class="om-opacity" min="0" max="100" step="1" value="${Math.round(overlay.opacity * 100)}" title="Opacity">
+          <span class="om-opacity-val">${Math.round(overlay.opacity * 100)}%</span>
+        </div>
+      </div>
+      <div class="layer-actions">
+        <button class="layer-btn oldmap-btn-fit" title="Fit to map">⊕</button>
+        <button class="layer-btn oldmap-btn-del" title="Remove old map">×</button>
+      </div>
+    `;
+    row.querySelector('.layer-vis').addEventListener('click', e => {
+      e.stopPropagation();
+      setOverlayVisible(overlay.id, e.target.checked);
+    });
+    const slider = row.querySelector('.om-opacity');
+    const sliderVal = row.querySelector('.om-opacity-val');
+    slider.addEventListener('input', e => {
+      overlay.opacity = parseInt(e.target.value, 10) / 100;
+      sliderVal.textContent = e.target.value + '%';
+      applyOverlayStyle(overlay);
+    });
+    slider.addEventListener('change', () => saveLayers());
+    row.querySelector('.oldmap-btn-fit').addEventListener('click', e => {
+      e.stopPropagation();
+      fitToOverlay(overlay);
+    });
+    row.querySelector('.oldmap-btn-del').addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm(`Remove "${overlay.name}"?`)) deleteOverlay(overlay.id);
+    });
     list.appendChild(row);
   }
 }
@@ -2752,14 +3043,66 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// ─── Skin toggle + old-map modal wiring ───
+
+document.querySelectorAll('.skin-btn').forEach(btn => {
+  btn.addEventListener('click', () => setSkin(btn.dataset.skin));
+});
+
+const omModal = document.getElementById('oldmap-picker');
+const omInput = document.getElementById('om-url');
+const omAdd = document.getElementById('om-add');
+const omStatus = document.getElementById('om-status');
+
+function openOldMapModal() {
+  omModal.classList.remove('hidden');
+  omStatus.textContent = '';
+  omInput.value = '';
+  omInput.focus();
+}
+
+function closeOldMapModal() {
+  omModal.classList.add('hidden');
+}
+
+async function submitOldMap() {
+  const raw = omInput.value;
+  if (!raw.trim()) return;
+  omAdd.disabled = true;
+  omStatus.textContent = 'Loading map…';
+  try {
+    const overlay = await addOldMapFromInput(raw);
+    omStatus.textContent = '';
+    closeOldMapModal();
+    console.info('[mapkeys] added old map:', overlay.name, overlay.tiles);
+  } catch (err) {
+    omStatus.textContent = err.message || 'Couldn’t load that map.';
+  } finally {
+    omAdd.disabled = false;
+  }
+}
+
+document.getElementById('add-oldmap-btn').addEventListener('click', openOldMapModal);
+document.getElementById('om-close').addEventListener('click', closeOldMapModal);
+omModal.addEventListener('click', e => { if (e.target === omModal) closeOldMapModal(); });
+omAdd.addEventListener('click', submitOldMap);
+omInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitOldMap(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeOldMapModal(); }
+  e.stopPropagation();  // don't trigger global shortcuts while typing
+});
+
 // Initial render
 renderLayersPanel();
 renderShapesPanel();
+renderOverlaysPanel();
 showRouteUI();
+syncSkinButtons();
 syncRouteStyleInputs();
 syncShapeStyleInputs();
 // Ensure persisted shapes are drawn even if style.load already fired.
 if (map.isStyleLoaded()) {
+  for (const overlay of state.overlays) ensureOverlayOnMap(overlay);
   for (const shape of state.shapes) {
     ensureShapeOnMap(shape);
     redrawShape(shape);
@@ -2796,6 +3139,8 @@ document.getElementById('export-btn').addEventListener('click', () => {
     activeLayerId: state.activeLayerId,
     shapes: state.shapes.map(serializeShape),
     activeShapeId: state.activeShapeId,
+    overlays: state.overlays.map(serializeOverlay),
+    skin: currentSkin,
   }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const a = document.createElement('a');
@@ -2844,6 +3189,13 @@ document.getElementById('import-file').addEventListener('change', async e => {
         redrawShape(s);
       }
     }
+    if (Array.isArray(data.overlays)) {
+      for (const o of state.overlays) removeOverlayFromMap(o);
+      state.overlays = data.overlays.map(hydrateOverlay).filter(Boolean);
+      for (const o of state.overlays) ensureOverlayOnMap(o);
+      renderOverlaysPanel();
+    }
+    if (typeof data.skin === 'string' && SKINS[data.skin]) setSkin(data.skin);
     if (Array.isArray(data.keyframes)) {
       state.keyframes = data.keyframes.map(k => ({ ...k, id: 'k' + (state.nextId++) }));
       state.selectedId = state.keyframes[0]?.id ?? null;
