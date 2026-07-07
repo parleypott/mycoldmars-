@@ -195,6 +195,27 @@
 }
 .wp-tcell-content > p:last-child { margin-bottom: 0; }
 
+/* BARE CELL LISTS READ LIKE BODY PROSE TOO — Cmd+Shift-8 on a bare cell paragraph turns it
+   into a ul/ol directly inside the cell, which used to fall out of the > p rule above and
+   render in the editor's default mono, crunched (Johnny, Image-7: "different font and too
+   crunched" on a bulleted viz chip). Same reading face + the roomier cell lead, so a viz
+   chip inside a bullet reads exactly like one in a paragraph. */
+.wp-tcell-content > ul,
+.wp-tcell-content > ol {
+  font-family: var(--doc-read);
+  font-size: var(--doc-size);
+  line-height: calc(var(--doc-lead) + 0.28);
+  color: var(--body);
+  margin: 0 0 6px;
+  padding-left: 1.4em;
+}
+.wp-tcell-content > ul:last-child,
+.wp-tcell-content > ol:last-child { margin-bottom: 0; }
+.wp-tcell-content > ul li,
+.wp-tcell-content > ol li { margin: 3px 0; }
+.wp-tcell-content > ul li p,
+.wp-tcell-content > ol li p { margin: 0; }
+
 /* THE SHOWN LANE IS BOLD BY DEFAULT — anything typed in the RIGHT (visual) column
    renders bold with no per-character marks: the weight is inherited by the cell's
    prose (paragraphs + stripped cart bodies alike). Chips, labels and mono chrome
