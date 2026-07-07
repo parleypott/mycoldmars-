@@ -1059,31 +1059,40 @@ export function docToBlocks(doc) {
   // row yields its one cell's blocks; a future split row yields LEFT then RIGHT cell blocks in
   // reading order. Backwards-safe: a bare (pre-table) block node is handled by the else branch.
   const flat = [];
+  // Flatten one row's cells into `flat`, recursing into any NESTED tableRow found inside a
+  // cell. The schema legally permits tableRow > tableCell > tableRow (Palau's saved docs ship
+  // that shape, and PM's native block drag can mint it anywhere) — but NODE_TO_TYPE has no
+  // 'tableRow' entry, so before this recursion a nested row fell through nodeToBlock and was
+  // flattened to ONE type:'bin' block, destroying its blocks' types and SOT timecode/speaker
+  // attrs on the next save. Recursing keeps a nested row's blocks first-class: a structural
+  // oddity stays a lossless reorder problem instead of becoming data destruction.
+  const flattenRow = (rowNode, fallbackPairId) => {
+    const rowPairId = rowNode?.attrs?.pairId || fallbackPairId;
+    const isPairedRow = (rowNode?.attrs?.cols || 0) === 2;
+    let nestedIndex = 0;
+    for (const cell of rowNode.content || []) {
+      if (cell?.type === 'tableCell') {
+        // Skip the empty SHOWN-lane placeholder paragraph (no words, no block) so a split row
+        // doesn't leak a phantom empty bin block; keep everything else verbatim.
+        for (const blk of cell.content || []) {
+          if (blk?.type === 'tableRow') { flattenRow(blk, `${rowPairId}_n${nestedIndex++}`); continue; }
+          if (isEmptyPlaceholderPara(blk)) continue;
+          const lane = !isPairedRow
+            ? null
+            : (cell.attrs?.role === 'said' ? 'said' : (cell.attrs?.role === 'shown' ? 'shown' : null));
+          flat.push({
+            node: blk,
+            lane,
+            pairId: isPairedRow ? rowPairId : null,
+          });
+        }
+      } else flat.push({ node: cell, lane: null, pairId: null });
+    }
+  };
   for (let rowIndex = 0; rowIndex < doc.content.length; rowIndex++) {
     const node = doc.content[rowIndex];
-    if (node?.type === 'tableRow') {
-      const rowPairId = node?.attrs?.pairId || `pair_${rowIndex}`;
-      const isPairedRow = (node?.attrs?.cols || 0) === 2;
-      for (const cell of node.content || []) {
-        if (cell?.type === 'tableCell') {
-          // Skip the empty SHOWN-lane placeholder paragraph (no words, no block) so a split row
-          // doesn't leak a phantom empty bin block; keep everything else verbatim.
-          for (const blk of cell.content || []) {
-            if (isEmptyPlaceholderPara(blk)) continue;
-            const lane = !isPairedRow
-              ? null
-              : (cell.attrs?.role === 'said' ? 'said' : (cell.attrs?.role === 'shown' ? 'shown' : null));
-            flat.push({
-              node: blk,
-              lane,
-              pairId: isPairedRow ? rowPairId : null,
-            });
-          }
-        } else flat.push({ node: cell, lane: null, pairId: null });
-      }
-    } else {
-      flat.push({ node, lane: null, pairId: null });
-    }
+    if (node?.type === 'tableRow') flattenRow(node, `pair_${rowIndex}`);
+    else flat.push({ node, lane: null, pairId: null });
   }
   flat.forEach(({ node, lane, pairId }, i) => {
     // scriptStart is a decorative divider — no source content, no block.

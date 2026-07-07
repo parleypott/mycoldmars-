@@ -371,15 +371,19 @@
 }
 
 /* ───────────────────────── DRAG-TO-REORDER ROWS ─────────────────────────
-   A ⠿ grip in each row's far-left gutter; grab it to drag the whole row. Flat,
-   faint by default, the ONE accent when reached for. (Palau-only feature — the
-   grip is only emitted when rowDragReorder is on.) */
+   A ⇕ grip in each row's far-left gutter; grab it to drag the whole row. Flat,
+   faint by default, the ONE accent when reached for. (Only emitted when
+   rowDragReorder is on.) Distinct glyph from the block ⠿ grip — two identical
+   grips made users grab the wrong drag system. The hit target is the FULL row
+   height of the gutter strip (was a 20×22 sliver), so the grab lands. */
 .wp-row-drag {
   position: absolute;
   left: -50px;
   top: 0;
-  width: 20px;
-  height: 22px;
+  bottom: 0;
+  width: 26px;
+  height: auto;
+  min-height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;

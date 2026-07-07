@@ -16,7 +16,7 @@
 // 2..n). Full-width rows show NO borders at all — they read identically to the old stack.
 
 import { Node, mergeAttributes } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { episodeFlag } from '../episode-config.js';
 import { isReadOnly } from '../read-mode.js';
 
@@ -41,8 +41,18 @@ function isPalauEpisode() {
 // docToBlocks() is order-based, so a reorder is perfectly lossless — same block count, every word
 // and timecode preserved. A drop-indicator hairline shows where the row will land.
 //
-// Module-scoped drag state: which row is in the air, and which row currently owns the indicator.
-let draggingRow = null;      // { fromPos } — top-level position just before the dragged row
+// OWNERSHIP LAW: the per-row handle only STARTS the gesture; everything after — indicator,
+// autoscroll, target math, the drop itself — is owned by ONE editor-level plugin
+// (rowDragPlugin below). The first version wired dragover/drop onto each row's own nodeView
+// DOM, so the gesture only worked when the pointer happened to be over another row's box;
+// everywhere else (chapter-frame margins, page padding, below the last row) the drop bubbled
+// to ProseMirror's OWN drop handler, which — with view.dragging null — parsed the dataTransfer
+// and INSERTED its literal 'wp-row' text payload into the script while the dragged row stayed
+// put. Under collab that junk synced to every teammate instantly and y-undo (own-changes-only)
+// couldn't pull it back. No phase of a row drag may ever fall through to PM's paste machinery.
+//
+// Module-scoped drag state, shared by the handles and the plugin (same module):
+let draggingRow = null;      // { node, blockId, pairId } — the row's IDENTITY, never a raw position
 let indicatorDom = null;     // the row DOM currently showing a drop line
 
 function clearDropIndicator() {
@@ -59,27 +69,193 @@ function setDropIndicator(dom, before) {
   dom.classList.toggle('wp-drop-after', !before);
 }
 
-// Move the row at fromPos to sit before/after the row at targetPos — one lossless transaction.
-// Only ever reorders TOP-LEVEL rows (depth 0); nested rows (none in practice) are left alone.
-function moveRow(view, fromPos, targetPos, dropBefore) {
-  if (!view || fromPos == null || targetPos == null) return false;
-  const { state } = view;
-  if (state.doc.resolve(fromPos).depth !== 0) return false;
-  if (state.doc.resolve(targetPos).depth !== 0) return false;
-  const source = state.doc.nodeAt(fromPos);
-  const target = state.doc.nodeAt(targetPos);
+// Move the row at fromPos to sit before/after the row at targetPos — one lossless transaction
+// (delete the row, then re-insert the very same immutable node at the mapped target: nothing is
+// rebuilt from JSON, so every word, attr and timecode survives and ONE undo restores byte-exact).
+// Pure (state, dispatch, ...) -> boolean like doSplitRow/doMergeRow, so it composes and tests
+// headlessly. Works at ANY depth as long as both rows share the SAME parent — top-level Burma
+// rows, or Palau's nested tableRow > tableCell > tableRow siblings; a cross-parent drop is
+// refused rather than guessed at. A refused/no-op move dispatches NOTHING, so failed drags can
+// never trigger autosave or cloud-snapshot churn.
+export function moveRow(state, dispatch, fromPos, targetPos, dropBefore) {
+  if (!state || fromPos == null || targetPos == null) return false;
+  const { doc } = state;
+  if (fromPos < 0 || targetPos < 0 || fromPos > doc.content.size || targetPos > doc.content.size) return false;
+  const source = doc.nodeAt(fromPos);
+  const target = doc.nodeAt(targetPos);
   if (!source || source.type.name !== 'tableRow') return false;
   if (!target || target.type.name !== 'tableRow') return false;
+  // SAME-PARENT law: a reorder swaps places among siblings. Requiring the identical parent
+  // node (and depth) refuses cross-cell / cross-depth drops outright — a row can never be
+  // teleported INTO another row's cell by this path.
+  const $from = doc.resolve(fromPos);
+  const $target = doc.resolve(targetPos);
+  if ($from.depth !== $target.depth || $from.parent !== $target.parent) return false;
   const size = source.nodeSize;
   const insertPos = dropBefore ? targetPos : targetPos + target.nodeSize;
   // No-op when the drop lands inside the source row's own span (drop onto itself / its own edges).
   if (insertPos >= fromPos && insertPos <= fromPos + size) return false;
-  const tr = state.tr;
-  tr.delete(fromPos, fromPos + size);
-  const mapped = tr.mapping.map(insertPos);
-  tr.insert(mapped, source);            // reuse the immutable node → nothing is lost
-  view.dispatch(tr.scrollIntoView());
+  if (dispatch) {
+    const tr = state.tr;
+    tr.delete(fromPos, fromPos + size);
+    const mapped = tr.mapping.map(insertPos);
+    tr.insert(mapped, source);            // reuse the immutable node → nothing is lost
+    dispatch(tr.scrollIntoView());
+  }
   return true;
+}
+
+// A row's first OWN cartridge blockId — its stable identity for re-resolution at drop time.
+// Deliberately does NOT descend into a nested tableRow: those ids identify the nested row
+// itself, not its wrapper (Palau's saved shape nests said|shown rows inside a full-width
+// row's cell, and the wrapper must never answer to its child's identity).
+export function rowFirstBlockId(row) {
+  if (!row) return null;
+  for (let c = 0; c < row.childCount; c++) {
+    const cell = row.child(c);
+    if (cell.type.name !== 'tableCell') continue;
+    for (let b = 0; b < cell.childCount; b++) {
+      const blk = cell.child(b);
+      if (blk.type.name === 'tableRow') continue;
+      if (blk.attrs && blk.attrs.blockId) return blk.attrs.blockId;
+    }
+  }
+  return null;
+}
+
+// Re-resolve the dragged row's CURRENT position. Positions captured at dragstart go stale the
+// moment anything edits the doc — under collab (Liveblocks + Yjs is ON for Burma and Palau) a
+// remote edit mid-drag shifts every position after it, and a raw fromPos drop then moves the
+// WRONG row. Identity survives where positions don't: prefer the exact node reference (===,
+// PM nodes are immutable and reused across unrelated transactions), then the first-block
+// blockId, then the row's pairId. Null when the row is gone (deleted mid-drag) — the drop
+// simply becomes a handled no-op.
+export function findRowByIdentity(doc, ref) {
+  if (!doc || !ref) return null;
+  let byIdentity = null;
+  let byBlockId = null;
+  let byPairId = null;
+  doc.descendants((node, pos) => {
+    if (node.type.name !== 'tableRow') return true;
+    if (byIdentity == null && node === ref.node) byIdentity = pos;
+    if (byBlockId == null && ref.blockId && rowFirstBlockId(node) === ref.blockId) byBlockId = pos;
+    if (byPairId == null && ref.pairId && node.attrs?.pairId === ref.pairId) byPairId = pos;
+    return true;   // keep descending — nested rows are a real saved shape (Palau)
+  });
+  return byIdentity ?? byBlockId ?? byPairId ?? null;
+}
+
+// Map a pointer Y to a drop boundary given the candidate rows' client rects (document order).
+// Pure so the dead-zone arithmetic is unit-testable: above a row's midpoint => before that
+// row; below the LAST row's midpoint => after the last row. The gaps BETWEEN rows (the 30px
+// chapter-frame margins, page padding, the run-out below the final row) therefore always
+// resolve to the nearest boundary — no dead zone is left for a drop to escape through.
+export function pickRowDropTarget(rects, clientY) {
+  if (!Array.isArray(rects) || !rects.length) return null;
+  for (let i = 0; i < rects.length; i++) {
+    if (clientY < (rects[i].top + rects[i].bottom) / 2) return { index: i, before: true };
+  }
+  return { index: rects.length - 1, before: false };
+}
+
+// Resolve the full drop for a live view: where the dragged row is NOW (identity, not stale
+// position), which siblings can take it (same parent only), and which boundary sits under
+// the pointer. Candidates are measured through the view's nodeDOM rects, so what the user
+// sees is exactly what the math uses.
+function findDropTargetForDrag(view, ref, clientY) {
+  const fromPos = findRowByIdentity(view.state.doc, ref);
+  if (fromPos == null) return null;
+  const $from = view.state.doc.resolve(fromPos);
+  const parent = $from.parent;
+  const rects = [];
+  const positions = [];
+  let childPos = $from.start($from.depth);
+  for (let i = 0; i < parent.childCount; i++) {
+    const child = parent.child(i);
+    if (child.type.name === 'tableRow') {
+      const dom = view.nodeDOM(childPos);
+      if (dom && typeof dom.getBoundingClientRect === 'function') {
+        const r = dom.getBoundingClientRect();
+        rects.push({ top: r.top, bottom: r.bottom });
+        positions.push(childPos);
+      }
+    }
+    childPos += child.nodeSize;
+  }
+  const picked = pickRowDropTarget(rects, clientY);
+  if (!picked) return null;
+  return { fromPos, targetPos: positions[picked.index], before: picked.before };
+}
+
+// ---- the editor-owned drag plugin ----------------------------------------
+// Registered via TableRow.addProseMirrorPlugins(), gated by the same rowDragReorder flag as
+// the grip: no grip, no gesture, no plugin. Capture-phase listeners on the editor DOM run
+// BEFORE Dropcursor's and PM's own bubble-phase handlers; stopPropagation() silences those
+// for ROW drags only — text and block drags keep their native indicator and machinery
+// completely untouched. So during a row drag exactly ONE indicator shows (our hairline),
+// never Dropcursor's red line inviting a corrupting drop into a gap.
+const rowDragKey = new PluginKey('wpRowDrag');
+
+// Edge autoscroll: dragover fires continuously, so a small per-event nudge near the viewport
+// edges lets a row travel the full length of a 260-row doc without dropping the grip.
+const AUTOSCROLL_EDGE = 80;
+const AUTOSCROLL_STEP = 14;
+
+function rowDragPlugin() {
+  return new Plugin({
+    key: rowDragKey,
+    props: {
+      // Belt-and-braces: while a row drag is live, PM's drop path must NEVER parse the
+      // dataTransfer (that was the junk-text-insertion bug). The capture listener below
+      // normally swallows the drop before PM sees it; if any path still reaches PM's
+      // handleDrop, returning true UNCONDITIONALLY — even for a no-op — closes it.
+      handleDrop(view, event) {
+        if (!draggingRow) return false;
+        const ref = draggingRow;
+        draggingRow = null;
+        clearDropIndicator();
+        const t = findDropTargetForDrag(view, ref, event.clientY);
+        if (t) moveRow(view.state, view.dispatch, t.fromPos, t.targetPos, t.before);
+        return true;
+      },
+    },
+    view(editorView) {
+      const onDragover = (e) => {
+        if (!draggingRow) return;
+        e.preventDefault();      // preventDefault on dragover is what makes the drop legal here
+        e.stopPropagation();     // capture-phase: Dropcursor + PM bubble handlers never fire
+        try { e.dataTransfer.dropEffect = 'move'; } catch (_err) {}
+        if (e.clientY < AUTOSCROLL_EDGE) window.scrollBy(0, -AUTOSCROLL_STEP);
+        else if (e.clientY > window.innerHeight - AUTOSCROLL_EDGE) window.scrollBy(0, AUTOSCROLL_STEP);
+        const t = findDropTargetForDrag(editorView, draggingRow, e.clientY);
+        // No indicator when hovering the source row itself (a drop there is a no-op anyway).
+        if (!t || t.targetPos === t.fromPos) { clearDropIndicator(); return; }
+        const dom = editorView.nodeDOM(t.targetPos);
+        if (dom && dom.classList) setDropIndicator(dom, t.before);
+        else clearDropIndicator();
+      };
+      const onDrop = (e) => {
+        if (!draggingRow) return;
+        e.preventDefault();
+        e.stopPropagation();     // PM's drop handler never sees a row drop → no parse path at all
+        const ref = draggingRow;
+        draggingRow = null;
+        clearDropIndicator();
+        const t = findDropTargetForDrag(editorView, ref, e.clientY);
+        if (t) moveRow(editorView.state, editorView.dispatch, t.fromPos, t.targetPos, t.before);
+      };
+      editorView.dom.addEventListener('dragover', onDragover, true);
+      editorView.dom.addEventListener('drop', onDrop, true);
+      return {
+        destroy() {
+          editorView.dom.removeEventListener('dragover', onDragover, true);
+          editorView.dom.removeEventListener('drop', onDrop, true);
+          clearDropIndicator();
+          draggingRow = null;
+        },
+      };
+    },
+  });
 }
 
 // ---- SPLIT / MERGE TRANSACTIONS (THE GESTURE) ----------------------------
@@ -202,7 +378,7 @@ export function mintUserPairId() {
 //
 // DEPTH: rows are usually top-level, but Palau's real saved doc NESTS its said|shown rows
 // inside a wrapper row's cell (tableRow > tableCell > tableRow — the schema allows it,
-// tableRow is group:'block' and cells hold block+). So unlike moveRow (top-level only),
+// tableRow is group:'block' and cells hold block+). Like moveRow (same-parent, any depth),
 // this inserts the new rows as SIBLINGS of the source row at WHATEVER depth it lives:
 // below a nested 2-col row you get a nested 2-col row, inside the same cell. The insert
 // is schema-checked; an impossible parent returns false instead of throwing mid-chain.
@@ -555,6 +731,11 @@ export const TableRow = Node.create({
       },
     };
   },
+  // The editor-owned row-drag plugin ships with the same episode flag as the grip: episodes
+  // without rowDragReorder get no plugin at all, keeping Burma's drop behavior byte-identical.
+  addProseMirrorPlugins() {
+    return isPalauEpisode() ? [rowDragPlugin()] : [];
+  },
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const dom = el('div', 'wp-trow');
@@ -606,21 +787,34 @@ export const TableRow = Node.create({
       dom.appendChild(spine);
 
       // ---- ROW DRAG HANDLE (PALAU ONLY) --------------------------------
-      // Far-left ⠿ grip. Hidden until row hover; grab to drag the whole row up/down. Kept
-      // strictly out of Burma so the split/merge spine is never touched there.
+      // Far-left ⇕ grip. Hidden until row hover; grab to drag the whole row up/down. Kept
+      // strictly out of Burma so the split/merge spine is never touched there. The glyph is
+      // deliberately NOT ⠿ — that's the block grip's glyph, and two identical grips made
+      // users grab PM's native BLOCK drag when they meant to move a row. This handle only
+      // STARTS the gesture and records the row's IDENTITY; the editor-level rowDragPlugin
+      // owns everything after (indicator, autoscroll, drop) — see OWNERSHIP LAW above.
       let handle = null;
       if (isPalauEpisode()) {
         handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
-        handle.textContent = '⠿';
+        handle.textContent = '⇕';
 
         handle.addEventListener('mousedown', (e) => { e.stopPropagation(); });
         handle.addEventListener('dragstart', (e) => {
           const pos = typeof getPos === 'function' ? getPos() : null;
-          if (pos == null || editor.state.doc.resolve(pos).depth !== 0) { e.preventDefault(); return; }
-          draggingRow = { fromPos: pos };
+          const rowNode = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
+          if (!rowNode || rowNode.type.name !== 'tableRow') { e.preventDefault(); return; }
+          // IDENTITY, never position: a position captured here goes stale the moment a collab
+          // peer edits mid-drag. The plugin re-resolves this row at drop time by node
+          // reference / first-block blockId / pairId (findRowByIdentity).
+          draggingRow = { node: rowNode, blockId: rowFirstBlockId(rowNode), pairId: rowNode.attrs?.pairId || null };
           try {
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', 'wp-row');   // Firefox needs data set to drag
+            // Custom MIME carries the payload; text/plain stays EMPTY on purpose. Firefox
+            // needs setData() for the drag to start at all — but an empty text payload means
+            // that even if a drop somehow escaped the plugin, PM's parseFromClipboard would
+            // yield nothing, so the old junk-'wp-row'-text insertion path stays dead.
+            e.dataTransfer.setData('application/x-wp-row', draggingRow.blockId || '');
+            e.dataTransfer.setData('text/plain', '');
             e.dataTransfer.setDragImage(dom, 14, 12);
           } catch (_err) {}
           dom.classList.add('wp-trow-dragging');
@@ -630,28 +824,6 @@ export const TableRow = Node.create({
           dom.classList.remove('wp-trow-dragging');
           clearDropIndicator();
           draggingRow = null;
-        });
-
-        dom.addEventListener('dragover', (e) => {
-          if (!draggingRow) return;
-          e.preventDefault();
-          e.stopPropagation();
-          try { e.dataTransfer.dropEffect = 'move'; } catch (_err) {}
-          const rect = dom.getBoundingClientRect();
-          setDropIndicator(dom, (e.clientY - rect.top) < rect.height / 2);
-        });
-        dom.addEventListener('drop', (e) => {
-          if (!draggingRow) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const rect = dom.getBoundingClientRect();
-          const dropBefore = (e.clientY - rect.top) < rect.height / 2;
-          const targetPos = typeof getPos === 'function' ? getPos() : null;
-          const fromPos = draggingRow.fromPos;
-          clearDropIndicator();
-          dom.classList.remove('wp-trow-dragging');
-          draggingRow = null;
-          moveRow(editor.view, fromPos, targetPos, dropBefore);
         });
 
         dom.appendChild(handle);

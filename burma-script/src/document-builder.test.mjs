@@ -157,6 +157,38 @@ const voNode = { type: 'voBlock', attrs: { blockId: 'v1', status: 'todo' },
   eq(out[1].text, 'B-roll here', 'reading order — shown comes second');
 }
 
+// ── NESTED ROW: a tableCell-nested tableRow flattens LOSSLESSLY, never to one bin block ──
+// The schema legally permits tableRow > tableCell > tableRow (Palau's saved docs ship it, and
+// PM's native block drag can mint it anywhere). NODE_TO_TYPE has no 'tableRow' entry, so
+// before docToBlocks grew its recursion a nested row fell through nodeToBlock and collapsed
+// to ONE type:'bin' block — destroying every inner block's type and its SOT timecode/speaker
+// attrs on the next save. This locks the backstop: nested rows export their blocks first-class.
+{
+  const nestedSot = { type: 'sotBlock',
+    attrs: { blockId: 'ns1', timecode: '03:04:05:06', day: 1, ambiguous: false, speaker: 'DAW MYA', done: false, rawTimecode: '03:04:05:06' },
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'nested quote here' }] }] };
+  const nestedRow = { type: 'tableRow', attrs: { cols: 2, pairId: 'pair_deep' }, content: [
+    { type: 'tableCell', attrs: { role: 'said' }, content: [nestedSot] },
+    { type: 'tableCell', attrs: { role: 'shown' }, content: [
+      { type: 'paragraph', content: [{ type: 'text', text: 'wide of the courtroom' }] }] },
+  ]};
+  const doc = { type: 'doc', content: [
+    { type: 'tableRow', attrs: { cols: 1 }, content: [
+      { type: 'tableCell', attrs: { role: 'full' }, content: [voNode, nestedRow] },
+    ]},
+  ]};
+  const out = docToBlocks(doc);
+  eq(out.length, 3, 'wrapper block + 2 nested-row blocks all export (no collapse)');
+  ok(!out.some((b) => b.type === 'bin' && /nested quote/.test(b.text || '')), 'nested row is NOT flattened to a bin block');
+  const sotOut = out.find((b) => b.id === 'ns1');
+  eq(sotOut?.type, 'sot', 'nested SOT keeps its type');
+  eq(sotOut?.timecode?.tc, '03:04:05:06', 'nested SOT timecode attr survives');
+  eq(sotOut?.speaker, 'DAW MYA', 'nested SOT speaker attr survives');
+  eq(sotOut?.lane, 'said', 'nested said|shown pairing survives (lane)');
+  eq(sotOut?.pairId, 'pair_deep', 'nested pairing survives (pairId)');
+  ok(out.some((b) => /wide of the courtroom/.test(b.text || '')), 'nested shown words survive');
+}
+
 // ── ensureTableDoc: flat pre-table doc -> rows; idempotent on already-rowed ──
 {
   const flat = { type: 'doc', content: [voNode] };
