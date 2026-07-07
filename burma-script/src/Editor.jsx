@@ -26,6 +26,7 @@ import { SlashMenu } from './extensions/slash-menu.js';
 import { ConvertMenu } from './extensions/convert-menu.js';
 import { PasteSanitize } from './extensions/paste-sanitize.js';
 import { FindReplace } from './extensions/find-replace.js';
+import { ImageDrop } from './extensions/image-drop.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
@@ -446,6 +447,11 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // in read-only sessions too — the panel that drives it is edit-only (gated below), and its
       // replace commands refuse when the editor is non-editable.
       FindReplace,
+      // Image drag/drop + paste — decoration-placeholder plugin (adds NO schema; the imageBlock
+      // node it inserts already lives in BURMA_NODES). Always-on: with no files on the gesture it
+      // does nothing, and in read-only sessions it only swallows file drops so the browser can
+      // never navigate away from the editor (the pre-fix failure mode).
+      ImageDrop,
       // COLLAB — Collaboration (binds the Y.Doc; the Yjs binding carries every PM transaction,
       // including the NodeViews' — spike-proven lossless) + CollaborationCaret (teammates' colored
       // cursors/selections via the Liveblocks awareness provider). Empty when the flag is off.

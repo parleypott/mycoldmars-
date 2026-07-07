@@ -1744,3 +1744,23 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
 .wp-image .wp-image-caption[hidden] { display: none; }
 /* Selected (atom) image gets the same selection affordance as other nodes. */
 .wp-image.ProseMirror-selectednode img { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
+/* Upload placeholder (image-drop.js widget decoration) — a quiet mono pill holding the
+   drop point while the bytes travel to Supabase. Decoration-only: never in the doc. */
+.wp-image-uploading {
+  display: inline-block;
+  margin: 0 0 11px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: var(--ep-kind-label);
+  border: 1.5px dashed var(--ink);
+  border-radius: 999px;
+  opacity: .75;
+  animation: wp-image-uploading-pulse 1.2s ease-in-out infinite;
+}
+@keyframes wp-image-uploading-pulse {
+  0%, 100% { opacity: .75; }
+  50% { opacity: .35; }
+}
