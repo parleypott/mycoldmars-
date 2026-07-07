@@ -670,7 +670,9 @@
   let skiActive = false, skiRAF = null, ski = null;
   // tuned for FEEL, not real units (the chart's vertical is exaggerated ~4.5x):
   // long satisfying glide, believable speed readout.
-  const SK = { G: 215, FRIC: 0.16, SUB: 1 / 240, PUSH: 16, MAXV: 185, MPH: 0.32, JUMP: 140, FLIP: 13, COYOTE: 0.12 };
+  // no hard speed cap — quadratic air drag only (terminal ~390 mph, a numeric
+  // safety net, not a feel limit). Acceleration keeps building the whole run.
+  const SK = { G: 215, FRIC: 0.16, SUB: 1 / 240, PUSH: 16, DRAG: 0.0001, MPH: 0.32, JUMP: 140, FLIP: 13, COYOTE: 0.12 };
 
   function enterSki() {
     if (skiActive) return;
@@ -746,16 +748,19 @@
         // orient from velocity only → continuous across air/ground, never snaps upside down
         s.ang = Math.atan2(s.vy, s.vx);
         let spd = Math.hypot(s.vx, s.vy);
-        if (spd > SK.MAXV) { const f = SK.MAXV / spd; s.vx *= f; s.vy *= f; spd = SK.MAXV; }
+        const dragF = 1 - SK.DRAG * spd * SK.SUB;   // quadratic drag, no clamp
+        s.vx *= dragF; s.vy *= dragF; spd *= dragF;
         if (spd > s.maxSpd) s.maxSpd = spd;
         if (s.x <= s.minX) { s.x = s.minX; s.done = true; s.vx = s.vy = 0; }
         // HEAD collision — you must JUMP OVER. If you're not high enough above it → CRASH.
         if (!s.crashed && headsOn) {
           const obs = s.obstacles;
+          const x0 = s.x - s.vx * SK.SUB;           // substep start — swept test so speed can't tunnel past a head
           for (let k = 0; k < obs.length; k++) {
             const o = obs[k];
             // clearance = how high the skier's feet are above the terrain at the head
-            if (Math.abs(s.x - o.x) < o.r * 0.7 && (s.terAt(o.x) - s.y) < o.r * 0.9) {
+            const crossed = Math.abs(s.x - o.x) < o.r * 0.7 || (x0 - o.x) * (s.x - o.x) < 0;
+            if (crossed && (s.terAt(o.x) - s.y) < o.r * 0.9) {
               s.crashed = true; s.crashAt = 0; s.vx = 0; s.vy = 0; break;
             }
           }
@@ -774,7 +779,7 @@
     }
     // camera: lead the skier, ease in, zoom out a touch with speed
     const spd = Math.hypot(s.vx, s.vy);
-    const tz = Math.max(3.0, 4.2 - spd * 0.0013);   // tighter zoom = longer-feeling track
+    const tz = Math.max(1.7, 4.2 - spd * 0.0013);   // camera pulls out wide as speed climbs past the old cap
     s.Z += (tz - s.Z) * 0.06;
     const tcx = s.x + s.vx * 0.20, tcy = s.y + s.vy * 0.14 - 30 / s.Z;
     s.camX += (tcx - s.camX) * 0.12; s.camY += (tcy - s.camY) * 0.12;
