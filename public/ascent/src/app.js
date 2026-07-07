@@ -647,6 +647,13 @@
   document.getElementById("vibe").addEventListener("click", () => setTheme(theme === "clean" ? "vintage" : "clean"));
   function setLandmarks(on) { showLandmarks = on; document.getElementById("landmarks").classList.toggle("off", !on); render(); }
   document.getElementById("landmarks").addEventListener("click", () => setLandmarks(!showLandmarks));
+  // HEADS toggle — clear-run mode. Gates both drawing and collision, so it
+  // works mid-run too: flip it off and the field is instantly safe.
+  let headsOn = true;
+  document.getElementById("heads").addEventListener("click", () => {
+    headsOn = !headsOn;
+    document.getElementById("heads").classList.toggle("off", !headsOn);
+  });
 
   let hovPending = false;
   canvas.addEventListener("mousemove", (e) => {
@@ -743,7 +750,7 @@
         if (spd > s.maxSpd) s.maxSpd = spd;
         if (s.x <= s.minX) { s.x = s.minX; s.done = true; s.vx = s.vy = 0; }
         // HEAD collision — you must JUMP OVER. If you're not high enough above it → CRASH.
-        if (!s.crashed) {
+        if (!s.crashed && headsOn) {
           const obs = s.obstacles;
           for (let k = 0; k < obs.length; k++) {
             const o = obs[k];
@@ -806,7 +813,7 @@
     ctx.stroke();
 
     // THE HEADS — circle-clipped photo obstacles resting on the snow, varied sizes
-    for (let k = 0; k < s.obstacles.length; k++) {
+    for (let k = 0; k < (headsOn ? s.obstacles.length : 0); k++) {
       const o = s.obstacles[k];
       if (o.x < x0w || o.x > x1w) continue;
       const ox = SXc(o.x), baseY = SYc(o.y), Rr = o.r * Z, cy = baseY - Rr; // sits on terrain
