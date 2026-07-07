@@ -131,7 +131,8 @@ function render(holders) {
   }).join('');
   const more = overflow > 0 ? `<span class="sl-presence-more" title="${overflow} more">+${overflow}</span>` : '';
 
-  el.innerHTML = `<span class="sl-presence-label">HERE</span>${dots}${more}`;
+  // No "HERE" label (Johnny: it crowded the find bar) — the dots speak for themselves.
+  el.innerHTML = `${dots}${more}`;
   el.classList.add('is-visible');
 }
 

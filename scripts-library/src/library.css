@@ -368,7 +368,9 @@
 
 /* ── Presence (Wave 2): who else is in this project — a calm stack, top-right ──── */
 .sl-presence {
-  position: fixed; top: 14px; right: 14px; z-index: 8500;
+  /* BELOW the engine's find/replace panel (z 520) — the find bar owns that corner while
+     it's open (Johnny: the pill was covering FIND); the dots dip behind it. */
+  position: fixed; top: 14px; right: 14px; z-index: 500;
   display: none; align-items: center; gap: 6px;
   font-family: var(--mono, 'JetBrains Mono', monospace);
   padding: 5px 9px 5px 10px;
