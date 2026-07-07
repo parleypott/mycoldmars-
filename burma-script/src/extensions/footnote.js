@@ -78,9 +78,24 @@ function createFootnotePanel(editor, getPos, iconDom) {
     saveTimer = setTimeout(flush, 500);
   };
 
+  // DURABLE TEARDOWN FLUSH (audit 2026-07-07, HIGH data-loss): the debounced save only
+  // commits to the doc on the 500ms timer or on close(). A hard reload / tab-close never
+  // calls close(), so anything typed in the trailing window was lost — the same class of
+  // bug the Editor's pagehide flush fixes. pending{} holds the latest textarea values
+  // synchronously (queueSave assigns immediately; the timer only defers the dispatch), so a
+  // synchronous flush here captures everything. Both events fire reliably before teardown.
+  const onTeardown = () => { try { flush(); } catch {} };
+  const onVis = () => { if (document.visibilityState === 'hidden') onTeardown(); };
+  window.addEventListener('pagehide', onTeardown);
+  window.addEventListener('beforeunload', onTeardown);
+  document.addEventListener('visibilitychange', onVis);
+
   const close = () => {
     if (!panel.parentNode) return;
     flush(); // never lose in-flight words
+    window.removeEventListener('pagehide', onTeardown);
+    window.removeEventListener('beforeunload', onTeardown);
+    document.removeEventListener('visibilitychange', onVis);
     if (onDocDown) document.removeEventListener('mousedown', onDocDown, true);
     if (onKey) document.removeEventListener('keydown', onKey, true);
     if (onScroll) {
