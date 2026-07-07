@@ -19,6 +19,7 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { DirectionMark } from './extensions/direction-chip.js';
+import { mintNoteId } from './extensions/footnote.js';
 import { ChapterFrames } from './extensions/chapter-frames.js';
 import { DayFold } from './extensions/day-fold.js';
 import { SlashMenu } from './extensions/slash-menu.js';
@@ -580,17 +581,85 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
         return;
       }
 
+      // LINEAGE LAW — when the Workshop pick carries fact-check receipts (detail.footnote),
+      // the replacement is text + a green ✓ fcFootnote right after it, so resolving a marker
+      // never silently bakes away WHERE the fact came from.
+      const content = [{ type: 'text', text: String(text), marks: [] }];
+      const fn = e.detail && e.detail.footnote;
+      if (fn && (fn.note || fn.source)) {
+        content.push({
+          type: 'fcFootnote',
+          attrs: {
+            noteId: mintNoteId(),
+            note: String(fn.note || ''),
+            source: String(fn.source || ''),
+            marker: String(markerText || ''),
+            verdict: String(fn.verdict || ''),
+          },
+        });
+      }
       editor
         .chain()
         .focus()
-        .insertContentAt(
-          { from: a, to: b },
-          [{ type: 'text', text: String(text), marks: [] }],
-        )
+        .insertContentAt({ from: a, to: b }, content)
         .run();
     };
     window.addEventListener('wp-replace-span', onReplace);
     return () => window.removeEventListener('wp-replace-span', onReplace);
+  }, [editor]);
+
+  // CREATE FOOTNOTE — the Workshop dock's receipt-drop ('wp-create-footnote'). The green ✓
+  // fcFootnote lands right AFTER the marker span; the {fc}/{TK} chip itself is untouched (the
+  // claim stays live — lineage law). Same CH-02 stale-range guard as onReplace above: the
+  // dock's cached {from,to} is re-resolved against the mark's CURRENT range before anything
+  // is inserted; if the marker moved and can't be re-found, abort with the error toast
+  // instead of dropping the receipt into the wrong sentence.
+  useEffect(() => {
+    if (!editor) return;
+    const onFootnote = (e) => {
+      const { from, to, markerText, kind, note, source, verdict } = e.detail || {};
+      if (typeof from !== 'number' || typeof to !== 'number') return;
+      const { state } = editor;
+      const size = state.doc.content.size;
+      let a = Math.max(0, Math.min(from, size));
+      let b = Math.max(a, Math.min(to, size));
+
+      const markName = kind === 'tk' ? 'tkSpan' : kind === 'fc' ? 'factCheckSpan' : null;
+      const markType = markName ? state.schema.marks[markName] : null;
+      let resolved = false;
+      if (markType) {
+        const range = findMarkRange(state, markType, a, b);
+        if (range) { a = range.from; b = range.to; resolved = true; }
+      }
+      if (!resolved && typeof markerText === 'string' && markerText.length) {
+        const here = state.doc.textBetween(a, b, '');
+        if (here.trim() === markerText.trim()) resolved = true;
+      }
+      if (!resolved) {
+        window.dispatchEvent(new CustomEvent('wp-toast', {
+          detail: { tone: 'error', msg: 'that marker moved — click it again to add the footnote' },
+        }));
+        return;
+      }
+
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(b, [{
+          type: 'fcFootnote',
+          attrs: {
+            noteId: mintNoteId(),
+            note: String(note || ''),
+            source: String(source || ''),
+            marker: String(markerText || ''),
+            verdict: String(verdict || ''),
+          },
+        }])
+        .run();
+      window.dispatchEvent(new CustomEvent('wp-toast', { detail: { msg: 'footnote added — click the green ✓ to edit' } }));
+    };
+    window.addEventListener('wp-create-footnote', onFootnote);
+    return () => window.removeEventListener('wp-create-footnote', onFootnote);
   }, [editor]);
 
   // DURABLE FLUSH ON PAGE TEARDOWN — the actual safety net Johnny's "edit → reload → gone" needs.

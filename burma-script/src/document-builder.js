@@ -390,6 +390,17 @@ function inlineContent(rawText, type) {
     // ask. Sniff the keyword to route to the right mark — the two are visually distinct and
     // open the Workshop hub in different modes (fc → verify; tk → 5 options).
     const isFc = isBrace && /^\{\s*(?:fc|fact)\b/i.test(tok);
+    // {fn …} is a FOOTNOTE token (footnoteToken's inverse) — rebuild the real fcFootnote
+    // atom, never a tk/fc mark, so an export → rebuild round-trip keeps the receipt intact.
+    if (isBrace && /^\{\s*fn\b/i.test(tok)) {
+      const fnInner = tok.replace(/^\{\s*fn\s*/i, '').replace(/\}$/, '');
+      const sep = fnInner.indexOf('||');
+      const note = (sep >= 0 ? fnInner.slice(0, sep) : fnInner).trim();
+      const source = (sep >= 0 ? fnInner.slice(sep + 2) : '').trim();
+      out.push({ type: 'fcFootnote', attrs: { noteId: null, note, source, marker: '', verdict: '' } });
+      last = m.index + tok.length;
+      continue;
+    }
     const markType = isTrim ? 'trimSpan' : (isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan');
     // Strip only the STRUCTURAL braces/brackets — KEEP the leading keyword ("tk"/"fc") in the
     // visible chip text, matching the CARTRIDGES reference ("tk fractured-shape", "tk ~one
@@ -968,6 +979,17 @@ export function wrapToken(text, kind) {
   return t;
 }
 
+// fcFootnote → its `{fn <note> || <source>}` export token. Structural characters ({ } and
+// the || separator) are scrubbed from the content so the token always re-parses cleanly;
+// inlineContent's isFn branch is the inverse. marker/verdict are icon-side lineage — they
+// are NOT encoded (the doc JSON is canonical for them; the token carries the WORDS).
+export function footnoteToken(attrs) {
+  const clean = (s) => String(s || '').replace(/[{}]/g, '').replace(/\|\|/g, '∕∕').trim();
+  const note = clean(attrs?.note);
+  const source = clean(attrs?.source);
+  return '{fn ' + note + (source ? ' || ' + source : '') + '}';
+}
+
 export function nodeText(node) {
   // Collect inline pieces tagged with their span-mark type, THEN coalesce consecutive
   // text nodes that share the same span type into ONE token before re-wrapping.
@@ -1003,6 +1025,12 @@ export function nodeText(node) {
     }
     if (n.type === 'directionChip') {
       pieces.push({ span: null, text: directionChipText(n.attrs) });
+    }
+    if (n.type === 'fcFootnote') {
+      // EXPORT LAW — the footnote's words (note + source) must survive the derived blocks
+      // view. Serialized as the `{fn …}` token inlineContent() parses back into a real
+      // fcFootnote node, so an export → rebuild round-trip never drops a fact-check word.
+      pieces.push({ span: null, text: footnoteToken(n.attrs) });
     }
     if (n.content) n.content.forEach(walk);
   })(node);

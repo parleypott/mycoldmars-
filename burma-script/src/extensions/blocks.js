@@ -10,10 +10,12 @@
 // flat repeating-linear-gradient texture and is the only gradient allowed.
 
 import { Node, mergeAttributes } from '@tiptap/core';
+import { TextSelection as PMTextSelection } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { getEpisode, episodeFlag } from '../episode-config.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 import { DirectionChip, DirectionBreak } from './direction-chip.js';
+import { FcFootnote } from './footnote.js';
 
 // WP-13 — reconstruction data lives in ATTRIBUTES, never in derived/decoration state, so a block
 // carries everything it needs to rebuild itself through a JSON (and clipboard) round-trip.
@@ -618,6 +620,37 @@ export const SceneBlock = Node.create({
 // --- VO — blue cap, REC toggle, prose with {tk}/[visual] chips ---
 const VO_ORDER = ['todo', 'recorded', 'in-edit']; // OFF → ARM → REC
 const VO_LABEL = { todo: 'OFF', recorded: 'ARM', 'in-edit': 'REC' };
+
+// DOUBLE-RETURN EXIT (Johnny: "i hit return twice and another VO tag emerges — nix that").
+// Default PM Enter handling on a VO's trailing EMPTY paragraph split the voBlock into TWO
+// voBlocks — a second corner tag with nothing under it. Instead, Enter on an empty LAST
+// paragraph (that isn't the block's only one) EXITS the VO: the empty paragraph is removed
+// and the caret lands in a fresh bare paragraph right after the block — one transaction,
+// one undo. Multi-paragraph VO stays fully supported (Enter mid-block is untouched).
+// Pure (state, dispatch) -> boolean, exported for the headless suite.
+export function doExitVoOnEmptyTail(state, dispatch) {
+  const { $from, empty } = state.selection;
+  if (!empty) return false;
+  const para = $from.parent;
+  if (para.type.name !== 'paragraph' || para.content.size !== 0) return false;
+  const d = $from.depth;
+  const host = d > 0 ? $from.node(d - 1) : null;
+  if (!host || host.type.name !== 'voBlock') return false;
+  if ($from.index(d - 1) !== host.childCount - 1) return false; // only the TRAILING empty line exits
+  if (host.childCount === 1) return false;                      // a fresh empty VO keeps normal Enter
+
+  const paraType = state.schema.nodes.paragraph;
+  if (!paraType) return false;
+  const tr = state.tr;
+  const paraStart = $from.before(d);
+  const afterVo = $from.after(d - 1);
+  tr.delete(paraStart, paraStart + para.nodeSize);
+  const insertAt = tr.mapping.map(afterVo);
+  tr.insert(insertAt, paraType.createAndFill());
+  try { tr.setSelection(PMTextSelection.create(tr.doc, insertAt + 1)); } catch {}
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+}
 export const VoBlock = Node.create({
   name: 'voBlock',
   group: 'block',
@@ -627,6 +660,11 @@ export const VoBlock = Node.create({
   draggable: true,
   addAttributes() {
     return { ...baseAttrs(), status: { default: 'todo' } };
+  },
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => doExitVoOnEmptyTail(this.editor.state, this.editor.view.dispatch),
+    };
   },
   parseHTML() { return [{ tag: 'div[data-vo]' }]; },
   renderHTML({ node }) {
@@ -1039,4 +1077,7 @@ export const BURMA_NODES = [
   SotBlock, BrollBlock, MontageBlock, NoneBlock, ScriptStart, NoteBlock, BinBlock,
   ImageBlock,
   DirectionChip, DirectionBreak,
+  // FACT-CHECK FOOTNOTE (inline atom) — one registration here reaches the live editor,
+  // migrate-doc's mirror/save-gate schema, and the collab schema alike.
+  FcFootnote,
 ];

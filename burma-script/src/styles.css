@@ -1460,6 +1460,69 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-ws-generate[data-kind="fc"]:hover { background: #a23c15; }
 .wp-ws-generate[data-secondary="1"] { background: transparent; color: var(--label); }
 .wp-ws-generate[data-secondary="1"]:hover { border-color: var(--orange); color: var(--orange); }
+/* ---- FACT-CHECK FOOTNOTE — the green ✓ receipt + its fly-out comment card ----
+   The icon is an inline atom pinned right after a verified fact. FLAT law: solid fills,
+   one hairline border on the card, no shadows. Green = the doctrine's one green
+   (--ep-copied), the same "confirmed" voice as the copied pulse. */
+.wp-fcnote { display: inline-flex; vertical-align: baseline; margin: 0 3px 0 2px; cursor: pointer; }
+.wp-fcnote svg { display: block; transform: translateY(2px); }
+.wp-fcnote-circle { fill: var(--ep-copied, #1f8a72); }
+.wp-fcnote-check { stroke: #fff; stroke-width: 1.8; }
+.wp-fcnote:hover .wp-fcnote-circle { fill: #17705d; }
+span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45); outline-offset: 1px; border-radius: 50%; }
+
+.wp-fnote-panel {
+  position: fixed; z-index: 90; width: 320px; max-width: calc(100vw - 16px);
+  background: var(--panel); border: 1.5px solid var(--ink); border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.wp-fnote-head { display: flex; justify-content: space-between; align-items: center; }
+.wp-fnote-badge { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--ep-copied, #1f8a72); }
+.wp-fnote-close { border: 0; background: none; font-size: 16px; line-height: 1; cursor: pointer; color: var(--label-2); padding: 0 2px; }
+.wp-fnote-close:hover { color: var(--ink); }
+.wp-fnote-claim {
+  font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--label-2);
+  border-left: 2px solid var(--ep-copied, #1f8a72); padding-left: 8px; margin: 2px 0;
+}
+.wp-fnote-label { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--label); margin-top: 4px; }
+.wp-fnote-text {
+  font-family: var(--doc-read, Georgia, serif); font-size: 13px; line-height: 1.5; color: var(--body);
+  background: var(--face); border: 1px solid var(--rule); border-radius: 6px; padding: 7px 9px; resize: vertical;
+}
+.wp-fnote-text:focus { outline: none; border-color: var(--ep-copied, #1f8a72); }
+.wp-fnote-src { font-family: var(--mono); font-size: 11px; }
+.wp-fnote-links { display: flex; flex-direction: column; gap: 2px; }
+.wp-fnote-link { font-family: var(--mono); font-size: 10px; color: var(--ep-copied, #1f8a72); }
+.wp-fnote-delete {
+  align-self: flex-start; margin-top: 6px; border: 1px solid #b0431f; color: #b0431f; background: none;
+  border-radius: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 4px 9px; cursor: pointer; transition: background .12s, color .12s;
+}
+.wp-fnote-delete:hover { background: #b0431f; color: #fff; }
+
+/* the quiet "result ready" chip — the generate landed while he was writing; no takeover */
+.wp-ws-ready {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 10px; border: 1.5px dashed var(--ep-copied, #1f8a72); border-radius: 7px; cursor: pointer;
+  background: rgba(31,138,114,.07); color: var(--ep-copied, #1f8a72); transition: background .12s;
+}
+.wp-ws-ready:hover { background: rgba(31,138,114,.16); }
+
+/* the dock's CREATE FOOTNOTE button — quiet green sibling of the generate button */
+.wp-ws-footnote {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 10px; border: 1.5px solid var(--ep-copied, #1f8a72); border-radius: 7px; cursor: pointer;
+  background: transparent; color: var(--ep-copied, #1f8a72); transition: background .12s, color .12s;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.wp-ws-footnote:hover { background: var(--ep-copied, #1f8a72); color: #fff; }
+.wp-ws-footnote-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%; background: var(--ep-copied, #1f8a72); color: #fff;
+  font-size: 9px; line-height: 1; flex: none;
+}
+.wp-ws-footnote:hover .wp-ws-footnote-dot { background: #fff; color: var(--ep-copied, #1f8a72); }
+
 .wp-ws-error {
   font-family: var(--mono); font-size: 10px; line-height: 1.5; color: var(--red);
   background: rgba(232,65,43,.08); border-left: 3px solid var(--red); padding: 8px 10px; border-radius: 0 5px 5px 0;

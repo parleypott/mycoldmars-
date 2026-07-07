@@ -82,6 +82,11 @@ export function Workshop() {
   const [vetted, setVetted] = useState(false);   // options came from the fact-checked research
   const [chapter, setChapter] = useState('');
   const [verdict, setVerdict] = useState(null);
+  // QUIET LANDING (Johnny: "it snaps me over to its result and stops me from working").
+  // When a generate/verify finishes while he's writing in the editor, the result is STASHED
+  // here behind a calm "result ready" chip instead of taking over the dock — he clicks it
+  // when he's ready. The data itself is persisted immediately either way (data-loss law).
+  const [ready, setReady] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [width, setWidth] = useState(() => {
     // Runs on mount (Editor renders <Workshop/> at boot). Guard the getter so a
@@ -153,6 +158,7 @@ export function Workshop() {
         setOptions([]); setSources([]); setVetted(false); setChapter('');
       }
       setVerdict(rec.verdict || null);
+      setReady(null);
       setError(''); setLoading(false); setOpen(true);
     };
     window.addEventListener('wp-open-workshop', onOpen);
@@ -178,7 +184,7 @@ export function Workshop() {
   async function generate() {
     if (!span) return;
     const mode = span.kind === 'fc' ? 'fc' : 'tk';
-    setLoading(true); setError(''); setElapsed(0);
+    setLoading(true); setError(''); setElapsed(0); setReady(null);
     if (mode === 'tk') { setOptions([]); setVetted(false); } else setVerdict(null);
     // Tick the button label ("Checking… 12s") so the wait feels determinate, never infinite.
     const t0 = Date.now();
@@ -210,12 +216,21 @@ export function Workshop() {
         );
       }
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      // Persist FIRST (the words are safe no matter what), then decide how loudly to land.
+      // If his focus is in the editor right now, the dock must not commandeer his attention:
+      // stash the state-apply behind the "result ready" chip and let him click when ready.
+      const writing = typeof document !== 'undefined'
+        && document.activeElement && document.activeElement.closest
+        && !!document.activeElement.closest('.ProseMirror');
       if (mode === 'tk') {
         const opts = (Array.isArray(data.options) ? data.options : []).map((o) => (typeof o === 'string' ? { text: o } : o));
-        setOptions(opts); setSources(data.sources || []); setVetted(false);
         persist({ options: opts, sources: data.sources || [] });
+        const apply = () => { setOptions(opts); setSources(data.sources || []); setVetted(false); };
+        if (writing) setReady(() => apply); else apply();
       } else {
-        setVerdict(data); persist({ verdict: data });
+        persist({ verdict: data });
+        const apply = () => setVerdict(data);
+        if (writing) setReady(() => apply); else apply();
       }
     } catch (err) {
       setError(
@@ -235,14 +250,39 @@ export function Workshop() {
   // {from,to} range still spans the same marker before overwriting. The dock stays open over a
   // fully-editable editor, so any edit ABOVE the marker shifts these coordinates; replacing the
   // stale range would land the prose in the wrong place and delete good script silently.
-  function pick(text) {
+  function pick(text, footnote) {
     if (!span || typeof span.from !== 'number') return;
     window.dispatchEvent(new CustomEvent('wp-replace-span', {
-      detail: { from: span.from, to: span.to, text, markerText: span.text, kind: span.kind },
+      detail: { from: span.from, to: span.to, text, markerText: span.text, kind: span.kind, footnote: footnote || null },
     }));
     persist({ resolved: true, chosen: text });
     setResolved(true);
     setOpen(false);
+  }
+
+  // Join whatever source material the dock currently holds into one pasteable string.
+  function currentSources() {
+    const list = isFc ? ((verdict && verdict.sources) || []) : sources;
+    return (list || []).map((s) => s.url || s.claim || s.label || '').filter(Boolean).join('\n');
+  }
+
+  // CREATE FOOTNOTE — drop the green ✓ receipt right AFTER the marker in the doc. The
+  // {fc}/{TK} chip itself stays live (lineage law); the Editor's 'wp-create-footnote'
+  // listener re-validates the cached range (CH-02) before inserting. Prefilled from the
+  // dock's current verdict/sources; everything stays editable in the icon's fly-out.
+  function createFootnote() {
+    if (!span || typeof span.from !== 'number') return;
+    window.dispatchEvent(new CustomEvent('wp-create-footnote', {
+      detail: {
+        from: span.from,
+        to: span.to,
+        markerText: span.text,
+        kind: span.kind,
+        note: (isFc && verdict && verdict.finding) || '',
+        source: currentSources(),
+        verdict: (isFc && verdict && verdict.verdict) || '',
+      },
+    }));
   }
 
   if (!open || !span) return null;
@@ -302,6 +342,20 @@ export function Workshop() {
         </button>
       )}
 
+      {ready && (
+        <button class="wp-ws-ready" onClick={() => { const apply = ready; setReady(null); apply(); }}
+          title="The result landed quietly while you were writing — view it when you're ready">
+          ✓ RESULT READY — VIEW
+        </button>
+      )}
+
+      {(isTk || isFc) && (
+        <button class="wp-ws-footnote" onClick={createFootnote}
+          title="Drop a green ✓ footnote right after this fact — the comment holds the context + source and stays editable">
+          <span class="wp-ws-footnote-dot">✓</span> CREATE FOOTNOTE
+        </button>
+      )}
+
       {error && <div class="wp-ws-error">{error}</div>}
 
       {/* TK: five pick-able option cards */}
@@ -309,7 +363,9 @@ export function Workshop() {
         <div class="wp-ws-options">
           <div class="wp-ws-hint">Pick one to drop it in — it replaces the {'{TK}'} marker.</div>
           {options.map((o, i) => (
-            <button class="wp-opt" key={i} onClick={() => pick(o.text)} title="Insert, replacing the marker">
+            <button class="wp-opt" key={i}
+              onClick={() => pick(o.text, (o.source || sources.length) ? { note: o.angle || '', source: o.source || currentSources(), verdict: '' } : null)}
+              title="Insert, replacing the marker (drops a ✓ footnote with the source)">
               <div class="wp-opt-top">
                 <span class="wp-opt-n">{i + 1}</span>
                 {o.angle && <span class="wp-opt-angle">{o.angle}</span>}
@@ -340,7 +396,9 @@ export function Workshop() {
           <div class={`wp-verdict-badge v-${verdict.verdict}`}>{(verdict.verdict || 'unclear').toUpperCase()}</div>
           {verdict.finding && <div class="wp-verdict-finding">{verdict.finding}</div>}
           {verdict.suggestedEdit && (
-            <button class="wp-opt wp-opt-edit" onClick={() => pick(verdict.suggestedEdit)} title="Insert the corrected line">
+            <button class="wp-opt wp-opt-edit"
+              onClick={() => pick(verdict.suggestedEdit, { note: verdict.finding || '', source: currentSources(), verdict: verdict.verdict || '' })}
+              title="Insert the corrected line (drops a ✓ footnote with the finding + sources)">
               <div class="wp-opt-top">
                 <span class="wp-opt-angle">suggested edit</span>
                 <span class="wp-opt-pick">INSERT →</span>
