@@ -17,7 +17,7 @@
 
 import { supabase } from './supa.js';
 import { tokenExpiresWithin } from './auth-token.js';
-import { isNewpressEmail } from '../../api/_lib/newpress-domain.js';
+import { isNewpressEmail } from '../../shared/newpress-domain.js';
 
 let _user = null;
 const _listeners = new Set();
@@ -84,7 +84,7 @@ export async function sendMagicLink(email) {
 // wall: a tampered client can flip it, so the server enforces the same rule
 // in the Supabase `before-user-created` auth hook
 // (public.hook_restrict_signup_to_newpress), which rejects the insert with a
-// 403 before the user row exists. Rule lives in api/_lib/newpress-domain.js.
+// 403 before the user row exists. Rule lives in shared/newpress-domain.js (client-importable; /api paths 404 in dev).
 export async function signUpWithMagicLink(email) {
   if (!supabase) return { ok: false, error: 'Supabase not configured' };
   const addr = (email || '').trim();

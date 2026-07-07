@@ -1017,6 +1017,63 @@ export function isVideoSrc(src) {
 // it nears the viewport.
 const VIDEO_LOOP_ATTRS = { autoplay: '', loop: '', muted: '', playsinline: '', preload: 'metadata' };
 
+// ── MEDIA LIGHTBOX — click a still/video in the rack → the same media, BIG. ─────────────
+// Johnny: "not full screen — it plays in a bigger screen that is as wide as the whole
+// full-width script." So the frame is sized to the LIVE script column's width (measured at
+// open time from .wp-editor-content), capped to the viewport — an in-tool viewing surface,
+// not a browser fullscreen takeover. A video keeps auto-looping muted (same contract as the
+// rack element); the caption rides below. Esc / click-away / × close. One instance ever.
+let closeOpenLightbox = null;
+export function openMediaLightbox({ src, alt }) {
+  if (closeOpenLightbox) closeOpenLightbox();
+  if (!src) return;
+
+  const scrim = el('div', 'wp-media-lightbox', { role: 'dialog', 'aria-label': alt || 'media preview' });
+  const frame = el('figure', 'wp-media-lightbox-frame');
+  // Width = the full script column, right now (reading knobs resize it live), minus a hair
+  // of breathing room; never wider than the viewport allows.
+  let width = 960;
+  try {
+    const rack = document.querySelector('.wp-editor-content');
+    if (rack) width = rack.getBoundingClientRect().width;
+  } catch {}
+  frame.style.width = Math.round(Math.min(width, window.innerWidth - 48)) + 'px';
+
+  let media;
+  if (isVideoSrc(src)) {
+    media = el('video', 'wp-media-lightbox-media', { ...VIDEO_LOOP_ATTRS, preload: 'auto' });
+    media.muted = true; media.autoplay = true; media.loop = true; media.playsInline = true;
+  } else {
+    media = el('img', 'wp-media-lightbox-media', { decoding: 'async' });
+    media.alt = alt || '';
+  }
+  media.src = src;
+  frame.appendChild(media);
+  if (alt) {
+    const cap = el('figcaption', 'wp-media-lightbox-cap');
+    cap.textContent = alt;
+    frame.appendChild(cap);
+  }
+  const closeBtn = el('button', 'wp-media-lightbox-close', { type: 'button', title: 'Close (Esc)', 'aria-label': 'close preview' });
+  closeBtn.textContent = '×';
+  frame.appendChild(closeBtn);
+  scrim.appendChild(frame);
+
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    try { if (media.tagName === 'VIDEO') media.pause(); } catch {}
+    scrim.remove();
+    closeOpenLightbox = null;
+  };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  scrim.addEventListener('mousedown', (e) => { if (e.target === scrim) close(); });
+  closeBtn.addEventListener('mousedown', (e) => { e.preventDefault(); close(); });
+  document.addEventListener('keydown', onKey, true);
+
+  document.body.appendChild(scrim);
+  closeOpenLightbox = close;
+}
+
 export const ImageBlock = Node.create({
   name: 'imageBlock',
   group: 'block',
@@ -1087,6 +1144,16 @@ export const ImageBlock = Node.create({
         dom.setAttribute('data-kind', a.kind || 'shot');
       };
       dom.appendChild(media);
+
+      // CLICK → LIGHTBOX (script-column width). Delegated on the figure so the handler
+      // survives paint()'s img↔video element swap. mousedown still reaches ProseMirror
+      // first, so the atom gets its NodeSelection as before — Backspace-to-delete intact.
+      dom.addEventListener('click', (e) => {
+        if (e.target !== media) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openMediaLightbox(attrs);
+      });
 
       // INSPO badge — only for kind:'inspo' (mood reference, not a real frame from footage).
       const badge = el('span', 'wp-image-badge', { contenteditable: 'false' });

@@ -1968,6 +1968,47 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
    (the gif→mp4 optimization) is the same atom, same affordance. */
 .wp-image.ProseMirror-selectednode img,
 .wp-image.ProseMirror-selectednode video { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
+/* Rack media invites the click (lightbox below). */
+.wp-image .wp-image-img { cursor: zoom-in; }
+/* MEDIA LIGHTBOX — click a rack still/video → same media at full script-column width
+   (blocks.js openMediaLightbox). NOT fullscreen: an in-tool viewing surface. Scrim dims
+   the page; the frame keeps the doctrine border; Esc / click-away / × close. */
+.wp-media-lightbox {
+  position: fixed; inset: 0; z-index: 720;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(31, 29, 24, .62);
+  cursor: zoom-out;
+}
+.wp-media-lightbox-frame {
+  position: relative;
+  margin: 0; padding: 0;
+  max-height: calc(100vh - 64px);
+  display: flex; flex-direction: column;
+  background: var(--face, #f4ecdc);
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 11px;
+  overflow: hidden;
+  cursor: default;
+}
+.wp-media-lightbox-media {
+  display: block; width: 100%; height: auto;
+  max-height: calc(100vh - 130px);
+  object-fit: contain;
+  background: #000;
+}
+.wp-media-lightbox-cap {
+  padding: 7px 12px;
+  font-family: var(--mono); font-size: var(--chrome-size-sm, 11px);
+  letter-spacing: .02em; color: var(--ep-kind-label, #6b6455);
+}
+.wp-media-lightbox-close {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px; padding: 0;
+  border: 1.5px solid var(--ink, #1f1d18); border-radius: 999px;
+  background: var(--face, #f4ecdc); color: var(--ink, #1f1d18);
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+.wp-media-lightbox-close:hover { background: var(--ink, #1f1d18); color: var(--face, #f4ecdc); }
 /* Upload placeholder (image-drop.js widget decoration) — a quiet mono pill holding the
    drop point while the bytes travel to Supabase. Decoration-only: never in the doc. */
 .wp-image-uploading {
