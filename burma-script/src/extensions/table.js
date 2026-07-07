@@ -451,6 +451,46 @@ export function doDeleteRow(state, dispatch, rowPos) {
   return true;
 }
 
+// TAB CELL-HOP (Johnny: "when im in a table and i hit tab, it should bring me to the next
+// row… left column tab brings me to right, right column tab brings me to the left column in
+// the row below. shift tab goes the opposite way"). Spreadsheet Tab: caret hops cell → cell
+// in DOCUMENT order, which naturally wraps shown → next row's said (and Shift-Tab back).
+// SELECTION-ONLY — no doc mutation, so it is structurally collab-safe (no transaction the
+// y-sync echo could re-trigger; see the COLLAB LOOP LAW in the repo CLAUDE.md).
+// Inside a list item Tab is left alone (indent wins). At the table's very edge the key is
+// swallowed (caret stays put) so browser focus never escapes the editor mid-writing.
+// Pure (state, dispatch, dir) -> boolean, exported for the headless suite.
+export function doCellHop(state, dispatch, dir) {
+  const { $from } = state.selection;
+  let cellDepth = 0;
+  for (let d = $from.depth; d > 0; d--) {
+    const name = $from.node(d).type.name;
+    if (name === 'listItem') return false; // list Tab (indent/outdent) wins inside lists
+    if (name === 'tableCell') { cellDepth = d; break; }
+  }
+  if (!cellDepth) return false;
+
+  const curPos = $from.before(cellDepth);
+  const cells = [];
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'tableCell') cells.push(pos);
+    return true; // keep descending — nested (Palau) rows contribute their cells in doc order
+  });
+  const i = cells.indexOf(curPos);
+  if (i < 0) return false;
+  const target = cells[i + (dir < 0 ? -1 : 1)];
+  if (target == null) return true; // edge of the table — swallow the key, stay put
+
+  const tr = state.tr;
+  try {
+    tr.setSelection(TextSelection.near(tr.doc.resolve(target + 1), 1));
+  } catch {
+    return false;
+  }
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // TABLE-SPINE GUARD (Johnny: "if I arrow down from a row i can break the table and type
 // here. i shouldnt be able to do that"). The gapcursor between top-level rows lets typing
 // mint a BARE paragraph at doc top level — outside every row, invisible to docToBlocks'
@@ -786,6 +826,12 @@ export const TableRow = Node.create({
   },
   // The editor-owned row-drag plugin ships with the same episode flag as the grip: episodes
   // without rowDragReorder get no plugin at all, keeping Burma's drop behavior byte-identical.
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => doCellHop(this.editor.state, this.editor.view.dispatch, 1),
+      'Shift-Tab': () => doCellHop(this.editor.state, this.editor.view.dispatch, -1),
+    };
+  },
   addProseMirrorPlugins() {
     const plugins = [];
     if (spineGuardSafeHere()) plugins.push(tableSpineGuardPlugin());
