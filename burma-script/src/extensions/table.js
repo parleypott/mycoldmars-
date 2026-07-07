@@ -451,6 +451,49 @@ export function doDeleteRow(state, dispatch, rowPos) {
   return true;
 }
 
+// TABLE-SPINE GUARD (Johnny: "if I arrow down from a row i can break the table and type
+// here. i shouldnt be able to do that"). The gapcursor between top-level rows lets typing
+// mint a BARE paragraph at doc top level — outside every row, invisible to docToBlocks'
+// row walk and rendered as the naked mono line in his screenshot. Rather than fighting the
+// cursor, we make the state unrepresentable: after any doc change, every non-row top-level
+// node is instantly wrapped into a full-width row — the LIVE twin of ensureTableDoc's
+// load-time wrap (same shape: tableRow(cols:1) > tableCell(role:full), pairu_ keep-me
+// marker). Typing between rows now lands in a real row mid-keystroke; existing strays
+// self-heal on the next edit. Pure (state) -> Transaction|null, exported for the suite;
+// returns null when the doc is already all-rows, so the appendTransaction loop terminates.
+export function wrapBareTopLevelNodes(state) {
+  const { doc, schema } = state;
+  const rowType = schema.nodes.tableRow;
+  const cellType = schema.nodes.tableCell;
+  if (!rowType || !cellType) return null;
+  const jobs = [];
+  doc.forEach((child, offset) => {
+    if (child.type.name !== 'tableRow') jobs.push({ from: offset, to: offset + child.nodeSize, node: child });
+  });
+  if (!jobs.length) return null;
+  const tr = state.tr;
+  // Walk BACKWARDS so earlier positions stay valid as later spans are replaced.
+  for (let i = jobs.length - 1; i >= 0; i--) {
+    const j = jobs[i];
+    const row = rowType.create(
+      { cols: 1, pairId: mintUserPairId() },
+      cellType.create({ role: 'full' }, j.node),
+    );
+    tr.replaceWith(j.from, j.to, row);
+  }
+  return tr;
+}
+
+function tableSpineGuardPlugin() {
+  return new Plugin({
+    key: new PluginKey('wpTableSpineGuard'),
+    appendTransaction(trs, _oldState, newState) {
+      if (!trs.some((t) => t.docChanged)) return null;
+      return wrapBareTopLevelNodes(newState);
+    },
+  });
+}
+
 // ---- the right-click ROW menu (on the ⊟/⊞ split-merge box) ----------------
 // Johnny: right-click the little box icon in the left margin → a context menu, "Delete row"
 // first. No title (menus don't get titles). Items are contextual: the split/merge entry
@@ -734,7 +777,9 @@ export const TableRow = Node.create({
   // The editor-owned row-drag plugin ships with the same episode flag as the grip: episodes
   // without rowDragReorder get no plugin at all, keeping Burma's drop behavior byte-identical.
   addProseMirrorPlugins() {
-    return rowDragEnabled() ? [rowDragPlugin()] : [];
+    const plugins = [tableSpineGuardPlugin()];
+    if (rowDragEnabled()) plugins.push(rowDragPlugin());
+    return plugins;
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
