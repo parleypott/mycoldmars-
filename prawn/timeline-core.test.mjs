@@ -150,6 +150,21 @@ eq(T.shortTime('12:00am redeye'), '12:00am', 'midnight time kept');
 eq(T.shortTime('thursday'), '', 'no time token -> empty');
 eq(T.shortTime(''), '', 'empty -> empty');
 eq(T.shortTime('9 PM'), '9pm', 'spaced uppercase meridiem');
+// 24-hour clock: convert the UNAMBIGUOUS hours (00, 13-23) to am/pm so the
+// display AND timeSortKey both work; leave ambiguous 1-12 bare times empty.
+eq(T.shortTime('arriving 18:00'), '6:00pm', '24h evening -> 6:00pm');
+eq(T.shortTime('20:30 flight'), '8:30pm', '24h 20:30 -> 8:30pm');
+eq(T.shortTime('lands 13:05'), '1:05pm', '24h 13:05 -> 1:05pm');
+eq(T.shortTime('redeye 00:15'), '12:15am', '24h after-midnight 00:15 -> 12:15am');
+eq(T.shortTime('23:45 wheels up'), '11:45pm', '24h 23:45 -> 11:45pm');
+eq(T.shortTime('6:00 sometime'), '', 'bare 1-12 time stays ambiguous -> empty (no am/pm guess)');
+eq(T.shortTime('9:30 ish'), '', 'bare 9:30 has no meridiem -> empty, not mislabeled');
+eq(T.shortTime('12:30 lunch'), '', 'noon-ish 12 is ambiguous in 12h notation -> empty');
+// a real 24h time OUTRANKS a fuzzy word, mirroring the am/pm branch's priority.
+eq(T.shortTime('evening 19:00'), '7:00pm', '24h time beats fuzzy "evening"');
+// timeSortKey can sort the converted 24h times correctly.
+ok(T.timeSortKey(T.shortTime('arriving 18:00')) > T.timeSortKey(T.shortTime('lands 13:05')),
+   '24h 18:00 sorts after 13:05 through the converted am/pm form');
 
 // ── timeSortKey ────────────────────────────────────────────────────────────
 ok(T.timeSortKey('12am') < T.timeSortKey('1am'), 'midnight (0) sorts before 1am');

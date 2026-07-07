@@ -1642,6 +1642,19 @@
     if (!text) return '';
     const t = text.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/i);
     if (t) return t[1].toLowerCase().replace(/\s+/g, '');
+    // 24-hour clock ("18:00", "20:30", "00:15"). Only convert hours that are
+    // UNAMBIGUOUSLY 24h — 00 and 13-23 — because a bare "6:00" could be am OR
+    // pm and we won't guess a guest onto the wrong half of the day. Emit the
+    // am/pm form so BOTH the display and timeSortKey (which parses am/pm only)
+    // keep working; a bare 1-12 time still falls through to '' as before.
+    const h24 = text.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (h24) {
+      const hh = parseInt(h24[1], 10), mm = h24[2];
+      if ((hh === 0 || (hh >= 13 && hh <= 23)) && parseInt(mm, 10) <= 59) {
+        const ap = hh >= 12 ? 'pm' : 'am';
+        return `${hh % 12 || 12}:${mm}${ap}`;
+      }
+    }
     const fuzzy = text.match(/\b(morning|noon|afternoon|evening|night|late|early)\b/i);
     return fuzzy ? fuzzy[1].toLowerCase() : '';
   }
