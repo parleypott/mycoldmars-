@@ -110,11 +110,19 @@ export function stripMarkdown(md) {
     // single-bracket patterns never partially chew a "[[…]]" and strand a bracket.
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1')
     .replace(/\[!\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)\]\((?:[^()]|\([^()]*\))*\)/g, '')
-    .replace(/!\[[^\]]*\]\((?:[^()]|\([^()]*\))+\)/g, '')  // images
-    .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))+\)/g, '$1') // inline links -> link text
-    // Empty-text inline links ([](url)) — no readable text; drop entirely so the
-    // "[]()" husk never reaches the audio. The link rule above needs >=1 text char,
-    // so it skips these on its own.
+    // Images — drop the whole construct (image alt is not spoken here). The URL
+    // quantifier is `*` (not `+`) so an EMPTY-URL image husk `![alt]()` — emitted
+    // by Google-Docs/HTML exports for a broken/unresolved image, or by an LLM that
+    // has alt text but no source — also drops, instead of leaking "![alt]()" into
+    // the audio (read aloud as "exclamation mark open bracket … close paren").
+    .replace(/!\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)/g, '')  // images
+    // Inline links -> link text. Same `*` (not `+`): an EMPTY-URL link `[text]()`
+    // — common when an LLM cites a source but has no resolved URL — keeps its
+    // visible text ("text") instead of leaking the raw "[text]()".
+    .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))*\)/g, '$1') // inline links -> link text
+    // Empty-text inline links ([](url) / []()) — no readable text; drop entirely so
+    // the "[]()" husk never reaches the audio. The link rule above needs >=1 text
+    // char, so it skips these on its own.
     .replace(/\[\]\([^)]*\)/g, '')
     // Reference-style IMAGES (![alt][id] / ![alt][]) — an image referenced by a
     // label instead of an inline (url). Carries NO readable text, so drop the WHOLE

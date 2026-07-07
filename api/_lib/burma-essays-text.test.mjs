@@ -673,5 +673,31 @@ eq(stripMarkdown('A<BR>B'), 'A\nB',
 eq(stripMarkdown('un<em>believable</em>'), 'unbelievable',
    'GUARD: an inline tag wrapping mid-word still drops to nothing (word stays joined)');
 
+// ── EMPTY-URL images and links ([alt]()  /  [text]()) ──
+// A degenerate but real markdown shape: brackets + EMPTY parens. Google-Docs/HTML
+// exports emit `![alt]()` for a broken/unresolved image; an LLM writing a research
+// report emits `[text]()` when it wants to cite a source but has no resolved URL.
+// The pre-fix image/link regexes required >=1 URL char (`+`), so they SKIPPED the
+// empty-paren form and the raw "![alt]()" / "[text]()" leaked into the audio
+// (read aloud as "exclamation mark open bracket … close paren"). The fix loosens
+// both quantifiers to `*`: an empty-URL image drops whole (image alt is never
+// spoken here anyway), an empty-URL link keeps its visible text.
+// MUTATION PROOF: revert either `*` back to `+` and the matching FIX below goes RED.
+eq(stripMarkdown('See ![Burma map]() below'), 'See  below',
+   'FIX: empty-URL image husk "![alt]()" dropped whole — nothing reaches the audio');
+eq(stripMarkdown('A photo ![the coast]() here.').includes('!'), false,
+   'FIX: no "!" / bracket husk survives an empty-URL image');
+eq(stripMarkdown('Read [the report]() now'), 'Read the report now',
+   'FIX: empty-URL link "[text]()" keeps its visible text (no raw brackets/parens)');
+eq(/[[\]()]/.test(stripMarkdown('Read [the report]() now')), false,
+   'FIX: no bracket/paren husk survives an empty-URL link');
+// REGRESSION GUARDS: the `+`->`*` loosening is byte-identical for every non-empty case.
+eq(stripMarkdown('See ![Burma map](/img/burma.png) below'), 'See  below',
+   'GUARD: a normal image with a real URL is still dropped whole');
+eq(stripMarkdown('Read [the report](https://x.com) now'), 'Read the report now',
+   'GUARD: a normal link with a real URL still resolves to its text');
+eq(stripMarkdown('See [Myanmar](https://e.org/M_(Burma)) here'), 'See Myanmar here',
+   'GUARD: balanced-paren URL still handled (no stray ")" leak)');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
