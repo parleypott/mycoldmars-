@@ -1318,44 +1318,55 @@ function fullOldMd(md) {
      'REGRESSION: backtick fences still render verbatim');
 }
 
-// ── Pandoc/GFM FOOTNOTES are NOT reference links (no broken-link corruption) ──
+// ── Pandoc/GFM FOOTNOTES render as superscripts, never leak, never mis-link ────
 // A `[^id]: text` line is a footnote definition and `[^id]` in the prose is a
 // footnote reference — deep-research LLMs (Claude/Gemini/OpenAI) emit these
-// constantly, with the citation URL living in the definition. Before the fix,
-// the reference-definition collector captured `[^1]: note` as a link def
-// (label `^1` -> dest `note`) and the shortcut resolver then turned the footnote
-// ref `[^1]` into a BROKEN link `<a href="note">^1</a>` — a bogus relative href,
-// active content corruption in the reader. The fix skips `^`-prefixed labels in
-// the def collector, so the ref never resolves and both render as honest literal
-// text with the citation still visible. Mutation-proven: delete the
-// `if (label.startsWith('^')) return _;` guard in research/md.js and the
-// load-bearing assertions below go RED (the broken <a href> reappears).
+// constantly, with the citation living in the definition. HISTORY: the
+// reference-definition collector once captured `[^1]: note` as a link def
+// (label `^1` -> dest `note`) and mis-linked the ref `[^1]` into a BROKEN
+// `<a href="note">^1</a>`. That was patched by leaving footnotes as honest
+// LITERAL text — but literal `[^1]` / `[^1]: source` is still leaked markup the
+// reader shouldn't show (the TTS narrator already handles footnotes). The
+// dedicated footnote pass now renders the REFERENCE as a superscript marker and
+// the DEFINITION as a footnote paragraph led by that same marker, with the
+// definition's own inline markdown (emphasis, links) still live. Mutation-proven:
+// delete the footnote pass (the two `.replace(... => stub(\`<sup>...`)` lines) in
+// research/md.js and the load-bearing assertions below go RED — the raw `[^1]`
+// markers reappear and the def URL loses its footnote marker.
 {
   const ftn = mdToHtml('text[^1]\n\n[^1]: note');
-  // LOAD-BEARING (mutation lock): the footnote ref must NOT become a link, and
-  // there must be no bogus relative href anywhere.
-  ok(!/<a /.test(ftn), 'MUTATION: a footnote `[^1]` is NOT linkified');
+  // LOAD-BEARING: the raw `[^1]` marker must NOT leak, the ref becomes a <sup>,
+  // and there is NEVER a bogus relative href (the old broken-link corruption).
+  ok(!/\[\^1\]/.test(ftn), 'MUTATION: the raw `[^1]` marker no longer leaks into the reader');
   ok(!/href="note"/.test(ftn), 'MUTATION: no bogus relative href="note" is emitted');
-  eq(ftn, '<p>text[^1]</p>\n<p>[^1]: note</p>',
-     'FIX: `[^1]` ref + `[^1]: note` def render as honest literal text');
+  eq(ftn, '<p>text<sup>1</sup></p>\n<p><sup>1</sup> note</p>',
+     'FIX: `[^1]` ref -> <sup>, `[^1]: note` def -> footnote paragraph led by <sup>');
 
-  // The citation URL in a footnote DEFINITION stays visible AND — since the
-  // GFM bare-autolink pass runs — becomes a clickable link (the definition line
-  // is honest visible prose; a clickable citation is exactly the improvement).
-  // The footnote REF itself (`[^src]`) still stays literal (asserted below), so
-  // the load-bearing footnote-guard behavior is unchanged; only the def's bare
-  // URL is now linkified, consistent with every other bare URL in the report.
-  const withUrl = mdToHtml('See it[^src].\n\n[^src]: https://example.com/paper');
-  ok(/example\.com\/paper/.test(withUrl),
-     'FIX: the footnote definition URL is preserved (visible), not swallowed');
+  // The footnote DEFINITION's own inline markdown still renders (it stays live
+  // prose after the marker), and a citation URL in it becomes a clickable link —
+  // the def line is honest visible prose, exactly the improvement.
+  const withUrl = mdToHtml('See it[^src].\n\n[^src]: see https://example.com/paper');
+  ok(/<sup>src<\/sup> see /.test(withUrl),
+     'FIX: the footnote definition renders led by its <sup> marker, text preserved');
   ok(/<a href="https:\/\/example\.com\/paper" target="_blank" rel="noopener">https:\/\/example\.com\/paper<\/a>/.test(withUrl),
-     'FIX: the footnote definition URL is now a clickable link (GFM bare autolink)');
-  ok(/See it\[\^src\]\./.test(withUrl),
-     'LOAD-BEARING: the footnote REF `[^src]` still stays literal, not linkified');
+     'FIX: the footnote definition URL is a clickable link (GFM bare autolink)');
+  ok(/See it<sup>src<\/sup>\./.test(withUrl),
+     'LOAD-BEARING: the footnote REF `[^src]` renders as <sup>, no raw brackets');
+  ok(!/\[\^src\]/.test(withUrl), 'MUTATION: no raw `[^src]` bracket leaks');
 
-  // Word-id footnotes behave the same way.
-  ok(!/<a /.test(mdToHtml('Claim[^note] here.\n\n[^note]: because reasons')),
-     'MUTATION: a word-id footnote `[^note]` is NOT linkified');
+  // Word-id footnotes render the same way, never a link.
+  const wordId = mdToHtml('Claim[^note] here.\n\n[^note]: because reasons');
+  ok(!/<a /.test(wordId) && /<sup>note<\/sup>/.test(wordId),
+     'MUTATION: a word-id footnote `[^note]` renders as <sup>, not a link');
+
+  // A footnote def's inline emphasis stays live (the text is not stubbed).
+  ok(/<sup>2<\/sup> a <strong>bold<\/strong> note/.test(
+       mdToHtml('x[^2]\n\n[^2]: a **bold** note')),
+     'FIX: a footnote definition keeps its own inline markdown (bold renders)');
+
+  // GUARD: a `[^x]` inside a code span is protected (stashed early), stays literal.
+  ok(/<code>\[\^x\]<\/code>/.test(mdToHtml('Literal `[^x]` marker.')),
+     'GUARD: a `[^x]` inside a code span is NOT treated as a footnote');
 
   // REGRESSION: real numbered reference links + shortcut refs are byte-identical.
   eq(mdToHtml('The [report][1] says.\n\n[1]: https://x.com/r'),
@@ -1364,11 +1375,11 @@ function fullOldMd(md) {
   eq(mdToHtml('See [1].\n\n[1]: https://x.com'),
      '<p>See <a href="https://x.com" target="_blank" rel="noopener">1</a>.</p>\n',
      'REGRESSION: shortcut reference `[1]` still resolves');
-  // A footnote and a real numbered ref can coexist in one report: the footnote
-  // stays literal, the real ref still links.
+  // A footnote and a real numbered ref can coexist: footnote -> <sup>, ref links.
   const mixed = mdToHtml('Both[^1] and [see][2].\n\n[2]: https://x.com');
   ok(/<a href="https:\/\/x\.com"/.test(mixed), 'REGRESSION: the real `[see][2]` ref links');
-  ok(/\[\^1\]/.test(mixed), 'FIX: the coexisting footnote `[^1]` stays literal');
+  ok(/<sup>1<\/sup>/.test(mixed) && !/\[\^1\]/.test(mixed),
+     'FIX: the coexisting footnote `[^1]` renders as <sup>, no raw marker');
 }
 
 // ── HTML COMMENTS: dropped, not leaked (parity with the TTS narrator) ──────────

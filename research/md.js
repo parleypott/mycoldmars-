@@ -278,6 +278,30 @@ export function mdToHtml(md) {
   // path `C:\Users`, a LaTeX `\alpha`) is not an escape and is left untouched.
   html = html.replace(/\\(&(?:amp|lt|gt);)/g, (_, ent) => stub(ent));
   html = html.replace(/\\([!-\/:-@\[-`{-~])/g, (_, ch) => stub(ch));
+  // Pandoc/GFM FOOTNOTES. A `[^id]: text` line is a footnote DEFINITION and a
+  // bare `[^id]` in the prose is its REFERENCE — citation-heavy deep-research LLMs
+  // emit these constantly. Before this, mdToHtml deliberately left BOTH literal:
+  // the reference-link definition pass below skips `^`-labels (capturing one stored
+  // `refs["^1"]="text"` and mis-linked the ref into a broken `<a href="text">`), so
+  // the fix at the time was to render them as honest literal text — but that means
+  // the reader still showed a raw `[^1]` in the prose and a bare `[^1]: source`
+  // paragraph, the exact leaked-markup class this module kills everywhere else, and
+  // one the TTS narrator (api/_lib/burma-essays-text.js) already handles cleanly
+  // (drops the ref, unwraps the def to its text). Render them instead: the
+  // reference becomes a superscript marker, and the definition becomes a footnote
+  // paragraph led by that same marker. STASH the `<sup>` so it sails through every
+  // structural/emphasis transform below intact (id is already esc()'d); the
+  // definition's remaining TEXT stays live so its own inline markdown (emphasis,
+  // links) still renders. Runs BEFORE the ref-definition pass so a `[^id]:` line is
+  // claimed HERE — its stubbed replacement no longer starts with `[`, so that pass
+  // can't match it — and BEFORE the inline link pass so a bare `[^id]` never
+  // mis-resolves as a shortcut link. Def line first (anchored `^…:`), then any
+  // remaining inline refs. Only single-line defs are handled (the common LLM form),
+  // matching the narrator twin. The `^` right after `[` distinguishes a footnote
+  // from an ordinary `[label]` link/reference, so normal links are untouched.
+  html = html
+    .replace(/^[ \t]{0,3}\[\^([^\]\n]+)\]:[ \t]*/gm, (_, id) => `${stub(`<sup>${id}</sup>`)} `)
+    .replace(/\[\^([^\]\n]+)\]/g, (_, id) => stub(`<sup>${id}</sup>`));
   // Reference-style link DEFINITIONS. Citation-heavy deep-research reports emit
   // numbered references — `[the report][1]` in the prose and `[1]: https://…`
   // definitions at the bottom. Before this, the definition line leaked into the
