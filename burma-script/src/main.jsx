@@ -729,6 +729,15 @@ function recoveryFilename(snap) {
   return `${EPISODE.recoverPrefix}-${snap.kind}-${stamp}.txt`;
 }
 
+// True when the URL carries the ?backups flag (search OR hash-query, same parsing posture
+// as read-mode's ?read) — the library's per-project BACKUPS entry sets it.
+function showAdminBackups() {
+  try {
+    const { search = '', hash = '' } = window.location;
+    return /[?&]backups\b/.test(search) || /[?&]backups\b/.test(hash.includes('?') ? hash.slice(hash.indexOf('?')) : '');
+  } catch { return false; }
+}
+
 function RecoveryBanner() {
   // LOCAL-ONLY episodes (Palau) can never have a cloud "newer version pulled in" conflict, so this
   // "unsynced backup found" banner is pure noise there — never show it. (EPISODE.localOnly is a
@@ -1168,8 +1177,13 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       {!readOnly && <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />}
       <CopyToast />
       {readOnly ? <ReadOnlyBadge /> : <SaveStatus />}
-      {!readOnly && <RecoveryBanner />}
-      {!readOnly && <CloudHistoryPanel />}
+      {/* ADMIN BACKUPS (Johnny: "all of this is clutter… find another way to access backups
+          from the library"). The recovery banner + cloud-history pill no longer live in the
+          everyday editor — they mount ONLY when the project is opened through the library's
+          BACKUPS entry (#slug?backups). The save/cloud STATUS pill is untouched — that's the
+          one signal he wants always visible. */}
+      {!readOnly && showAdminBackups() && <RecoveryBanner />}
+      {!readOnly && showAdminBackups() && <CloudHistoryPanel />}
     </div>
   );
 }

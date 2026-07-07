@@ -301,14 +301,14 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-dhl[data-kind="archive"][data-status="found"],
 .wp-dhl[data-kind="factcheck"][data-status="sourced"]{
   background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34;
-  text-decoration: line-through; text-decoration-color: rgba(63,107,52,.45); /* faint strike when found */
+  /* NO strike-through (Johnny: "don't cross it out at all — just turn it green"). Checked
+     lines must stay fully readable — green IS the done signal (viability law). */
 }
 /* /oncam ("on cam to film") — checkbox chip like archive, but a WARMER, DEEPER red (terracotta)
    with a clearly different border so it never reads as archive's pinkish red at a glance. */
 .wp-dhl[data-kind="oncam"][data-status="needed"]{ background:#f4c2b0; border-color:#d97a52; color:#8a3316; }
 .wp-dhl[data-kind="oncam"][data-status="found"]{
-  background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34;
-  text-decoration: line-through; text-decoration-color: rgba(63,107,52,.45); /* same green-found as archive */
+  background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34; /* green only — never struck */
 }
 .wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#1a1a18; }   /* /animation — purple chip, BLACK text */
 .wp-dhl[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }           /* /3d — purple chip, bright YELLOW text */

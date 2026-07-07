@@ -494,6 +494,16 @@ function tableSpineGuardPlugin() {
   });
 }
 
+// COLLAB GATE (incident 2026-07-07): the spine guard's appendTransaction rewrites the doc
+// whenever a bare top-level node exists — and the live Burma doc carried one. Under
+// Liveblocks/Yjs every y-sync apply is a full-doc change, so the guard re-fired on every
+// remote echo of its own wrap — a dispatch loop that locked the tab ("#burma not loading
+// at all"). Until the wrap is proven loop-free against the y-sync binding, the guard runs
+// ONLY in non-collab sessions; collab docs are healed by ensureTableDoc at load instead.
+function spineGuardSafeHere() {
+  return !episodeFlag('collab');
+}
+
 // ---- the right-click ROW menu (on the ⊟/⊞ split-merge box) ----------------
 // Johnny: right-click the little box icon in the left margin → a context menu, "Delete row"
 // first. No title (menus don't get titles). Items are contextual: the split/merge entry
@@ -777,7 +787,8 @@ export const TableRow = Node.create({
   // The editor-owned row-drag plugin ships with the same episode flag as the grip: episodes
   // without rowDragReorder get no plugin at all, keeping Burma's drop behavior byte-identical.
   addProseMirrorPlugins() {
-    const plugins = [tableSpineGuardPlugin()];
+    const plugins = [];
+    if (spineGuardSafeHere()) plugins.push(tableSpineGuardPlugin());
     if (rowDragEnabled()) plugins.push(rowDragPlugin());
     return plugins;
   },
