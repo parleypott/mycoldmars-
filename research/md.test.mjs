@@ -1937,5 +1937,63 @@ function fullOldMd(md) {
      'SECURITY: the numeric < > references are preserved as inert visible text');
 }
 
+// ── MULTI-PARAGRAPH LIST ITEMS (loose lists with an indented continuation
+//    paragraph) — the single most common structure an LLM research report emits:
+//    a numbered/bulleted finding followed by an indented EXPLANATION paragraph
+//    ("1. Finding.\n\n   Explanation.\n\n2. ..."). The reader does NOT yet nest
+//    the continuation inside its <li> (the paragraph renders as a sibling <p> and
+//    the list splits). That imperfect nesting is tracked as an ATTENDED fix — the
+//    CommonMark 4-space-indent code-vs-continuation ambiguity makes an unattended
+//    list-pass rewrite too risky to ship while it can't be render-verified. But
+//    two INVARIANTS must hold NOW and SURVIVE any future nesting fix, because
+//    violating either silently CORRUPTS Johnny's report in a fragile area (the
+//    list pass changed ~6× in three days): (1) no finding/explanation text is ever
+//    DROPPED and source order is preserved; (2) no raw markdown list marker
+//    (`1.` `2.` `- `) leaks into the reader as visible text. The exact nesting
+//    HTML is intentionally NOT asserted, so the attended fix is free to improve it.
+{
+  const ordered = '1. First finding.\n\n   Explanation of the first finding here.\n\n' +
+                  '2. Second finding.\n\n   Explanation of the second one.\n\n3. Third finding.';
+  const oOut = mdToHtml(ordered);
+  const oText = oOut.replace(/<[^>]+>/g, '');
+  // (1) text preservation
+  ok(oText.includes('First finding.') && oText.includes('Second finding.') && oText.includes('Third finding.'),
+     'MULTI-PARA OL: every finding text is present (none dropped)');
+  ok(oText.includes('Explanation of the first finding here.') && oText.includes('Explanation of the second one.'),
+     'MULTI-PARA OL: every continuation-paragraph text is present (none dropped)');
+  ok(oText.indexOf('First finding.') < oText.indexOf('Explanation of the first finding here.') &&
+     oText.indexOf('Explanation of the first finding here.') < oText.indexOf('Second finding.') &&
+     oText.indexOf('Second finding.') < oText.indexOf('Third finding.'),
+     'MULTI-PARA OL: findings and explanations stay in source order');
+  // (2) no raw list marker leaks into the visible text
+  ok(!/(^|\s)\d+[.)]\s/.test(oText) && !/(^|\s)[-*+]\s/.test(oText),
+     'MULTI-PARA OL: no raw list marker (1. / - ) leaks as visible reader text');
+
+  // bullet variant (indented 2-space continuation under a `- ` item)
+  const bullet = '- Alpha point.\n\n  Detail about alpha.\n\n- Beta point.';
+  const bText = mdToHtml(bullet).replace(/<[^>]+>/g, '');
+  ok(bText.includes('Alpha point.') && bText.includes('Detail about alpha.') && bText.includes('Beta point.'),
+     'MULTI-PARA UL: bullet findings + continuation text all present');
+  ok(!/(^|\s)[-*+]\s/.test(bText),
+     'MULTI-PARA UL: no raw bullet marker leaks as visible reader text');
+
+  // ── MUTATION PROOF that invariant (2) is load-bearing on SHIPPED code ──
+  // Reconstruct a paragraph-ONLY renderer (no list-marker conversion, the state
+  // before the list passes existed). Under it, the `1.`/`2.`/`- ` markers survive
+  // into the <p> text and leak into the reader verbatim. The shipped renderer
+  // converts them to list structure, so invariant (2) above holds. If a future
+  // edit disabled the list-marker conversion, invariant (2) would go RED — this
+  // shows exactly that failure mode is what's being guarded against.
+  const noListMd = (md) => String(md)
+    .replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+    .split(/\n{2,}/).map((b) => b.trim() ? `<p>${b.replace(/\n/g, '<br>')}</p>` : '').join('\n');
+  const leaked = noListMd(ordered).replace(/<[^>]+>/g, '');
+  ok(/(^|\s)\d+[.)]\s/.test(leaked),
+     'RED PROOF: without list-marker conversion, ordered markers (1. 2.) leak as visible text');
+  const bLeaked = noListMd(bullet).replace(/<[^>]+>/g, '');
+  ok(/(^|\s)[-*+]\s/.test(bLeaked),
+     'RED PROOF: without list-marker conversion, bullet markers (- ) leak as visible text');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
