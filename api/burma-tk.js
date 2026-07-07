@@ -125,6 +125,47 @@ const FC_TOOL = {
   },
 };
 
+// mode:'quote' — the footnote RECHECK. Not a fresh verdict: a hunt for the SPECIFIC
+// quotation/blurb inside reputable sources that checks the fact, returned verbatim so the
+// receipt in the script can cite the exact sentence.
+const QUOTE_TOOL = {
+  name: 'emit_quotes',
+  description: 'Return the specific verbatim quotations from sources that verify (or refute) the claim.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      verdict: { type: 'string', enum: ['true', 'false', 'partly', 'unclear'], description: 'What the quoted evidence establishes.' },
+      finding: { type: 'string', description: 'One line: what the sourced quotes establish, plainly.' },
+      quotes: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 4,
+        items: {
+          type: 'object',
+          properties: {
+            quote: { type: 'string', description: 'The VERBATIM sentence(s) from the source that check the fact — an exact quotation or tight excerpt, never a paraphrase.' },
+            source: { type: 'string', description: 'Publication + piece + date, e.g. "Reuters, 2024-03-02 — Myanmar fuel crisis deepens".' },
+            url: { type: 'string', description: 'Direct URL of the piece. Empty string if unavailable.' },
+          },
+          required: ['quote', 'source'],
+        },
+      },
+    },
+    required: ['verdict', 'finding', 'quotes'],
+  },
+};
+
+export function quotePrompt({ marker, block, context }) {
+  return `You are re-checking a fact in Johnny Harris's Burma/Myanmar documentary script. The fact was already checked once; what's needed NOW is the RECEIPT — the specific quotation or short excerpt from a reputable source that verifies (or refutes) it. Time budget: at most 3 web_search uses (prefer 1-2 well-chosen queries), then commit. If you can't surface a verbatim quote, call emit_quotes anyway with verdict "unclear" and the closest sourced excerpt you found — never keep searching.
+
+  CLAIM: ${marker}
+
+Script block it lives in: ${block || '(none)'}
+Existing fact-check notes/sources (start from these — if they name a source, pull the quote FROM it): ${context || '(none)'}
+
+Find the exact supporting sentence(s). Quote them VERBATIM — the writer needs the actual words from the source, not your summary. Then call emit_quotes exactly once.`;
+}
+
 export function tkPrompt({ marker, block, context }) {
   return `You are a writing partner for Johnny Harris's documentary about Burma/Myanmar (The Human Element). The script is voice-over for a cinematic explainer — plain, vivid, emotionally grounded, never academic or marketing-shouty. One idea per line. Lowercase-friendly, declarative.
 
@@ -175,7 +216,7 @@ async function innerHandler(req) {
   if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
   const body = parsed.body;
 
-  const mode = body.mode === 'fc' ? 'fc' : 'tk';
+  const mode = body.mode === 'fc' ? 'fc' : body.mode === 'quote' ? 'quote' : 'tk';
   const marker = typeof body.marker === 'string' ? body.marker.trim() : '';
   const block = typeof body.block === 'string' ? body.block.slice(0, 2000) : '';
   const context = typeof body.context === 'string' ? body.context.slice(0, 3000) : '';
@@ -197,7 +238,7 @@ async function innerHandler(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY not set on server' }, 500);
 
-  const isFc = mode === 'fc';
+  const isFc = mode === 'fc' || mode === 'quote'; // both are web_search modes (same latency budget)
   const payload = buildPayload(mode, { marker, block, context });
 
   // HARD DEADLINE via Promise.race — not just an AbortController on the fetch.
@@ -251,7 +292,7 @@ async function innerHandler(req) {
     const data = await res.json();
     // Pull the tool_use block (the structured output). For fc the model may emit text +
     // server_tool_use (web_search) blocks too — find the one matching our tool name.
-    const toolName = isFc ? FC_TOOL.name : TK_TOOL.name;
+    const toolName = mode === 'quote' ? QUOTE_TOOL.name : mode === 'fc' ? FC_TOOL.name : TK_TOOL.name;
     let toolInput = null;
     for (const b of data.content ?? []) {
       if (b.type === 'tool_use' && b.name === toolName) { toolInput = b.input; break; }
@@ -264,6 +305,9 @@ async function innerHandler(req) {
       return json({ error: 'model did not return structured output', raw: text.slice(0, 600) }, 502);
     }
 
+    if (mode === 'quote') {
+      return json({ mode: 'quote', ...toolInput });
+    }
     if (isFc) {
       return json({ mode: 'fc', ...toolInput });
     }
@@ -295,16 +339,19 @@ async function innerHandler(req) {
 // web_search tool (20260209 — dynamic filtering, results filtered before they hit context) capped
 // at 3 uses (was 5 — the biggest single latency lever), on the current Sonnet.
 export function buildPayload(mode, { marker, block, context }) {
-  const isFc = mode === 'fc';
-  const tool = isFc ? FC_TOOL : TK_TOOL;
+  const webMode = mode === 'fc' || mode === 'quote'; // both search; tk is generation-only
+  const tool = mode === 'quote' ? QUOTE_TOOL : mode === 'fc' ? FC_TOOL : TK_TOOL;
+  const prompt = mode === 'quote' ? quotePrompt({ marker, block, context })
+    : mode === 'fc' ? fcPrompt({ marker, block, context })
+    : tkPrompt({ marker, block, context });
   return {
     model: MODEL,
     max_tokens: 2000,
-    tools: isFc
+    tools: webMode
       ? [tool, { type: 'web_search_20260209', name: 'web_search', max_uses: 3 }]
       : [tool],
-    tool_choice: isFc ? { type: 'auto' } : { type: 'tool', name: tool.name },
-    messages: [{ role: 'user', content: isFc ? fcPrompt({ marker, block, context }) : tkPrompt({ marker, block, context }) }],
+    tool_choice: webMode ? { type: 'auto' } : { type: 'tool', name: tool.name },
+    messages: [{ role: 'user', content: prompt }],
   };
 }
 

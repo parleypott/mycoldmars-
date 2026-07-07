@@ -1541,6 +1541,16 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
 .wp-fnote-src { font-family: var(--mono); font-size: 11px; }
 .wp-fnote-links { display: flex; flex-direction: column; gap: 2px; }
 .wp-fnote-link { font-family: var(--mono); font-size: 10px; color: var(--ep-copied, #1f8a72); }
+.wp-fnote-recheck-row { display: flex; margin-top: 8px; }
+.wp-fnote-recheck {
+  flex: 1; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  padding: 8px; border: 1.5px solid var(--ep-copied, #1f8a72); border-radius: 6px; cursor: pointer;
+  background: var(--ep-copied, #1f8a72); color: #fff; transition: background .12s;
+}
+.wp-fnote-recheck:hover { background: #17705d; }
+.wp-fnote-recheck-err { font-family: var(--mono); font-size: 10px; line-height: 1.5; color: var(--red, #c23b2c); }
+.wp-fnote-recheck-err:empty { display: none; }
+
 .wp-fnote-delete {
   align-self: flex-start; margin-top: 6px; border: 1px solid #b0431f; color: #b0431f; background: none;
   border-radius: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;

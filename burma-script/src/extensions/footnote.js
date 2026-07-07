@@ -19,6 +19,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { isReadOnly } from '../read-mode.js';
+import { getEpisode } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -137,6 +138,90 @@ function createFootnotePanel(editor, getPos, iconDom) {
       links.appendChild(a);
     });
     panel.appendChild(links);
+  }
+
+  // RECHECK — run a fresh source-hunt for the SPECIFIC quotation that checks this fact
+  // (Johnny: "a button that says recheck which runs a new fact check to find the specific
+  // quotation or blurb from the sources"). Calls the shared tk backend in mode:'quote';
+  // the verbatim quotes land in the Context field (editable as ever) and any new URLs
+  // append to Source. Same hard client timeout discipline as the Workshop dock.
+  if (!readOnly) {
+    const reRow = el('div', 'wp-fnote-recheck-row');
+    const reBtn = el('button', 'wp-fnote-recheck', { type: 'button', title: 'Find the exact quote from the sources that checks this fact' });
+    reBtn.textContent = 'RECHECK';
+    const reErr = el('div', 'wp-fnote-recheck-err');
+    let checking = false;
+    reBtn.addEventListener('mousedown', async (e) => {
+      e.preventDefault();
+      if (checking) return;
+      const attrs = liveAttrs() || {};
+      // The claim: the stored marker (lineage) first; else whatever prose precedes the icon
+      // in its paragraph — enough for the checker to know what fact it's chasing.
+      let claim = String(attrs.marker || '').trim();
+      let blockText = '';
+      const pos = typeof getPos === 'function' ? getPos() : getPos;
+      if (typeof pos === 'number') {
+        try {
+          const $pos = editor.state.doc.resolve(pos);
+          blockText = $pos.parent.textContent.slice(0, 2000);
+          if (!claim) claim = $pos.parent.textBetween(0, $pos.parentOffset, ' ').slice(-300).trim();
+        } catch {}
+      }
+      if (!claim) claim = String(note.value || '').trim().slice(0, 300);
+      if (!claim) { reErr.textContent = 'nothing to check yet — give the footnote a claim or some context first'; return; }
+
+      checking = true;
+      reErr.textContent = '';
+      const t0 = Date.now();
+      const tick = setInterval(() => { reBtn.textContent = `CHECKING… ${Math.floor((Date.now() - t0) / 1000)}s`; }, 1000);
+      reBtn.textContent = 'CHECKING…';
+      const ac = new AbortController();
+      const killer = setTimeout(() => ac.abort(), 70_000);
+      try {
+        const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'quote', marker: claim, block: blockText, context: [note.value, src.value].filter(Boolean).join('\n').slice(0, 3000) }),
+          signal: ac.signal,
+        });
+        const rawBody = await res.text();
+        let data;
+        try { data = rawBody ? JSON.parse(rawBody) : {}; } catch {
+          throw new Error(res.status === 504 || /timed?\s*out/i.test(rawBody) ? 'the recheck timed out — try again' : `server error (${res.status})`);
+        }
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+
+        const quotes = Array.isArray(data.quotes) ? data.quotes : [];
+        const lines = [];
+        if (data.finding) lines.push(String(data.finding).trim());
+        for (const q of quotes) {
+          if (!q || !q.quote) continue;
+          lines.push(`“${String(q.quote).trim()}” — ${String(q.source || '').trim()}`);
+        }
+        if (lines.length) {
+          note.value = (note.value ? note.value.trim() + '\n\n' : '') + lines.join('\n\n');
+          queueSave({ note: note.value });
+        }
+        const newUrls = quotes.map((q) => String(q.url || '').trim()).filter((u) => u && !src.value.includes(u));
+        if (newUrls.length) {
+          src.value = (src.value ? src.value.trim() + '\n' : '') + newUrls.join('\n');
+          queueSave({ source: src.value });
+        }
+        if (data.verdict) queueSave({ verdict: String(data.verdict) });
+        flush(); // the receipt is on the doc the moment it lands — never only in the panel
+        if (!lines.length && !newUrls.length) reErr.textContent = 'no verbatim quote surfaced — the sources may be thin here';
+      } catch (err) {
+        reErr.textContent = err?.name === 'AbortError' ? 'the recheck timed out after 70s — try again' : (err?.message || String(err));
+      } finally {
+        clearTimeout(killer);
+        clearInterval(tick);
+        checking = false;
+        reBtn.textContent = 'RECHECK';
+      }
+    });
+    reRow.appendChild(reBtn);
+    panel.appendChild(reRow);
+    panel.appendChild(reErr);
   }
 
   // DELETE — writers only
