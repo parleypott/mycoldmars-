@@ -20,10 +20,22 @@
 // and only the ~100-byte URL ever enters the doc. While the upload is in flight the drop
 // point is held by a WIDGET DECORATION (the canonical ProseMirror upload-placeholder
 // pattern): decorations are not doc state — no history step, no collab payload, nothing to
-// autosave — and the placeholder's position maps through every concurrent transaction
-// (Johnny's own typing, a teammate's Yjs edits) via tr.mapping. If an edit DELETES the
-// placeholder (row removed, undo), the insert ABORTS with a toast — never clamps to a
-// stale/wrong position (silent structural corruption is the failure class this kills).
+// autosave — and the placeholder's position maps through local transactions via tr.mapping.
+// If an edit DELETES the placeholder (row removed, undo), the insert ABORTS with a toast —
+// never clamps to a stale/wrong position (silent structural corruption is the failure class
+// this kills).
+//
+// COLLAB SURVIVAL (enterprise-audit HIGH): numeric tr.mapping does NOT survive a y-sync
+// apply — the binding lands every remote change as a FULL-DOC replace (see the COLLAB LOOP
+// LAW), and DecorationSet.map drops any widget inside a replaced range, so a teammate's
+// single keystroke used to kill the placeholder and abort every image drop under active
+// collab. Fix: alongside the DecorationSet we keep per-placeholder Yjs RELATIVE-POSITION
+// anchors (the same mechanism collab carets use — they survive full-doc replaces by
+// construction). On a y-sync transaction we REBUILD the widgets from their anchors instead
+// of mapping. The anchor adapter is INJECTED by collab-runtime.js at session start
+// (setImageDropCollabAnchors) because this file is core-chunk and may not import
+// @tiptap/y-tiptap; with no adapter registered (non-collab), behavior is byte-identical
+// to the pre-fix engine.
 //
 // ONE-TRANSACTION LAW: the final insert is a single tr carrying the node with its FINAL
 // attrs (no insert-then-patch) + the remove-placeholder meta — one undo removes the image
@@ -39,12 +51,31 @@ import { getEpisode } from '../episode-config.js';
 
 export const imageDropKey = new PluginKey('burmaImageDrop');
 
+// COLLAB ANCHOR ADAPTER — registered by collab-runtime.js (collab chunk) at session start.
+// Shape: { isRemote(tr), toRel(state, pos) → opaque anchor | null, toAbs(state, anchor) →
+// pos | null }. null adapter = non-collab session = the plugin's original numeric behavior.
+let collabAnchors = null;
+export function setImageDropCollabAnchors(adapter) { collabAnchors = adapter || null; }
+
 // Client-side mime allow-list — deliberately the SAME set the server's imageStorageMeta
-// stores (png/jpeg/webp; image/jpg is the non-canonical jpeg spelling it normalizes).
+// stores (png/jpeg/webp/gif; image/jpg is the non-canonical jpeg spelling it normalizes).
 // Anything else — notably HEIC from macOS Photos — is rejected HERE with a toast: the
 // server would coerce its Content-Type to png WITHOUT transcoding the bytes, producing a
 // broken render that would then persist into every doc revision.
-export const SUPPORTED_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+// image/gif added 2026-07-07 — animated reference GIFs; <img> plays them looping natively.
+export const SUPPORTED_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']);
+
+// ROUTE SPLIT — bytes travel one of two roads, both ending at the same bucket + the same
+// ~100-byte public URL in the doc:
+//   • small files → /api/script-image-upload (base64 JSON through the edge fn; proven path)
+//   • big files (a 20MB reference GIF) → /api/script-image-sign mints a signed URL and the
+//     browser PUTs the bytes STRAIGHT to Supabase storage — the edge fn's ~4.5MB body
+//     ceiling never sees them.
+// 6MB keeps clear headroom under the base64 route's platform limits.
+export const SIGNED_ROUTE_MIN_BYTES = 6 * 1024 * 1024;
+// Hard client ceiling — matches MAX_SIGNED_BYTES on /api/script-image-sign. Rejecting here
+// gives an instant, named toast instead of a slow round-trip to a 413.
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 // Pure: split a FileList/array into supported images vs everything else.
 export function pickImageFiles(files) {
@@ -105,7 +136,8 @@ export function removePlaceholderTr(state, id) {
 
 // Read the placeholder's CURRENT (mapped) position. null = deleted by an edit → abort.
 export function findPlaceholderPos(state, id) {
-  const set = imageDropKey.getState(state);
+  const value = imageDropKey.getState(state);
+  const set = value && value.set;
   if (!set) return null;
   const found = set.find(undefined, undefined, (spec) => spec.id === id);
   return found.length ? found[0].from : null;
@@ -159,26 +191,60 @@ function fileToBase64(file) {
   });
 }
 
+// Small-file road: bytes as base64 JSON through the edge function (the original path).
+async function uploadViaBase64(file, id) {
+  const dataBase64 = await fileToBase64(file);
+  // The scripts-library gate's fetch interceptor injects the signed-in JWT on
+  // same-origin /api/* calls, so this request is authed for free in editable sessions.
+  const res = await fetch('/api/script-image-upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      project: getEpisode().id,
+      block_id: id,
+      dataBase64,
+      mimeType: file.type,
+    }),
+  });
+  const out = await res.json().catch(() => null);
+  if (res.ok && out && out.ok && out.url) return { url: out.url };
+  return { error: (out && out.error) || `http ${res.status}` };
+}
+
+// Big-file road: mint a signed URL (auth + mime coercion + path minting server-side), then
+// PUT the raw bytes browser → Supabase directly. No base64 inflation, no edge body ceiling.
+async function uploadViaSignedUrl(file, id) {
+  const res = await fetch('/api/script-image-sign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      project: getEpisode().id,
+      block_id: id,
+      mimeType: file.type,
+      sizeBytes: file.size,
+    }),
+  });
+  const out = await res.json().catch(() => null);
+  if (!res.ok || !out || !out.ok || !out.uploadUrl) {
+    return { error: (out && out.error) || `http ${res.status}` };
+  }
+  const put = await fetch(out.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': out.mime || file.type, 'x-upsert': 'false' },
+    body: file,
+  });
+  if (!put.ok) return { error: `storage put http ${put.status}` };
+  return { url: out.publicUrl };
+}
+
 async function uploadAndInsert(view, file, id) {
   let url = null;
   let detail = '';
   try {
-    const dataBase64 = await fileToBase64(file);
-    // The scripts-library gate's fetch interceptor injects the signed-in JWT on
-    // same-origin /api/* calls, so this request is authed for free in editable sessions.
-    const res = await fetch('/api/script-image-upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        project: getEpisode().id,
-        block_id: id,
-        dataBase64,
-        mimeType: file.type,
-      }),
-    });
-    const out = await res.json().catch(() => null);
-    if (res.ok && out && out.ok && out.url) url = out.url;
-    else detail = (out && out.error) || `http ${res.status}`;
+    const road = file.size > SIGNED_ROUTE_MIN_BYTES ? uploadViaSignedUrl : uploadViaBase64;
+    const out = await road(file, id);
+    if (out.url) url = out.url;
+    else detail = out.error || '';
   } catch (e) {
     detail = e?.message || 'network error';
   }
@@ -191,7 +257,9 @@ async function uploadAndInsert(view, file, id) {
     toast(`image upload failed (${detail || 'unknown'}) — the picture was NOT added`);
     return;
   }
-  const tr = insertImageTr(view.state, id, { src: url, alt: altFromFilename(file.name), kind: 'shot' });
+  // alt (the caption) starts EMPTY — captions are hidden until Johnny clicks below the
+  // image and types one (imageBlock nodeview). The filename was never a caption he wrote.
+  const tr = insertImageTr(view.state, id, { src: url, alt: '', kind: 'shot' });
   if (!tr) {
     // Placeholder deleted (row removed / undo) or position no longer legal → ABORT.
     view.dispatch(removePlaceholderTr(view.state, id));
@@ -211,6 +279,10 @@ function startUploads(view, files, rawPos) {
     return;
   }
   for (const file of files) {
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
+      continue;
+    }
     const id = mintImageBlockId();
     view.dispatch(addPlaceholderTr(view.state, pos, id));
     uploadAndInsert(view, file, id);
@@ -222,26 +294,61 @@ export function buildImageDropPlugin() {
   return new Plugin({
     key: imageDropKey,
     state: {
-      init() { return DecorationSet.empty; },
-      apply(tr, set) {
-        // Map every live placeholder through this transaction FIRST (positions survive
-        // concurrent edits; a placeholder whose position is deleted drops out of the set —
-        // that disappearance is exactly what makes the insert abort), THEN apply add/remove
-        // meta against the mapped set.
-        set = set.map(tr.mapping, tr.doc);
+      init() { return { set: DecorationSet.empty, anchors: new Map() }; },
+      apply(tr, value, oldState, newState) {
+        let { set, anchors } = value;
+        const hasAnchors = collabAnchors && anchors.size > 0;
+        if (hasAnchors && collabAnchors.isRemote(tr)) {
+          // Y-SYNC APPLY — a full-doc replace; numeric mapping would drop every widget.
+          // Rebuild each placeholder from its Yjs relative anchor. An anchor that no
+          // longer resolves means its site was truly deleted remotely → the placeholder
+          // drops out and the in-flight insert aborts (same contract as local deletion).
+          let rebuilt = DecorationSet.empty;
+          const survivors = new Map();
+          for (const [id, anchor] of anchors) {
+            const abs = collabAnchors.toAbs(newState, anchor);
+            if (abs == null) continue;
+            rebuilt = rebuilt.add(tr.doc, [Decoration.widget(abs, placeholderDom, { id })]);
+            survivors.set(id, anchor);
+          }
+          set = rebuilt;
+          anchors = survivors;
+        } else {
+          // Map every live placeholder through this transaction FIRST (positions survive
+          // concurrent local edits; a placeholder whose position is deleted drops out of the
+          // set — that disappearance is exactly what makes the insert abort), THEN apply
+          // add/remove meta against the mapped set.
+          set = set.map(tr.mapping, tr.doc);
+          if (anchors.size) {
+            // Prune anchors whose widgets a LOCAL edit deleted — otherwise the next y-sync
+            // rebuild would resurrect a placeholder the user already edited away.
+            const alive = new Set(set.find().map((d) => d.spec.id));
+            if (alive.size !== anchors.size) {
+              anchors = new Map([...anchors].filter(([id]) => alive.has(id)));
+            }
+          }
+        }
         const meta = tr.getMeta(imageDropKey);
         if (meta?.add) {
           const deco = Decoration.widget(meta.add.pos, placeholderDom, { id: meta.add.id });
           set = set.add(tr.doc, [deco]);
+          if (collabAnchors) {
+            const anchor = collabAnchors.toRel(newState, meta.add.pos);
+            if (anchor != null) anchors = new Map(anchors).set(meta.add.id, anchor);
+          }
         }
         if (meta?.remove) {
           set = set.remove(set.find(undefined, undefined, (spec) => spec.id === meta.remove.id));
+          if (anchors.has(meta.remove.id)) {
+            anchors = new Map(anchors);
+            anchors.delete(meta.remove.id);
+          }
         }
-        return set;
+        return { set, anchors };
       },
     },
     props: {
-      decorations(state) { return imageDropKey.getState(state); },
+      decorations(state) { return imageDropKey.getState(state)?.set; },
       // handleDOMEvents.drop (not props.handleDrop) is deliberate: PM only calls
       // handleDrop AFTER posAtCoords resolves — if it doesn't, an unhandled file drop
       // still NAVIGATES THE TAB. This DOM-level hook fires first and swallows EVERY

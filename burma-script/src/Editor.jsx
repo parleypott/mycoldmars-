@@ -398,6 +398,11 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   function collabFlush(editor) {
     if (!editor) return;
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    // SYNC GATE — before the room's initial sync the editor holds an empty Y.Doc shell, not the
+    // script. Snapshotting it would arm the cloud mirror with a near-empty doc (the audited
+    // blank-editor-overwrites-cloud path). The editable gate below makes typing impossible here
+    // anyway; this catches the unmount/pagehide flush paths too.
+    if (collab.hasSynced && !collab.hasSynced()) return;
     if (seededOverUnreadableDoc) {
       // Same latch as flushSave: never overwrite preserved-but-unreadable original bytes.
       try {
@@ -492,7 +497,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     shouldRerenderOnTransaction: false,
     // READ-ONLY SHARE: construct the surface non-editable so the recipient cannot type, drag, or
     // delete. Combined with the short-circuited persistence below, the doc is structurally frozen.
-    editable: !readOnly,
+    // COLLAB starts NON-editable until the room's initial sync lands (the effect below flips it).
+    // A pre-sync editor is an empty shell — letting keystrokes in is how a failed Liveblocks
+    // connect turned into "first typed word overwrites the cloud script". Non-collab: unchanged.
+    editable: !readOnly && (!collab || collab.hasSynced()),
     onCreate({ editor }) {
       onTelemetry?.(telemetry(editor.getJSON()));
       // Hand the live editor up so the Exports panel can read the current doc JSON
@@ -508,7 +516,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
         collab.wireCaretIdentity(editor);
       }
     },
-    onUpdate({ editor }) {
+    onUpdate({ editor, transaction }) {
       // PERF-3/PERF-7/ux-10 — fire the cheap dirty event INSTANTLY (it's just a CustomEvent), but
       // defer the expensive telemetry recompute (getJSON + word/outline walk) onto a trailing timer,
       // then spend the actual full-doc walk inside requestIdleCallback (setTimeout fallback) so no
@@ -528,6 +536,13 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // READ-ONLY SHARE: a non-editable editor should never fire onUpdate, but guard anyway so NO
       // dirty/debounce/flush path can ever run in a reader's session. Telemetry above is harmless.
       if (readOnly) return;
+      // Y-SYNC ECHO GATE — a teammate's keystroke arrives as a y-sync transaction (isChangeOrigin,
+      // not undo/redo). Their tab persists their edits and the room is canonical, so a remote echo
+      // is nothing THIS tab needs to save: skip the dirty event + 300ms flush debounce entirely.
+      // Telemetry above still ran (remote edits do change word counts / outline). Local undo/redo
+      // deliberately passes through — it changes the doc this user owns. A pending saveTimer from a
+      // real local edit is untouched: it fires and snapshots the merged doc.
+      if (collab && collab.isRemoteEcho && collab.isRemoteEcho(transaction)) return;
       // We have unsaved keystrokes in volatile editor state right now — say so, so the
       // save-status indicator can show "unsaved" between keystroke and the debounced write.
       window.dispatchEvent(new CustomEvent('wp-dirty'));
@@ -680,6 +695,17 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
             verdict: String(verdict || ''),
           },
         }])
+        // CHECKED FLIP — the receipt landing IS the claim getting fact-checked, so the span's
+        // status turns 'checked' (red wash → green in said cells) in the SAME transaction:
+        // one undo removes footnote + green together, never a half-state. Only fc spans have
+        // status; a {TK} footnote drop leaves its tkSpan untouched.
+        .command(({ tr, state }) => {
+          const fcType = state.schema.marks.factCheckSpan;
+          if (kind === 'fc' && fcType && b > a) {
+            tr.addMark(a, b, fcType.create({ status: 'checked' }));
+          }
+          return true;
+        })
         .run();
       window.dispatchEvent(new CustomEvent('wp-toast', { detail: { msg: 'footnote added — click the green ✓ to edit' } }));
     };
@@ -728,6 +754,8 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   useEffect(() => {
     if (!collab || !editor || readOnly) return undefined;
     const tick = () => {
+      // SYNC GATE — never mirror an editor whose room content was never delivered (see collabFlush).
+      if (collab.hasSynced && !collab.hasSynced()) return;
       if (!cloudSnapshotDirty.current) return;
       const version = lastSnapshotVersion.current || getKnownBaseVersion();
       if (!(version > 0)) return;
@@ -748,6 +776,29 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     };
     const id = setInterval(tick, 20000);
     return () => clearInterval(id);
+  }, [editor]);
+
+  // COLLAB SYNC GATE — the editor mounted non-editable (see `editable:` above); flip it live the
+  // moment the room's initial sync delivers the real doc. Surfaces state through wp-collab-sync so
+  // the save pill can say "connecting…" instead of presenting a dead blank page, and raises the
+  // STUCK banner if sync hasn't landed after 20s (auth failure / room unreachable) — the exact
+  // symptom Johnny hit as "blank until I open a private window". Editing stays off while stuck:
+  // a keystroke into an unsynced shell is the overwrite bug, not a feature. If sync arrives late,
+  // the gate still opens and the banner clears — a slow room is not a broken room.
+  useEffect(() => {
+    if (!collab || !editor || readOnly) return undefined;
+    if (collab.hasSynced()) { if (!editor.isEditable) editor.setEditable(true); return undefined; }
+    const announce = (state) => {
+      try { window.dispatchEvent(new CustomEvent('wp-collab-sync', { detail: { state } })); } catch {}
+    };
+    announce('connecting');
+    const stuckTimer = setTimeout(() => { if (!collab.hasSynced()) announce('stuck'); }, 20000);
+    const off = collab.onSynced(() => {
+      clearTimeout(stuckTimer);
+      if (!editor.isDestroyed) editor.setEditable(true);
+      announce('synced');
+    });
+    return () => { off(); clearTimeout(stuckTimer); };
   }, [editor]);
 
   useEffect(() => {

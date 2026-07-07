@@ -1028,18 +1028,21 @@ export const ImageBlock = Node.create({
   // Captions are reference metadata, not script words — contribute nothing to text exports.
   renderText() { return ''; },
   addNodeView() {
-    return ({ node }) => {
-      const a = node.attrs;
+    return ({ node, editor, getPos }) => {
+      let attrs = node.attrs;
       const dom = el('figure', 'wp-image', { 'data-image': '', contenteditable: 'false' });
-      if (a.blockId) dom.setAttribute('data-block-id', a.blockId);
-      dom.setAttribute('data-kind', a.kind || 'shot');
-      syncSharedDomAttrs(dom, a);
+      if (attrs.blockId) dom.setAttribute('data-block-id', attrs.blockId);
+      dom.setAttribute('data-kind', attrs.kind || 'shot');
+      syncSharedDomAttrs(dom, attrs);
 
-      const img = el('img', 'wp-image-img', { loading: 'lazy' });
-      const paint = (attrs) => {
-        img.src = attrs.src || '';
-        img.alt = attrs.alt || '';
-        dom.setAttribute('data-kind', attrs.kind || 'shot');
+      // decoding:async keeps a heavyweight animated GIF's frame decode off the main thread's
+      // scroll path; loading:lazy means a 20MB reference GIF below the fold costs nothing
+      // until it approaches the viewport. The browser loops GIFs natively — no player chrome.
+      const img = el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
+      const paint = (a) => {
+        img.src = a.src || '';
+        img.alt = a.alt || '';
+        dom.setAttribute('data-kind', a.kind || 'shot');
       };
       dom.appendChild(img);
 
@@ -1048,20 +1051,76 @@ export const ImageBlock = Node.create({
       badge.textContent = 'INSPO';
       dom.appendChild(badge);
 
-      const cap = el('figcaption', 'wp-image-caption', { contenteditable: 'false' });
+      // CAPTION — hidden until typed (Johnny: no visible caption by default; click just below
+      // the image to add one). Three faces, one at a time:
+      //   cap      — the typed caption (click it to edit)
+      //   capStrip — the quiet click-target under a captionless image ("+ caption", hover-only)
+      //   capInput — the editor, committing to attrs.alt via a real PM transaction
+      const cap = el('figcaption', 'wp-image-caption', { contenteditable: 'false', title: 'click to edit the caption' });
+      const capStrip = el('button', 'wp-image-cap-strip', { type: 'button', contenteditable: 'false', title: 'add a caption' });
+      capStrip.textContent = '+ caption';
+      const capInput = el('input', 'wp-image-cap-input', { type: 'text', placeholder: 'caption…' });
       dom.appendChild(cap);
+      dom.appendChild(capStrip);
+      dom.appendChild(capInput);
 
-      const paintAll = (attrs) => {
-        paint(attrs);
-        badge.hidden = (attrs.kind || 'shot') !== 'inspo';
-        cap.textContent = attrs.alt || '';
-        cap.hidden = !attrs.alt;
+      let editing = false;
+      const canEdit = () => { try { return editor.isEditable; } catch { return false; } };
+
+      const paintAll = (a) => {
+        attrs = a;
+        paint(a);
+        badge.hidden = (a.kind || 'shot') !== 'inspo';
+        cap.textContent = a.alt || '';
+        cap.hidden = editing || !a.alt;
+        capStrip.hidden = editing || !!a.alt || !canEdit();
+        capInput.hidden = !editing;
       };
-      paintAll(a);
+
+      const commit = (value) => {
+        const text = String(value ?? '').trim();
+        editing = false;
+        if (text === (attrs.alt || '')) { paintAll(attrs); return; }
+        try {
+          const pos = getPos();
+          if (typeof pos !== 'number') { paintAll(attrs); return; }
+          const live = editor.state.doc.nodeAt(pos);
+          if (!live || live.type.name !== 'imageBlock') { paintAll(attrs); return; }
+          editor.view.dispatch(
+            editor.state.tr.setNodeMarkup(pos, null, { ...live.attrs, alt: text })
+          );
+        } catch { paintAll(attrs); }
+      };
+
+      const startEditing = () => {
+        if (!canEdit()) return;
+        editing = true;
+        capInput.value = attrs.alt || '';
+        paintAll(attrs);
+        capInput.focus();
+        capInput.select();
+      };
+
+      capStrip.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); startEditing(); });
+      cap.addEventListener('click', (e) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation(); startEditing();
+      });
+      capInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); commit(capInput.value); }
+        if (e.key === 'Escape') { e.preventDefault(); editing = false; paintAll(attrs); }
+      });
+      capInput.addEventListener('blur', () => { if (editing) commit(capInput.value); });
+
+      paintAll(attrs);
 
       return {
         dom,
         ignoreMutation: () => true,
+        // The caption editor is a real form control inside an atom node view — PM must not
+        // swallow its focus/typing/selection events.
+        stopEvent: (event) => event.target === capInput || capInput.contains(event.target),
         update(updated) {
           if (updated.type.name !== 'imageBlock') return false;
           paintAll(updated.attrs);

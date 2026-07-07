@@ -190,11 +190,13 @@ globalThis.fetch = async (url, opts) => { fetchCalls.push({ url, opts }); return
   });
 
   const panel = openPanel(() => fnPos);
-  const note = findAll(panel, 'wp-fnote-text').find((n) => n.tagName === 'TEXTAREA' && !String(n.className).includes('wp-fnote-src'));
+  // 2026-07-07 redesign: the CONTEXT textarea is gone — the note renders as the BLURB (the
+  // verbatim quote is the main content; double-click swaps in the hidden editor textarea).
+  const blurb = findAll(panel, 'wp-fnote-blurb')[0];
   const src = findAll(panel, 'wp-fnote-src')[0];
   const reBtn = findAll(panel, 'wp-fnote-recheck').find((n) => n.tagName === 'BUTTON');
-  assert.ok(note && src && reBtn, 'panel exposes context, source and RECHECK');
-  assert.equal(note.value, FN_ATTRS.note, 'panel opens with the stored context');
+  assert.ok(blurb && src && reBtn, 'panel exposes blurb, source and RECHECK');
+  assert.equal(blurb.textContent, FN_ATTRS.note, 'panel opens with the stored note as the blurb');
 
   await reBtn.listeners.mousedown[0](fakeEvt());
 
@@ -208,11 +210,11 @@ globalThis.fetch = async (url, opts) => { fetchCalls.push({ url, opts }); return
   assert.ok(body.context.includes(FN_ATTRS.note) && body.context.includes(FN_ATTRS.source),
     'existing note + source travel as context');
 
-  // receipt merge — panel fields
-  assert.ok(note.value.includes('The 135 figure traces to the 1982 citizenship framework.'), 'finding lands first');
-  assert.ok(note.value.includes('“The government officially recognizes 135 ethnic groups” — BBC, 2017'),
-    'verbatim quote + attribution land in Context');
-  assert.ok(note.value.startsWith(FN_ATTRS.note), 'existing context is APPENDED to, never replaced');
+  // receipt merge — the blurb re-renders with the appended receipt
+  assert.ok(blurb.textContent.includes('The 135 figure traces to the 1982 citizenship framework.'), 'finding lands first');
+  assert.ok(blurb.textContent.includes('“The government officially recognizes 135 ethnic groups” — BBC, 2017'),
+    'verbatim quote + attribution land in the blurb');
+  assert.ok(blurb.textContent.startsWith(FN_ATTRS.note), 'existing note is APPENDED to, never replaced');
 
   // flush-to-doc — the receipt is on the NODE, not stranded in the panel
   const attrs = state.doc.nodeAt(fnPos).attrs;

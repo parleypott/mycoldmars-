@@ -73,8 +73,8 @@ t('text/html -> safe image/png', () => {
 t('image/svg+xml -> safe image/png (SVG is the real XSS vector)', () => {
   assert.deepStrictEqual(imageStorageMeta('image/svg+xml'), { mime: 'image/png', ext: 'png' });
 });
-t('image/gif -> safe image/png (gif not a storage target)', () => {
-  assert.deepStrictEqual(imageStorageMeta('image/gif'), { mime: 'image/png', ext: 'png' });
+t('image/gif -> allow-listed raster (added 2026-07-07 for script-tool reference GIFs)', () => {
+  assert.deepStrictEqual(imageStorageMeta('image/gif'), { mime: 'image/gif', ext: 'gif' });
 });
 t('application/javascript -> safe image/png', () => {
   assert.deepStrictEqual(imageStorageMeta('application/javascript'), { mime: 'image/png', ext: 'png' });
@@ -93,7 +93,7 @@ for (const bad of ['', '   ', null, undefined, 0, 42, {}, [], 'png', 'jpeg', 'no
 
 // the result mime is ALWAYS one of exactly three safe values
 t('output mime is always an allow-listed image type', () => {
-  const allowed = new Set(['image/png', 'image/jpeg', 'image/webp']);
+  const allowed = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
   for (const m of ['image/png', 'image/jpeg', 'image/webp', 'image/jpg', 'text/html',
                     'image/svg+xml', 'image/gif', '', null, 'whatever']) {
     assert.ok(allowed.has(imageStorageMeta(m).mime), `leaked: ${m}`);

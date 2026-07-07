@@ -61,8 +61,9 @@ for (const dangerous of [
     `SECURITY: dangerous mime "${dangerous}" coerced to safe image/png`);
 }
 
-// ── image/gif is a real image but NOT on the store allow-list → coerced ──
-eq(imageStorageMeta('image/gif'), { mime: 'image/png', ext: 'png' }, 'gif not allow-listed → default png');
+// ── image/gif joined the allow-list 2026-07-07 (script tool: animated reference GIFs) ──
+// Still a pure raster type — the browser renders it as an image, never a document.
+eq(imageStorageMeta('image/gif'), { mime: 'image/gif', ext: 'gif' }, 'gif allow-listed → canonical gif ext');
 
 // ── Empty / missing / non-string all resolve to the safe default (never throw) ──
 for (const junk of ['', '   ', null, undefined, 0, {}, [], NaN, 'garbage']) {

@@ -29,6 +29,11 @@ let mountedMode = null; // 'library' | '<slug>'
 /** Read the active route slug from the URL hash (decoded, trimmed). */
 function currentSlug() {
   let raw = String(window.location.hash || '').replace(/^#/, '');
+  // Hash-query (#slug?backups) carries per-open FLAGS the engine reads (showAdminBackups,
+  // read-mode) — it is not part of the slug. Without this strip the library's Backups entry
+  // routed to a nonexistent "slug?backups" project and bounced to the library.
+  const q = raw.indexOf('?');
+  if (q >= 0) raw = raw.slice(0, q);
   try { raw = decodeURIComponent(raw); } catch {}
   return raw.trim();
 }

@@ -20,6 +20,7 @@ import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSn
 import { idbDeleteDoc } from './recovery-store.js';
 import { restoreSnapshot, restoreDoc } from './restore.js';
 import { getEpisode } from './episode-config.js';
+import { startVersionBeacon } from './version-beacon.js';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
 // palau-script/main.jsx) which calls setEpisode(...) BEFORE dynamically importing this
@@ -530,6 +531,11 @@ function SaveStatus() {
   // cross-tab stale notice, never the alarming red ANOTHER-DEVICE banner. Sticky until reload for the
   // same reason cloudConflict is: pushes are latched, so the pill must not go green.
   const [ownConflict, setOwnConflict] = useState(false);
+  // COLLAB ROOM SYNC — 'idle' (non-collab / synced), 'connecting' (editor mounted, initial sync
+  // still in flight, editing gated off), 'stuck' (20s with no sync: auth failure / unreachable).
+  // While connecting/stuck the editor is deliberately NON-editable (Editor.jsx sync gate), so the
+  // pill must explain WHY typing does nothing — a silent dead page reads as data loss.
+  const [collabSync, setCollabSync] = useState('idle');
   const [, setNowTick] = useState(0);           // forces the relative-time label to re-render
 
   useEffect(() => {
@@ -582,6 +588,11 @@ function SaveStatus() {
     window.addEventListener('wp-cloud-saved', onCloudSaved);
     window.addEventListener('wp-cloud-offline', onCloudOffline);
     window.addEventListener('wp-cloud-conflict', onCloudConflict);
+    const onCollabSync = (e) => {
+      const s = e.detail?.state;
+      setCollabSync(s === 'connecting' || s === 'stuck' ? s : 'idle');
+    };
+    window.addEventListener('wp-collab-sync', onCollabSync);
     window.addEventListener('wp-cloud-conflict-own', onCloudConflictOwn);
     // RACE FIX: consume a failure detected before this listener existed (pre-render startup).
     if (INITIAL_SAVE_FAILURE) {
@@ -599,6 +610,7 @@ function SaveStatus() {
       window.removeEventListener('wp-cloud-saved', onCloudSaved);
       window.removeEventListener('wp-cloud-offline', onCloudOffline);
       window.removeEventListener('wp-cloud-conflict', onCloudConflict);
+      window.removeEventListener('wp-collab-sync', onCollabSync);
       window.removeEventListener('wp-cloud-conflict-own', onCloudConflictOwn);
     };
   }, []);
@@ -661,6 +673,18 @@ function SaveStatus() {
           </span>
         </div>
       )}
+      {collabSync === 'stuck' && (
+        <div class="wp-save-banner is-conflict" role="alert" aria-live="assertive">
+          <span class="wp-save-banner-lab">⚠ CAN'T REACH THE LIVE ROOM</span>
+          <span class="wp-save-banner-msg">
+            this script lives in a shared live room and the connection didn't come up — editing is
+            paused so nothing gets overwritten. Your script is safe in the cloud. Reload to retry;
+            if it keeps happening, log out and back in.
+            {' '}
+            <button class="wp-save-banner-act" onClick={() => location.reload()}>RELOAD</button>
+          </span>
+        </div>
+      )}
       {stale && (
         <div class="wp-save-banner is-stale" role="status" aria-live="polite">
           <span class="wp-save-banner-lab">↻ UPDATED IN ANOTHER TAB</span>
@@ -672,17 +696,42 @@ function SaveStatus() {
         </div>
       )}
       <div
-        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}${state === 'saved' && cloud === 'syncing' ? ' is-cloud-syncing' : ''}${cloud === 'conflict' ? ' is-cloud-conflict' : ''}`}
+        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}${state === 'saved' && cloud === 'syncing' ? ' is-cloud-syncing' : ''}${cloud === 'conflict' ? ' is-cloud-conflict' : ''}${collabSync !== 'idle' ? ' is-collab-' + collabSync : ''}`}
         role="status"
         aria-live="polite"
       >
         <span class="wp-save-pill-mark" />
-        <span class="wp-save-pill-lab">{savedPillLabel(state, cloud)}</span>
-        {state === 'saved' && savedAt != null && (
+        <span class="wp-save-pill-lab">
+          {collabSync === 'connecting' ? 'CONNECTING TO LIVE ROOM…'
+            : collabSync === 'stuck' ? 'LIVE ROOM OFFLINE · RELOAD'
+            : savedPillLabel(state, cloud)}
+        </span>
+        {collabSync === 'idle' && state === 'saved' && savedAt != null && (
           <span class="wp-save-pill-time">{relTime(savedAt)}</span>
         )}
       </div>
     </>
+  );
+}
+
+// ── VERSION PILL — the stale-bundle beacon's quiet surface. When a deploy lands while this
+// tab is open (version-beacon.js sees the page's asset signature change), a small pill offers
+// a one-click reload. NEVER a modal, never auto-reloads (an auto-reload could eat an unsaved
+// keystroke burst); the pill just sits there until clicked. Kills the "broken here, fine in a
+// private window" class: that tell = this tab is running yesterday's bundle.
+function VersionPill() {
+  const [stale, setStale] = useState(false);
+  useEffect(() => startVersionBeacon({ onStale: () => setStale(true) }), []);
+  if (!stale) return null;
+  return (
+    <button
+      class="wp-version-pill"
+      onClick={() => location.reload()}
+      title="A new version of the script tool shipped while this tab was open — click to reload"
+    >
+      <span class="wp-version-pill-mark" />
+      NEW VERSION — RELOAD
+    </button>
   );
 }
 
@@ -1201,6 +1250,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       {!readOnly && <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />}
       <CopyToast />
       {readOnly ? <ReadOnlyBadge /> : <SaveStatus />}
+      <VersionPill />
       {/* ADMIN BACKUPS (Johnny: "all of this is clutter… find another way to access backups
           from the library"). The recovery banner + cloud-history pill no longer live in the
           everyday editor — they mount ONLY when the project is opened through the library's

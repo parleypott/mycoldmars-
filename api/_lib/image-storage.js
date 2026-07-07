@@ -31,7 +31,10 @@ import { normalizeImageMime } from './walden-image-input.js';
 
 // The ONLY image types we will store + serve from the public bucket, mapped to
 // their canonical file extension. Anything else is coerced to the safe default.
-const ALLOWED = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+// image/gif added 2026-07-07 (script tool: animated reference GIFs in the rack) — still a
+// pure raster type the browser renders as an image, never as a document, so the
+// stored-content-type-injection concern this allowlist exists for is untouched.
+const ALLOWED = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 const DEFAULT_MIME = 'image/png';
 
 export function imageStorageMeta(rawMime) {

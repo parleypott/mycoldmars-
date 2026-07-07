@@ -376,6 +376,32 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    confirmed wp-cloud-saved event. */
 .wp-save-pill.is-cloud-syncing { background: #f7eccf; }
 .wp-save-pill.is-cloud-syncing .wp-save-pill-mark { background: #c9962c; animation: wp-save-pulse 1.4s var(--ease) infinite; }
+/* VERSION PILL — the stale-bundle beacon's quiet reload affordance. Same pill family as the
+   save pill but CLICKABLE and stacked above it; single accent-colored mark so it reads as
+   "something new", never as an error. */
+.wp-version-pill {
+  position: fixed; right: 18px; bottom: 62px; z-index: 480;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 999px;
+  padding: 7px 13px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink); cursor: pointer; user-select: none;
+}
+.wp-version-pill:hover { background: var(--ink); color: var(--frame); }
+.wp-version-pill-mark {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--ep-accent, #ff5b1f);
+  animation: wp-save-pulse 1.6s var(--ease) infinite;
+}
+
+/* COLLAB ROOM SYNC — the editor mounts non-editable until the live room's first sync delivers the
+   real doc (blank-editor overwrite guard). CONNECTING reads like the syncing amber (in progress,
+   calm); STUCK (20s, no sync — auth failure / unreachable) goes hard: typing is disabled and the
+   pill must explain why, alongside the CAN'T-REACH banner. */
+.wp-save-pill.is-collab-connecting { background: #f7eccf; }
+.wp-save-pill.is-collab-connecting .wp-save-pill-mark { background: #c9962c; animation: wp-save-pulse 1.4s var(--ease) infinite; }
+.wp-save-pill.is-collab-stuck { background: #f3d9d3; border-color: #9c3b26; }
+.wp-save-pill.is-collab-stuck .wp-save-pill-mark { background: #9c3b26; animation: wp-save-pulse 1.6s var(--ease) infinite; }
 /* READ-ONLY · SHARED VIEW — the calm badge that replaces the save pill in a `?read`/`?view` share.
    Nothing is saving, so it reads as a quiet label, not a status: neutral graphite mark on the resting
    frame, same flat pill shell as the others so it sits right in the chrome family. */
@@ -1091,15 +1117,52 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   transition: background .14s var(--ease);
 }
 .wp-tk:hover { background: #ffe9a8; }
+/* FACT-CHECK assertion — quiet, EDITABLE prose (Johnny 2026-07-07: the boxed chip froze
+   whole assertions into what read as uneditable blocks). Subtle red wash + dashed underline
+   while unverified; flips green once the receipt lands (data-fc-status). Font/size/color
+   inherit — the sentence stays a sentence in both columns. cursor:text because the span is
+   NOT a click target anymore: the red FLAG at the end of the assertion opens the verify
+   dock. box-decoration-break keeps the wash seamless across line wraps. */
 .wp-fc {
-  font-family: var(--mono); font-size: .8em;
-  background: #fde3c9; border: 1.5px solid var(--ink); border-radius: 5px;
-  padding: 1px 6px; color: var(--arm); cursor: pointer;
+  font-family: inherit; font-size: inherit; color: inherit;
+  background: rgba(210, 59, 44, .10); border-radius: 2px; padding: 0 1px;
+  cursor: text;
   white-space: normal; overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: rgba(210, 59, 44, .65);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
   transition: background .14s var(--ease);
 }
-.wp-fc:hover { background: #f8d3b1; }
+.wp-fc:hover { background: rgba(210, 59, 44, .16); }
+/* SOLID — the middle state: feels right, not fully checked. Amber wash + yellow flag. */
+.wp-fc[data-fc-status="solid"] {
+  background: rgba(201, 150, 44, .14);
+  text-decoration-color: rgba(201, 150, 44, .80);
+}
+.wp-fc[data-fc-status="solid"]:hover { background: rgba(201, 150, 44, .20); }
+/* CHECKED — the claim carries a fact-check receipt (✓ footnote landed): calm green,
+   never an open ask. */
+.wp-fc[data-fc-status="checked"] {
+  background: rgba(31, 138, 114, .12);
+  text-decoration-color: rgba(31, 138, 114, .70);
+}
+.wp-fc[data-fc-status="checked"]:hover { background: rgba(31, 138, 114, .18); }
+/* THE FLAG — the little square at the end of an unverified assertion; the ONLY fc click
+   target (red = unchecked, yellow = solid). Clicking it opens the Workshop VERIFY dock.
+   Vanishes when the claim is checked (the green ✓ fcFootnote atom takes its place). */
+.wp-fc-flag {
+  display: inline-block; vertical-align: baseline;
+  width: 9px; height: 9px; margin: 0 3px 0 4px; padding: 0;
+  background: #d23b2c; border: 1px solid var(--ink); border-radius: 2px;
+  cursor: pointer;
+  transition: transform .12s var(--ease), background .14s var(--ease);
+}
+.wp-fc-flag:hover { background: #b02a1c; transform: scale(1.25); }
+.wp-fc-flag[data-status="solid"] { background: #c9962c; }
+.wp-fc-flag[data-status="solid"]:hover { background: #a87b1e; }
 /* [visual] / B-roll spans are INERT — styled (the bracketed mono chip) but not clickable.
    No pointer cursor, no hover affordance: clicking does nothing (the mousedown plugin is gone).
    Only {TK} and {fc} spans open the Workshop dock. */
@@ -1571,6 +1634,38 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
 .wp-fnote-src { font-family: var(--mono); font-size: 11px; }
 .wp-fnote-links { display: flex; flex-direction: column; gap: 2px; }
 .wp-fnote-link { font-family: var(--mono); font-size: 10px; color: var(--ep-copied, #1f8a72); }
+.wp-fnote-nolinks { font-family: var(--mono); font-size: 10px; color: var(--label); }
+/* THE BLURB — the verbatim source quote is the panel's main content (no CONTEXT box).
+   Reads as a pull quote; double-click swaps in the textarea editor. */
+.wp-fnote-blurb {
+  font-family: var(--doc-read, Georgia, serif); font-size: 13px; line-height: 1.55; color: var(--body);
+  border-left: 2px solid var(--ep-copied, #1f8a72); padding: 2px 0 2px 9px; margin: 2px 0;
+  white-space: pre-wrap; cursor: text;
+}
+.wp-fnote-blurb.is-empty { color: var(--label); font-style: italic; border-left-color: var(--rule); }
+.wp-fnote-blurb-ed { width: 100%; }
+/* STATUS ROW — red square (work-in-progress), yellow square (solid), green ✓ (verified).
+   Sets the claim span's status; the wash + end-of-run flag follow. */
+.wp-fnote-status-row { display: flex; gap: 8px; margin: 2px 0 4px; }
+.wp-fnote-status-btn {
+  width: 22px; height: 22px; padding: 0; cursor: pointer;
+  border: 1.5px solid var(--rule); border-radius: 4px; background: var(--face);
+  font-size: 12px; line-height: 1; color: #fff;
+  transition: transform .12s var(--ease), border-color .12s var(--ease);
+}
+.wp-fnote-status-btn:hover { transform: scale(1.12); }
+.wp-fnote-status-btn[data-status="pending"] { background: #d23b2c; }
+.wp-fnote-status-btn[data-status="solid"] { background: #c9962c; }
+.wp-fnote-status-btn[data-status="checked"] { background: var(--ep-copied, #1f8a72); }
+.wp-fnote-status-btn.is-active { border-color: var(--ink); outline: 2px solid var(--ink); outline-offset: 1px; }
+/* edit-sources toggle — quiet text button under the link list */
+.wp-fnote-src-toggle {
+  align-self: flex-start; margin: 2px 0 0; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--label); text-decoration: underline dotted;
+}
+.wp-fnote-src-toggle:hover { color: var(--ink); }
 .wp-fnote-recheck-row { display: flex; margin-top: 8px; }
 .wp-fnote-recheck {
   flex: 1; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
@@ -1830,6 +1925,42 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
 }
 .wp-image .wp-image-badge[hidden] { display: none; }
 .wp-image .wp-image-caption[hidden] { display: none; }
+.wp-image .wp-image-caption { cursor: text; }
+/* CAPTION STRIP — the invisible-until-hover click target under a captionless image.
+   Johnny: captions hidden by default; click right below the image to type one. Reserved
+   height even when idle so hovering never makes the rack jump. */
+.wp-image .wp-image-cap-strip {
+  display: block;
+  margin: 3px 2px 0;
+  padding: 2px 4px;
+  max-width: 640px;
+  border: 0; background: none; text-align: left;
+  font-family: var(--mono);
+  font-size: var(--chrome-size-sm, 11px);
+  letter-spacing: .04em;
+  color: var(--ep-kind-label);
+  opacity: 0; cursor: text;
+  transition: opacity .14s var(--ease);
+}
+.wp-image:hover .wp-image-cap-strip { opacity: .65; }
+.wp-image .wp-image-cap-strip:hover { opacity: 1; }
+.wp-image .wp-image-cap-strip[hidden] { display: none; }
+.wp-image .wp-image-cap-input {
+  display: block;
+  margin: 5px 2px 0;
+  padding: 2px 4px;
+  width: 100%;
+  max-width: 640px;
+  font-family: var(--mono);
+  font-size: var(--chrome-size-sm, 11px);
+  line-height: 1.45;
+  letter-spacing: .02em;
+  color: var(--ink);
+  background: var(--face);
+  border: 1.5px solid var(--ink);
+  border-radius: 5px;
+}
+.wp-image .wp-image-cap-input[hidden] { display: none; }
 /* Selected (atom) image gets the same selection affordance as other nodes. */
 .wp-image.ProseMirror-selectednode img { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
 /* Upload placeholder (image-drop.js widget decoration) — a quiet mono pill holding the

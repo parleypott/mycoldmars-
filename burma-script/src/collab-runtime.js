@@ -15,8 +15,11 @@ import { createClient } from '@liveblocks/client';
 import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
-import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap';
 import { UndoViewportGuard } from './extensions/undo-viewport-guard.js';
+import { buildSeedUpdate } from './collab-seed.js';
+import { isRemoteEchoTransaction } from './collab-echo.js';
+import { makeCollabAnchorAdapter } from './collab-anchors.js';
+import { setImageDropCollabAnchors } from './extensions/image-drop.js';
 import { collabRoomId, shouldSeedRoom } from './collab.js';
 import { providerSynced } from './collab-sync-wait.js';
 import { fetchCloud } from './cloud-sync.js';
@@ -66,8 +69,9 @@ export async function seedRoomIfEmpty(session, editor) {
     }
     // LAST-MOMENT RE-CHECK — another client may have seeded while we awaited the cloud GET.
     if (fragment.length > 0 || meta.get('seeded')) return { seeded: false, reason: 'raced' };
-    const seedY = prosemirrorJSONToYDoc(editor.schema, seedDoc, Y_FIELD);
-    const update = Y.encodeStateAsUpdate(seedY);
+    // Deterministic seed (collab-seed.js): two clients racing past every check above build
+    // byte-identical updates, so the loser's apply is a Yjs no-op instead of a full duplication.
+    const update = buildSeedUpdate(editor.schema, seedDoc, cloud.version || 0, Y_FIELD);
     session.yDoc.transact(() => {
       Y.applyUpdate(session.yDoc, update);
       meta.set('seeded', true);
@@ -128,6 +132,24 @@ export function createCollabSession() {
   const yDoc = new Y.Doc();
   const provider = new LiveblocksYjsProvider(room, yDoc);
 
+  // SYNC-KNOWN TRACKING (blank-editor guard). Until the provider completes its initial sync the
+  // local Y.Doc is an EMPTY SHELL, not the script — a connect/auth failure used to leave a blank
+  // editable editor whose first keystroke became a near-empty snapshot that the 20s cloud mirror
+  // then pushed OVER the real script. Editor.jsx gates editability + every save path on this.
+  // Unlike providerSynced (one-shot, timeout-bounded, seed-scoped), this listens forever: a room
+  // that syncs after a slow reconnect still flips the editor live.
+  let syncKnown = !!provider.synced;
+  const syncListeners = new Set();
+  const markSynced = () => {
+    if (syncKnown) return;
+    syncKnown = true;
+    for (const listener of syncListeners) {
+      try { listener(); } catch (err) { console.warn('[burma] collab: onSynced listener threw:', err); }
+    }
+    syncListeners.clear();
+  };
+  try { provider.on('synced', markSynced); } catch {}
+
   const session = {
     roomId,
     client,
@@ -151,11 +173,28 @@ export function createCollabSession() {
     },
     seedIfEmpty(editor) { return seedRoomIfEmpty(session, editor); },
     wireCaretIdentity(editor) { return wireCaretIdentity(session, editor); },
+    // Editor.jsx's onUpdate asks this instead of importing ySyncPluginKey itself (bundle law:
+    // @tiptap/y-tiptap stays in the collab chunk). True = a teammate's edit echoing in through
+    // the Yjs binding — nothing THIS tab needs to persist.
+    isRemoteEcho(transaction) { return isRemoteEchoTransaction(transaction); },
+    // TRUE once the room's content is KNOWN (initial sync completed). Before that the Y.Doc's
+    // emptiness means nothing and no save path may treat the editor JSON as the script.
+    hasSynced() { return syncKnown || !!provider.synced; },
+    // Fires fn once, when sync first completes (immediately if already synced). Returns unsubscribe.
+    onSynced(fn) {
+      if (session.hasSynced()) { try { fn(); } catch {} return () => {}; }
+      syncListeners.add(fn);
+      return () => syncListeners.delete(fn);
+    },
     destroy() {
       try { provider.destroy(); } catch {}
       try { leave(); } catch {}
     },
   };
+  // Arm image-drop's placeholder anchors: in a collab session, upload placeholders must pin to
+  // Yjs relative positions or the first remote keystroke (a full-doc y-sync replace) kills them.
+  setImageDropCollabAnchors(makeCollabAnchorAdapter());
+
   console.info('[burma] collab: entering room ' + roomId + ' (Liveblocks + Yjs; Y.Doc is canonical)');
   // Diagnostics seam (mirrors gate.js's window.__wpCurrentUserId): lets the console / an E2E test
   // inspect the live room, provider, and identity without importing module internals.

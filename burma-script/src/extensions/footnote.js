@@ -123,37 +123,145 @@ function createFootnotePanel(editor, getPos, iconDom) {
     panel.appendChild(claim);
   }
 
-  // NOTE — the fact-check context, editable
-  const noteLabel = el('label', 'wp-fnote-label');
-  noteLabel.textContent = 'Context';
-  panel.appendChild(noteLabel);
-  const note = el('textarea', 'wp-fnote-text', { rows: '3', placeholder: 'What did the check find?' });
-  note.value = attrs0.note || '';
-  if (readOnly) note.setAttribute('disabled', '');
-  note.addEventListener('input', () => queueSave({ note: note.value }));
-  panel.appendChild(note);
+  // ── STATUS ROW (Johnny 2026-07-07): three squares that set the CLAIM SPAN's state —
+  // red = uncheck / work-in-progress, yellow = feels solid but not fully checked,
+  // green ✓ = verified. The span's wash + end-of-run flag follow (marks.js/styles.css).
+  // The row only renders when a factCheckSpan run sits right before this ✓ atom.
+  const fcMarkType = editor.state.schema.marks.factCheckSpan;
+  const adjacentClaimRun = () => {
+    try {
+      const pos = typeof getPos === 'function' ? getPos() : getPos;
+      if (typeof pos !== 'number' || !fcMarkType) return null;
+      const $pos = editor.state.doc.resolve(pos);
+      const parent = $pos.parent;
+      const start = $pos.start();
+      const frags = [];
+      parent.forEach((child, offset) => {
+        const cFrom = start + offset;
+        frags.push({
+          from: cFrom, to: cFrom + child.nodeSize,
+          hasMark: child.isText && child.marks.some((m) => m.type === fcMarkType),
+          status: child.isText ? (child.marks.find((m) => m.type === fcMarkType)?.attrs?.status || 'pending') : null,
+        });
+      });
+      let i = frags.findIndex((f) => f.to === pos && f.hasMark);
+      if (i < 0) return null;
+      let from = frags[i].from;
+      const to = frags[i].to;
+      const status = frags[i].status;
+      while (i > 0 && frags[i - 1].hasMark && frags[i - 1].to === from) { i--; from = frags[i].from; }
+      return { from, to, status };
+    } catch { return null; }
+  };
+  const claimRun0 = adjacentClaimRun();
+  if (!readOnly && claimRun0) {
+    const stLabel = el('label', 'wp-fnote-label');
+    stLabel.textContent = 'Status';
+    panel.appendChild(stLabel);
+    const stRow = el('div', 'wp-fnote-status-row');
+    const states = [
+      ['pending', 'not checked yet — back to work-in-progress', ''],
+      ['solid', 'feels solid — not fully checked', ''],
+      ['checked', 'verified', '✓'],
+    ];
+    const btns = [];
+    const paintStatus = (active) => btns.forEach((b) => b.classList.toggle('is-active', b.dataset.status === active));
+    for (const [status, title, glyph] of states) {
+      const b = el('button', 'wp-fnote-status-btn', { type: 'button', title });
+      b.dataset.status = status;
+      b.textContent = glyph;
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const run = adjacentClaimRun();
+        if (!run) return;
+        editor.view.dispatch(
+          editor.state.tr.addMark(run.from, run.to, fcMarkType.create({ status })).setMeta('addToHistory', true),
+        );
+        paintStatus(status);
+      });
+      btns.push(b);
+      stRow.appendChild(b);
+    }
+    paintStatus(claimRun0.status || 'pending');
+    panel.appendChild(stRow);
+  }
 
-  // SOURCE — editable
+  // ── THE BLURB (Johnny 2026-07-07: no CONTEXT box) — the verbatim quote from the source is
+  // the main content (RECHECK's quote-hunt writes it here). Reads as a quote; DOUBLE-CLICK
+  // to edit in place; Escape cancels, blur/Cmd-Enter commits. Same debounced note attr.
+  let noteValue = String(attrs0.note || '');
+  const blurb = el('div', 'wp-fnote-blurb', { title: readOnly ? '' : 'double-click to edit' });
+  const noteEd = el('textarea', 'wp-fnote-text wp-fnote-blurb-ed', { rows: '4' });
+  noteEd.hidden = true;
+  const renderBlurb = () => {
+    blurb.textContent = noteValue || 'no quote pulled yet — hit RECHECK to fish one from the sources';
+    blurb.classList.toggle('is-empty', !noteValue);
+  };
+  renderBlurb();
+  if (!readOnly) {
+    blurb.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      noteEd.value = noteValue;
+      blurb.hidden = true;
+      noteEd.hidden = false;
+      noteEd.focus();
+    });
+    const commitBlurb = () => {
+      noteValue = noteEd.value;
+      queueSave({ note: noteValue });
+      noteEd.hidden = true;
+      blurb.hidden = false;
+      renderBlurb();
+    };
+    noteEd.addEventListener('blur', () => { if (!noteEd.hidden) commitBlurb(); });
+    noteEd.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commitBlurb(); }
+      if (e.key === 'Escape') { e.preventDefault(); noteEd.hidden = true; blurb.hidden = false; }
+    });
+  }
+  panel.appendChild(blurb);
+  panel.appendChild(noteEd);
+
+  // ── SOURCES — hyperlinks first (click straight through); the raw textarea hides behind a
+  // small "edit sources" toggle so adding/pruning sources stays possible without clutter.
   const srcLabel = el('label', 'wp-fnote-label');
-  srcLabel.textContent = 'Source';
+  srcLabel.textContent = 'Sources';
   panel.appendChild(srcLabel);
-  const src = el('textarea', 'wp-fnote-text wp-fnote-src', { rows: '2', placeholder: 'Where it comes from (link or citation)' });
+  const links = el('div', 'wp-fnote-links');
+  panel.appendChild(links);
+  const src = el('textarea', 'wp-fnote-text wp-fnote-src', { rows: '2', placeholder: 'one link or citation per line' });
   src.value = attrs0.source || '';
+  src.hidden = true;
   if (readOnly) src.setAttribute('disabled', '');
-  src.addEventListener('input', () => queueSave({ source: src.value }));
-  panel.appendChild(src);
-
-  // linkified source URLs, so a reader can click straight through
-  const urls = String(attrs0.source || '').match(/https?:\/\/\S+/g) || [];
-  if (urls.length) {
-    const links = el('div', 'wp-fnote-links');
-    urls.slice(0, 4).forEach((u) => {
+  src.addEventListener('input', () => { queueSave({ source: src.value }); renderLinks(); });
+  const renderLinks = () => {
+    links.textContent = '';
+    const urls = String(src.value || '').match(/https?:\/\/\S+/g) || [];
+    urls.slice(0, 6).forEach((u) => {
       const a = el('a', 'wp-fnote-link', { href: u, target: '_blank', rel: 'noopener noreferrer' });
       a.textContent = u.replace(/^https?:\/\//, '').slice(0, 46);
       links.appendChild(a);
     });
-    panel.appendChild(links);
+    if (!urls.length) {
+      const none = el('span', 'wp-fnote-nolinks');
+      none.textContent = 'no sources yet';
+      links.appendChild(none);
+    }
+  };
+  renderLinks();
+  if (!readOnly) {
+    const srcToggle = el('button', 'wp-fnote-src-toggle', { type: 'button', title: 'add or edit the source list' });
+    srcToggle.textContent = 'edit sources';
+    srcToggle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      src.hidden = !src.hidden;
+      srcToggle.textContent = src.hidden ? 'edit sources' : 'done';
+      if (!src.hidden) src.focus();
+    });
+    panel.appendChild(srcToggle);
   }
+  panel.appendChild(src);
 
   // RECHECK — run a fresh source-hunt for the SPECIFIC quotation that checks this fact
   // (Johnny: "a button that says recheck which runs a new fact check to find the specific
@@ -182,7 +290,7 @@ function createFootnotePanel(editor, getPos, iconDom) {
           if (!claim) claim = $pos.parent.textBetween(0, $pos.parentOffset, ' ').slice(-300).trim();
         } catch {}
       }
-      if (!claim) claim = String(note.value || '').trim().slice(0, 300);
+      if (!claim) claim = String(noteValue || '').trim().slice(0, 300);
       if (!claim) { reErr.textContent = 'nothing to check yet — give the footnote a claim or some context first'; return; }
 
       checking = true;
@@ -196,7 +304,7 @@ function createFootnotePanel(editor, getPos, iconDom) {
         const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'quote', marker: claim, block: blockText, context: [note.value, src.value].filter(Boolean).join('\n').slice(0, 3000) }),
+          body: JSON.stringify({ mode: 'quote', marker: claim, block: blockText, context: [noteValue, src.value].filter(Boolean).join('\n').slice(0, 3000) }),
           signal: ac.signal,
         });
         const rawBody = await res.text();
@@ -214,13 +322,15 @@ function createFootnotePanel(editor, getPos, iconDom) {
           lines.push(`“${String(q.quote).trim()}” — ${String(q.source || '').trim()}`);
         }
         if (lines.length) {
-          note.value = (note.value ? note.value.trim() + '\n\n' : '') + lines.join('\n\n');
-          queueSave({ note: note.value });
+          noteValue = (noteValue ? noteValue.trim() + '\n\n' : '') + lines.join('\n\n');
+          queueSave({ note: noteValue });
+          renderBlurb();
         }
         const newUrls = quotes.map((q) => String(q.url || '').trim()).filter((u) => u && !src.value.includes(u));
         if (newUrls.length) {
           src.value = (src.value ? src.value.trim() + '\n' : '') + newUrls.join('\n');
           queueSave({ source: src.value });
+          renderLinks();
         }
         if (data.verdict) queueSave({ verdict: String(data.verdict) });
         flush(); // the receipt is on the doc the moment it lands — never only in the panel
@@ -276,7 +386,8 @@ function createFootnotePanel(editor, getPos, iconDom) {
   setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
   window.addEventListener('scroll', onScroll, true);
   window.addEventListener('resize', onScroll);
-  if (!readOnly) requestAnimationFrame(() => note.focus());
+  // No default-focused field anymore: the blurb is a read view (double-click to edit), so
+  // stealing focus from the editor on open would be pure loss.
 
   return { panel, close };
 }

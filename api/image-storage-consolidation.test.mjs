@@ -54,8 +54,10 @@ function oldExt(rawMime) {
 }
 
 // The only mimes safe to serve from a public bucket (the allow-list the shared
-// helper enforces). Anything else MUST be coerced.
-const SAFE_BUCKET_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+// helper enforces). Anything else MUST be coerced. image/gif joined the list
+// 2026-07-07 (script tool: animated reference GIFs) — a pure raster type, same
+// no-document-rendering property as the original three.
+const SAFE_BUCKET_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
 // ── 1. THE FIX (RED proof): qss-cast's client-supplied mime was a real hole ──
 // A malicious/authed client could set a portrait's mime to text/html or
@@ -73,8 +75,9 @@ check('FIX: imageStorageMeta coerces text/html -> image/png', () => {
 check('FIX: imageStorageMeta coerces image/svg+xml -> image/png', () => {
   assert.strictEqual(imageStorageMeta('image/svg+xml').mime, 'image/png');
 });
-check('FIX: imageStorageMeta coerces image/gif -> image/png', () => {
-  assert.strictEqual(imageStorageMeta('image/gif').mime, 'image/png');
+check('ALLOWED (2026-07-07): image/gif passes through with canonical .gif ext', () => {
+  assert.strictEqual(imageStorageMeta('image/gif').mime, 'image/gif');
+  assert.strictEqual(imageStorageMeta('image/gif').ext, 'gif');
 });
 check('FIX: imageStorageMeta coerces application/javascript -> image/png', () => {
   assert.strictEqual(imageStorageMeta('application/javascript').mime, 'image/png');
@@ -82,7 +85,7 @@ check('FIX: imageStorageMeta coerces application/javascript -> image/png', () =>
 
 // ── 2. HARD GUARANTEE: served mime is ALWAYS an allow-list image type, and ──
 //     the ext ALWAYS pairs canonically with it (no .png-path-with-jpeg-body).
-const CANON_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+const CANON_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 for (const raw of ['text/html', 'image/svg+xml', 'image/gif', 'application/octet-stream',
   'image/jpg', 'IMAGE/JPEG', ' image/png ', '', null, undefined, 'garbage', 123, {}]) {
   check(`guarantee: ${JSON.stringify(raw)} -> safe mime + canonical ext pair`, () => {

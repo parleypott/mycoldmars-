@@ -11,7 +11,8 @@
 // blocks export round-trips faithfully (see document-builder.nodeText).
 
 import { Mark, markInputRule, markPasteRule, getMarkRange } from '@tiptap/core';
-import { Plugin } from '@tiptap/pm/state';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { contiguousMarkRun } from './mark-run.js';
 import { isReadOnly } from '../read-mode.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
@@ -28,6 +29,15 @@ function openWorkshop(view, event, markName, kind) {
   event.preventDefault();
 
   const pos = view.posAtDOM(target, 0);
+  return emitWorkshopAt(view, markName, kind, pos);
+}
+
+// Resolve the full contiguous run of `markName` around a position inside it, then emit the
+// wp-open-workshop event with the run's text + range + context. Shared by openWorkshop
+// (span click, {TK}) and the fact-check FLAG widget (the red square at the end of a pending
+// assertion — the fc spans themselves are no longer click targets). Returns true when a run
+// was found and the event fired.
+function emitWorkshopAt(view, markName, kind, pos) {
   const $pos = view.state.doc.resolve(pos);
   const mark = view.state.schema.marks[markName];
 
@@ -100,13 +110,37 @@ export const TkSpan = Mark.create({
 
 // FACT-CHECK span — the SECOND kind of squiggly-bracket marker, visually distinct from
 // {tk} (writing helper). Authors flag a claim that needs verifying with {fc …} or {fact …}.
-// Renders amber + dotted underline (vs the Swiss-red {tk}); clicking branches the Workshop
-// hub into VERIFY mode (verdict + source + suggested edit) rather than the 5-option writer.
+//
+// THE FLAG MODEL (Johnny 2026-07-07, superseding both the chip treatment and whole-span
+// clicking): the assertion itself is QUIET, EDITABLE PROSE — a subtle red wash + dashed
+// underline (styles.css), caret lands on plain click, edits adopt the formatting
+// (`inclusive: true`). The ONLY click target is the little RED SQUARE FLAG rendered at the
+// end of each unverified assertion (a widget decoration — fcFlagPlugin below, never doc
+// content). Clicking the flag opens the Workshop VERIFY dock for that claim. Once the
+// fact-check receipt lands (wp-create-footnote → status:'checked' in the same transaction),
+// the wash turns green, the red flag disappears, and the existing circular green ✓
+// (fcFootnote atom) takes its place — still clickable for lineage / editing / more sources.
 export const FactCheckSpan = Mark.create({
   name: 'factCheckSpan',
-  inclusive: false,
+  inclusive: true,
+  addAttributes() {
+    return {
+      // 'pending' (unverified — red wash + red flag) | 'solid' (feels right, not fully
+      // checked — amber wash + yellow flag) | 'checked' (receipt landed — green, no flag).
+      status: {
+        default: 'pending',
+        parseHTML: (el) => {
+          const s = el.getAttribute('data-fc-status');
+          return s === 'checked' || s === 'solid' ? s : 'pending';
+        },
+        renderHTML: (attrs) => ({
+          'data-fc-status': attrs.status === 'checked' || attrs.status === 'solid' ? attrs.status : 'pending',
+        }),
+      },
+    };
+  },
   parseHTML() { return [{ tag: 'span[data-fc]' }]; },
-  renderHTML() { return ['span', { 'data-fc': '', class: 'wp-fc' }, 0]; },
+  renderHTML({ HTMLAttributes }) { return ['span', { 'data-fc': '', class: 'wp-fc', ...HTMLAttributes }, 0]; },
   addCommands() {
     return {
       setFactCheckSpan: () => ({ commands }) => commands.setMark('factCheckSpan'),
@@ -122,15 +156,95 @@ export const FactCheckSpan = Mark.create({
     return [markPasteRule({ find: /(\{(?:fc|fact)\b[^{}]*\})/gi, type: this.type })];
   },
   addProseMirrorPlugins() {
-    return [new Plugin({
-      props: {
-        handleDOMEvents: {
-          mousedown: (view, event) => openWorkshop(view, event, 'factCheckSpan', 'fc'),
-        },
-      },
-    })];
+    return [fcFlagPlugin(this.type)];
   },
 });
+
+// ── FACT-CHECK FLAGS — the red square at the end of every unverified assertion ────────────
+// Widget decorations (never doc content: no history step, no autosave, no collab payload).
+// Rebuilt on every doc change from the CURRENT mark runs, so flags follow edits, appear the
+// moment an {fc} span is created, and vanish the moment its status flips to 'checked'.
+
+// All contiguous factCheckSpan runs still awaiting verification (pending OR solid — both
+// keep a flag; only 'checked' retires it). Contiguous marked text nodes merge into one run
+// (a claim fragmented by an embedded timecode chip is ONE claim); run.status is the first
+// fragment's — statuses are set via addMark over the whole run, so mixes are transient.
+export function findPendingFcRuns(doc, markType) {
+  const runs = [];
+  let open = null;
+  doc.descendants((node, pos) => {
+    if (!node.isText) { if (!node.isInline) open = null; return; }
+    const m = node.marks.find((mk) => mk.type === markType);
+    if (m && m.attrs.status !== 'checked') {
+      if (open && open.to === pos) open.to = pos + node.nodeSize;
+      else { open = { from: pos, to: pos + node.nodeSize, status: m.attrs.status === 'solid' ? 'solid' : 'pending' }; runs.push(open); }
+    } else {
+      open = null;
+    }
+  });
+  return runs;
+}
+
+function fcFlagDom(status) {
+  const b = document.createElement('button');
+  b.className = 'wp-fc-flag';
+  b.type = 'button';
+  b.setAttribute('contenteditable', 'false');
+  b.dataset.status = status || 'pending';
+  b.title = status === 'solid'
+    ? 'feels solid — not fully checked yet. click to verify'
+    : 'not fact-checked yet — click to verify';
+  b.setAttribute('aria-label', 'fact-check this claim');
+  return b;
+}
+
+function buildFcFlagDecos(state, markType) {
+  // Read-only shares get no flags: the verify dock is edit chrome; the wash alone tells the story.
+  if (isReadOnly()) return DecorationSet.empty;
+  const runs = findPendingFcRuns(state.doc, markType);
+  if (!runs.length) return DecorationSet.empty;
+  return DecorationSet.create(state.doc, runs.map((run) => {
+    const dom = fcFlagDom(run.status);
+    // A probe INSIDE the run, refreshed on every rebuild — the click handler re-derives the
+    // full current run from it (same fragment walk the {TK} span click uses).
+    dom.dataset.fcProbe = String(run.to - 1);
+    // side:1 = the flag sits AFTER the assertion's last character; spec.key keeps PM from
+    // tearing down/rebuilding the DOM node when nothing about the run moved (the checkbox
+    // widgets' missing-key rebuild churn is a known perf trap under y-sync echoes).
+    return Decoration.widget(run.to, dom, { side: 1, key: 'fcflag:' + run.from + ':' + run.to + ':' + run.status });
+  }));
+}
+
+function fcFlagPlugin(markType) {
+  const key = new PluginKey('wpFcFlags');
+  return new Plugin({
+    key,
+    state: {
+      init(_, state) { return buildFcFlagDecos(state, markType); },
+      apply(tr, decos, _old, newState) {
+        // Any doc change can create/extend/verify/delete an assertion — rebuild from truth.
+        // (Cheap: one text-node walk; assertions are sparse.)
+        if (tr.docChanged) return buildFcFlagDecos(newState, markType);
+        return decos.map(tr.mapping, tr.doc);
+      },
+    },
+    props: {
+      decorations(state) { return key.getState(state); },
+      handleDOMEvents: {
+        mousedown(view, event) {
+          const flag = event.target && event.target.closest && event.target.closest('.wp-fc-flag');
+          if (!flag) return false;
+          event.preventDefault();
+          if (isReadOnly()) return true;
+          const probe = Number(flag.dataset.fcProbe);
+          if (!Number.isFinite(probe)) return true;
+          const clamped = Math.max(0, Math.min(probe, view.state.doc.content.size - 1));
+          try { return emitWorkshopAt(view, 'factCheckSpan', 'fc', clamped) || true; } catch { return true; }
+        },
+      },
+    },
+  });
+}
 
 export const VisualSpan = Mark.create({
   name: 'visualSpan',

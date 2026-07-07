@@ -43,3 +43,4 @@ scripts/find-naive-json-extract.mjs	out	SAFE	sourceFiles() returns sorted file-p
 scripts/find-stateful-global-regex.mjs	out	SAFE	sorts absolute file PATHS for stable output order — deterministic lexical order is the intent, not numeric.
 scripts/find-rangeerror-alloc.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
 scripts/find-unguarded-boot-localstorage.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order
+burma-script/src/version-beacon.js	[...newSet(names)]	SAFE	asset path strings (/assets/name-hash.js) — signature only needs a DETERMINISTIC order for equality comparison; lexical is correct

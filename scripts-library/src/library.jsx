@@ -32,6 +32,14 @@ function openSlug(slug) {
   window.location.hash = encodeURIComponent(slug);
 }
 
+// BACKUPS entry — the ONLY doorway to a project's recovery chrome (local snapshots + cloud
+// version history). The editor gates that chrome behind ?backups in the hash-query
+// (#slug?backups — see burma-script main.jsx showAdminBackups + backups-admin-gate.test.mjs);
+// this button is the missing half that makes recovery REACHABLE without hand-typing a URL.
+function openBackups(slug) {
+  window.location.hash = encodeURIComponent(slug) + '?backups';
+}
+
 // Human label for a project's kind — legacy episode or a generic new script.
 function kindLabel(row) {
   if (row.episode === 'burma') return 'WP·01 · BURMA';
@@ -224,6 +232,7 @@ function LibraryApp() {
                   ) : (
                     <>
                       <button class="sl-act" onClick={() => startRename(row)}>Rename</button>
+                      <button class="sl-act" title="Open with recovery tools — restore from local snapshots or cloud history" onClick={() => openBackups(row.slug)}>Backups</button>
                       <button class="sl-act sl-act-danger" onClick={() => onTrash(row)}>Trash</button>
                     </>
                   )}
