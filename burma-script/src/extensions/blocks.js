@@ -1012,6 +1012,36 @@ export function isVideoSrc(src) {
   return /\.mp4$/i.test(s.split(/[?#]/, 1)[0]);
 }
 
+// Pure: does this src get the "⇩ DOWNLOAD MP4" promise (motion) vs a plain "⇩ DOWNLOAD"?
+// Motion = an .mp4 (already video) OR a legacy .gif (transcoded to mp4 on the way down).
+// Exported so the lightbox footer's button-label contract is a locked, testable decision.
+export function isMotionSrc(src) {
+  return isVideoSrc(src) || /\.gif$/i.test(String(src || '').split(/[?#]/, 1)[0]);
+}
+
+// Pure: the download filename STEM, from the caption (alt). Sanitized to a filesystem-safe
+// slug (word chars + dashes), stripped of leading/trailing dashes, capped at 60 chars, with
+// an always-nonempty fallback so a download can never land as a bare ".ext".
+export function mediaDownloadBase(alt) {
+  return (String(alt || '').trim() || 'script-media')
+    .replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'script-media';
+}
+
+// Pure: the download file EXTENSION. Prefer the src path's own extension (our storage URLs
+// always carry one). When the path carries none — a signed/extensionless CDN URL — fall back
+// to the blob's MIME type so the file still opens in an editor, rather than a useless ".bin"
+// when the real type is actually known. Only reaches 'bin' when both signals are absent.
+const DOWNLOAD_MIME_EXT = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/gif': 'gif',
+  'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg', 'video/mp4': 'mp4',
+};
+export function mediaDownloadExt(src, mimeType) {
+  const fromPath = (String(src || '').split(/[?#]/, 1)[0].match(/\.(\w{2,4})$/) || [])[1];
+  if (fromPath) return fromPath.toLowerCase();
+  const mime = String(mimeType || '').trim().toLowerCase().split(';', 1)[0];
+  return DOWNLOAD_MIME_EXT[mime] || 'bin';
+}
+
 // The <video> attribute set that makes an mp4 behave exactly like a GIF: autoplays
 // muted, loops forever, never fullscreens on iOS, and costs only its moov box until
 // it nears the viewport.
@@ -1032,7 +1062,7 @@ const VIDEO_LOOP_ATTRS = { autoplay: '', loop: '', muted: '', playsinline: '', p
 // down in their native format. Cross-origin CDN srcs need the fetch→blob→objectURL dance —
 // a bare <a download> is ignored cross-origin.
 async function downloadMediaFromLightbox(src, alt, button) {
-  const base = (String(alt || '').trim() || 'script-media').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'script-media';
+  const base = mediaDownloadBase(alt);
   const label = button.textContent;
   button.disabled = true;
   try {
@@ -1040,7 +1070,7 @@ async function downloadMediaFromLightbox(src, alt, button) {
     const res = await fetch(src);
     if (!res.ok) throw new Error('http ' + res.status);
     let blob = await res.blob();
-    let ext = (String(src).split(/[?#]/, 1)[0].match(/\.(\w{2,4})$/) || [, 'bin'])[1].toLowerCase();
+    let ext = mediaDownloadExt(src, blob.type);
     if (!isVideoSrc(src) && /gif/i.test(blob.type + ext)) {
       try {
         button.textContent = 'CONVERTING…';
@@ -1097,7 +1127,7 @@ export function openMediaLightbox({ src, alt }) {
   const cap = el('figcaption', 'wp-media-lightbox-cap');
   cap.textContent = alt || '';
   foot.appendChild(cap);
-  const isMotion = isVideoSrc(src) || /\.gif$/i.test(String(src).split(/[?#]/, 1)[0]);
+  const isMotion = isMotionSrc(src);
   const dl = el('button', 'wp-media-lightbox-dl', {
     type: 'button',
     title: isMotion ? 'Download as an mp4 ready for your edit' : 'Download this image',
