@@ -1,0 +1,114 @@
+/* THE FAMILY MOUNTAIN — two vibes: CLEAN (editorial poster) + VINTAGE (field-guide print) */
+:root{
+  --paper:#F2EFE6; --ink:#1A1A1A; --ink-soft:#9a958a; --red:#CB3B22; --line:#1A1A1A;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  font-variant-numeric:tabular-nums lining-nums;
+}
+.poster{display:flex; flex-direction:column; height:100vh; padding:26px 34px 0; position:relative}
+
+/* ---------- shared chrome ---------- */
+.topbar{display:flex; align-items:flex-start; justify-content:space-between; flex:0 0 auto}
+.title{font-size:46px; font-weight:800; line-height:0.92; letter-spacing:-0.02em; text-transform:uppercase}
+.theme-clean .title span{display:block}
+body.theme-vintage .title br{display:none}
+.topright{display:flex; flex-direction:column; align-items:flex-end; gap:12px}
+.stamp{display:flex; align-items:center; justify-content:center}
+.total{font-size:42px; font-weight:800; letter-spacing:-0.02em; display:flex; align-items:center; gap:10px; line-height:1}
+.total .unit{font-size:30px}
+.total .tri{color:var(--red); font-size:30px; transform:translateY(-2px)}
+.controls{display:flex; align-items:center; gap:8px}
+.toggle{display:inline-flex; border:1.5px solid var(--ink); border-radius:2px; overflow:hidden}
+.toggle button{font:700 10px/1 "Helvetica Neue",Helvetica,Arial; letter-spacing:0.08em; text-transform:uppercase;
+  padding:6px 9px; border:0; background:transparent; color:var(--ink); cursor:pointer}
+.toggle button.on{background:var(--ink); color:var(--paper)}
+.btn{font:700 10px/1 "Helvetica Neue"; letter-spacing:0.1em; text-transform:uppercase; padding:7px 10px;
+  border:1.5px solid var(--ink); background:transparent; color:var(--ink); cursor:pointer; border-radius:2px}
+.btn:hover{background:var(--ink); color:var(--paper)}
+#vibe{border-color:var(--red); color:var(--red)}
+#vibe:hover{background:var(--red); color:var(--paper)}
+.btn.off{opacity:0.4}
+.btn, .toggle button{transition:background .14s cubic-bezier(.4,0,.2,1), border-color .14s, color .14s, opacity .14s}
+.btn.playing{opacity:0.5; pointer-events:auto}
+.statbar{transition:opacity .3s ease}
+#ski{background:var(--red); color:var(--paper); border-color:var(--red)}
+#ski:hover{background:var(--ink); border-color:var(--ink)}
+
+.rule{height:3px; background:var(--red); margin:14px 0 0; flex:0 0 auto}
+.stage{position:relative; flex:1 1 auto; min-height:0; margin-top:4px}
+.stage canvas{position:absolute; inset:0; display:block; width:100%; height:100%; cursor:crosshair}
+#hov{pointer-events:none}
+.hint{position:absolute; left:2px; bottom:8px; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--ink-soft); pointer-events:none}
+
+.statbar{display:flex; border-top:2px solid var(--ink); flex:0 0 auto}
+.st{flex:1; display:flex; flex-direction:column; align-items:center; padding:16px 0 20px; position:relative}
+.st + .st::before{content:""; position:absolute; left:0; top:14px; bottom:14px; width:2px; background:var(--ink)}
+.st b{font-size:40px; font-weight:800; letter-spacing:-0.02em; line-height:1; order:1}
+.st .lab{font-size:12px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--ink); margin-top:6px; order:2}
+
+/* hidden-by-default vintage-only elements */
+.reg, .serial{display:none}
+
+/* ======================================================================
+   VINTAGE — aged field-guide print
+   ====================================================================== */
+body.theme-vintage{ background-color:#D9C9A6; color:#241c12; --red:#B0402A; }
+body.theme-vintage .poster{
+  background-image:
+    /* fine paper grain */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+    /* soft fold creases */
+    linear-gradient(90deg, transparent 49.6%, rgba(90,70,40,0.10) 50%, transparent 50.4%),
+    linear-gradient(0deg, transparent 49.6%, rgba(90,70,40,0.08) 50%, transparent 50.4%),
+    /* warm vignette */
+    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(70,50,25,0.16) 100%);
+  background-blend-mode:multiply,normal,normal,normal;
+}
+body.theme-vintage .title{font-weight:600; letter-spacing:0.02em}
+body.theme-vintage .title br{display:none}
+body.theme-vintage .rule{display:none}
+body.theme-vintage .total .tri{display:none}
+body.theme-vintage .total{font-size:21px; font-weight:700; letter-spacing:0.01em}
+body.theme-vintage .total .unit{font-size:21px}
+body.theme-vintage .stamp{
+  width:140px; height:140px; border:2.5px solid var(--red); border-radius:50%;
+  box-shadow:0 0 0 4px rgba(176,64,42,0.0), inset 0 0 0 5px rgba(217,201,166,0.0);
+  position:relative; margin-top:-6px;
+}
+body.theme-vintage .stamp::after{content:""; position:absolute; inset:7px; border:1px solid var(--red); border-radius:50%}
+body.theme-vintage .total{color:var(--red)}
+
+/* registration crop marks */
+body.theme-vintage .reg{display:block; position:absolute; width:26px; height:26px; pointer-events:none}
+body.theme-vintage .reg::before{content:""; position:absolute; background:#241c12}
+body.theme-vintage .reg::after{content:""; position:absolute; background:#241c12}
+body.theme-vintage .reg::before{width:18px; height:1.5px}
+body.theme-vintage .reg::after{width:1.5px; height:18px}
+body.theme-vintage .reg.tl{left:10px; top:10px}      .reg.tl::before{left:0;top:0}     .reg.tl::after{left:0;top:0}
+body.theme-vintage .reg.tr{right:10px; top:10px}     .reg.tr::before{right:0;top:0}    .reg.tr::after{right:0;top:0}
+body.theme-vintage .reg.bl{left:10px; bottom:10px}   .reg.bl::before{left:0;bottom:0}  .reg.bl::after{left:0;bottom:0}
+body.theme-vintage .reg.br{right:10px; bottom:10px}  .reg.br::before{right:0;bottom:0} .reg.br::after{right:0;bottom:0}
+
+/* serial number */
+body.theme-vintage .serial{display:block; position:absolute; right:34px; bottom:8px;
+  font-size:11px; letter-spacing:0.1em; color:#5c4a30}
+
+/* boxed stat bar with labels above values */
+body.theme-vintage .statbar{border:1.8px solid #241c12; margin-bottom:26px}
+body.theme-vintage .st{align-items:flex-start; padding:12px 18px 14px}
+body.theme-vintage .st + .st::before{background:#241c12; top:0; bottom:0}
+body.theme-vintage .st .lab{order:0; margin:0 0 6px; color:#5c4a30; letter-spacing:0.12em; font-size:11px}
+body.theme-vintage .st b{order:1; font-size:34px; color:#241c12}
+
+/* controls keep readable on tan */
+body.theme-vintage .toggle, body.theme-vintage .btn{border-color:#241c12; color:#241c12; background:rgba(255,255,255,0.18)}
+body.theme-vintage .toggle button{color:#241c12}
+body.theme-vintage .toggle button.on{background:#241c12; color:#D9C9A6}
+body.theme-vintage #vibe{border-color:var(--red); color:var(--red)}
+body.theme-vintage .hint{color:#7a6442}
