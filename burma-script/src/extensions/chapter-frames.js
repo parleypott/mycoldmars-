@@ -2,7 +2,6 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { getEpisode, episodeFlag } from '../episode-config.js';
-import { shortChapterClause } from './chapter-clause.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -59,7 +58,8 @@ function buildSignature(doc) {
   return parts.join('|');
 }
 
-function buildDecorations(doc) {
+// Exported for the headless suite — the frame classes a doc's rows should carry.
+export function buildDecorations(doc) {
   if (!isPalauEpisode()) return DecorationSet.empty;
 
   const rows = [];
@@ -133,128 +133,6 @@ function chapterGenreLabel(genreId) {
   return (genre?.label || '').trim();
 }
 
-function chapterTitleForRow(row, index) {
-  const genreLabel = chapterGenreLabel(row.getAttribute('data-chapter-genre'));
-  if (genreLabel) return genreLabel;
-  const header = row.querySelector('[data-chapter], [data-scene]');
-  const text = header?.querySelector('.wp-body')?.textContent || header?.textContent || '';
-  const short = shortChapterClause(text);
-  return short || `Chapter ${index + 1}`;
-}
-
-function sidebarHostForView(editorView) {
-  if (typeof document === 'undefined') return null;
-  return editorView.dom.closest?.('.wp-page[data-episode]')
-    || document.querySelector('.wp-page[data-episode]');
-}
-
-function createSidebarView(editorView) {
-  if (!isPalauEpisode() || typeof window === 'undefined' || typeof document === 'undefined') {
-    return { update() {}, destroy() {} };
-  }
-
-  const dom = el('aside', 'wp-chapter-sidebar', { 'data-chapter-sidebar': '', contenteditable: 'false', 'aria-hidden': 'true' });
-  const counter = el('div', 'wp-chapter-sidebar-count');
-  const title = el('div', 'wp-chapter-sidebar-title');
-  dom.appendChild(counter);
-  dom.appendChild(title);
-
-  let host = null;
-  let rows = [];
-  let rafId = 0;
-  let destroyed = false;
-  let rebuildQueued = false;
-
-  const ensureHost = () => {
-    const nextHost = sidebarHostForView(editorView);
-    if (!nextHost) return false;
-    if (host !== nextHost || dom.parentNode !== nextHost) {
-      host = nextHost;
-      host.appendChild(dom);
-    }
-    return true;
-  };
-
-  const maybeForceRebuild = () => {
-    if (destroyed || rebuildQueued || !isPalauEpisode()) return;
-    const pluginState = chapterFramesKey.getState(editorView.state);
-    if (pluginState?.signature !== EMPTY_STATE.signature) return;
-    if (!docHasRunStarts(editorView.state.doc)) return;
-    rebuildQueued = true;
-    queueMicrotask(() => {
-      rebuildQueued = false;
-      if (destroyed || !isPalauEpisode()) return;
-      const currentState = chapterFramesKey.getState(editorView.state);
-      if (currentState?.signature !== EMPTY_STATE.signature) return;
-      if (!docHasRunStarts(editorView.state.doc)) return;
-      editorView.dispatch(editorView.state.tr.setMeta(CHAPTER_FRAMES_REBUILD, true));
-    });
-  };
-
-  const paint = () => {
-    if (destroyed) return;
-    if (!ensureHost()) return;
-    if (!rows.length) {
-      dom.hidden = true;
-      counter.textContent = '';
-      title.textContent = '';
-      return;
-    }
-    const band = Math.max(88, window.innerHeight * 0.24);
-    let activeIndex = 0;
-    for (let i = 0; i < rows.length; i += 1) {
-      const rect = rows[i].getBoundingClientRect();
-      if (rect.top <= band) activeIndex = i;
-      if (rect.top > band) break;
-    }
-    dom.hidden = false;
-    counter.textContent = `${activeIndex + 1} / ${rows.length}`;
-    title.textContent = chapterTitleForRow(rows[activeIndex], activeIndex);
-  };
-
-  const schedulePaint = () => {
-    if (destroyed || rafId) return;
-    rafId = window.requestAnimationFrame(() => {
-      rafId = 0;
-      paint();
-    });
-  };
-
-  const refreshRows = () => {
-    ensureHost();
-    maybeForceRebuild();
-    rows = readChapterRows(editorView.dom);
-    schedulePaint();
-  };
-
-  const onScroll = () => schedulePaint();
-  const onResize = () => schedulePaint();
-
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onResize, { passive: true });
-  refreshRows();
-  queueMicrotask(refreshRows);
-  window.requestAnimationFrame(refreshRows);
-
-  return {
-    update(view, prevState) {
-      if (prevState.doc !== view.state.doc) refreshRows();
-      else {
-        ensureHost();
-        maybeForceRebuild();
-        schedulePaint();
-      }
-    },
-    destroy() {
-      destroyed = true;
-      if (rafId) window.cancelAnimationFrame(rafId);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-      dom.remove();
-    },
-  };
-}
-
 export const ChapterFrames = Extension.create({
   name: 'chapterFrames',
   addProseMirrorPlugins() {
@@ -286,9 +164,7 @@ export const ChapterFrames = Extension.create({
           return chapterFramesKey.getState(state)?.decorations || DecorationSet.empty;
         },
       },
-      view(editorView) {
-        return createSidebarView(editorView);
-      },
+
     })];
   },
 });

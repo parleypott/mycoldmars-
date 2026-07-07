@@ -33,6 +33,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import { doInsertStructureBlock, DEFAULT_CHAPTER_GENRE } from './slash-menu.js';
+import { buildDecorations } from './chapter-frames.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
@@ -241,8 +242,12 @@ ok('typing the trigger on an empty line replaces that row (no stray empty block 
   assert.deepEqual(clone(state.doc.toJSON()), before, 'single undo restores the empty host line');
 });
 
-// ── 7: NESTED DEPTH — sibling insert inside Palau's nested-row shape ────────────────────────
-ok('inside a nested row the new row arrives as a sibling at the same depth (same cell)', () => {
+// ── 7: NESTED DEPTH — structure inserts surface at the TOP level ────────────────────────────
+// (LAW REVERSED 2026-07-07, Johnny's frameless-chapter bug: chapters/scenes are top-level
+// structure — the chapter-frames decorator and the outline walk ONLY top-level rows, so a
+// chapter born nested rendered as a frameless orphan cartridge. From a nested cursor the new
+// row now lands as a sibling of the OUTERMOST row.)
+ok('from inside a nested row the new structure row surfaces at the doc top level', () => {
   const nested = {
     type: 'doc',
     content: [{
@@ -258,19 +263,37 @@ ok('inside a nested row the new row arrives as a sibling at the same depth (same
   const dispatch = (tr) => { state = state.apply(tr); };
 
   assert.equal(doInsertStructureBlock(state, dispatch, range, 'sceneBlock'), true);
-  assert.equal(state.doc.childCount, 1, 'outer row count unchanged');
-  const outerCell = state.doc.child(0).child(0);
-  assert.equal(outerCell.childCount, 2, 'new row is a SIBLING of the nested host row, same cell');
-  assert.equal(outerCell.child(0).type.name, 'tableRow');
-  assert.equal(outerCell.child(0).textContent.trim(), 'nested narration', 'trigger removed from nested host');
-  const newRow = outerCell.child(1);
+  assert.equal(state.doc.childCount, 2, 'new row is a TOP-LEVEL sibling of the outermost row');
+  assert.equal(state.doc.child(0).textContent.trim(), 'nested narration', 'trigger removed from nested host');
+  const newRow = state.doc.child(1);
   assert.equal(newRow.type.name, 'tableRow');
+  assert.equal(newRow.child(0).attrs.role, 'full');
   assert.equal(newRow.child(0).child(0).type.name, 'sceneBlock');
 
-  // The nested result is still schema-valid + byte-exact through the mirror schema.
+  // The result is still schema-valid + byte-exact through the mirror schema.
   const reparsed = docFrom(state.doc.toJSON());
   reparsed.check();
   assert.deepEqual(clone(reparsed.toJSON()), clone(state.doc.toJSON()));
+});
+
+// ── 8: FRESH /chapter GETS ITS FRAME — the buildDecorations contract ────────────────────────
+// The frameless-chapter bug's second half: prove an untitled genre:'other' chapter row IS
+// decorated wp-chframe + wp-chframe-first the moment it exists at the top level.
+ok('a fresh untitled /chapter row receives the chapter-frame decorations', () => {
+  const docJson = { type: 'doc', content: [row([vo('vo_1', 'words /chapter')])] };
+  let state = makeState(docJson, 4);
+  const range = triggerRange(state.doc, '/chapter');
+  const dispatch = (tr) => { state = state.apply(tr); };
+  assert.equal(doInsertStructureBlock(state, dispatch, range, 'chapterBlock'), true);
+
+  const decos = buildDecorations(state.doc);
+  const found = decos.find();
+  const chapterRowPos = state.doc.child(0).nodeSize; // second top-level row
+  const onChapterRow = found.filter((d) => d.from === chapterRowPos);
+  assert.ok(onChapterRow.length, 'the new chapter row carries a node decoration');
+  const cls = (onChapterRow[0].type && onChapterRow[0].type.attrs && onChapterRow[0].type.attrs.class) || '';
+  assert.ok(cls.includes('wp-chframe'), `frame class present (got "${cls}")`);
+  assert.ok(cls.includes('wp-chframe-first'), 'the chapter row opens the frame (first)');
 });
 
 console.log(`slash-structure.test.mjs: ${pass} assertions passed`);

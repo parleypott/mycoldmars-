@@ -1150,24 +1150,32 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    no shadow. Hidden on narrow screens (the margin is gone) and while the panel is pinned. */
 .wp-rail {
   position: fixed; left: 10px; top: 50%; transform: translateY(-50%);
-  /* below THE CONTROL UNIT (140): when the reading panel is expanded over the same margin
-     it wins the pointer; collapsed (the usual state) the two never touch. */
   z-index: 135; display: flex; align-items: center;
+  padding: 14px 18px 14px 2px; /* wider invisible hover target */
 }
-.wp-rail-marks { display: flex; flex-direction: column; gap: 7px; padding: 10px 8px; max-height: 72vh; overflow: hidden; }
+.wp-rail.is-open { z-index: 150; } /* the open TOC clears the collapsed READING pill (z140) */
+/* DEFERENCE (design panel): the rail folds away while the READING panel is expanded — one
+   margin, one organ at a time. Same law it already obeys for the pinned outline. */
+body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
+  opacity: 0; pointer-events: none; transition: opacity .15s var(--ease);
+}
+.wp-rail-marks { display: flex; flex-direction: column; gap: 5px; padding: 12px 10px; max-height: 72vh; overflow: hidden; }
 .wp-rail-mark {
-  display: block; width: 13px; height: 2px; flex: none;
+  display: block; width: 20px; height: 2px; flex: none;
   background: var(--label-4, #b6ad99); border-radius: 1px;
-  transition: width .12s, background .12s;
+  transition: width .14s var(--ease), background .14s var(--ease);
 }
-.wp-rail-mark.is-active { width: 20px; background: var(--orange); }
+.wp-rail-mark.lvl-1 { width: 9px; height: 1.5px; background: var(--rule); }
+.wp-rail-mark.is-active { background: var(--orange); width: 26px; }
+.wp-rail-mark.lvl-1.is-active { width: 14px; }
 .wp-rail.is-open .wp-rail-marks { opacity: 0; }
 .wp-rail-list {
   position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-  width: 248px; max-height: 76vh; overflow-y: auto; scrollbar-width: thin;
+  width: 280px; max-height: 76vh; overflow-y: auto; scrollbar-width: thin;
   background: var(--panel); border: 1.5px solid var(--ink); border-radius: 10px;
-  padding: 10px 12px; display: flex; flex-direction: column;
+  padding: 12px 14px 14px; display: flex; flex-direction: column;
 }
+.wp-rail-list .wp-outline-head { margin-bottom: 6px; }
 @media (max-width: 1180px) { .wp-rail { display: none; } }
 
 .wp-outline {
@@ -1192,22 +1200,40 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-outline-list { flex: 1 1 auto; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; }
 .wp-outline-empty { font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label-3); padding: 8px 0; }
 .wp-outline-item {
-  display: block; width: 100%; text-align: left; background: transparent; border: 0; cursor: pointer;
-  font-family: var(--mono); color: var(--label-2); padding: 4px 0; line-height: 1.25; letter-spacing: .04em;
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  background: transparent; border: 0; cursor: pointer;
+  padding: 3px 0; line-height: 1.3; color: var(--label);
 }
-.wp-outline-txt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wp-outline-item.lvl-0 {
-  font-size: 9px; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: .1em;
-  margin-top: 12px; display: flex; align-items: center;
+.wp-outline-ord {
+  flex: none; width: 26px;
+  font-family: var(--mono); font-size: 9px; font-weight: 500;
+  letter-spacing: .1em; color: var(--label-3);
 }
+.wp-outline-txt {
+  display: block; min-width: 0; flex: 1 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--ep-display-serif); letter-spacing: 0; text-transform: none;
+}
+.wp-outline-item.lvl-0 { margin-top: 12px; }
 .wp-outline-item.lvl-0:first-child { margin-top: 0; }
-.wp-outline-item.lvl-0::before {
-  content: ""; display: inline-block; width: 9px; height: 1.5px; background: #c2bcae; margin-right: 7px; flex: none;
-  transition: background .14s var(--ease), width .14s var(--ease);
+.wp-outline-item.lvl-0 .wp-outline-txt { font-size: 14px; font-weight: 500; color: var(--ink); }
+.wp-outline-item.lvl-1 { position: relative; padding-left: 34px; } /* 26px ord + 8px gap — hangs under the chapter title */
+.wp-outline-item.lvl-1 .wp-outline-txt { font-size: 12.5px; font-weight: 400; line-height: 1.35; color: var(--label); }
+
+/* ACTIVE — orange does exactly one job: "you are here" */
+.wp-outline-item.lvl-0.is-active .wp-outline-ord { color: var(--orange); }
+.wp-outline-item.lvl-1.is-active::before {
+  content: ""; position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 1.5px; background: var(--orange);
 }
-.wp-outline-item.lvl-1 { font-size: var(--chrome-size); padding-left: 16px; color: var(--label-3); text-transform: uppercase; letter-spacing: .06em; }
-.wp-outline-item:hover { color: var(--orange); }
-.wp-outline-item.lvl-0.is-active::before { background: var(--orange); width: 13px; }
+.wp-outline-item.lvl-1.is-active .wp-outline-txt { color: var(--ink); }
+
+/* HOVER — a book link, never orange */
+.wp-outline-item:hover .wp-outline-txt {
+  color: var(--ink);
+  text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 3px; text-decoration-color: var(--rule);
+}
 
 /* nudge the device frame right while the outline is open (desktop) */
 @media (min-width: 1100px) {

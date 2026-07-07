@@ -326,22 +326,44 @@ function jumpToOutlineId(id) {
 function OutlineRail({ items, hidden }) {
   const [hover, setHover] = useState(false);
   const activeId = useOutlineSpy(items);
+  const navRef = useRef(null);
+  const openT = useRef(null);
+  const closeT = useRef(null);
+
+  // HOVER INTENT (design panel): open after a beat, close after a longer beat, each timer
+  // cancelling the other — grazing the screen edge never flashes the panel.
+  const enter = () => { clearTimeout(closeT.current); openT.current = setTimeout(() => setHover(true), 120); };
+  const leave = () => { clearTimeout(openT.current); closeT.current = setTimeout(() => setHover(false), 250); };
+  useEffect(() => () => { clearTimeout(openT.current); clearTimeout(closeT.current); }, []);
+
+  // On open, bring the active entry into the middle of the fly-out (instant — no smooth).
+  useEffect(() => {
+    if (!hover) return;
+    requestAnimationFrame(() => {
+      try { navRef.current?.querySelector('.wp-rail-list .is-active')?.scrollIntoView({ block: 'center' }); } catch {}
+    });
+  }, [hover]);
+
   if (hidden || !items || !items.length) return null;
-  const chapters = items.filter((it) => it.level === 0);
+  // TWO-LEVEL dashes: long = chapter, hairline = scene (scene texture, Docs-style). Long
+  // docs collapse to chapters only so the stack never overflows its 72vh window.
+  const markItems = items.length > 36 ? items.filter((it) => it.level === 0) : items;
   return (
     <nav
+      ref={navRef}
       class={`wp-rail${hover ? ' is-open' : ''}`}
       aria-label="script outline"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseEnter={enter}
+      onMouseLeave={leave}
     >
       <div class="wp-rail-marks" aria-hidden="true">
-        {chapters.map((it) => (
-          <span key={it.id} class={`wp-rail-mark${it.id === activeId ? ' is-active' : ''}`} />
+        {markItems.map((it) => (
+          <span key={it.id} class={`wp-rail-mark lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`} />
         ))}
       </div>
       {hover && (
         <div class="wp-rail-list">
+          <div class="wp-outline-head"><span class="wp-outline-ttl">OUTLINE</span></div>
           {items.map((it) => (
             <button
               key={it.id}
@@ -349,6 +371,7 @@ function OutlineRail({ items, hidden }) {
               title={it.title}
               onClick={() => jumpToOutlineId(it.id)}
             >
+              {it.level === 0 && <span class="wp-outline-ord">{it.ord}</span>}
               <span class="wp-outline-txt">{it.title}</span>
             </button>
           ))}
@@ -380,6 +403,7 @@ function OutlinePanel({ items, open, onClose }) {
             tabindex={open ? 0 : -1}
             onClick={() => jump(it.id)}
           >
+            {it.level === 0 && <span class="wp-outline-ord">{it.ord}</span>}
             <span class="wp-outline-txt">{it.title}</span>
           </button>
         ))}

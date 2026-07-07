@@ -142,7 +142,7 @@ function seedDoc(sourceBlocks, readOnlyDoc, recoveredDoc) {
 // Also derives the OUTLINE (chapter/scene spine) for the left rail — monochrome,
 // indented titles, keyed by blockId so a click can scroll the matching node into view.
 export function telemetry(doc) {
-  let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0;
+  let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0, chapters = 0;
   const outline = [];
   // TABLE SPINE — the doc top level is tableRow+. Flatten rows→cells→blocks so telemetry counts
   // the cartridge nodes exactly as before (and the outline keys by the cartridge's blockId).
@@ -168,8 +168,23 @@ export function telemetry(doc) {
     if (n.type === 'sotBlock') { sot++; if (n.attrs?.done) done++; }
     if (n.type === 'binBlock' && n.attrs?.scaffold) scaffold++;
     if (n.type === 'chapterBlock' || n.type === 'sceneBlock') {
-      const title = nodeText(n).replace(/\s+/g, ' ').trim();
-      if (title) outline.push({ id: n.attrs?.blockId || '', title, level: n.type === 'chapterBlock' ? 0 : 1 });
+      // TITLE, not transcript (design panel 2026-07-07): the outline used to swallow the
+      // WHOLE block body — director's notes, timecodes, 700-char b-roll dumps — and then
+      // mid-word-ellipsize it in CSS. The doctrine already treats the FIRST paragraph as
+      // the chapter title, so the outline reads exactly that, with bracketed asides
+      // stripped (when words remain) and a word-boundary clamp. Chapters carry a book
+      // ordinal ("01") — the fly-out + pinned panel both render it.
+      const first = (n.content || []).find((c) => c.type === 'paragraph') || n;
+      let title = nodeText(first).replace(/\s+/g, ' ').trim();
+      const bare = title.replace(/\[[^\]]*\]|\{TK[^}]*\}/gi, '').replace(/\s+/g, ' ').trim();
+      if (bare) title = bare;
+      if (title.length > 72) title = title.slice(0, 72).replace(/\s+\S*$/, '') + '…';
+      if (title) outline.push({
+        id: n.attrs?.blockId || '',
+        title,
+        level: n.type === 'chapterBlock' ? 0 : 1,
+        ord: n.type === 'chapterBlock' ? String(++chapters).padStart(2, '0') : null,
+      });
     }
   }
   return { words, blocks, sot, done, scaffold, outline };

@@ -117,10 +117,15 @@ export function doInsertStructureBlock(state, dispatch, range, typeName, opts = 
     : blockType.createAndFill(attrs);
   if (!block) return false;
 
-  // Resolve the (post-delete) cursor spot and walk up to the nearest tableRow ancestor.
+  // Resolve the (post-delete) cursor spot and walk up to the OUTERMOST tableRow ancestor.
+  // Chapters/scenes are TOP-LEVEL structure: the chapter-frames decorator and the outline
+  // both walk only the doc's top-level rows, so a chapter inserted as a sibling of a NESTED
+  // row (a shape drag ops can produce) rendered as a frameless orphan cartridge — Johnny's
+  // "chapter still looks like this" bug. Inserting beside the outermost row guarantees the
+  // new chapter opens its big frame and appears in the outline, whatever the cursor depth.
   const $pos = tr.doc.resolve(Math.min(from, tr.doc.content.size));
   let rowDepth = 0;
-  for (let d = $pos.depth; d > 0; d--) {
+  for (let d = 1; d <= $pos.depth; d++) {
     if ($pos.node(d).type.name === 'tableRow') { rowDepth = d; break; }
   }
 
