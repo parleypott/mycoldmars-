@@ -81,18 +81,19 @@ function emitChanged() {
 
 // ── queries (synchronous, cache-backed — the UI never blocks on the network) ───────────────────────
 
-/** Active (non-trashed) projects, newest-edited first. NaN-safe sort. */
+/** Active (non-trashed, non-deleted) projects, newest-edited first. NaN-safe sort. */
 export function activeProjects() {
   return readIndex()
-    .filter((r) => r && !r.trashedAt)
+    .filter((r) => r && !r.trashedAt && !r.deletedAt)
     .sort((a, b) => recencyKey(b && b.updatedAt) - recencyKey(a && a.updatedAt));
 }
 
-/** Trashed projects, most-recently-trashed first. Un-orderable rows KEPT (recencyKey→0). */
+/** Trashed OR soft-deleted projects, most-recently-trashed first. Un-orderable rows KEPT (recencyKey→0).
+ *  Soft-deleted rows belong in the trash view — "deleted" is recoverable now, never gone. */
 export function trashedProjects() {
   return readIndex()
-    .filter((r) => r && r.trashedAt)
-    .sort((a, b) => recencyKey(b && b.trashedAt) - recencyKey(a && a.trashedAt));
+    .filter((r) => r && (r.trashedAt || r.deletedAt))
+    .sort((a, b) => recencyKey(b && (b.trashedAt || b.deletedAt)) - recencyKey(a && (a.trashedAt || a.deletedAt)));
 }
 
 export function findBySlug(slug) {
@@ -175,10 +176,12 @@ async function apiPatch(cloudId, fields) {
   } catch { return null; }
 }
 
-// HARD DELETE a cloud project row — the true multi-user purge (gone for ALL teammates, not just a local
-// tombstone). Resolves to true on a 2xx, false on any failure (offline / 403 protected / unknown). NEVER
-// throws — the caller has already removed the row locally and tombstoned it, so a failed cloud delete just
-// means the row stays for other devices until a retry; THIS device is already consistent.
+// SOFT-delete a cloud project row. The server's DELETE verb no longer destroys anything — it stamps
+// deleted_at/deleted_by, so the project drops off everyone's active list but stays restorable (its doc
+// + full revision history survive; the hard-DELETE/FK-cascade path was removed server-side after the
+// audit). Resolves to true on a 2xx, false on any failure (offline / 403 protected / unknown). NEVER
+// throws — the caller has already removed the row locally and tombstoned it, so a failed cloud delete
+// just means the row stays visible for other devices until a retry; THIS device is already consistent.
 async function apiDelete(cloudId) {
   try {
     const res = await fetch(`${API}?id=${encodeURIComponent(cloudId)}`, { method: 'DELETE' });
@@ -186,7 +189,7 @@ async function apiDelete(cloudId) {
   } catch { return false; }
 }
 
-// Seeded, precious projects that must never be hard-deleted (mirrors PROTECTED_SLUGS in
+// Seeded, precious projects that must never be deleted — even softly (mirrors PROTECTED_SLUGS in
 // api/script-projects.js). The server refuses these with 403 too — this is the belt-and-suspenders
 // client guard so we don't even fire a doomed DELETE for burma/palau.
 const PROTECTED_SLUGS = new Set(['burma', 'palau', 'palau2']);
@@ -228,6 +231,7 @@ export function mergeCloudRows(cloudRows) {
       // Keep the local episode (legacy pin) if present; otherwise adopt the cloud's.
       row.episode = row.episode ?? (c.episode ?? null);
       row.trashedAt = c.trashed_at ?? null;
+      row.deletedAt = c.deleted_at ?? null;
       if (c.updated_at) row.updatedAt = c.updated_at;
       byCloudId.set(c.id, row);
       if (wasUnlinked && row.slug) bySlugUnlinked.delete(row.slug);
@@ -241,6 +245,7 @@ export function mergeCloudRows(cloudRows) {
         createdAt: c.created_at || new Date().toISOString(),
         updatedAt: c.updated_at || new Date().toISOString(),
         trashedAt: c.trashed_at ?? null,
+        deletedAt: c.deleted_at ?? null,
       };
       result.push(row);
       byCloudId.set(c.id, row);
@@ -355,15 +360,17 @@ export function trashProject(id) {
   return row;
 }
 
-/** Restore a trashed project. Optimistic cache write, then cloud PATCH. */
+/** Restore a trashed OR soft-deleted project. Optimistic cache write, then cloud PATCH. Clears BOTH
+ *  flags (the server accepts deleted_at only as null — the restore) so Restore always wins. */
 export function restoreProject(id) {
   const rows = readIndex();
   const row = rows.find((r) => r && r.id === id);
   if (!row) return null;
   row.trashedAt = null;
+  row.deletedAt = null;
   row.updatedAt = new Date().toISOString();
   writeIndex(rows);
-  if (row.cloudId) apiPatch(row.cloudId, { trashed_at: null }).then((c) => { if (c) reconcileCloudRow(id, c); });
+  if (row.cloudId) apiPatch(row.cloudId, { trashed_at: null, deleted_at: null }).then((c) => { if (c) reconcileCloudRow(id, c); });
   return row;
 }
 
@@ -377,6 +384,7 @@ function reconcileCloudRow(localId, cloudRow) {
     row.cloudId = cloudRow.id || row.cloudId;
     row.title = cloudRow.title != null ? cloudRow.title : row.title;
     row.trashedAt = cloudRow.trashed_at ?? row.trashedAt;
+    if ('deleted_at' in cloudRow) row.deletedAt = cloudRow.deleted_at ?? null;
     if (cloudRow.updated_at) row.updatedAt = cloudRow.updated_at;
     writeIndex(rows);
     emitChanged();
@@ -384,20 +392,22 @@ function reconcileCloudRow(localId, cloudRow) {
 }
 
 /**
- * Purge a trashed project for good: drop the index row AND its local doc keys + IndexedDB recovery DB,
- * AND — now — hard-delete the shared cloud row so the project is gone for ALL teammates, not just a local
- * tombstone. storageKeys/dbName are passed in by the caller (derived from configForProject) so this store
- * stays free of engine imports. Best-effort: a failed key/db delete never blocks removing the row.
- *
- * Cloud purge: fired in the BACKGROUND (fire-and-forget) via the DELETE route, which cascades the doc +
- * full revision history + presence. The cloudId is ALSO tombstoned so that even if the cloud DELETE is
- * unreachable right now, a background sync can't resurrect the row on THIS device — the local fallback
- * keeps this device consistent while the server-side removal catches up. The seeded burma/palau projects
- * are NEVER hard-deleted (guarded here AND server-side); they can still be trashed/hidden locally.
+ * "Delete forever" — DEFANGED. Nobody can hard-delete anymore (Johnny's order after the audit found
+ * any pool member could cascade away a project's entire revision history). This now means "remove
+ * from MY trash view": the index row is dropped and the cloudId tombstoned so a background sync
+ * can't resurrect it on THIS device — but NOTHING is destroyed:
+ *   • the cloud DELETE it fires is a SOFT delete server-side (stamps deleted_at/deleted_by; the doc
+ *     and its full append-only revision history survive and the row stays restorable from any
+ *     teammate's trash view — or by an admin clearing deleted_at)
+ *   • the local doc keys and the IndexedDB recovery DB are NO LONGER deleted. The storageKeys/dbName
+ *     args are still accepted (callers pass them) but deliberately IGNORED — for a never-synced
+ *     local_ project those bytes are the ONLY copy in existence, and even for a synced one they are
+ *     the offline recovery layer. Orphaned local data is a cheap price for un-losable scripts.
+ * The seeded burma/palau projects never even fire the (soft) cloud delete; they just hide locally.
  */
-export function purgeProject(id, { storageKeys = [], dbName = null } = {}) {
+export function purgeProject(id, { storageKeys = [], dbName = null } = {}) { // eslint-disable-line no-unused-vars
   const target = readIndex().find((r) => r && r.id === id);
-  // Fire the true multi-user cloud DELETE first (background) — but NEVER for a seeded/protected project.
+  // Fire the cloud SOFT delete first (background) — but NEVER for a seeded/protected project.
   if (target && target.cloudId && !PROTECTED_SLUGS.has(String(target.slug || '').toLowerCase())) {
     addPurged(target.cloudId); // tombstone so a sync can't resurrect it on THIS device regardless
     try { apiDelete(target.cloudId); } catch {}
@@ -407,12 +417,7 @@ export function purgeProject(id, { storageKeys = [], dbName = null } = {}) {
   }
   const rows = readIndex().filter((r) => !(r && r.id === id));
   writeIndex(rows);
-  for (const k of storageKeys) {
-    try { localStorage.removeItem(k); } catch {}
-  }
-  if (dbName) {
-    try { globalThis.indexedDB && globalThis.indexedDB.deleteDatabase(dbName); } catch {}
-  }
+  // Local doc keys + recovery DB intentionally left in place — see the doc comment above.
   return rows;
 }
 

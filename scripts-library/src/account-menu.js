@@ -1,13 +1,15 @@
 // Account menu — the avatar button in the library header. Opens a dropdown with:
 //   • the signed-in email
-//   • Add user (email → creates a Supabase account, default password 'newpress')
+//   • Add user (email → creates a Supabase account with a generated password)
 //   • Manage users (list + reset password + delete) — admin-only
 //   • Change my password
 //   • Sign out
 //
 // The "Add user" flow is the whole point of this feature: an admin
 // (johnny@newpress.com) types a colleague's email, we POST to /api/admin-users
-// { action:'create' }, the server makes the account with password 'newpress'.
+// { action:'create' }, the server makes the account with a per-user RANDOM
+// password and returns it exactly once (`generatedPassword`) — the admin copies
+// it out of the confirmation and hands it over. There is no shared default.
 // Non-admins still see Change password + Sign out; admin actions 403 gracefully.
 
 import { currentUser, signOut, updatePassword, listUsers, createUser, deleteUser, setUserPassword, authRequired } from './auth.js';
@@ -95,7 +97,7 @@ function openModal(title, bodyHtml) {
 // ── Add user ─────────────────────────────────────────────────────────────────
 function openAddUser() {
   const { body, close } = openModal('Add a user', `
-    <p class="sl-modal-note">Enter their email. We create the account with the default password <code>newpress</code> — they can change it after signing in.</p>
+    <p class="sl-modal-note">Enter their email. We create the account with a randomly generated password — it's shown once here so you can send it to them.</p>
     <input id="sl-add-email" class="sl-modal-input" type="email" placeholder="colleague@newpress.com" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button id="sl-add-submit" class="sl-gate-btn sl-gate-btn--primary" style="width:100%;margin-top:10px;">Create account</button>
     <p id="sl-add-msg" class="sl-modal-msg" hidden></p>
@@ -112,7 +114,11 @@ function openAddUser() {
     const res = await createUser(e);
     if (res.ok) {
       msg.hidden = false; msg.className = 'sl-modal-msg sl-modal-msg--success';
-      msg.innerHTML = `Created <strong>${esc(e)}</strong>. Default password: <code>newpress</code>. Tell them to change it after signing in.`;
+      // The generated password exists ONLY in this response — it's not stored
+      // anywhere we can re-read. Show it once and tell the admin to copy it.
+      msg.innerHTML = res.generatedPassword
+        ? `Created <strong>${esc(e)}</strong>. Their password: <code>${esc(res.generatedPassword)}</code> — copy it now, it won't be shown again. They can change it after signing in.`
+        : `Created <strong>${esc(e)}</strong> with the password you set.`;
       email.value = '';
     } else {
       msg.hidden = false; msg.className = 'sl-modal-msg sl-modal-msg--error';
@@ -153,8 +159,10 @@ async function openManageUsers() {
   body.querySelectorAll('.sl-user-row').forEach((row) => {
     row.querySelector('[data-act="reset"]')?.addEventListener('click', async () => {
       const id = row.dataset.id;
-      const r = await setUserPassword(id); // defaults to 'newpress'
-      alert(r.ok ? `Password reset to "newpress" for ${row.dataset.email}.` : (r.error || 'Reset failed.'));
+      const r = await setUserPassword(id); // server generates + returns it once
+      alert(r.ok
+        ? `New password for ${row.dataset.email}:\n\n${r.generatedPassword}\n\nCopy it now — it won't be shown again.`
+        : (r.error || 'Reset failed.'));
     });
     row.querySelector('[data-act="delete"]')?.addEventListener('click', async () => {
       if (!confirm(`Delete ${row.dataset.email}? This removes their account.`)) return;

@@ -1,7 +1,8 @@
 export const config = { runtime: 'edge' };
 
 import { pgrValue } from './_lib/pgrest.js';
-import { checkAccess } from './_lib/access.js';
+import { checkAccess, requestUserId } from './_lib/access.js';
+import { ACTIVE_LIST_FILTER, TRASH_LIST_FILTER, softDeleteFields } from './_lib/soft-delete.js';
 
 /**
  * Script Library — SHARED PROJECT LIST (Enterprise Wave 2, the #1 multi-user fix).
@@ -11,16 +12,20 @@ import { checkAccess } from './_lib/access.js';
  * project-store.js treats this endpoint as the source of truth and keeps localStorage as an OFFLINE
  * CACHE that merges against it (cloud wins for shared visibility; local-only unsynced rows still show).
  *
- *   GET  /api/script-projects            -> { projects: [ {id,slug,title,episode,config,updated_at,trashed_at} ] }
- *        ?trashed=1                       -> the TRASHED list instead of the active one
+ *   GET  /api/script-projects            -> { projects: [ {id,slug,title,episode,config,updated_at,trashed_at,deleted_at} ] }
+ *        ?trashed=1                       -> the TRASH list (trashed OR soft-deleted rows) instead of the active one
  *   POST /api/script-projects  { slug, title, episode?, config? }   (login-gated)
  *        -> { project }  the created row
- *   PATCH /api/script-projects?id=<uuid>  { title? , trashed_at? , config? }   (login-gated)
- *        -> { project }  the updated row  (rename / trash / restore / config-update)
- *   DELETE /api/script-projects?id=<uuid>   (login-gated)   HARD DELETE — gone for EVERYONE
- *        -> { ok:true, id }   also cascades script_docs / script_doc_revisions / script_presence (FK
- *        on delete cascade). REFUSED (403) for the seeded burma/palau projects — those are precious and
- *        may be trashed/hidden but NEVER hard-deleted through this path.
+ *   PATCH /api/script-projects?id=<uuid>  { title? , trashed_at? , deleted_at:null? , config? }   (login-gated)
+ *        -> { project }  the updated row  (rename / trash / restore / config-update). deleted_at is
+ *        accepted ONLY as null — the restore that clears a soft delete. Setting it goes through DELETE.
+ *   DELETE /api/script-projects?id=<uuid>   (login-gated)   SOFT DELETE — recoverable, for EVERYONE
+ *        -> { ok:true, id, deleted_at }   stamps deleted_at/deleted_by (and trashed_at if not already
+ *        set) via PATCH. NOBODY can hard-delete through this API anymore: the old REST DELETE (which
+ *        cascaded script_docs / script_doc_revisions / script_presence via FK) is REMOVED — revision
+ *        history is never destroyed, and a soft-deleted project is restorable from the trash list.
+ *        Still REFUSED (403) for the seeded burma/palau projects — those are precious and may be
+ *        trashed/hidden but never even soft-deleted through this path.
  *
  * READS are open to anyone past the site gate (same posture as api/script-doc.js GET). WRITES require a
  * signed-in session — logged-in teammates already send their Supabase JWT via the gate.js fetch
@@ -41,8 +46,8 @@ const CORS = {
   'Access-Control-Max-Age': '86400',
 };
 
-// Seeded, precious projects that may be trashed/hidden but NEVER hard-deleted through the DELETE route.
-// Guarded by SLUG (stable across rename) so Burma's once-lost live doc can't be purged for everyone.
+// Seeded, precious projects that may be trashed/hidden but NEVER deleted (even softly) through the
+// DELETE route. Guarded by SLUG (stable across rename) so Burma's once-lost live doc can't be purged.
 const PROTECTED_SLUGS = new Set(['burma', 'palau', 'palau2']);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,8 +58,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RESERVED_SLUGS = new Set(['library', 'trash', 'new', 'home']);
 
-// Columns the client needs — never SELECT * (keeps created_by out of the wire and the shape stable).
-const SELECT_COLS = 'id,slug,title,episode,config,created_at,updated_at,trashed_at';
+// Columns the client needs — never SELECT * (keeps created_by/deleted_by out of the wire and the
+// shape stable). deleted_at rides along so the trash UI can tell "trashed" from "deleted" if it wants.
+const SELECT_COLS = 'id,slug,title,episode,config,created_at,updated_at,trashed_at,deleted_at';
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -95,7 +101,9 @@ export default async function handler(req) {
       if (denied) return withCors(denied);
       const id = url.searchParams.get('id') || '';
       if (!UUID_RE.test(id)) return err(400, 'BAD_ID', 'id (uuid) query param required');
-      return await deleteProject(id);
+      // WHO is deleting — attribution only (stamps deleted_by); checkAccess above remains the gate.
+      const userId = await requestUserId(req);
+      return await deleteProject(id, userId);
     }
 
     return err(405, 'METHOD', `Method ${req.method} not allowed`);
@@ -107,7 +115,9 @@ export default async function handler(req) {
 /* -------------------------------------------------------------------- list */
 
 async function listProjects(trashed) {
-  const filter = trashed ? 'trashed_at=not.is.null' : 'trashed_at=is.null';
+  // ACTIVE = not trashed AND not soft-deleted. TRASH = trashed OR soft-deleted — deleted rows
+  // surface in the trash list so the existing client trash UI can show + Restore them.
+  const filter = trashed ? TRASH_LIST_FILTER : ACTIVE_LIST_FILTER;
   const r = await sb(`/rest/v1/script_projects?${filter}&select=${SELECT_COLS}&order=updated_at.desc`);
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json().catch(() => []);
@@ -159,27 +169,34 @@ async function patchProject(id, fields) {
 
 /* ------------------------------------------------------------------ delete */
 
-// HARD DELETE — removes the project row for EVERYONE (true multi-user purge). The FK on delete cascade
-// on script_docs / script_doc_revisions / script_presence means the doc, its full revision history, and
-// any presence rows go with it. We first read the row's slug to enforce the protected-slug guard: the
-// seeded burma/palau projects are precious (Burma's once-lost live doc) and must never be purgeable this
-// way. An unknown id 404s (idempotent-ish: nothing to delete). NEVER deletes a protected project.
-async function deleteProject(id) {
+// SOFT DELETE — the DELETE verb no longer destroys anything. It stamps deleted_at/deleted_by (and
+// trashed_at if the row wasn't already in the trash) via a PATCH, so the project drops out of the
+// active list, shows in the trash list, and is ALWAYS restorable (PATCH deleted_at:null). The old
+// REST DELETE — whose FK cascade took script_docs + the full append-only script_doc_revisions
+// history + presence with it — is deliberately GONE: the audit showed any pool member could erase a
+// project's entire history forever, and the standing order is that nobody can. Revisions are never
+// deleted through any path in this endpoint. Protected (seeded) slugs still 403 exactly as before.
+async function deleteProject(id, userId = null) {
   // Read the target's slug first — the guard is by slug (stable across rename), not by id.
-  const look = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}&select=id,slug&limit=1`);
+  // trashed_at rides along so an already-trashed row keeps its original trash timestamp.
+  const look = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}&select=id,slug,trashed_at&limit=1`);
   if (!look.ok) return err(502, 'DB_READ', await look.text());
   const rows = await look.json().catch(() => []);
   if (!rows.length) return err(404, 'NO_PROJECT', 'unknown project id');
   const slug = rows[0].slug || '';
   if (isProtectedSlug(slug)) {
-    return err(403, 'PROTECTED', `"${slug}" is a seeded project and cannot be hard-deleted (trash it instead)`);
+    return err(403, 'PROTECTED', `"${slug}" is a seeded project and cannot be deleted (trash it instead)`);
   }
-  const del = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}`, {
-    method: 'DELETE',
-    headers: { Prefer: 'return=minimal' },
+  const fields = softDeleteFields(userId, new Date().toISOString(), rows[0].trashed_at || null);
+  const upd = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify(fields),
   });
-  if (!del.ok) return err(502, 'DB_WRITE', await del.text());
-  return ok({ ok: true, id });
+  if (!upd.ok) return err(502, 'DB_WRITE', await upd.text());
+  const updated = await upd.json().catch(() => []);
+  if (!updated.length) return err(404, 'NO_PROJECT', 'unknown project id');
+  return ok({ ok: true, id, deleted_at: fields.deleted_at });
 }
 
 /* ---------------------------------------------------------------- helpers */
@@ -201,6 +218,7 @@ function projectView(row) {
     created_at: row.created_at ?? null,
     updated_at: row.updated_at ?? null,
     trashed_at: row.trashed_at ?? null,
+    deleted_at: row.deleted_at ?? null,
   };
 }
 
@@ -234,8 +252,10 @@ export function validateCreateBody(body) {
   return { ok: true, slug, title, episode, config: cfg };
 }
 
-// PURE — whitelists a PATCH body to exactly {title, trashed_at, config}. Exported for tests. At least one
-// mutable field must be present. trashed_at accepts an ISO string (trash) or null (restore).
+// PURE — whitelists a PATCH body to exactly {title, trashed_at, deleted_at:null, config}. Exported for
+// tests. At least one mutable field must be present. trashed_at accepts an ISO string (trash) or null
+// (restore). deleted_at is RESTORE-ONLY: null clears a soft delete (and its deleted_by attribution);
+// any truthy value is refused — deleting goes through the DELETE verb so deleted_by gets stamped.
 export function buildPatch(body) {
   if (body == null || typeof body !== 'object') {
     return { ok: false, code: 'BAD_BODY', message: 'body (object) required' };
@@ -253,6 +273,13 @@ export function buildPatch(body) {
     else if (typeof t === 'string' && t.trim()) fields.trashed_at = t; // trash (ISO)
     else return { ok: false, code: 'BAD_TRASHED', message: 'trashed_at must be an ISO string or null' };
   }
+  if ('deleted_at' in body) {
+    if (body.deleted_at !== null) {
+      return { ok: false, code: 'BAD_DELETED', message: 'deleted_at can only be cleared (null) — use DELETE to soft-delete' };
+    }
+    fields.deleted_at = null;   // restore out of soft-delete…
+    fields.deleted_by = null;   // …and drop the stale attribution with it
+  }
   if ('config' in body) {
     if (body.config == null || typeof body.config !== 'object' || Array.isArray(body.config)) {
       return { ok: false, code: 'BAD_CONFIG', message: 'config must be an object' };
@@ -260,7 +287,7 @@ export function buildPatch(body) {
     fields.config = body.config;
   }
   if (Object.keys(fields).length === 0) {
-    return { ok: false, code: 'NO_FIELDS', message: 'patch must set title, trashed_at, or config' };
+    return { ok: false, code: 'NO_FIELDS', message: 'patch must set title, trashed_at, deleted_at (null), or config' };
   }
   return { ok: true, fields };
 }

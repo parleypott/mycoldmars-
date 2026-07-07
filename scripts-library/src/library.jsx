@@ -126,7 +126,10 @@ function LibraryApp() {
 
   const onPurge = useCallback((row) => {
     const fresh = findById(row.id) || row;
-    const ok = window.confirm(`Delete "${fresh.title}" forever? This clears its saved doc and recovery history.`);
+    // SOFT-DELETE ERA (2026-07-07): nothing is ever destroyed anymore — the server refuses
+    // hard deletes, the doc + full revision history stay in the cloud, and an admin can
+    // always restore. This only hides the card from this device's trash view.
+    const ok = window.confirm(`Remove "${fresh.title}" from your trash view? The script and its full history stay safe in the cloud and can always be restored.`);
     if (!ok) return;
     let storageKeys = [];
     let dbName = null;
@@ -227,7 +230,7 @@ function LibraryApp() {
                   {isTrash ? (
                     <>
                       <button class="sl-act" onClick={() => onRestore(row)}>Restore</button>
-                      <button class="sl-act sl-act-danger" onClick={() => onPurge(row)}>Delete forever</button>
+                      <button class="sl-act" title="Hides this card from your trash — the script and its history stay in the cloud, restorable anytime" onClick={() => onPurge(row)}>Remove from my trash</button>
                     </>
                   ) : (
                     <>

@@ -79,7 +79,6 @@ function buildGateDom() {
       <button id="sl-gate-submit" class="sl-gate-btn sl-gate-btn--primary">Sign in</button>
       <p id="sl-gate-error" class="sl-gate-msg sl-gate-msg--error" hidden role="alert"></p>
       <p id="sl-gate-success" class="sl-gate-msg sl-gate-msg--success" hidden role="status"></p>
-      <p class="sl-gate-note">New users default to password <code>newpress</code>. Change it from your account menu after signing in.</p>
       <details class="sl-gate-fallback">
         <summary>Forgot password? Use a magic link</summary>
         <input id="sl-gate-magic" class="sl-gate-input" type="email" placeholder="Email for magic link" aria-label="Email for magic link">

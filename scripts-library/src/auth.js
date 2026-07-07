@@ -52,9 +52,23 @@ export async function sendMagicLink(email) {
   try {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+      options: {
+        emailRedirectTo: window.location.origin + window.location.pathname,
+        // HARD RULE: the magic link is a recovery path for EXISTING accounts
+        // only. Without this flag, typing any email into the forgot-password
+        // box would silently mint a brand-new account in the shared pool —
+        // an open signup door. Accounts are created by admins, full stop.
+        shouldCreateUser: false,
+      },
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      // Supabase phrases the shouldCreateUser rejection as a signup error
+      // ("Signups not allowed for otp") — translate to what it means here.
+      const msg = /signup/i.test(error.message)
+        ? 'No account exists for that email. Ask an admin to add you.'
+        : error.message;
+      return { ok: false, error: msg };
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err?.message || String(err) };
@@ -131,8 +145,10 @@ export function authRequired() { return !!supabase; }
 
 // ── Admin: user management (calls /api/admin-users — the SAME endpoint the
 // Interpreter uses). The caller's JWT is injected by the gate.js fetch
-// interceptor, and the server checks it against ADMIN_EMAILS. Default password
-// for new users is 'newpress' (server-side). ────────────────────────────────
+// interceptor, and the server checks it against ADMIN_EMAILS. When no password
+// is supplied the server GENERATES a per-user random one and returns it ONCE
+// (`generatedPassword`) so the admin can hand it over — there is no shared
+// default password anymore. ─────────────────────────────────────────────────
 
 async function adminCall(action, extra = {}) {
   const res = await fetch('/api/admin-users', {
@@ -148,7 +164,8 @@ async function adminCall(action, extra = {}) {
 /** List all users in the workspace. Admin-only server-side. */
 export function listUsers() { return adminCall('list'); }
 
-/** Create a user by email. Password defaults to 'newpress' server-side. */
+/** Create a user by email. Omit password → server generates a random one and
+ *  returns it once as `generatedPassword` in the response. */
 export function createUser(email, password) {
   return adminCall('create', { email, ...(password ? { password } : {}) });
 }
@@ -156,7 +173,8 @@ export function createUser(email, password) {
 /** Delete a user by id. */
 export function deleteUser(userId) { return adminCall('delete', { userId }); }
 
-/** Reset a user's password (defaults to 'newpress' server-side). */
+/** Reset a user's password. Omit password → server generates a random one and
+ *  returns it once as `generatedPassword` in the response. */
 export function setUserPassword(userId, password) {
   return adminCall('set_password', { userId, ...(password ? { password } : {}) });
 }

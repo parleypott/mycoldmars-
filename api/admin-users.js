@@ -2,12 +2,16 @@
 //
 // One endpoint, four actions, all gated to ADMIN_EMAILS callers:
 //   POST { action: 'list' }                          → { users: [...] }
-//   POST { action: 'create', email, password? }      → { user: {...} }
+//   POST { action: 'create', email, password? }      → { user, generatedPassword? }
 //   POST { action: 'delete', userId }                → { ok: true }
-//   POST { action: 'set_password', userId, password }→ { ok: true }
+//   POST { action: 'set_password', userId, password? }→ { ok: true, generatedPassword? }
 //
-// Default password for new users: 'newpress'. The recipient is told (in
-// the admin console UI) to change it via the avatar menu after sign-in.
+// Passwords: there is NO shared default anymore (the old fixed default was
+// printed on the public login page — a skeleton key for every account that
+// never rotated it). When create/set_password get no explicit password,
+// the server generates a per-user random one and returns it ONCE as
+// `generatedPassword` so the admin can hand it over. It is never stored or
+// echoed again.
 //
 // Auth model:
 //   • Authorization: Bearer <jwt> required (the caller's Supabase session).
@@ -20,10 +24,9 @@
 import { checkAccess } from './_lib/access.js';
 import { parseAdminEmails, isAdminEmail, isLoopbackHost } from './_lib/admin-auth.js';
 import { readJsonBody } from './_lib/read-json-body.js';
+import { generatePassword } from './_lib/generate-password.js';
 
 export const config = { runtime: 'edge' };
-
-const DEFAULT_PASSWORD = 'newpress';
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -82,10 +85,14 @@ export default async function handler(req) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
   if (!supaUrl || !serviceKey) return json({ error: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY).' }, 500);
 
-  // ── Bootstrap: idempotent seed of ADMIN_EMAILS users with default password.
-  // No JWT required — chicken-and-egg: there's no admin yet to auth as. Safe
-  // because it only ever creates emails that the server itself listed in
-  // ADMIN_EMAILS, and only if they don't already exist.
+  // ── Bootstrap: idempotent seed of ADMIN_EMAILS users. No JWT required —
+  // chicken-and-egg: there's no admin yet to auth as. Safe because it only
+  // ever creates emails that the server itself listed in ADMIN_EMAILS, and
+  // only if they don't already exist. Seeded accounts get an UNDISCLOSED
+  // random password (this endpoint is anonymous, so returning one would hand
+  // it to whoever probed first) — the admin's first sign-in is the magic
+  // link, which works for existing accounts, then they set a password from
+  // the account menu.
   if (action === 'bootstrap') {
     const adminEmails = parseAdminEmails(process.env.ADMIN_EMAILS);
     if (!adminEmails.length) {
@@ -102,19 +109,17 @@ export default async function handler(req) {
       if (existingEmails.has(email)) { skipped.push(email); continue; }
       const r = await adminFetch(supaUrl, serviceKey, '/auth/v1/admin/users', {
         method: 'POST',
-        body: JSON.stringify({ email, password: DEFAULT_PASSWORD, email_confirm: true }),
+        body: JSON.stringify({ email, password: generatePassword(), email_confirm: true }),
       });
       const out = await r.json().catch(() => ({}));
       if (r.ok) created.push({ email, id: out?.id });
       else failed.push({ email, error: out?.msg || out?.error_description || `HTTP ${r.status}` });
     }
-    // Response intentionally leaks NOTHING about admin emails or the
-    // default password. The bootstrap endpoint is anonymous-by-design
-    // (chicken-and-egg) — if it echoed the admin list back, anyone
-    // probing the open internet would learn (a) who the admins are
-    // and (b) that the seed password is 'newpress', then trivially
-    // sign in as admin before the real owner had a chance to rotate.
-    // Client only needs counts for the toast.
+    // Response intentionally leaks NOTHING about admin emails or seeded
+    // passwords. The bootstrap endpoint is anonymous-by-design
+    // (chicken-and-egg) — if it echoed the admin list or a credential back,
+    // anyone probing the open internet could sign in as admin before the
+    // real owner had a chance. Client only needs counts for the toast.
     return json({
       ok: true,
       createdCount: created.length,
@@ -153,7 +158,11 @@ export default async function handler(req) {
 
   if (action === 'create') {
     const email = (body.email || '').trim().toLowerCase();
-    const password = body.password || DEFAULT_PASSWORD;
+    // No password supplied → generate a per-user random one. `generated`
+    // gates whether we return it: an admin-chosen password is theirs to
+    // remember, a generated one is shown exactly once here.
+    const generated = !body.password;
+    const password = generated ? generatePassword() : body.password;
     if (!email || !email.includes('@')) return json({ error: 'Provide a valid email.' }, 400);
     if (password.length < 4) return json({ error: 'Password must be at least 4 characters.' }, 400);
     const r = await adminFetch(supaUrl, serviceKey, '/auth/v1/admin/users', {
@@ -169,7 +178,7 @@ export default async function handler(req) {
     return json({
       ok: true,
       user: { id: out?.id, email: out?.email },
-      defaultPassword: password === DEFAULT_PASSWORD ? DEFAULT_PASSWORD : null,
+      generatedPassword: generated ? password : null,
     });
   }
 
@@ -187,7 +196,9 @@ export default async function handler(req) {
 
   if (action === 'set_password') {
     const userId = body.userId;
-    const password = body.password || DEFAULT_PASSWORD;
+    // Same contract as create: no password → generate one and return it once.
+    const generated = !body.password;
+    const password = generated ? generatePassword() : body.password;
     if (!userId) return json({ error: 'userId required' }, 400);
     if (password.length < 4) return json({ error: 'Password must be at least 4 characters.' }, 400);
     const r = await adminFetch(supaUrl, serviceKey, `/auth/v1/admin/users/${userId}`, {
@@ -196,7 +207,7 @@ export default async function handler(req) {
     });
     const out = await r.json().catch(() => ({}));
     if (!r.ok) return json({ error: out?.msg || `HTTP ${r.status}` }, 502);
-    return json({ ok: true });
+    return json({ ok: true, generatedPassword: generated ? password : null });
   }
 
   return json({ error: `Unknown action: ${action}` }, 400);
