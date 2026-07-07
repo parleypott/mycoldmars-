@@ -1570,9 +1570,42 @@ function fullOldMd(md) {
   ok(!/href="javascript:/.test(mdToHtml('javascript:alert(1) https://ok.com')),
      'SECURITY: bare-URL pass only linkifies http(s), never a javascript: scheme');
 
-  // NO-REGRESSION: prose with no scheme (a bare domain / www.) is left as text.
-  ok(!/<a /.test(mdToHtml('visit example.com or www.example.com')),
-     'NO-REGRESSION: bare www./domain (no scheme) is deliberately NOT linkified');
+  // GFM EXTENDED www AUTOLINK: a bare `www.host.tld` gets an `http://` scheme
+  // PREPENDED for the href while the visible text stays the bare `www.` string.
+  // Deep-research reports cite plenty of sources as `www.nytimes.com/…`.
+  const www = mdToHtml('source: www.nytimes.com/2026/story for details.');
+  ok(/<a href="http:\/\/www\.nytimes\.com\/2026\/story" target="_blank" rel="noopener">www\.nytimes\.com\/2026\/story<\/a>/
+     .test(www), 'FIX: a bare www. URL becomes a clickable <a> (http:// prepended, www text kept)');
+  // MUTATION: without the www alternative this stays literal text (no <a>).
+  ok(/<a /.test(www), 'MUTATION: www. URL is linkified (no <a> means the www branch was reverted)');
+  // GFM trailing punctuation is peeled off the www link too.
+  eq(mdToHtml('see www.example.com.'),
+     '<p>see <a href="http://www.example.com" target="_blank" rel="noopener">www.example.com</a>.</p>',
+     'FIX: a trailing sentence period is peeled off a www. URL and kept as text');
+  // Unbalanced wrapping ) peeled; balanced ) inside the URL kept — same as http(s).
+  eq(mdToHtml('(www.example.com)'),
+     '<p>(<a href="http://www.example.com" target="_blank" rel="noopener">www.example.com</a>)</p>',
+     'FIX: an unbalanced wrapping ) is peeled off a www. URL');
+  // SECURITY: the www branch only ever prepends http:// — a javascript: scheme
+  // sitting next to a www. URL is never linkified.
+  ok(!/href="javascript:/.test(mdToHtml('javascript:alert(1) www.ok.com')),
+     'SECURITY: www. pass never produces a javascript: href');
+
+  // NO-REGRESSION: a bare schemeless domain WITHOUT the www. prefix stays literal
+  // (genuinely ambiguous — "example.com", "e.g.", "vs." — GFM leaves it alone too).
+  ok(!/<a /.test(mdToHtml('visit example.com please')),
+     'NO-REGRESSION: bare domain without www. (no scheme) is deliberately NOT linkified');
+  // NO-REGRESSION: `www.` with a single label (no TLD dot after the host) is NOT
+  // a valid extended autolink — requires at least two dot-separated labels.
+  ok(!/<a /.test(mdToHtml('go to www.localhost here')),
+     'NO-REGRESSION: www. with a single label (no TLD) is not linkified');
+  // NO-REGRESSION: a www. inside an EXISTING inline link is not double-wrapped —
+  // the anchor alternative consumes the whole <a>…</a> before the www branch sees it.
+  eq((mdToHtml('[NYT](https://www.nytimes.com/x)').match(/<a /g) || []).length, 1,
+     'NO-REGRESSION: a www. inside an existing link href is not re-matched');
+  // NO-REGRESSION: a www. inside a code span stays literal (code stashed early).
+  ok(!/<a /.test(mdToHtml('`www.example.com`')),
+     'NO-REGRESSION: a www. inside a code span is not linkified');
 
   // NO-REGRESSION: a URL inside a code span stays literal (code is stashed early).
   ok(!/<a /.test(mdToHtml('`https://example.com`')),

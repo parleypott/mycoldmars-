@@ -657,8 +657,15 @@ export function mdToHtml(md) {
   // therefore only ever fires on genuinely bare URL text. safeHref still gates the
   // scheme (defence-in-depth; only http(s) reaches here anyway) and quote-escapes
   // the href; the whole string was esc()'d up front so the link TEXT carries no live
-  // `< > &`. Scoped to explicit `http(s)://` only — bare `www.`/email autolinks are
-  // deliberately excluded (ambiguous, and LLM reports emit full-scheme URLs). GFM
+  // `< > &`. Also linkifies GFM extended `www.` autolinks (third alternative): a
+  // bare `www.host.tld…` gets an `http://` scheme PREPENDED for the href while the
+  // link TEXT stays the bare `www.` string, exactly per GFM. Deep-research reports
+  // cite plenty of sources as `www.nytimes.com/…` with no scheme; before this they
+  // rendered as dead plain text. Conservatively scoped: the `www.` must be followed
+  // by at least TWO dot-separated labels (host + TLD, e.g. `www.a.com`), so a bare
+  // schemeless domain WITHOUT the `www.` prefix (`example.com`, `vs.`, `e.g.`) is
+  // still left literal — that form IS genuinely ambiguous and GFM leaves it alone
+  // too. safeHref gates the prepended scheme just like the http(s) branch. GFM
   // trailing-punctuation handling: a run of sentence punctuation (. , ; : ! ? ' "),
   // an UNBALANCED closing `)`, or a trailing escaped entity (`&gt;`/`&quot;`/… — a
   // `>` or closing quote that followed the URL in prose) is peeled off the match and
@@ -669,9 +676,10 @@ export function mdToHtml(md) {
   // or `~~` in the URL is already past its transform); the new anchor is emitted live
   // and, like the inline links above, sails through the blockquote/paragraph passes
   // (which only touch leading markers and newlines, never a URL's interior).
-  html = html.replace(/(<a [^>]*>[\s\S]*?<\/a>)|(https?:\/\/[^\s<]+)/g, (m, anchor, bare) => {
+  html = html.replace(/(<a [^>]*>[\s\S]*?<\/a>)|(https?:\/\/[^\s<]+)|(www\.[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+[^\s<]*)/g, (m, anchor, bare, wwwUrl) => {
     if (anchor) return anchor;
-    let url = bare;
+    const isWww = !bare && !!wwwUrl;
+    let url = bare || wwwUrl;
     for (;;) {
       const last = url[url.length - 1];
       if (last && '.,;:!?\'"'.includes(last)) { url = url.slice(0, -1); continue; }
@@ -684,7 +692,7 @@ export function mdToHtml(md) {
       break;
     }
     if (!url) return m;
-    const href = safeHref(url);
+    const href = safeHref(isWww ? 'http://' + url : url);
     return href
       ? `<a href="${href}" target="_blank" rel="noopener">${url}</a>` + m.slice(url.length)
       : m;
