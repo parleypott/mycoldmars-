@@ -6,9 +6,12 @@
  * pieces + the REAL production plugin mounted on a bare headless EditorState.
  *
  * Proves:
- *   1. pickImageFiles — only png/jpeg/webp pass; HEIC (macOS Photos) and non-images are
+ *   1. pickImageFiles — png/jpeg/webp/gif pass; HEIC (macOS Photos) and non-images are
  *      rejected client-side (the server would coerce HEIC's Content-Type without
- *      transcoding → a permanently broken render in every doc revision).
+ *      transcoding → a permanently broken render in every doc revision). gif was allow-listed
+ *      2026-07-07 for animated reference GIFs — locked here so a mime-set edit can't kill it.
+ *   1b. pickUploadRoute — the size boundary that routes a big GIF to the signed-URL road
+ *      (browser→Supabase PUT) instead of the base64 edge fn (which 413s on 20MB bodies).
  *   2. SHOWN-CELL DROP — resolveDropPos refines a raw coordinate pos to a legal point
  *      INSIDE a cols:2 row's shown cell; the inserted image passes PMNode.check() against
  *      the mirror schema, round-trips fromJSON→toJSON byte-exact, and docToBlocks exports
@@ -37,6 +40,7 @@ import {
   pickImageFiles, mintImageBlockId, altFromFilename, isSafeImageSrc,
   resolveDropPos, addPlaceholderTr, removePlaceholderTr, findPlaceholderPos,
   insertImageTr, buildImageDropPlugin, SUPPORTED_IMAGE_MIMES,
+  pickUploadRoute, SIGNED_ROUTE_MIN_BYTES,
 } from './image-drop.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
@@ -135,20 +139,44 @@ function imageParentRole(doc) {
 const CDN_URL = 'https://fake-project.supabase.co/storage/v1/object/public/script-images/scripts/burma/image_abc1234-zz9.png';
 
 // ── 1: pickImageFiles — supported-mime filter (HEIC + non-images rejected) ────────────────
-ok('pickImageFiles keeps png/jpeg/webp, rejects HEIC and non-images', () => {
+ok('pickImageFiles keeps png/jpeg/webp/gif, rejects HEIC and non-images', () => {
   const f = (name, type) => ({ name, type });
   const files = [
     f('frame.png', 'image/png'), f('still.jpg', 'image/jpeg'), f('grade.webp', 'image/webp'),
+    f('loop.gif', 'image/gif'),
     f('photo.heic', 'image/heic'), f('notes.pdf', 'application/pdf'), f('cut.mov', 'video/quicktime'),
     f('mystery', ''),
   ];
   const { images, rejected } = pickImageFiles(files);
-  assert.deepEqual(images.map((x) => x.name), ['frame.png', 'still.jpg', 'grade.webp']);
+  // gif rides along — the animated-reference feature the signed-upload road exists for.
+  assert.deepEqual(images.map((x) => x.name), ['frame.png', 'still.jpg', 'grade.webp', 'loop.gif']);
   assert.deepEqual(rejected.map((x) => x.name), ['photo.heic', 'notes.pdf', 'cut.mov', 'mystery']);
+  // LOAD-BEARING: drop image/gif from the mime set and the big-GIF feature dies silently.
+  assert.ok(SUPPORTED_IMAGE_MIMES.has('image/gif'));
   // image/jpg (the non-canonical spelling browsers sometimes report) is accepted too —
   // the server normalizes it to image/jpeg.
   assert.ok(SUPPORTED_IMAGE_MIMES.has('image/jpg'));
   assert.deepEqual(pickImageFiles(null), { images: [], rejected: [] });
+});
+
+// ── 1b: pickUploadRoute — the size boundary that big-GIF drag-drop rests on ───────────────
+ok('pickUploadRoute sends >6MB to the signed road, ≤6MB to base64', () => {
+  const MB = 1024 * 1024;
+  assert.equal(SIGNED_ROUTE_MIN_BYTES, 6 * MB, 'threshold constant unchanged');
+  // Small stills stay on the proven base64 edge route.
+  assert.equal(pickUploadRoute(0), 'base64');
+  assert.equal(pickUploadRoute(200 * 1024), 'base64');
+  assert.equal(pickUploadRoute(5 * MB), 'base64');
+  // BOUNDARY: exactly 6MB is NOT "strictly larger" → still base64 (the comparator is `>`,
+  // matching the base64 route's 8MB decoded ceiling with headroom). Flip `>`→`>=` and this
+  // one goes RED.
+  assert.equal(pickUploadRoute(6 * MB), 'base64');
+  // One byte over → signed road. Flip `>`→`<` and this goes RED.
+  assert.equal(pickUploadRoute(6 * MB + 1), 'signed');
+  // A real 20MB animated GIF — the whole reason the signed endpoint exists — MUST go signed.
+  assert.equal(pickUploadRoute(20 * MB), 'signed');
+  // Non-numeric junk coerces via Number(): NaN > x is false → base64 (safe default).
+  assert.equal(pickUploadRoute(undefined), 'base64');
 });
 
 ok('altFromFilename strips the extension; mintImageBlockId mints the image_ shape', () => {

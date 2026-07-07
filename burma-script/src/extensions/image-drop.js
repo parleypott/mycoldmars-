@@ -79,6 +79,15 @@ export const SIGNED_ROUTE_MIN_BYTES = 6 * 1024 * 1024;
 // bucket in ~4s, verified 2026-07-07. Storage is the cheap part; a silent size wall is not.
 export const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 
+// Pure route decision. Files AT/UNDER SIGNED_ROUTE_MIN_BYTES ride the base64 edge route
+// (the proven small-file path); anything strictly larger mints a signed URL and PUTs the
+// raw bytes browser→Supabase, dodging the edge fn's body ceiling. Exported so the boundary
+// is a locked contract — the whole big-GIF feature rests on a 20MB file taking the signed
+// road; a silent flip of this comparator would send it back through the edge fn and 413.
+export function pickUploadRoute(sizeBytes) {
+  return Number(sizeBytes) > SIGNED_ROUTE_MIN_BYTES ? 'signed' : 'base64';
+}
+
 // Pure: split a FileList/array into supported images vs everything else.
 export function pickImageFiles(files) {
   const images = [];
@@ -243,7 +252,7 @@ async function uploadAndInsert(view, file, id) {
   let url = null;
   let detail = '';
   try {
-    const road = file.size > SIGNED_ROUTE_MIN_BYTES ? uploadViaSignedUrl : uploadViaBase64;
+    const road = pickUploadRoute(file.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
     const out = await road(file, id);
     if (out.url) url = out.url;
     else detail = out.error || '';
