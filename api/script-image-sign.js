@@ -10,9 +10,10 @@
 // same public-URL-only-in-the-doc law as the base64 route.
 //
 // SECURITY POSTURE — same as script-image-upload: checkAccess gate (signed-in JWT via the
-// library's fetch interceptor), imageStorageMeta coerces the Content-Type/extension to the
-// raster allow-list (the signed token pins the exact path we mint here — a client can't
-// redirect it), 25MB declared-size ceiling. The token is single-use and expires in ~2h
+// library's fetch interceptor), mediaStorageMeta coerces the Content-Type/extension to the
+// raster allow-list PLUS video/mp4 (local wrapper below — the gif→mp4 transcode's output;
+// the shared QSS imageStorageMeta map stays image-only). The signed token pins the exact
+// path we mint here — a client can't redirect it. The token is single-use and expires in ~2h
 // (Supabase default). The declared size is advisory (Supabase enforces any bucket-level
 // cap); the gate + tight mime coercion carry the real weight, as they do next door.
 //
@@ -35,6 +36,21 @@ const BUCKET = 'script-images';
 // bucket in ~4s (verified 2026-07-07). Still a ceiling so a mis-dropped screen recording gets
 // a clean 413 with the limit named, not a mystery storage failure.
 export const MAX_SIGNED_BYTES = 100 * 1024 * 1024;
+
+// MP4 ALLOWANCE — LOCAL to this endpoint, deliberately NOT in the shared image-storage
+// ALLOWED map. The script tool transcodes big animated GIFs to looping mp4s in the
+// browser (gif-transcode.js) and this signed road is the ONLY one that may store them.
+// imageStorageMeta is shared with the QSS upload endpoints (qss-image-upload, qss-cast,
+// qss-scene-illustrate, qss-explorer) — widening THAT map would silently open every QSS
+// bucket to video. video/mp4 is a pure media type the browser plays in a <video>, never
+// renders as a document, so the stored-content-type-injection concern the shared
+// allowlist guards is untouched. Everything else defers to imageStorageMeta unchanged.
+// Exported so the QSS-map-stays-image-only contract is a locked test.
+export function mediaStorageMeta(rawMime) {
+  const mime = String(rawMime ?? '').trim().toLowerCase();
+  if (mime === 'video/mp4') return { mime: 'video/mp4', ext: 'mp4' };
+  return imageStorageMeta(rawMime);
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -69,7 +85,7 @@ export default async function handler(req) {
     return j(413, { error: 'image_too_large', maxBytes: MAX_SIGNED_BYTES });
   }
 
-  const { mime, ext } = imageStorageMeta(body.mimeType);
+  const { mime, ext } = mediaStorageMeta(body.mimeType);
   const path = buildImagePath(body.project, body.block_id, ext, Date.now().toString(36));
 
   let signed;

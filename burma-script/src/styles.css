@@ -1887,7 +1887,8 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
   max-width: 100%;
 }
 .wp-image .wp-image-img,
-.wp-image img {
+.wp-image img,
+.wp-image video {
   display: block;
   width: 100%;
   max-width: 640px;
@@ -1898,7 +1899,9 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
 }
 /* In a said|shown split the lane is already narrow — let the frame fill it. */
 .wp-trow[data-cols="2"] .wp-image img,
-.wp-trow[data-cols="3"] .wp-image img { max-width: 100%; }
+.wp-trow[data-cols="3"] .wp-image img,
+.wp-trow[data-cols="2"] .wp-image video,
+.wp-trow[data-cols="3"] .wp-image video { max-width: 100%; }
 .wp-image .wp-image-caption {
   margin: 5px 2px 0;
   font-family: var(--mono);
@@ -1961,8 +1964,10 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
   border-radius: 5px;
 }
 .wp-image .wp-image-cap-input[hidden] { display: none; }
-/* Selected (atom) image gets the same selection affordance as other nodes. */
-.wp-image.ProseMirror-selectednode img { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
+/* Selected (atom) image gets the same selection affordance as other nodes — a video
+   (the gif→mp4 optimization) is the same atom, same affordance. */
+.wp-image.ProseMirror-selectednode img,
+.wp-image.ProseMirror-selectednode video { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
 /* Upload placeholder (image-drop.js widget decoration) — a quiet mono pill holding the
    drop point while the bytes travel to Supabase. Decoration-only: never in the doc. */
 .wp-image-uploading {

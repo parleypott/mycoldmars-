@@ -997,6 +997,26 @@ export const BinBlock = Node.create({
 // buildEditorDocument never emits this node for them — registering the type only widens what the
 // schema ACCEPTS, it changes nothing about what existing docs contain or render.
 // kind: 'shot' = a reference frame pulled from footage; 'inspo' = mood/inspiration (gets a badge).
+//
+// VIDEO SRCS (gif→mp4 optimization, image-drop.js): a big dropped GIF is transcoded to a
+// looping mp4 before upload, so an imageBlock's src may end .mp4. Same node, same attrs,
+// same round-trip (src is just a string) — only the rendered element differs: a muted
+// autoplaying looping <video> is visually identical to the GIF it replaced.
+
+// Pure: does this src want a <video> element? Case-insensitive, query-string/hash
+// tolerant (a CDN URL may carry ?token=…). Exported so the img/video fork is a locked,
+// testable contract in BOTH renderHTML and the nodeview.
+export function isVideoSrc(src) {
+  const s = String(src || '').trim();
+  if (!s) return false;
+  return /\.mp4$/i.test(s.split(/[?#]/, 1)[0]);
+}
+
+// The <video> attribute set that makes an mp4 behave exactly like a GIF: autoplays
+// muted, loops forever, never fullscreens on iOS, and costs only its moov box until
+// it nears the viewport.
+const VIDEO_LOOP_ATTRS = { autoplay: '', loop: '', muted: '', playsinline: '', preload: 'metadata' };
+
 export const ImageBlock = Node.create({
   name: 'imageBlock',
   group: 'block',
@@ -1015,7 +1035,9 @@ export const ImageBlock = Node.create({
   renderHTML({ node }) {
     const a = node.attrs;
     const children = [
-      ['img', { src: a.src || '', alt: a.alt || '', loading: 'lazy' }],
+      isVideoSrc(a.src)
+        ? ['video', { src: a.src || '', class: 'wp-image-img', 'aria-label': a.alt || '', ...VIDEO_LOOP_ATTRS }]
+        : ['img', { src: a.src || '', alt: a.alt || '', loading: 'lazy' }],
     ];
     if (a.alt) children.push(['figcaption', { class: 'wp-image-caption' }, a.alt]);
     // NOT a .wp-cart: an image is a quiet figure (no spine, no counter, no flex-row chrome) —
@@ -1038,13 +1060,33 @@ export const ImageBlock = Node.create({
       // decoding:async keeps a heavyweight animated GIF's frame decode off the main thread's
       // scroll path; loading:lazy means a 20MB reference GIF below the fold costs nothing
       // until it approaches the viewport. The browser loops GIFs natively — no player chrome.
-      const img = el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
+      // An .mp4 src (the gif→mp4 optimization) renders as a muted autoplaying looping <video>
+      // instead — same silent-loop behavior, decoded on the media pipeline.
+      const makeMediaEl = (a) => {
+        if (isVideoSrc(a.src)) {
+          const v = el('video', 'wp-image-img', { ...VIDEO_LOOP_ATTRS });
+          // Attributes alone don't set the live properties on a script-created element,
+          // and Chrome's autoplay policy checks the muted PROPERTY — set both.
+          v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
+          return v;
+        }
+        return el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
+      };
+      let media = makeMediaEl(attrs);
       const paint = (a) => {
-        img.src = a.src || '';
-        img.alt = a.alt || '';
+        // The src can flip img↔video across updates (a collab peer replaces a gif with
+        // its optimized mp4) — swap the element in place; caption UI below is untouched.
+        if (isVideoSrc(a.src) !== (media.tagName === 'VIDEO')) {
+          const next = makeMediaEl(a);
+          media.replaceWith(next);
+          media = next;
+        }
+        media.src = a.src || '';
+        if (media.tagName === 'IMG') media.alt = a.alt || '';
+        else media.setAttribute('aria-label', a.alt || '');
         dom.setAttribute('data-kind', a.kind || 'shot');
       };
-      dom.appendChild(img);
+      dom.appendChild(media);
 
       // INSPO badge — only for kind:'inspo' (mood reference, not a real frame from footage).
       const badge = el('span', 'wp-image-badge', { contenteditable: 'false' });

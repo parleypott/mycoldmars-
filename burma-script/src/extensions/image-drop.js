@@ -88,6 +88,16 @@ export function pickUploadRoute(sizeBytes) {
   return Number(sizeBytes) > SIGNED_ROUTE_MIN_BYTES ? 'signed' : 'base64';
 }
 
+// Route decision for a TRANSCODED upload (gif→mp4). video/mp4 ALWAYS rides the signed
+// road regardless of size: only /api/script-image-sign speaks mp4 (its local
+// mediaStorageMeta wrapper) — the base64 edge fn's shared imageStorageMeta would coerce
+// video/mp4 → image/png, serving mp4 bytes with a png Content-Type (a permanently broken
+// render in every doc revision). Images route by size exactly as before.
+export function pickMediaUploadRoute(mime, sizeBytes) {
+  if (String(mime || '').toLowerCase() === 'video/mp4') return 'signed';
+  return pickUploadRoute(sizeBytes);
+}
+
 // Pure: split a FileList/array into supported images vs everything else.
 export function pickImageFiles(files) {
   const images = [];
@@ -176,11 +186,29 @@ export function insertImageTr(state, id, { src, alt = '', kind = 'shot' }) {
 
 // Widget DOM is built lazily (function form) so the plugin is fully headless-testable —
 // no document access until a real view renders the decoration.
-function placeholderDom() {
+//
+// PLACEHOLDER LABELS — the widget's text is looked up per drop id so a long-running
+// stage (the gif→mp4 transcode) can narrate itself in place. The map (not the DOM) is
+// the source of truth because a y-sync apply REBUILDS every widget from its anchor —
+// a label written only to the live element would silently revert on a teammate's
+// keystroke. setPlaceholderLabel updates both; uploadAndInsert clears the entry when
+// the drop resolves either way, so the map can't leak across drops.
+const placeholderLabels = new Map();
+const PLACEHOLDER_DEFAULT_LABEL = 'UPLOADING IMAGE…';
+function setPlaceholderLabel(view, id, text) {
+  if (text == null) placeholderLabels.delete(id);
+  else placeholderLabels.set(id, text);
+  try {
+    const live = view?.dom?.querySelectorAll?.(`.wp-image-uploading[data-drop-id="${id}"]`) || [];
+    for (const n of live) n.textContent = text ?? PLACEHOLDER_DEFAULT_LABEL;
+  } catch {}
+}
+function placeholderDom(id) {
   const el = document.createElement('span');
   el.className = 'wp-image-uploading';
   el.setAttribute('contenteditable', 'false');
-  el.textContent = 'UPLOADING IMAGE…';
+  el.setAttribute('data-drop-id', String(id || ''));
+  el.textContent = placeholderLabels.get(id) || PLACEHOLDER_DEFAULT_LABEL;
   return el;
 }
 
@@ -248,17 +276,44 @@ async function uploadViaSignedUrl(file, id) {
   return { url: out.publicUrl };
 }
 
+// GIF → MP4 AUTO-OPTIMIZATION. A big animated reference GIF (the real one: 78MB,
+// 1304×653, 12fps) is transcoded to a looping mp4 IN THE BROWSER before upload —
+// visually identical, ~10-20× smaller, decoded off the main thread. The transcoder
+// chunk (gif-transcode.js + mp4-muxer) is dynamic-import()ed only when this pre-gate
+// passes, so the core editor chunk never carries it. The cheap mime+size pre-gate here
+// mirrors (not replaces) the module's authoritative shouldTranscodeGif — which re-checks
+// mime+size AND the WebCodecs capability the transcode actually needs.
+// ANY failure returns the ORIGINAL file: the gif then uploads exactly as it does today.
+async function maybeTranscodeGif(view, file, id) {
+  if (String(file.type || '').toLowerCase() !== 'image/gif' || file.size <= 2 * 1024 * 1024) return file;
+  try {
+    const mod = await import('./gif-transcode.js');
+    if (!mod.shouldTranscodeGif(file)) return file;
+    setPlaceholderLabel(view, id, 'OPTIMIZING GIF…');
+    const mp4 = await mod.transcodeGifToMp4(file);
+    setPlaceholderLabel(view, id, 'UPLOADING VIDEO…');
+    return mp4;
+  } catch {
+    setPlaceholderLabel(view, id, PLACEHOLDER_DEFAULT_LABEL);
+    return file; // fall back to the plain-gif road — never block the drop on the optimizer
+  }
+}
+
 async function uploadAndInsert(view, file, id) {
   let url = null;
   let detail = '';
   try {
-    const road = pickUploadRoute(file.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
-    const out = await road(file, id);
+    // The transcoded mp4 (when it happens) replaces the gif for the WHOLE road below:
+    // route choice re-runs on the NEW mime+size, and the doc's src ends .mp4.
+    const upload = await maybeTranscodeGif(view, file, id);
+    const road = pickMediaUploadRoute(upload.type, upload.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
+    const out = await road(upload, id);
     if (out.url) url = out.url;
     else detail = out.error || '';
   } catch (e) {
     detail = e?.message || 'network error';
   }
+  setPlaceholderLabel(view, id, null); // drop resolved either way — never leak a label
   if (view.isDestroyed) return;
 
   if (!url) {
@@ -319,7 +374,7 @@ export function buildImageDropPlugin() {
           for (const [id, anchor] of anchors) {
             const abs = collabAnchors.toAbs(newState, anchor);
             if (abs == null) continue;
-            rebuilt = rebuilt.add(tr.doc, [Decoration.widget(abs, placeholderDom, { id })]);
+            rebuilt = rebuilt.add(tr.doc, [Decoration.widget(abs, () => placeholderDom(id), { id })]);
             survivors.set(id, anchor);
           }
           set = rebuilt;
@@ -341,7 +396,7 @@ export function buildImageDropPlugin() {
         }
         const meta = tr.getMeta(imageDropKey);
         if (meta?.add) {
-          const deco = Decoration.widget(meta.add.pos, placeholderDom, { id: meta.add.id });
+          const deco = Decoration.widget(meta.add.pos, () => placeholderDom(meta.add.id), { id: meta.add.id });
           set = set.add(tr.doc, [deco]);
           if (collabAnchors) {
             const anchor = collabAnchors.toRel(newState, meta.add.pos);
