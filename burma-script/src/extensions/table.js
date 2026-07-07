@@ -508,7 +508,21 @@ export function wrapBareTopLevelNodes(state) {
   if (!rowType || !cellType) return null;
   const jobs = [];
   doc.forEach((child, offset) => {
-    if (child.type.name !== 'tableRow') jobs.push({ from: offset, to: offset + child.nodeSize, node: child });
+    if (child.type.name === 'tableRow') return;
+    // TRAILING-NODE PEACE TREATY (P0 incident 2026-07-07, the "editor freezes on first
+    // edit" bug): StarterKit v3 ships a trailingNode plugin that keeps ONE empty paragraph
+    // at the doc end (the click-below-to-type target) and RE-APPENDS it whenever it
+    // disappears. Wrapping that paragraph into a row deletes it from the top level, the
+    // trailing plugin appends a fresh one in the SAME appendTransaction round, we wrap
+    // again — an infinite ping-pong that pegged the main thread and killed the tab in
+    // every NON-COLLAB project on its first doc-changing transaction (collab sessions
+    // were immune only because the guard is gated off there). The empty trailing
+    // paragraph is the trailing plugin's contract — leave it bare. The moment it carries
+    // ANY content it stops being exempt and wraps like everything else, so no real work
+    // can ever live outside the spine. Locked by spine-guard-trailing.test.mjs.
+    const isTrailing = offset + child.nodeSize === doc.content.size;
+    if (isTrailing && child.type.name === 'paragraph' && child.content.size === 0) return;
+    jobs.push({ from: offset, to: offset + child.nodeSize, node: child });
   });
   if (!jobs.length) return null;
   const tr = state.tr;
@@ -524,7 +538,9 @@ export function wrapBareTopLevelNodes(state) {
   return tr;
 }
 
-function tableSpineGuardPlugin() {
+// Exported for spine-guard-trailing.test.mjs — the P0 freeze lock (real plugin + real
+// TrailingNode through PM's applyTransaction protocol, no re-implementations).
+export function tableSpineGuardPlugin() {
   return new Plugin({
     key: new PluginKey('wpTableSpineGuard'),
     appendTransaction(trs, _oldState, newState) {
