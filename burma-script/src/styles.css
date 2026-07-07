@@ -1145,6 +1145,31 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* ============================================================
    OUTLINE PANEL — slides out from the LEFT, default hidden
    ============================================================ */
+/* ── OUTLINE RAIL — faint always-there chapter dashes, left margin, vertically centered.
+   Hover = the titled list flies out (reuses .wp-outline-item). FLAT: hairline border card,
+   no shadow. Hidden on narrow screens (the margin is gone) and while the panel is pinned. */
+.wp-rail {
+  position: fixed; left: 10px; top: 50%; transform: translateY(-50%);
+  /* below THE CONTROL UNIT (140): when the reading panel is expanded over the same margin
+     it wins the pointer; collapsed (the usual state) the two never touch. */
+  z-index: 135; display: flex; align-items: center;
+}
+.wp-rail-marks { display: flex; flex-direction: column; gap: 7px; padding: 10px 8px; max-height: 72vh; overflow: hidden; }
+.wp-rail-mark {
+  display: block; width: 13px; height: 2px; flex: none;
+  background: var(--label-4, #b6ad99); border-radius: 1px;
+  transition: width .12s, background .12s;
+}
+.wp-rail-mark.is-active { width: 20px; background: var(--orange); }
+.wp-rail.is-open .wp-rail-marks { opacity: 0; }
+.wp-rail-list {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 248px; max-height: 76vh; overflow-y: auto; scrollbar-width: thin;
+  background: var(--panel); border: 1.5px solid var(--ink); border-radius: 10px;
+  padding: 10px 12px; display: flex; flex-direction: column;
+}
+@media (max-width: 1180px) { .wp-rail { display: none; } }
+
 .wp-outline {
   position: fixed; top: 0; left: 0; z-index: 160; width: 280px; height: 100vh;
   background: var(--frame); border-right: 2px solid var(--ink);
@@ -1465,14 +1490,22 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    caret. FLAT: no button chrome, links are typography. */
 .wp-body a, .wp-tcell-content a {
   color: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--label-2, #7d7768);
-  text-underline-offset: 2px;
-  text-decoration-thickness: 1px;
+  text-decoration: underline dotted 1.5px;
+  text-decoration-color: currentColor;
+  text-underline-offset: 3px;
+}
+/* the little 🔗 (Johnny, Image-10: "hyperlink should have a link emoji") — small and quiet,
+   reads inside viz chips too since it inherits the chip's ink. Non-editable feel: it's pure
+   CSS chrome, so it never enters the doc or the export. */
+.wp-body a::before, .wp-tcell-content a::before {
+  content: '🔗';
+  font-size: .68em;
+  margin-right: 3px;
+  opacity: .8;
 }
 .wp-body a:hover, .wp-tcell-content a:hover {
   color: var(--orange, #ff5b1f);
-  text-decoration-color: var(--orange, #ff5b1f);
+  text-decoration-style: solid;
 }
 
 /* ---- FACT-CHECK FOOTNOTE — the green ✓ receipt + its fly-out comment card ----

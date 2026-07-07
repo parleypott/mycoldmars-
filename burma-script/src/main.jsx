@@ -275,11 +275,11 @@ function ControlUnit({ outlineOpen }) {
   );
 }
 
-// ── OUTLINE PANEL — slides out from the LEFT. Default hidden. Monochrome indented
-// chapter/scene spine; scroll-spy marks the chapter currently in the reading band.
-function OutlinePanel({ items, open, onClose }) {
+// ── OUTLINE SCROLL-SPY + JUMP — shared by the slide-out PANEL and the always-there RAIL
+// so the two can never disagree about which chapter is "current". Chapters only (lvl-0);
+// the reading band sits 28% down the viewport.
+function useOutlineSpy(items) {
   const [activeId, setActiveId] = useState('');
-
   useEffect(() => {
     if (!items || !items.length) return;
     const chapters = items.filter((it) => it.level === 0);
@@ -306,15 +306,63 @@ function OutlinePanel({ items, open, onClose }) {
       window.removeEventListener('resize', onScroll);
     };
   }, [items]);
+  return activeId;
+}
 
-  const jump = (id) => {
-    const node = document.querySelector(`[data-block-id="${id}"]`);
-    if (!node) return;
-    // L4 — honor prefers-reduced-motion: jump instantly instead of smooth-scrolling for users who
-    // asked the OS to reduce motion (smooth-scroll across a 225-block doc is a vestibular trigger).
-    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    node.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-  };
+function jumpToOutlineId(id) {
+  const node = document.querySelector(`[data-block-id="${id}"]`);
+  if (!node) return;
+  // L4 — honor prefers-reduced-motion: jump instantly instead of smooth-scrolling for users who
+  // asked the OS to reduce motion (smooth-scroll across a 225-block doc is a vestibular trigger).
+  const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  node.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ── OUTLINE RAIL — the faint ALWAYS-THERE spine in the left margin (Johnny: "a faint
+// outline I can click to jump to sections… like Google Docs"). Collapsed state = one thin
+// dash per chapter, the current one orange. Hover the rail and the real titled list flies
+// out (chapters + indented scenes, same items + jump as the panel); leave and it folds
+// back to dashes. The pinned ≡ OUTLINE panel supersedes it (rail hides while open).
+function OutlineRail({ items, hidden }) {
+  const [hover, setHover] = useState(false);
+  const activeId = useOutlineSpy(items);
+  if (hidden || !items || !items.length) return null;
+  const chapters = items.filter((it) => it.level === 0);
+  return (
+    <nav
+      class={`wp-rail${hover ? ' is-open' : ''}`}
+      aria-label="script outline"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div class="wp-rail-marks" aria-hidden="true">
+        {chapters.map((it) => (
+          <span key={it.id} class={`wp-rail-mark${it.id === activeId ? ' is-active' : ''}`} />
+        ))}
+      </div>
+      {hover && (
+        <div class="wp-rail-list">
+          {items.map((it) => (
+            <button
+              key={it.id}
+              class={`wp-outline-item lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`}
+              title={it.title}
+              onClick={() => jumpToOutlineId(it.id)}
+            >
+              <span class="wp-outline-txt">{it.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </nav>
+  );
+}
+
+// ── OUTLINE PANEL — slides out from the LEFT. Default hidden. Monochrome indented
+// chapter/scene spine; scroll-spy marks the chapter currently in the reading band.
+function OutlinePanel({ items, open, onClose }) {
+  const activeId = useOutlineSpy(items);
+  const jump = jumpToOutlineId;
 
   return (
     <aside class={`wp-outline${open ? ' is-open' : ''}`} aria-hidden={!open} inert={open ? undefined : ''}>
@@ -1036,6 +1084,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   return (
     <div class="wp-page" data-episode={EPISODE.id} data-readonly={readOnly ? '' : undefined}>
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
+      <OutlineRail items={tel?.outline} hidden={outlineOpen} />
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
           touch nothing but CSS variables. Edit-only chrome below is what we strip. */}
       <ControlUnit outlineOpen={outlineOpen} />
