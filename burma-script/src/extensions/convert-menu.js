@@ -3,6 +3,7 @@ import { Plugin } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { episodeFlag } from '../episode-config.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
+import { retypeHostToVo } from './slash-menu.js';
 
 // ── SELECT → RIGHT-CLICK → CONVERT-TO-VIZ ────────────────────────────────────────────────────
 // Palau only. Select a run of text, right-click, and get a premium floating menu that converts the
@@ -19,6 +20,9 @@ import { defaultDirectionMarkAttrs } from './direction-chip.js';
 // the directionMark kind. Every kind here is a key defaultDirectionMarkAttrs already understands, so
 // the status default (archive→needed, factcheck→todo, …) stays in lockstep with the slash menu.
 export const VIZ_KINDS = [
+  // BLOCK ACTION (not a mark): retypes the block hosting the selection to VO narration —
+  // the same conversion /vo runs (shared retypeHostToVo, incl. the bare-cell-paragraph wrap).
+  { label: 'Make VO',    kind: '__vo' },
   { label: 'Animation',  kind: 'animation' },
   { label: '3d',         kind: '3d' },
   { label: 'B-roll',     kind: 'broll' },
@@ -49,15 +53,23 @@ function convertSelection(editor, kind) {
     .run();
 }
 
+// Retype the block hosting the selection to VO — the menu's one BLOCK action. One transaction,
+// same undo semantics as /vo. No-ops (returns false) when the host isn't a convertible prose
+// cart or a bare cell paragraph — a chapter/SOT is never silently retyped.
+function convertBlockToVo(editor) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  const tr = state.tr;
+  if (!retypeHostToVo(tr, state.schema, state.selection.from)) return false;
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // A single live menu instance. Rendered into <body>, positioned near the pointer, closed on Escape,
 // pick, or any click/scroll/resize away from it. Fully keyboard-driven (Up/Down/Home/End/Enter/Esc).
 function createConvertMenu(editor, x, y) {
   let activeIndex = 0;
   const menu = el('div', 'wp-convert-menu wp-slash-menu', { contenteditable: 'false', role: 'menu' });
-
-  const head = el('div', 'wp-convert-head');
-  head.textContent = 'Convert to viz';
-  menu.appendChild(head);
 
   const buttons = [];
 
@@ -85,7 +97,8 @@ function createConvertMenu(editor, x, y) {
     const item = VIZ_KINDS[index];
     if (!item) return;
     close();
-    convertSelection(editor, item.kind);
+    if (item.kind === '__vo') convertBlockToVo(editor);
+    else convertSelection(editor, item.kind);
     editor.view.focus();
   };
 

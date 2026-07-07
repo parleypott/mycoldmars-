@@ -245,6 +245,126 @@ export function doAddRowsBelow(state, dispatch, rowPos, count = 1) {
   return true;
 }
 
+// Delete the row at rowPos — one transaction, undoable. LAST-ROW GUARD: if this is the only
+// row in its parent (doc, or a cell for nested rows), a bare delete would leave the parent
+// empty and schema-invalid — instead the row is REPLACED with a fresh empty full-width row,
+// so the writer always keeps a line to type into. SCROLL LAW (see blocks.js scroll-snap fix):
+// never scrollIntoView on a delete — the user is acting where they can see; the viewport
+// stays put. Pure (state, dispatch, rowPos) -> boolean, exported for the headless suite.
+export function doDeleteRow(state, dispatch, rowPos) {
+  const { schema, doc, tr } = { schema: state.schema, doc: state.doc, tr: state.tr };
+  if (typeof rowPos !== 'number' || rowPos < 0 || rowPos > doc.content.size) return false;
+  const row = doc.nodeAt(rowPos);
+  if (!row || row.type.name !== 'tableRow') return false;
+
+  const $row = doc.resolve(rowPos);
+  if ($row.parent.childCount === 1) {
+    const cellType = schema.nodes.tableCell;
+    const rowType = schema.nodes.tableRow;
+    if (!cellType || !rowType) return false;
+    const fresh = rowType.create(
+      { cols: 1, pairId: mintUserPairId() },
+      cellType.create({ role: 'full' }, emptyParagraph(schema)),
+    );
+    tr.replaceWith(rowPos, rowPos + row.nodeSize, fresh);
+    try { tr.setSelection(TextSelection.create(tr.doc, Math.min(rowPos + 3, tr.doc.content.size))); } catch {}
+  } else {
+    tr.delete(rowPos, rowPos + row.nodeSize);
+  }
+  if (dispatch) dispatch(tr);
+  return true;
+}
+
+// ---- the right-click ROW menu (on the ⊟/⊞ split-merge box) ----------------
+// Johnny: right-click the little box icon in the left margin → a context menu, "Delete row"
+// first. No title (menus don't get titles). Items are contextual: the split/merge entry
+// mirrors whatever the icon's left-click would do. Same calm floating-menu chrome +
+// keyboard discipline as the add-rows / convert menus.
+let openRowMenu = null;
+function closeOpenRowMenu() {
+  if (openRowMenu) { openRowMenu.close(); openRowMenu = null; }
+}
+
+function createRowMenu(editor, rowPos, x, y) {
+  const row = editor.state.doc.nodeAt(rowPos);
+  const isSplit = !!row && ((row.childCount || row.attrs?.cols || 1) > 1);
+  const items = [
+    { label: 'Delete row', danger: true, run: () => doDeleteRow(editor.state, editor.view.dispatch, rowPos) },
+    { label: 'Add row below', run: () => editor.chain().focus().addRowsBelow(rowPos, 1).run() },
+    isSplit
+      ? { label: 'Merge columns to one row', run: () => editor.chain().focus().mergeRow(rowPos).run() }
+      : { label: 'Split into two columns', run: () => editor.chain().focus().splitRow(rowPos).run() },
+  ];
+
+  let activeIndex = 0;
+  const menu = el('div', 'wp-rowmenu wp-convert-menu wp-slash-menu', { contenteditable: 'false', role: 'menu' });
+
+  const buttons = [];
+  let onDocDown = null;
+  let onKey = null;
+  let onScroll = null;
+
+  const close = () => {
+    if (!menu.parentNode) return;
+    if (onDocDown) document.removeEventListener('mousedown', onDocDown, true);
+    if (onKey) document.removeEventListener('keydown', onKey, true);
+    if (onScroll) {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    }
+    menu.remove();
+  };
+
+  const paintActive = () => buttons.forEach((b, i) => b.classList.toggle('is-active', i === activeIndex));
+  const pick = (index) => {
+    const item = items[index];
+    if (!item) return;
+    close();
+    item.run();
+    editor.view.focus();
+  };
+
+  items.forEach((item, index) => {
+    const button = el('button', 'wp-convert-item wp-slash-item' + (item.danger ? ' is-danger' : ''), { type: 'button', role: 'menuitem' });
+    const label = el('span', 'wp-convert-label');
+    label.textContent = item.label;
+    button.appendChild(label);
+    button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+    button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+    buttons.push(button);
+    menu.appendChild(button);
+  });
+
+  paintActive();
+  document.body.appendChild(menu);
+
+  menu.style.position = 'fixed';
+  menu.style.top = `${y}px`;
+  menu.style.left = `${x}px`;
+  const box = menu.getBoundingClientRect();
+  if (box.right > window.innerWidth - 8) menu.style.left = `${Math.max(8, window.innerWidth - box.width - 8)}px`;
+  if (box.bottom > window.innerHeight - 8) menu.style.top = `${Math.max(8, window.innerHeight - box.height - 8)}px`;
+
+  onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); editor.view.focus(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = (activeIndex + 1) % items.length; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = (activeIndex - 1 + items.length) % items.length; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); activeIndex = 0; paintActive(); buttons[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); activeIndex = items.length - 1; paintActive(); buttons[items.length - 1].focus(); }
+    else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); pick(activeIndex); }
+  };
+  onDocDown = (e) => { if (!menu.contains(e.target)) close(); };
+  onScroll = () => close();
+
+  document.addEventListener('keydown', onKey, true);
+  setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
+  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('resize', onScroll);
+  requestAnimationFrame(() => { if (buttons[0]) buttons[0].focus(); });
+
+  return { menu, close };
+}
+
 // ---- the right-click "add N rows" menu -----------------------------------
 // A single live menu instance, styled by the shared convert/slash menu CSS so it reads
 // exactly like the engine's other calm floating menus. Keyboard driven, click-away closed.
@@ -462,6 +582,7 @@ export const TableRow = Node.create({
       };
       paintBtn(node);
       btn.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;   // left-click only; right-click opens the row menu
         e.preventDefault();
         e.stopPropagation();
         const pos = typeof getPos === 'function' ? getPos() : getPos;
@@ -470,6 +591,16 @@ export const TableRow = Node.create({
         const split = cur && (cur.childCount > 1 || (cur.attrs && cur.attrs.cols > 1));
         if (split) editor.chain().focus().mergeRow(pos).run();
         else editor.chain().focus().splitRow(pos).run();
+      });
+      // Right-click the box → the ROW menu (Delete row first). Never in read-only.
+      btn.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isReadOnly()) return;
+        const pos = typeof getPos === 'function' ? getPos() : getPos;
+        if (typeof pos !== 'number') return;
+        closeOpenRowMenu();
+        openRowMenu = createRowMenu(editor, pos, e.clientX, e.clientY);
       });
       spine.appendChild(btn);
       dom.appendChild(spine);

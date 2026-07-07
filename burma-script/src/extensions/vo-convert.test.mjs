@@ -167,6 +167,44 @@ ok('/vo mints a blockId when the host has none', () => {
   assert.ok(typeof block.attrs.blockId === 'string' && block.attrs.blockId.startsWith('blk_'), 'blockId minted');
 });
 
+// ── 7 (REGRESSION — Johnny: "/VO nothing happens"): bare paragraph directly inside a said
+// cell (no cart wrapper — the shape every "+"-added split row opens with) gets WRAPPED into a
+// fresh voBlock instead of silently no-opping. ───────────────────────────────────────────────
+ok('/vo wraps a bare said-cell paragraph into a voBlock', () => {
+  const docJson = {
+    type: 'doc',
+    content: [{
+      type: 'tableRow', attrs: { cols: 2, pairId: 'pair_1' },
+      content: [
+        { type: 'tableCell', attrs: { role: 'said' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The people here believed in spirits /vo' }] }] },
+        { type: 'tableCell', attrs: { role: 'shown' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b-roll of shrines' }] }] },
+      ],
+    }],
+  };
+  let state = makeState(docJson, 4);
+  const range = triggerRange(state.doc, '/vo');
+  const before = clone(state.doc.toJSON());
+  const dispatch = (tr) => { state = state.apply(tr); };
+
+  assert.equal(doConvertBlockToVo(state, dispatch, range), true);
+
+  const saidCell = state.doc.child(0).child(0);
+  assert.equal(saidCell.childCount, 1, 'cell still holds exactly one child');
+  const block = saidCell.child(0);
+  assert.equal(block.type.name, 'voBlock', 'bare paragraph wrapped into a voBlock');
+  assert.ok(typeof block.attrs.blockId === 'string' && block.attrs.blockId.startsWith('blk_'), 'blockId minted');
+  assert.equal(block.textContent.trim(), 'The people here believed in spirits', 'trigger removed, words kept');
+  const shown = state.doc.child(0).child(1);
+  assert.equal(shown.textContent, 'b-roll of shrines', 'shown lane untouched');
+
+  // Mirror-schema + one-undo laws hold for the wrap path too.
+  const reparsed = docFrom(state.doc.toJSON());
+  reparsed.check();
+  assert.deepEqual(clone(reparsed.toJSON()), clone(state.doc.toJSON()), 'mirror round-trip byte-exact');
+  undo(state, dispatch);
+  assert.deepEqual(clone(state.doc.toJSON()), before, 'one undo restores the original doc');
+});
+
 // ── guard: the convertible set stays the tight prose-cart list ─────────────────────────────
 ok('VO_CONVERTIBLE is the tight prose-cart set (no structure / producer-data blocks)', () => {
   assert.deepEqual(VO_CONVERTIBLE, ['noneBlock', 'binBlock', 'oncamBlock', 'montageBlock']);

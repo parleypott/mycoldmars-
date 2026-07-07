@@ -180,25 +180,24 @@ export function doInsertStructureBlock(state, dispatch, range, typeName, opts = 
 // law as the structure inserts: trigger delete + retype in a single undo step.
 export const VO_CONVERTIBLE = ['noneBlock', 'binBlock', 'oncamBlock', 'montageBlock'];
 
-export function doConvertBlockToVo(state, dispatch, range) {
-  const voType = state.schema.nodes.voBlock;
+// Retype whatever hosts `pos` into a voBlock, INSIDE an existing transaction. Two shapes:
+//   (a) CART HOST — the cursor lives in a convertible prose cart (VO_CONVERTIBLE). All four
+//       share voBlock's exact content spec + marks allowlist, so setNodeMarkup is always
+//       schema-valid. blockId survives (or is minted) so autosave/recovery keys stay stable.
+//   (b) BARE CELL PARAGRAPH — the common LEFT-COLUMN case: a said|shown cell's "+"-added row
+//       opens with a bare paragraph directly inside the tableCell (no cart wrapper at all),
+//       so the ancestor walk finds nothing to retype. The paragraph is WRAPPED into a fresh
+//       voBlock instead (tableCell content is 'block+', so the replace is schema-valid).
+// Returns true if the host is (or became) a voBlock. Exported for the headless suite and
+// shared by /vo and the right-click convert menu.
+export function retypeHostToVo(tr, schema, pos) {
+  const voType = schema.nodes.voBlock;
   if (!voType) return false;
+  const $pos = tr.doc.resolve(Math.max(0, Math.min(pos, tr.doc.content.size)));
 
-  const max = state.doc.content.size;
-  const from = Math.max(0, Math.min(range?.from ?? 0, max));
-  const to = Math.max(from, Math.min(range?.to ?? from, max));
-
-  const tr = state.tr;
-  tr.delete(from, to);
-
-  // Walk up from the (post-delete) cursor to the nearest convertible prose cart. All four
-  // convertible types share voBlock's exact content spec + marks allowlist, so setNodeMarkup
-  // is always schema-valid. blockId survives (or is minted for a pre-id block) so autosave /
-  // recovery keys stay stable across the retype.
-  const $pos = tr.doc.resolve(Math.min(from, tr.doc.content.size));
   for (let d = $pos.depth; d > 0; d--) {
     const node = $pos.node(d);
-    if (node.type.name === 'voBlock') break; // already VO — just drop the trigger text
+    if (node.type.name === 'voBlock') return true; // already VO — nothing to retype
     if (VO_CONVERTIBLE.includes(node.type.name)) {
       tr.setNodeMarkup($pos.before(d), voType, {
         blockId: node.attrs.blockId || mintBlockId(),
@@ -206,9 +205,41 @@ export function doConvertBlockToVo(state, dispatch, range) {
         chapterId: node.attrs.chapterId ?? null,
         status: 'todo',
       });
-      break;
+      return true;
     }
   }
+
+  // (b) bare cell paragraph — wrap it. Selection is re-placed at the same text spot (+1 for
+  // the voBlock open token) so the caret never visibly moves.
+  for (let d = $pos.depth; d > 0; d--) {
+    const node = $pos.node(d);
+    const parent = $pos.node(d - 1);
+    if (node.type.name === 'paragraph' && parent && parent.type.name === 'tableCell') {
+      const start = $pos.before(d);
+      const block = voType.create(
+        { blockId: mintBlockId(), flavor: null, chapterId: null, status: 'todo' },
+        node,
+      );
+      tr.replaceWith(start, start + node.nodeSize, block);
+      try {
+        tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos + 1, tr.doc.content.size)), 1));
+      } catch {}
+      return true;
+    }
+  }
+  return false;
+}
+
+export function doConvertBlockToVo(state, dispatch, range) {
+  if (!state.schema.nodes.voBlock) return false;
+
+  const max = state.doc.content.size;
+  const from = Math.max(0, Math.min(range?.from ?? 0, max));
+  const to = Math.max(from, Math.min(range?.to ?? from, max));
+
+  const tr = state.tr;
+  tr.delete(from, to);
+  retypeHostToVo(tr, state.schema, Math.min(from, tr.doc.content.size));
   if (dispatch) dispatch(tr.scrollIntoView());
   return true;
 }

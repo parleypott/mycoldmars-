@@ -13,17 +13,18 @@ import { VIZ_KINDS } from './extensions/convert-menu.js';
 let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
-// The convert menu MUST offer exactly the seven viz kinds Johnny named, and every kind it applies
-// must be one directionMark already understands — otherwise a converted run would carry an attr the
-// mark can't render, breaking parity with the slash menu.
-ok('VIZ_KINDS covers the seven viz kinds in order', () => {
+// The convert menu offers the Make VO block action FIRST (kind '__vo', routed through the shared
+// retypeHostToVo — not a mark), then exactly the seven viz kinds Johnny named. Every MARK kind it
+// applies must be one directionMark already understands — otherwise a converted run would carry an
+// attr the mark can't render, breaking parity with the slash menu.
+ok('VIZ_KINDS is Make VO + the seven viz kinds in order', () => {
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.kind),
-    ['animation', '3d', 'broll', 'archive', 'oncam', 'factcheck', 'direction'],
+    ['__vo', 'animation', '3d', 'broll', 'archive', 'oncam', 'factcheck', 'direction'],
   );
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.label),
-    ['Animation', '3d', 'B-roll', 'Archive', 'On cam', 'Fact-check', 'Direction'],
+    ['Make VO', 'Animation', '3d', 'B-roll', 'Archive', 'On cam', 'Fact-check', 'Direction'],
   );
 });
 
@@ -40,6 +41,7 @@ ok('each VIZ_KIND maps to a valid default directionMark status', () => {
     direction: 'default',
   };
   for (const { kind } of VIZ_KINDS) {
+    if (kind === '__vo') continue; // block action, not a directionMark
     const attrs = defaultDirectionMarkAttrs(kind);
     assert.equal(attrs.kind, kind === 'direction' ? 'direction' : kind);
     assert.equal(attrs.status, expected[kind]);
@@ -63,6 +65,7 @@ ok('every converted viz run round-trips through the live schema', () => {
   ]);
 
   for (const { kind } of VIZ_KINDS) {
+    if (kind === '__vo') continue; // block action, not a directionMark
     const attrs = defaultDirectionMarkAttrs(kind);
     const json = {
       type: 'doc',

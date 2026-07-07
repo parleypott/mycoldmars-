@@ -358,6 +358,10 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-convert-item{ display:flex; align-items:center; gap:9px; }
 .wp-convert-label{ flex:1 1 auto; }
 .wp-convert-dot{ flex:0 0 auto; width:11px; height:11px; border-radius:3px; border:1.5px solid var(--ink); background:var(--face); }
+/* row menu: the destructive entry reads warm red, filled on hover like every other item */
+.wp-rowmenu .wp-slash-item.is-danger .wp-convert-label{ color:#b0431f; }
+.wp-rowmenu .wp-slash-item.is-danger.is-active .wp-convert-label{ color:#7e2c12; }
+.wp-convert-dot[data-kind="__vo"]{ background:var(--ep-cap, #3a382f); border-color:var(--ep-cap, #3a382f); }
 .wp-convert-dot[data-kind="archive"]{ background:#f2d4d4; border-color:#d79a9a; }
 .wp-convert-dot[data-kind="oncam"]{ background:#f4c2b0; border-color:#d97a52; }
 .wp-convert-dot[data-kind="factcheck"]{ background:#f2d4d4; border-color:#d79a9a; }
