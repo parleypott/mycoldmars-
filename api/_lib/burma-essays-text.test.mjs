@@ -38,6 +38,16 @@ eq(stripMarkdown('She said ~~no~~ yes'), 'She said no yes', 'FIX: ~~strike~~ str
 eq(stripMarkdown('__Mandalay__ burned.'), 'Mandalay burned.', '__bold__ at line start');
 eq(stripMarkdown('a __two word__ b'), 'a two word b', '__bold__ multi-word');
 eq(stripMarkdown('~~old plan~~ then ~~newer~~'), 'old plan then newer', 'two strikethroughs keep words, drop markers');
+// Inner LONE tilde inside a strike span (a GFM run of one `~` never closes a `~~`
+// opener). A struck approximate figure keeps its `~` as content — the old class
+// `[^~]+` excluded ALL tildes, so the span never matched and the tildes were read
+// ALOUD ("tilde tilde around tilde 5 killed tilde tilde"). MUTATION: the old rule leaks.
+eq('He was ~~around ~5 killed~~ later.'.replace(/~~([^~]+)~~/g, '$1'),
+   'He was ~~around ~5 killed~~ later.', 'RED: old `[^~]+` strike class leaks tildes on an inner-tilde span');
+eq(stripMarkdown('He was ~~around ~5 killed~~ later.'), 'He was around ~5 killed later.',
+   'FIX: struck span with a lone inner ~ drops its markers, keeps the ~5');
+eq(stripMarkdown('approx ~5 to ~10 people'), 'approx ~5 to ~10 people',
+   'GUARD: unpaired single ~ (approximations) untouched — not mistaken for strike');
 
 // ---- No regression: the formatting that already worked must still work identically.
 eq(stripMarkdown('**bold** text'), 'bold text', '** bold still stripped');

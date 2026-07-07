@@ -205,7 +205,15 @@ export function stripMarkdown(md) {
   do {
     prev = s;
     s = s
-      .replace(/~~([^~]+)~~/g, '$1')       // strikethrough (else reads "tilde")
+      // Content `(?:[^~]|~(?!~))+?`, not `[^~]+`: a struck span may carry a LONE
+      // `~` (a GFM run of one tilde never closes a `~~` opener), so a struck
+      // approximate figure — "~~around ~5 killed~~" — kept its inner `~` as
+      // literal content in GFM but leaked its `~~` markers here, read aloud as
+      // "tilde tilde around tilde 5 killed tilde tilde" (the exact leak this
+      // module kills). The `~(?!~)` guard admits a single `~` but a `~~` run ends
+      // the content, so the closer is still the first following `~~`. Mirrors the
+      // reader twin (research/md.js). Byte-identical for spans without inner `~`.
+      .replace(/~~((?:[^~]|~(?!~))+?)~~/g, '$1')       // strikethrough (else reads "tilde")
       // GFM / Obsidian highlight (==important==). The one common emphasis-wrapper
       // the loop didn't unwrap: the ==markers== leaked into the audio (read as
       // "equals equals"), same read-it-aloud class as the strike/bold/italic marks

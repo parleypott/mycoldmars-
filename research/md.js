@@ -565,7 +565,16 @@ export function mdToHtml(md) {
   // `~` could appear) is already stashed.
   html = html.replace(/(^|[^\w])__(\S(?:[^_\n]*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
   html = html.replace(/(^|[^\w])_(\S(?:[^_\n]*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
-  html = html.replace(/~~([^~\n]+?)~~/g, '<del>$1</del>');
+  // Content is `(?:[^~\n]|~(?!~))+?`, NOT `[^~\n]+?`: a struck span may carry a
+  // LONE `~` (a GFM run of one tilde never closes a `~~` opener), so a struck
+  // approximate figure — `~~around ~5 million~~`, common in a revised-casualty
+  // aside — kept its inner `~` as literal content in GFM but leaked its `~~`
+  // markers into the reader here (the old class excluded ALL tildes, so the span
+  // never matched). Mirrors the `**bold**` rule's `\*(?!\*)` guard: a single `~`
+  // (not followed by another) is content; a `~~` run ends it, so the closer is
+  // still claimed at the first following `~~` and adjacent spans stay independent.
+  // Byte-identical for every strike span without an inner lone tilde.
+  html = html.replace(/~~((?:[^~\n]|~(?!~))+?)~~/g, '<del>$1</del>');
   // GFM/Obsidian HIGHLIGHT (`==important==`) -> <mark>. The TTS narrator
   // (api/_lib/burma-essays-text.js) already unwraps `==…==` (so it isn't read aloud
   // as "equals equals"); the VISUAL reader leaked the literal `==markers==`. Render

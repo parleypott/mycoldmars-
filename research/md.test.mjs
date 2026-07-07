@@ -651,6 +651,22 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
   eq(mdToHtml('__lead__ then _tail_ done'), '<p><strong>lead</strong> then <em>tail</em> done</p>',
      'FIX: bold and italic underscore in one line both render');
 
+  // INNER LONE TILDE inside a strike span. A GFM run of ONE `~` never closes a
+  // `~~` opener, so a struck approximate figure ("~~around ~5 million~~") keeps
+  // its inner `~` as literal content — but the old content class `[^~\n]+?`
+  // excluded ALL tildes, so the span never matched and the raw `~~` markers
+  // leaked into the reader. MUTATION: the pre-fix regex leaves the markers.
+  ok(/~~around ~5 killed~~/.test(
+       'He was ~~around ~5 killed~~ later.'.replace(/~~([^~\n]+?)~~/g, '<del>$1</del>')),
+     'MUTATION: old `[^~\\n]+?` strike class leaks the markers on an inner-tilde span');
+  eq(mdToHtml('He was ~~around ~5 killed~~ later.'),
+     '<p>He was <del>around ~5 killed</del> later.</p>',
+     'FIX: a struck span with a lone inner ~ renders <del>, no leaked markers');
+  eq(mdToHtml('~~old~~ then ~~newer~~'), '<p><del>old</del> then <del>newer</del></p>',
+     'GUARD: two adjacent strike spans stay independent (closer claimed at first ~~)');
+  eq(mdToHtml('approx ~5 to ~10 people'), '<p>approx ~5 to ~10 people</p>',
+     'GUARD: unpaired single ~ (approximations) are NOT struck — no false positive');
+
   // GUARD: intraword underscores are NEVER emphasis (CommonMark) — a mangled
   // snake_case identifier or URL path segment is the whole regression risk.
   eq(mdToHtml('Call some_helper_fn now.'), '<p>Call some_helper_fn now.</p>',
