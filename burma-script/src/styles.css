@@ -1485,6 +1485,10 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-ws-generate[data-kind="fc"]:hover { background: #a23c15; }
 .wp-ws-generate[data-secondary="1"] { background: transparent; color: var(--label); }
 .wp-ws-generate[data-secondary="1"]:hover { border-color: var(--orange); color: var(--orange); }
+/* the Liveblocks free-plan "Powered by" floating badge — Johnny: clutter. It's injected at
+   runtime as a link to liveblocks.io; we never link there ourselves, so hide it wholesale. */
+a[href*="liveblocks.io"] { display: none !important; }
+
 /* ---- HYPERLINKS (Cmd+K) — quiet editorial links: body ink, hairline underline that warms
    to the accent on hover. Cmd/Ctrl+click opens while editing; plain click just places the
    caret. FLAT: no button chrome, links are typography. */
