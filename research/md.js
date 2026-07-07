@@ -768,32 +768,54 @@ export function mdToHtml(md) {
   // absolute column count never matters — only the ordering. LLM deep-research
   // reports lean on multi-level bullet outlines constantly; before this the reader
   // FLATTENED every sub-point onto one level (documented tradeoff), losing the
-  // hierarchy the author encoded. The rebuilt sublist inherits the parent's tag
-  // (<ul>/<ol>), so a bullet outline nests under bullets and a numbered outline
-  // under numbers; the top-level <ol start="N"> is preserved, sub-lists renumber
-  // from 1 (browser default) — acceptable, and no worse than the old flat render.
+  // hierarchy the author encoded.
+  //
+  // MIXED-TYPE nesting: the wrap passes above segregate items by marker type —
+  // `- ` bullets into a <ul>, `N.` numbers into an <ol> — so a numbered item with
+  // an INDENTED bullet sub-list ("1. Finding\n    - detail\n    - detail") emitted
+  // TWO ADJACENT blocks: `<ol>…</ol><ul data-d…>…</ul>`. A per-block nester (the old
+  // code) could only fold WITHIN one block, so the bullet sub-list popped out as a
+  // SIBLING of the <ol> and the parent list even RESTARTED its numbering after it —
+  // and this "numbered finding, bulleted sub-points" shape is the single most common
+  // structure an LLM research report emits. So the nester now spans a RUN of adjacent
+  // list blocks (they abut with no separator; a real paragraph gap keeps two lists in
+  // SEPARATE runs) and carries each item's OWN tag from its source block, so a child
+  // sub-list renders with the correct <ul>/<ol> nested INSIDE its parent <li>. A run
+  // with no data-d anywhere (every flat list, and two flat different-type lists that
+  // merely abut) is still returned BYTE-IDENTICAL — the regression firewall the GUARD
+  // assertions rely on. Same-type nesting is unchanged (child tag == parent tag). The
+  // top-level <ol start="N"> is preserved; sub-lists (and a numbered run RESUMED after
+  // a sub-list) renumber via the browser default — no worse than before, correct here.
   // Runs BEFORE the blockquote pass, whose own lists (renderQuoteInner) are emitted
   // later and self-contained, so this never double-processes them.
-  html = html.replace(/<(ul|ol)( start="\d+")?>([\s\S]*?)<\/\1>/g, (whole, tag, startAttr, inner) => {
-    if (!inner.includes('data-d="')) return whole;
+  html = html.replace(/(?:<(?:ul|ol)(?: start="\d+")?>[\s\S]*?<\/(?:ul|ol)>)+/g, (run) => {
+    if (!run.includes('data-d="')) return run;
     const items = [];
-    inner.replace(/<li(?: data-d="(\d+)")?>([\s\S]*?)<\/li>/g, (_, d, body) => {
-      items.push({ depth: d ? parseInt(d, 10) : 0, body });
+    let topTag = null, topStart = '';
+    run.replace(/<(ul|ol)( start="\d+")?>([\s\S]*?)<\/\1>/g, (_, tag, startAttr, inner) => {
+      if (topTag === null) { topTag = tag; topStart = startAttr || ''; }
+      inner.replace(/<li(?: data-d="(\d+)")?>([\s\S]*?)<\/li>/g, (__, d, body) => {
+        items.push({ tag, depth: d ? parseInt(d, 10) : 0, body });
+        return '';
+      });
       return '';
     });
     const root = { children: [] };
     const stack = [{ node: root, depth: -1 }];
     for (const it of items) {
       while (stack.length > 1 && stack[stack.length - 1].depth >= it.depth) stack.pop();
-      const node = { body: it.body, children: [] };
+      const node = { tag: it.tag, body: it.body, children: [] };
       stack[stack.length - 1].node.children.push(node);
       stack.push({ node, depth: it.depth });
     }
-    const emit = (nodes, top) =>
-      `<${tag}${top ? startAttr || '' : ''}>` +
-      nodes.map((n) => `<li>${n.body}${n.children.length ? emit(n.children, false) : ''}</li>`).join('') +
-      `</${tag}>`;
-    return emit(root.children, true);
+    // Each list level's tag is its items' shared tag (a sub-list is emitted with the
+    // child's OWN tag, not the parent's — the mixed-type fix); the root inherits the
+    // first block's tag + start attr. `top` gets the start attr, sub-lists renumber.
+    const emit = (nodes, listTag, startAttr) =>
+      `<${listTag}${startAttr}>` +
+      nodes.map((n) => `<li>${n.body}${n.children.length ? emit(n.children, n.children[0].tag, '') : ''}</li>`).join('') +
+      `</${listTag}>`;
+    return emit(root.children, topTag, topStart);
   });
   // Blockquotes. esc() has already turned a leading `>` into `&gt;`, so without
   // this a `> quoted from the source` line rendered as `<p>&gt; quoted…</p>` —

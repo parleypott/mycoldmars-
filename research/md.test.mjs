@@ -629,6 +629,42 @@ ok(!/<script>/.test(mdToHtml('here is <script>alert(1)</script> inline')), 'raw 
      'RED PROOF: old renderer leaks the indented `- ` marker as literal text');
 }
 
+// ── MIXED-TYPE nesting: a bullet sub-list under a NUMBERED item (and vice-versa) ──
+// The single most common structure in an LLM deep-research report: numbered findings
+// each with bulleted sub-points ("1. Finding\n    - detail\n    - detail\n2. Finding").
+// The wrap passes segregate items by marker type (`-` -> <ul>, `N.` -> <ol>), so an
+// indented bullet sub-list under a numbered item emitted a SEPARATE <ul> that popped
+// out as a SIBLING of the <ol> — the sub-points escaped the finding they belonged to,
+// AND the numbered list RESTARTED after the sub-list. The nester now spans a run of
+// adjacent list blocks and carries each item's own tag, so the child sub-list nests
+// with the correct <ul>/<ol> INSIDE its parent <li>. (Mutation-lock: in md.js give the
+// emit() sub-lists the parent's tag instead of `n.children[0].tag`, or shrink the run
+// regex back to a single-block `<(ul|ol)…>…</\1>`, and the MIXED assertions go RED
+// while every same-type + flat GUARD stays green.)
+{
+  // ol parent, bullet children -> the <ul> nests INSIDE the numbered <li>, not after it.
+  const olUl = mdToHtml('1. First\n    - sub a\n    - sub b');
+  eq(olUl, '<ol><li>First<ul><li>sub a</li><li>sub b</li></ul></li></ol>',
+     'FIX: bullet sub-list nests inside a numbered parent item (was a sibling <ul>)');
+  ok(!/<\/ol><ul>/.test(olUl), 'FIX: the child <ul> is NOT a sibling that pops the <ol> closed');
+
+  // ul parent, numbered children -> the <ol> nests INSIDE the bullet <li>.
+  eq(mdToHtml('- First\n    1. sub a\n    2. sub b'),
+     '<ul><li>First<ol><li>sub a</li><li>sub b</li></ol></li></ul>',
+     'FIX: numbered sub-list nests inside a bullet parent item');
+
+  // A numbered run RESUMED after a nested bullet sub-list must NOT restart numbering:
+  // "1. First / - sub / 2. Second" -> one <ol> with First and Second as siblings.
+  const resume = mdToHtml('1. First\n    - sub a\n2. Second');
+  eq(resume, '<ol><li>First<ul><li>sub a</li></ul></li><li>Second</li></ol>',
+     'FIX: the numbered list continues (Second is item 2 of the same <ol>), no restart');
+
+  // GUARD: two flat DIFFERENT-type lists that merely abut (no indent) stay two separate
+  // top-level lists — the run nester must return them byte-identical (no data-d).
+  eq(mdToHtml('- a\n\n1. b'), '<ul><li>a</li>\n</ul>\n<ol><li>b</li></ol>',
+     'GUARD: adjacent flat bullet + numbered lists stay separate, byte-identical');
+}
+
 // ── underscore emphasis (_i_ / __b__) + GFM strikethrough (~~s~~) ──
 // The TTS stripMarkdown unwraps all three; the visual reader used to leak them
 // as literal markers. Fixed with CommonMark intraword flanking so snake_case /
