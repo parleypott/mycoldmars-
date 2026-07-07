@@ -1,0 +1,266 @@
+/* MapKeys library — Cartridges chassis (paper frame, registration screws,
+   mono chrome, FLAT — no shadow, no gradient) in MapKeys' earthen tokens. */
+
+#mk-library {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow-y: auto;
+  background: var(--paper, #ece4d4);
+  color: var(--ink, #2b2a26);
+  padding: 44px 20px 96px;
+}
+
+.mkl-frame {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  background: var(--panel, #f6efde);
+  border: 2px solid var(--ink, #2b2a26);
+  border-radius: 14px;
+  padding: 30px 30px 40px;
+}
+
+.mkl-screw {
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--panel, #f6efde);
+}
+.mkl-screw i { width: 8px; height: 1.5px; background: var(--ink); transform: rotate(45deg); display: block; }
+.mkl-screw.tl { top: -8px; left: 16px; }
+.mkl-screw.tr { top: -8px; right: 16px; }
+.mkl-screw.bl { bottom: -8px; left: 16px; }
+.mkl-screw.br { bottom: -8px; right: 16px; }
+
+/* ── masthead ── */
+.mkl-head { border-bottom: 1.5px solid var(--ink); padding-bottom: 16px; margin-bottom: 20px; }
+.mkl-id { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.mkl-wordmark {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.08em;
+}
+.mkl-fig {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.mkl-sub {
+  margin-top: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+/* ── toolbar ── */
+.mkl-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+.mkl-tabs { display: flex; border: 1.5px solid var(--ink); border-radius: 9px; overflow: hidden; }
+.mkl-tab {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 8px 13px;
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  cursor: pointer;
+}
+.mkl-tab.is-active { background: var(--ink); color: var(--panel); }
+.mkl-count { opacity: 0.55; margin-left: 4px; }
+
+.mkl-search {
+  flex: 1;
+  min-width: 160px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--ink-faint);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  outline: none;
+}
+.mkl-search:focus { border-color: var(--ink); }
+
+.mkl-new, .mkl-new-folder {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 9px 14px;
+  border-radius: 9px;
+  border: 1.5px solid var(--ink);
+  cursor: pointer;
+}
+.mkl-new { background: var(--ink); color: var(--panel); }
+.mkl-new:disabled { opacity: 0.5; cursor: wait; }
+.mkl-new-folder { background: transparent; color: var(--ink); }
+
+/* ── folders ── */
+.mkl-folder { margin-top: 26px; }
+.mkl-folder-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1.5px solid var(--ink-faint);
+  padding-bottom: 7px;
+  margin-bottom: 12px;
+}
+.mkl-folder-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.mkl-folder-count { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--ink-soft); }
+.mkl-folder-acts { margin-left: auto; display: flex; gap: 8px; opacity: 0; transition: opacity 140ms ease; }
+.mkl-folder-head:hover .mkl-folder-acts { opacity: 1; }
+.mkl-folder-empty {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 10px 2px 2px;
+}
+.mkl-folder-add { margin-bottom: 6px; }
+.mkl-folder-input {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 7px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  outline: none;
+  min-width: 220px;
+}
+
+/* ── cards ── */
+.mkl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+.mkl-card {
+  border: 1.5px solid var(--ink);
+  border-radius: 11px;
+  background: var(--panel, #f6efde);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mkl-card.is-trashed { border-color: var(--ink-faint); }
+.mkl-card-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 14px 14px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif;
+}
+.mkl-card-open:disabled { cursor: default; opacity: 0.6; }
+.mkl-card-open:not(:disabled):hover .mkl-card-title { color: var(--accent, #b85c3c); }
+.mkl-card-kind {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-soft);
+}
+.mkl-card-title { font-size: 16px; font-weight: 600; line-height: 1.25; }
+.mkl-card-time { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--ink-soft); }
+.mkl-card-rename {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  width: 100%;
+  padding: 2px 4px;
+  border: 1.5px solid var(--ink);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+.mkl-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--ink-faint);
+  align-items: center;
+}
+.mkl-act {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.mkl-act:hover { border-color: var(--ink); }
+.mkl-act-danger:hover { border-color: var(--accent); color: var(--accent); }
+.mkl-move {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  padding: 4px 5px;
+  border: 1px solid var(--ink-faint);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  max-width: 110px;
+  cursor: pointer;
+}
+.mkl-move:hover { border-color: var(--ink); }
+
+/* ── empty state ── */
+.mkl-empty { padding: 60px 0 40px; text-align: center; }
+.mkl-empty-title { font-size: 17px; font-weight: 600; }
+.mkl-empty-sub { margin-top: 8px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--ink-soft); }
+
+/* ── topbar additions (project name + saved pill + library button) ── */
+#brand { cursor: pointer; border: none; }
+#brand:hover { background: var(--accent, #b85c3c); }
+#project-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--panel, #f6efde);
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+  padding: 7px 12px;
+  border-radius: 4px;
+  cursor: text;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#project-name:focus {
+  outline: 2px solid var(--accent, #b85c3c);
+  outline-offset: 1px;
+}
+#save-pill {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  padding: 4px 0;
+  min-width: 64px;
+}
+#save-pill.is-saving { color: var(--accent, #b85c3c); }

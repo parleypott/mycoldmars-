@@ -17,7 +17,14 @@ import { computeGifRange } from './gif-range.js';
 import { EASINGS, totalDuration, resolveKeyframeSegment } from './playback-timing.js';
 import { searchCountries as rankCountries } from './country-search.js';
 import { classifyOldMapInput, annotationBounds, annotationLabel } from './oldmap-resolve.js';
+import {
+  findBySlug, syncFromCloud as syncProjectsFromCloud, loadProjectState,
+  pushProjectState, beaconProjectState, writeStateCache, touchProject,
+  renameProject, migrateLegacyIfNeeded,
+} from './projects.js';
+import { initLibrary, showLibrary, hideLibrary } from './library.js';
 import './style.css';
+import './library.css';
 
 // ─── Country data (loaded once at startup) ───
 const COUNTRIES = (() => {
@@ -111,6 +118,11 @@ const map = new mapboxgl.Map({
   preserveDrawingBuffer: true,
 });
 
+// ─── Project session (declared early — referenced by save paths below) ───
+let currentProject = null;     // the open library row, or null on the library
+let cloudSaveTimer = null;     // debounce handle for the cloud autosave
+let suppressAutosave = false;  // true while a project snapshot is being applied
+
 function saveCurrentCamera() {
   if (isPlayingBack) return;
   try {
@@ -123,6 +135,8 @@ function saveCurrentCamera() {
       savedAt: Date.now(),
     }));
   } catch {}
+  // Camera is part of a project's state — a settled move counts as an edit.
+  if (currentProject) scheduleCloudSave();
 }
 
 // `moveend` is the natural fit but on globe projection it can be flaky;
@@ -1864,25 +1878,45 @@ document.getElementById('kf-delete').addEventListener('click', () => {
 
 const LAYERS_LS_KEY = 'mapkeys_layers_v1';
 
-function saveLayers() {
-  try {
-    // Only persist what's needed; recompute cumDist on load.
-    const minimal = state.layers.map(l => ({
+// The full editor snapshot — what a project IS. Same shape the legacy
+// mapkeys_layers_v1 key stored, plus the camera so reopening a project puts
+// you exactly where you left it.
+function getProjectSnapshot() {
+  const c = map.getCenter();
+  return {
+    layers: state.layers.map(l => ({
       id: l.id,
       name: l.name,
       coords: l.coords,
       style: l.style,
       visible: l.visible,
-    }));
-    const shapesMinimal = state.shapes.map(serializeShape);
-    localStorage.setItem(LAYERS_LS_KEY, JSON.stringify({
-      layers: minimal,
-      activeLayerId: state.activeLayerId,
-      shapes: shapesMinimal,
-      activeShapeId: state.activeShapeId,
-      keyframes: state.keyframes,
-      overlays: state.overlays.map(serializeOverlay),
-    }));
+    })),
+    activeLayerId: state.activeLayerId,
+    shapes: state.shapes.map(serializeShape),
+    activeShapeId: state.activeShapeId,
+    keyframes: state.keyframes,
+    overlays: state.overlays.map(serializeOverlay),
+    camera: {
+      center: [c.lng, c.lat],
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+    },
+  };
+}
+
+function saveLayers() {
+  if (suppressAutosave) return;
+  try {
+    const snap = getProjectSnapshot();
+    if (currentProject) {
+      writeStateCache(currentProject.id, snap);
+      scheduleCloudSave();
+    } else {
+      // No project open (shouldn't happen once the library owns routing) —
+      // fall back to the legacy single-map key so nothing is ever dropped.
+      localStorage.setItem(LAYERS_LS_KEY, JSON.stringify(snap));
+    }
   } catch (err) {
     console.warn('[mapkeys] saveLayers failed (likely quota):', err.message);
   }
@@ -1966,54 +2000,41 @@ function hydrateShape(raw) {
   return base;
 }
 
-function loadLayersFromLS() {
-  try {
-    const raw = localStorage.getItem(LAYERS_LS_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.layers)) return;
-    state.layers = parsed.layers
-      .filter(l => l && Array.isArray(l.coords) && l.coords.length >= 2)
-      .map(l => {
-        const route = buildRoute(l.coords);
-        return {
-          id: l.id || ('lyr_' + Math.random().toString(36).slice(2, 9)),
-          name: l.name || 'Untitled layer',
-          coords: route.coords,
-          cumDist: route.cumDist,
-          totalDist: route.totalDist,
-          style: { ...DEFAULT_LAYER_STYLE, ...(l.style || {}) },
-          visible: l.visible !== false,
-        };
-      });
-    state.activeLayerId = parsed.activeLayerId || state.layers[0]?.id || null;
+// Hydrate a project snapshot (or the legacy localStorage blob — same shape)
+// into the live state object. Pure state mutation: attaching to the map and
+// re-rendering panels is the caller's job (applyProjectSnapshot / style.load).
+function hydrateSnapshotIntoState(parsed) {
+  state.layers = (Array.isArray(parsed.layers) ? parsed.layers : [])
+    .filter(l => l && Array.isArray(l.coords) && l.coords.length >= 2)
+    .map(l => {
+      const route = buildRoute(l.coords);
+      return {
+        id: l.id || ('lyr_' + Math.random().toString(36).slice(2, 9)),
+        name: l.name || 'Untitled layer',
+        coords: route.coords,
+        cumDist: route.cumDist,
+        totalDist: route.totalDist,
+        style: { ...DEFAULT_LAYER_STYLE, ...(l.style || {}) },
+        visible: l.visible !== false,
+      };
+    });
+  state.activeLayerId = parsed.activeLayerId || state.layers[0]?.id || null;
 
-    if (Array.isArray(parsed.shapes)) {
-      state.shapes = parsed.shapes.map(hydrateShape).filter(Boolean);
-      state.activeShapeId = parsed.activeShapeId || null;
-    }
-    if (Array.isArray(parsed.overlays)) {
-      state.overlays = parsed.overlays.map(hydrateOverlay).filter(Boolean);
-    }
-    if (Array.isArray(parsed.keyframes)) {
-      // Restore keyframes saved alongside shapes (so shape keyframe state persists).
-      state.keyframes = parsed.keyframes.map(k => ({
-        ...k,
-        id: k.id || ('k' + (state.nextId++)),
-      }));
-      // Bump nextId past any restored ids
-      for (const k of state.keyframes) {
-        const m = /^k(\d+)$/.exec(k.id || '');
-        if (m) state.nextId = Math.max(state.nextId, parseInt(m[1], 10) + 1);
-      }
-      state.selectedId = state.keyframes[0]?.id ?? null;
-    }
-    console.info(`[mapkeys] restored ${state.layers.length} layer(s), ${state.shapes.length} shape(s), ${state.overlays.length} old map(s), ${state.keyframes.length} keyframe(s) from localStorage`);
-  } catch (err) {
-    console.warn('[mapkeys] loadLayers failed:', err.message);
+  state.shapes = (Array.isArray(parsed.shapes) ? parsed.shapes : []).map(hydrateShape).filter(Boolean);
+  state.activeShapeId = parsed.activeShapeId || null;
+  state.overlays = (Array.isArray(parsed.overlays) ? parsed.overlays : []).map(hydrateOverlay).filter(Boolean);
+
+  state.keyframes = (Array.isArray(parsed.keyframes) ? parsed.keyframes : []).map(k => ({
+    ...k,
+    id: k.id || ('k' + (state.nextId++)),
+  }));
+  // Bump nextId past any restored ids
+  for (const k of state.keyframes) {
+    const m = /^k(\d+)$/.exec(k.id || '');
+    if (m) state.nextId = Math.max(state.nextId, parseInt(m[1], 10) + 1);
   }
+  state.selectedId = state.keyframes[0]?.id ?? null;
 }
-loadLayersFromLS();
 
 function addLayerFromKML(file, coords) {
   snapshotForUndo('add layer');
@@ -3249,7 +3270,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
     // Skip when actively typing — let the input's native undo win.
-    if (e.target.matches('input, textarea')) return;
+    if (e.target.matches('input, textarea') || e.target.isContentEditable) return;
     e.preventDefault();
     if (undoStack.length === 0) return;
     const next = undoStack[undoStack.length - 1];
@@ -3273,8 +3294,8 @@ function flashToast(msg) {
 
 // Keyboard
 window.addEventListener('keydown', e => {
-  // Ignore typing in inputs
-  if (e.target.matches('input, select, textarea')) return;
+  // Ignore typing in inputs (and contenteditable — the project-name rename)
+  if (e.target.matches('input, select, textarea') || e.target.isContentEditable) return;
   if (e.code === 'Space') { e.preventDefault(); state.playing ? stop() : play(); }
   else if (e.key === 'k' || e.key === 'K') { e.preventDefault(); addKeyframe(); }
   else if (e.key === 'u' || e.key === 'U') {
@@ -3583,3 +3604,217 @@ gifGo.addEventListener('click', () => {
 // Initial render
 renderKeyframes();
 renderEditor();
+
+// ─── Project library: routing, open/save, chrome ───
+// The URL hash is the source of truth: '' → library, '#<slug>' → that project.
+// State flows: open = cache-instant + cloud-if-newer; save = per-project cache
+// immediately + debounced cloud push + sendBeacon on tab close.
+
+const EMPTY_SNAPSHOT = { layers: [], shapes: [], keyframes: [], overlays: [], camera: null };
+
+const projectNameEl = document.getElementById('project-name');
+const savePillEl = document.getElementById('save-pill');
+
+function slugFromHash() {
+  const h = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
+  return h.split('?')[0].trim();
+}
+
+function updateSavePill(mode) {
+  if (!savePillEl) return;
+  if (!currentProject || !mode) { savePillEl.classList.add('hidden'); return; }
+  savePillEl.classList.remove('hidden');
+  savePillEl.classList.toggle('is-saving', mode === 'saving');
+  savePillEl.textContent = mode === 'saving' ? 'saving…' : mode === 'local' ? 'saved here' : 'saved';
+}
+
+function updateProjectChrome() {
+  if (!projectNameEl) return;
+  if (currentProject) {
+    projectNameEl.textContent = currentProject.name;
+    projectNameEl.classList.remove('hidden');
+  } else {
+    projectNameEl.classList.add('hidden');
+    updateSavePill(null);
+  }
+}
+
+// ── cloud autosave (debounced; capture-now flush) ──
+
+function scheduleCloudSave() {
+  if (!currentProject || suppressAutosave) return;
+  updateSavePill('saving');
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(flushCloudSave, 1500);
+}
+
+// Captures the snapshot SYNCHRONOUSLY (safe to call right before a project
+// switch tears the editor down), pushes in the background.
+function flushCloudSave() {
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = null;
+  if (!currentProject) return;
+  const id = currentProject.id;
+  const snap = getProjectSnapshot();
+  touchProject(id);
+  pushProjectState(id, snap).then((ok) => {
+    if (currentProject && currentProject.id === id) updateSavePill(ok ? 'saved' : 'local');
+  });
+}
+
+// Last gasp — a beacon survives the tab closing mid-debounce.
+window.addEventListener('pagehide', () => {
+  if (!currentProject) return;
+  clearTimeout(cloudSaveTimer);
+  beaconProjectState(currentProject.id, getProjectSnapshot());
+});
+
+// ── apply a snapshot to the live editor ──
+
+function applyProjectSnapshot(snap) {
+  suppressAutosave = true;
+  try {
+    closeLabelEditor();
+    if (state.playing) stop();
+    if (state.editingShapeId) exitCountryEdit();
+    // Tear down current map artifacts
+    for (const s of state.shapes) removeShapeFromMap(s);
+    for (const l of state.layers) removeLayerFromMap(l);
+    for (const o of state.overlays) removeOverlayFromMap(o);
+    undoStack.length = 0; // undo never crosses a project boundary
+    hydrateSnapshotIntoState(snap || EMPTY_SNAPSHOT);
+    // Attach to the map now if the style is ready; otherwise the style.load
+    // handler walks state.* and attaches everything itself.
+    if (map.isStyleLoaded()) {
+      for (const o of state.overlays) ensureOverlayOnMap(o);
+      for (const l of state.layers) ensureLayerOnMap(l);
+      for (const s of state.shapes) { ensureShapeOnMap(s); redrawShape(s); }
+      setRouteSources(state.previewProgress);
+    }
+    if (snap && snap.camera && Array.isArray(snap.camera.center)) {
+      map.jumpTo({
+        center: snap.camera.center,
+        zoom: snap.camera.zoom ?? map.getZoom(),
+        bearing: snap.camera.bearing ?? 0,
+        pitch: snap.camera.pitch ?? 0,
+      });
+    }
+    // Re-render all chrome
+    renderLayersPanel();
+    renderShapesPanel();
+    renderOverlaysPanel();
+    renderKeyframes();
+    renderEditor();
+    showRouteUI();
+    syncShapeStyleInputs();
+    syncRouteStyleInputs();
+    syncDrawSlider();
+    updateSelectionIndicator();
+  } finally {
+    suppressAutosave = false;
+  }
+}
+
+// ── open / route ──
+
+function openProjectRow(row) {
+  if (currentProject && currentProject.id === row.id) {
+    // Same project (e.g. a rename changed the slug) — refresh chrome only.
+    currentProject = row;
+    updateProjectChrome();
+    hideLibrary();
+    return;
+  }
+  if (currentProject) flushCloudSave(); // save the outgoing project first
+  currentProject = row;
+  const { state: cached, fresh } = loadProjectState(row);
+  applyProjectSnapshot(cached || EMPTY_SNAPSHOT);
+  hideLibrary();
+  updateProjectChrome();
+  updateSavePill('saved');
+  // If the cloud copy is newer than the cache (edited on another machine),
+  // it lands a moment later.
+  fresh.then((newer) => {
+    if (newer && currentProject && currentProject.id === row.id) {
+      applyProjectSnapshot(newer);
+    }
+  });
+}
+
+async function routeFromHash() {
+  const slug = slugFromHash();
+  if (!slug) {
+    if (currentProject) flushCloudSave();
+    currentProject = null;
+    updateProjectChrome();
+    showLibrary();
+    return;
+  }
+  let row = findBySlug(slug);
+  if (!row) {
+    await syncProjectsFromCloud();
+    row = findBySlug(slug);
+  }
+  if (!row) {
+    // Unknown slug — land on the library rather than a dead page.
+    window.location.hash = '';
+    return;
+  }
+  openProjectRow(row);
+}
+
+window.addEventListener('hashchange', routeFromHash);
+
+// ── topbar chrome ──
+
+document.getElementById('brand').addEventListener('click', () => {
+  window.location.hash = '';
+});
+
+if (projectNameEl) {
+  const commitName = () => {
+    if (!currentProject) return;
+    const name = projectNameEl.textContent.trim();
+    if (!name || name === currentProject.name) {
+      projectNameEl.textContent = currentProject ? currentProject.name : '';
+      return;
+    }
+    const row = renameProject(currentProject.id, name);
+    if (row) {
+      currentProject = row;
+      projectNameEl.textContent = row.name;
+      // Follow the slug without retriggering a full route (same project).
+      history.replaceState(null, '', `#${encodeURIComponent(row.slug)}`);
+    }
+  };
+  projectNameEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); projectNameEl.blur(); }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      projectNameEl.textContent = currentProject ? currentProject.name : '';
+      projectNameEl.blur();
+    }
+  });
+  projectNameEl.addEventListener('blur', commitName);
+}
+
+// ── boot ──
+
+initLibrary({
+  onOpen: (row) => {
+    const target = `#${encodeURIComponent(row.slug)}`;
+    if (window.location.hash === target) routeFromHash();
+    else window.location.hash = target;
+  },
+});
+
+// Adopt the pre-library single map once, then route. If the very first load
+// just migrated Johnny's existing map, open it directly — seamless continuity.
+migrateLegacyIfNeeded().then((migrated) => {
+  if (migrated && !slugFromHash()) {
+    window.location.hash = `#${encodeURIComponent(migrated.slug)}`;
+  } else {
+    routeFromHash();
+  }
+  syncProjectsFromCloud();
+});
