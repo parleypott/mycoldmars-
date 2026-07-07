@@ -16,6 +16,7 @@ import { LiveblocksYjsProvider } from '@liveblocks/yjs';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap';
+import { UndoViewportGuard } from './extensions/undo-viewport-guard.js';
 import { collabRoomId, shouldSeedRoom } from './collab.js';
 import { providerSynced } from './collab-sync-wait.js';
 import { fetchCloud } from './cloud-sync.js';
@@ -140,6 +141,12 @@ export function createCollabSession() {
       return [
         Collaboration.configure({ document: yDoc }),
         CollaborationCaret.configure({ provider, user: fallbackCaretUser() }),
+        // UNDO VIEWPORT GUARD — y-tiptap's undo can fail its selection restore and let the
+        // caret map to the DOC END, then scrollIntoView slams the viewport to the bottom of
+        // the script. The guard snaps a mis-restored caret back to the undone-change site
+        // (selection-only appended tr, never touches the doc). Lives HERE (not Editor.jsx)
+        // because it imports @tiptap/y-tiptap: only the collab chunk may carry that dep.
+        UndoViewportGuard,
       ];
     },
     seedIfEmpty(editor) { return seedRoomIfEmpty(session, editor); },
