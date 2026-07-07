@@ -31,9 +31,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.QSS_SUPABASE_URL ||
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.QSS_SUPABASE_SERVICE_KEY || '';
 const BUCKET = 'script-images';
 
-// Generous enough for a 20MB reference GIF with headroom; small enough that a mis-dropped
-// screen recording gets a clean 413 with the limit named, not a mystery storage failure.
-export const MAX_SIGNED_BYTES = 25 * 1024 * 1024;
+// 100MB (was 25MB): Johnny's real MapKeys reference GIFs run 60MB+ — a 61MB file PUT to the
+// bucket in ~4s (verified 2026-07-07). Still a ceiling so a mis-dropped screen recording gets
+// a clean 413 with the limit named, not a mystery storage failure.
+export const MAX_SIGNED_BYTES = 100 * 1024 * 1024;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

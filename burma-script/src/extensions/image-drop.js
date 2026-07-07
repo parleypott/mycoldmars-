@@ -75,7 +75,9 @@ export const SUPPORTED_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/
 export const SIGNED_ROUTE_MIN_BYTES = 6 * 1024 * 1024;
 // Hard client ceiling — matches MAX_SIGNED_BYTES on /api/script-image-sign. Rejecting here
 // gives an instant, named toast instead of a slow round-trip to a 413.
-export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+// 100MB (was 25MB): Johnny's real MapKeys reference GIFs run 60MB+ — a 61MB one PUT to the
+// bucket in ~4s, verified 2026-07-07. Storage is the cheap part; a silent size wall is not.
+export const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 
 // Pure: split a FileList/array into supported images vs everything else.
 export function pickImageFiles(files) {
@@ -363,11 +365,11 @@ export function buildImageDropPlugin() {
           if (isReadOnly() || !view.editable) return true; // read-only: swallow silently
           const { images, rejected } = pickImageFiles(files);
           if (!images.length) {
-            toast('only png / jpeg / webp images can be dropped into the script');
+            toast('only png / jpeg / webp / gif images can be dropped into the script');
             return true;
           }
           if (rejected.length) {
-            toast(`${rejected.length} file${rejected.length > 1 ? 's' : ''} skipped — only png / jpeg / webp images land here`);
+            toast(`${rejected.length} file${rejected.length > 1 ? 's' : ''} skipped — only png / jpeg / webp / gif images land here`);
           }
           const raw = view.posAtCoords({ left: event.clientX, top: event.clientY });
           if (!raw) {
