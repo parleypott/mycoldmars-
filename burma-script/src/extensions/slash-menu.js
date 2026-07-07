@@ -170,6 +170,57 @@ export function doInsertStructureBlock(state, dispatch, range, typeName, opts = 
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// /vo — VO CONVERSION. Unlike the structure inserts, /vo converts the block the cursor
+// already lives in INTO a voBlock — the writer types a line, hits /vo, and the text keeps
+// its clean serif body while the block picks up the small "VO" corner tag (blocks.js paints
+// it in chip chrome). Only the plain prose carts convert; blocks carrying structure or
+// producer data (chapter / scene / SOT / broll / image) are left untouched — the trigger
+// text is still removed so a stray "/vo" never lands in the script. Same one-transaction
+// law as the structure inserts: trigger delete + retype in a single undo step.
+export const VO_CONVERTIBLE = ['noneBlock', 'binBlock', 'oncamBlock', 'montageBlock'];
+
+export function doConvertBlockToVo(state, dispatch, range) {
+  const voType = state.schema.nodes.voBlock;
+  if (!voType) return false;
+
+  const max = state.doc.content.size;
+  const from = Math.max(0, Math.min(range?.from ?? 0, max));
+  const to = Math.max(from, Math.min(range?.to ?? from, max));
+
+  const tr = state.tr;
+  tr.delete(from, to);
+
+  // Walk up from the (post-delete) cursor to the nearest convertible prose cart. All four
+  // convertible types share voBlock's exact content spec + marks allowlist, so setNodeMarkup
+  // is always schema-valid. blockId survives (or is minted for a pre-id block) so autosave /
+  // recovery keys stay stable across the retype.
+  const $pos = tr.doc.resolve(Math.min(from, tr.doc.content.size));
+  for (let d = $pos.depth; d > 0; d--) {
+    const node = $pos.node(d);
+    if (node.type.name === 'voBlock') break; // already VO — just drop the trigger text
+    if (VO_CONVERTIBLE.includes(node.type.name)) {
+      tr.setNodeMarkup($pos.before(d), voType, {
+        blockId: node.attrs.blockId || mintBlockId(),
+        flavor: node.attrs.flavor ?? null,
+        chapterId: node.attrs.chapterId ?? null,
+        status: 'todo',
+      });
+      break;
+    }
+  }
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+}
+
+function convertBlockToVo(editor, range) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  const done = doConvertBlockToVo(state, view.dispatch, range);
+  if (done) view.focus();
+  return done;
+}
+
 function insertStructureBlock(editor, range, typeName, opts) {
   // READ-ONLY SHARE: the suggestion plugin never mounts in read-only, but gate the mutation
   // here too so no code path can ever insert a block into a reader's frozen doc.
@@ -208,6 +259,9 @@ export const SLASH_ITEMS = [
   // i.e. a chapterBlock with BOTH paragraphs pre-built. Title it "GROUND 1" / "HISTORY 2" and the
   // genre tag reclassifies from the heading like any chapter.
   makeItem('section',   ['sec', 'header', 'title'], (editor, range) => insertStructureBlock(editor, range, 'chapterBlock', { withSubtitle: true }), { group: 'structure', hint: 'SEC' }),
+  // /vo — retype the current prose block as VO narration: clean serif body + the small
+  // "VO" corner tag. A conversion, not an insert — the writer's text stays put.
+  makeItem('vo',        ['voice', 'narration', 'v.o.'], (editor, range) => convertBlockToVo(editor, range), { group: 'structure', hint: 'VO' }),
   // MARKS — the inline direction-mark kinds.
   makeItem('archive',   [],               (editor, range) => setArchiveMark(editor, range)),
   makeItem('oncam',     ['on cam', 'on cam to film'], (editor, range) => setDirectionMark(editor, range, 'oncam')),

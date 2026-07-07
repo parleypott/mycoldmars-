@@ -643,6 +643,11 @@ export const VoBlock = Node.create({
       const head = el('div', 'wp-vo-head', { contenteditable: 'false' });
       if (!isPalauChrome) {
         head.appendChild(Object.assign(el('span', 'wp-vo-kind'), { textContent: 'VO · NARRATION' }));
+      } else {
+        // Chip chrome (Burma / Palau / library): the shouty label is gone, so the block's one
+        // identity mark is a small boxed "VO" tag pinned upper-left — doctrine cap ink on
+        // cream, never red. The head is flex-end; margin-right:auto pushes the tag left.
+        head.appendChild(Object.assign(el('span', 'wp-vo-tag'), { textContent: 'VO' }));
       }
 
       // REC control: word REC + 3-position pill (3 pips) + state label.

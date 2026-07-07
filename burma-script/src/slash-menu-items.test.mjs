@@ -21,17 +21,18 @@ import { SLASH_ITEMS } from './extensions/slash-menu.js';
 let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
-// --- 1. Command set is structure (2) + the eight director marks, structure first -------
-ok('SLASH_ITEMS is the eleven commands in order (structure above the tags)', () => {
+// --- 1. Command set is structure (4) + the eight director marks, structure first -------
+ok('SLASH_ITEMS is the twelve commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['chapter', 'scene', 'section', 'archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction', 'break'],
+    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction', 'break'],
   );
 });
 
-ok('chapter + scene + section are group:structure; every tag is group:mark', () => {
+ok('chapter + scene + section + vo are group:structure; every tag is group:mark', () => {
+  const structure = new Set(['chapter', 'scene', 'section', 'vo']);
   for (const it of SLASH_ITEMS) {
-    const want = (it.title === 'chapter' || it.title === 'scene' || it.title === 'section') ? 'structure' : 'mark';
+    const want = structure.has(it.title) ? 'structure' : 'mark';
     assert.equal(it.group, want, `${it.title} should be group:${want}`);
   }
 });
@@ -60,6 +61,9 @@ ok('the shortcut aliases Johnny types resolve to their command', () => {
     ['sec', 'section'],
     ['header', 'section'],
     ['title', 'section'],
+    ['voice', 'vo'],
+    ['narration', 'vo'],
+    ['v.o.', 'vo'],
     ['fc', 'factcheck'],
     ['source', 'factcheck'],
     ['anim', 'animation'],

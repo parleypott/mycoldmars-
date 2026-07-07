@@ -119,6 +119,27 @@
 .wp-rec  { display: none !important; }
 .wp-done { display: none !important; }
 
+/* ───────────────────────── VO CORNER TAG ─────────────────────────
+   The VO block's identity mark in chip chrome: a small boxed "VO" pinned to the
+   upper-left, above the first line (blocks.js appends .wp-vo-tag into the
+   flex-end head; margin-right:auto sends it to the left edge). Doctrine cap ink
+   on cream — calm, boxed, never red. The prose below stays the untouched clean
+   serif body. */
+.wp-vo-tag {
+  margin-right: auto;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  line-height: 1;
+  padding: 3px 5px 2px 6px;
+  border-radius: 2px;
+  background: var(--ep-cap);
+  color: var(--ep-cap-text);
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ───────────────────────── SOT CORNER TAG ─────────────────────────
    A quiet "SOT" mono tag pinned top-right of a sound-on-tape direction, plus a
    thin accent rail down its body. */
