@@ -41,3 +41,5 @@ public/walden/index.html	Math.min(...ys)	SAFE	ys = one element's polygon y-coord
 translation/src/main.js	Math.min(...segNums)	SAFE	segNums = user-selected segment-number range; guarded by length===0 early return; bounded by selection
 translation/src/main.js	Math.max(...segNums)	SAFE	segNums = user-selected segment-number range; bounded by selection (a few thousand at most, far under the spread cap)
 zanyplans/src/mac-window.js	Math.max(...Array.from(win.parentElement?.children||[]).map(el=>parseInt(el.style.zIndex)||0))	SAFE	children = on-screen floating windows — a handful, not unbounded
+public/ascent/src/app.js	Math.max(...window.LANDMARKS.map(l=>l.h))	SAFE	LANDMARKS = fixed 12-entry hardcoded landmark seed in landmarks.js — bounded, never empty
+public/ascent/src/app.js	Math.min(...P.map((p)=>p[1]))	SAFE	P = one curves points, guarded by `if (pts.length < 2) return` above and downsampled to <=700 pts — bounded, never empty

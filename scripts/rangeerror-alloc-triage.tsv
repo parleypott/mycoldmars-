@@ -25,3 +25,5 @@ scripts/run-tests.mjs	newArray(tests.length)	SAFE	tests.length — always a nonn
 taiwan/index.html	newArray(allLabels.length)	SAFE	allLabels.length — always a nonneg integer count
 translation/src/api-client.js	newArray(items.length)	SAFE	items.length — always a nonneg integer count
 translation/src/api-client.js	newArray(segments.length)	SAFE	segments.length — always a nonneg integer count
+public/ascent/src/app.js	newArray(ys.length)	SAFE	ys.length = one hikes elevation-series length (bounded, ~hundreds-1500 pts)
+public/ascent/src/app.js	newArray(LM.length)	SAFE	LM = window.LANDMARKS, fixed 12-entry seed (bounded)
