@@ -3616,7 +3616,12 @@ const projectNameEl = document.getElementById('project-name');
 const savePillEl = document.getElementById('save-pill');
 
 function slugFromHash() {
-  const h = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
+  const raw = (window.location.hash || '').replace(/^#/, '');
+  // A malformed percent-sequence (a bare '%', or a tampered/shared link) makes
+  // decodeURIComponent throw a URIError — which would brick project routing on
+  // boot and every hashchange. Fall back to the raw (un-decoded) slug on failure.
+  let h;
+  try { h = decodeURIComponent(raw); } catch { h = raw; }
   return h.split('?')[0].trim();
 }
 

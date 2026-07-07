@@ -20,3 +20,4 @@ queen-scarlet-school/cast/index.html	returndecodeURIComponent(s)	SAFE	safeDecode
 queen-scarlet-school/index.html	returndecodeURIComponent(part.slice(eq+1))	SAFE	getC(): inline try/catch returns raw cookie value on malformed %.
 queen-scarlet-school/library/index.html	returndecodeURIComponent(part.slice(eq+1))	SAFE	getCookie(): inline try/catch returns raw cookie value on malformed %.
 shared/cookie.js	returndecodeURIComponent(part.slice(eq+1))	SAFE	parseCookieValue(): inline try/catch returns raw cookie value on malformed % (the shared regex-free reader).
+mapkeys/src/main.js	h=decodeURIComponent(raw)	SAFE	slugFromHash(): inline try/catch returns the raw (un-decoded) slug on malformed %, so a tampered/shared hash cannot brick project routing on boot or hashchange.
