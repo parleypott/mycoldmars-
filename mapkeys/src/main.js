@@ -1085,7 +1085,11 @@ function effectiveCountryGeometry(shape) {
 }
 
 function updateSelectionIndicator() {
-  if (!map.isStyleLoaded()) return;
+  // No isStyleLoaded() gate here: setData() flips the style to "loading" on
+  // every shape redraw, so gating would randomly skip updates mid-drag and
+  // leave the indicator stranded at a stale position. Layer creation is
+  // guarded inside ensureSelectionLayers(); setData on an existing source is
+  // always safe.
   ensureSelectionLayers();
   const src = map.getSource(SEL_SRC);
   if (!src) return;
@@ -2717,6 +2721,9 @@ function endShapeDrag() {
   document.body.classList.remove('dragging-shape');
   saveLayers();
   renderShapesPanel();
+  // Re-sync the selection ring to the shape's final position — mid-drag
+  // updates can be skipped while the map style is mid-load.
+  updateSelectionIndicator();
 }
 map.on('mouseup', endShapeDrag);
 // Fallback: if the user releases outside the canvas, recover.
