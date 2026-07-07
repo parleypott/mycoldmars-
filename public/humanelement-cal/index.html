@@ -423,8 +423,12 @@ WEEKS.forEach(w => {
 const pct = t => Math.max(0, Math.min(100, (t - DOMAIN[0]) / (DOMAIN[1] - DOMAIN[0]) * 100));
 const epById = id => EPISODES.find(e => e.id === id);
 const OV_KEY = 'he-plan-overrides-v1';
-let overrides = {}; try { overrides = JSON.parse(localStorage.getItem(OV_KEY)) || {}; } catch(e) {}
-const saveOv = () => localStorage.setItem(OV_KEY, JSON.stringify(overrides));
+/* crash-safe localStorage — a storage-blocked browser (Safari Private) throws on
+   any access; degrade to null/no-op so a boot-time read/write never bricks the page */
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+let overrides = {}; try { overrides = JSON.parse(lsGet(OV_KEY)) || {}; } catch(e) {}
+const saveOv = () => lsSet(OV_KEY, JSON.stringify(overrides));
 
 function phaseStatus(ep, ph) {
   const key = ep.id + ':' + ph.k;
@@ -656,20 +660,20 @@ document.querySelectorAll('.vtab').forEach(b => b.addEventListener('click', () =
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   document.getElementById('view-'+b.dataset.view).classList.add('active');
-  localStorage.setItem('he-plan-view', b.dataset.view);
+  lsSet('he-plan-view', b.dataset.view);
 }));
 const hashView = location.hash.replace('#','').replace('v:','');
-const savedView = ['gantt','months','cal','list'].includes(hashView) ? hashView : localStorage.getItem('he-plan-view');
+const savedView = ['gantt','months','cal','list'].includes(hashView) ? hashView : lsGet('he-plan-view');
 if (savedView) document.querySelector(`.vtab[data-view="${savedView}"]`)?.click();
 
 const at = document.getElementById('adam-toggle');
 function setAdam(on){
   at.classList.toggle('on', on);
   document.body.classList.toggle('adam-off', !on);
-  localStorage.setItem('he-plan-adam', on ? '1' : '0');
+  lsSet('he-plan-adam', on ? '1' : '0');
 }
 at.addEventListener('click', () => setAdam(!at.classList.contains('on')));
-setAdam(localStorage.getItem('he-plan-adam') !== '0');
+setAdam(lsGet('he-plan-adam') !== '0');
 </script>
 </body>
 </html>
