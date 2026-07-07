@@ -1996,11 +1996,25 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
   object-fit: contain;
   background: #000;
 }
-.wp-media-lightbox-cap {
+.wp-media-lightbox-foot {
+  display: flex; align-items: center; gap: 12px;
   padding: 7px 12px;
+}
+.wp-media-lightbox-cap {
+  flex: 1; min-width: 0;
   font-family: var(--mono); font-size: var(--chrome-size-sm, 11px);
   letter-spacing: .02em; color: var(--ep-kind-label, #6b6455);
 }
+.wp-media-lightbox-dl {
+  flex: none;
+  padding: 5px 11px;
+  border: 1.5px solid var(--ink, #1f1d18); border-radius: 999px;
+  background: var(--face, #f4ecdc); color: var(--ink, #1f1d18);
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+}
+.wp-media-lightbox-dl:hover:not(:disabled) { background: var(--ink, #1f1d18); color: var(--face, #f4ecdc); }
+.wp-media-lightbox-dl:disabled { opacity: .6; cursor: progress; }
 .wp-media-lightbox-close {
   position: absolute; top: 8px; right: 8px;
   width: 28px; height: 28px; padding: 0;

@@ -1023,6 +1023,48 @@ const VIDEO_LOOP_ATTRS = { autoplay: '', loop: '', muted: '', playsinline: '', p
 // open time from .wp-editor-content), capped to the viewport — an in-tool viewing surface,
 // not a browser fullscreen takeover. A video keeps auto-looping muted (same contract as the
 // rack element); the caption rides below. Esc / click-away / × close. One instance ever.
+// Download the lightbox's media in an edit-suite-ready form (Johnny: "downloadable as mp4
+// or something that can be put into video editing software"). A video src IS already a
+// Premiere-ready fast-start H.264 mp4 — straight blob download. A legacy .gif src gets
+// transcoded to mp4 on the way down via the same in-browser pipeline the drop path uses
+// (dynamic import — the transcoder stays out of the core chunk); if WebCodecs balks, the
+// raw gif downloads instead (Premiere imports those too, just less happily). Stills come
+// down in their native format. Cross-origin CDN srcs need the fetch→blob→objectURL dance —
+// a bare <a download> is ignored cross-origin.
+async function downloadMediaFromLightbox(src, alt, button) {
+  const base = (String(alt || '').trim() || 'script-media').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'script-media';
+  const label = button.textContent;
+  button.disabled = true;
+  try {
+    button.textContent = 'FETCHING…';
+    const res = await fetch(src);
+    if (!res.ok) throw new Error('http ' + res.status);
+    let blob = await res.blob();
+    let ext = (String(src).split(/[?#]/, 1)[0].match(/\.(\w{2,4})$/) || [, 'bin'])[1].toLowerCase();
+    if (!isVideoSrc(src) && /gif/i.test(blob.type + ext)) {
+      try {
+        button.textContent = 'CONVERTING…';
+        const { transcodeGifToMp4 } = await import('./gif-transcode.js');
+        blob = await transcodeGifToMp4(new File([blob], base + '.gif', { type: 'image/gif' }));
+        ext = 'mp4';
+      } catch { /* raw gif still downloads below */ }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = base + '.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  } catch (e) {
+    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'download failed (' + (e?.message || 'network') + ') — try again' } })); } catch {}
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
 let closeOpenLightbox = null;
 export function openMediaLightbox({ src, alt }) {
   if (closeOpenLightbox) closeOpenLightbox();
@@ -1049,11 +1091,21 @@ export function openMediaLightbox({ src, alt }) {
   }
   media.src = src;
   frame.appendChild(media);
-  if (alt) {
-    const cap = el('figcaption', 'wp-media-lightbox-cap');
-    cap.textContent = alt;
-    frame.appendChild(cap);
-  }
+  // FOOTER — caption (when present) + the edit-suite download. Motion gets the honest
+  // "MP4" promise; a still downloads as itself.
+  const foot = el('div', 'wp-media-lightbox-foot');
+  const cap = el('figcaption', 'wp-media-lightbox-cap');
+  cap.textContent = alt || '';
+  foot.appendChild(cap);
+  const isMotion = isVideoSrc(src) || /\.gif$/i.test(String(src).split(/[?#]/, 1)[0]);
+  const dl = el('button', 'wp-media-lightbox-dl', {
+    type: 'button',
+    title: isMotion ? 'Download as an mp4 ready for your edit' : 'Download this image',
+  });
+  dl.textContent = isMotion ? '⇩ DOWNLOAD MP4' : '⇩ DOWNLOAD';
+  dl.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); downloadMediaFromLightbox(src, alt, dl); });
+  foot.appendChild(dl);
+  frame.appendChild(foot);
   const closeBtn = el('button', 'wp-media-lightbox-close', { type: 'button', title: 'Close (Esc)', 'aria-label': 'close preview' });
   closeBtn.textContent = '×';
   frame.appendChild(closeBtn);
