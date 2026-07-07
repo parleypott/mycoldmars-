@@ -2086,7 +2086,7 @@ async function openAccountModal(opts = {}) {
             <input id="acct-add-email" class="np-textarea account-add-input" type="email" placeholder="email@example.com" style="min-height:auto;flex:1;">
             <button id="acct-add-btn" class="np-button np-button--primary">Add user</button>
           </div>
-          <p class="account-help">New users start with password <code>newpress</code>. Tell them — they can change it from their own Account → Password tab after signing in.</p>
+          <p class="account-help">New users get a random one-time password, shown here once. Copy it and hand it over — they can change it from their own Account → Password tab after signing in.</p>
           <div id="acct-users-list" class="account-users-list">
             <div class="account-loading">Loading users…</div>
           </div>
@@ -2234,11 +2234,13 @@ async function openAccountModal(opts = {}) {
       usersListEl.querySelectorAll('[data-pw-for]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const userId = btn.dataset.pwFor;
-          const pw = await openPromptOverlay({ title: 'New password', message: 'Default: newpress', defaultValue: 'newpress', confirmLabel: 'Set password' });
+          const pw = await openPromptOverlay({ title: 'New password', message: 'Leave blank to generate a random one', defaultValue: '', confirmLabel: 'Set password' });
           if (pw == null) return;
           try {
-            await adminCall('set_password', { userId, password: pw });
-            usersOk(`Password reset.`);
+            // Blank → server generates a per-user random password and
+            // returns it exactly once. There is no shared default anymore.
+            const out = await adminCall('set_password', { userId, ...(pw.trim() ? { password: pw } : {}) });
+            usersOk(out.generatedPassword ? `Password reset. One-time password: ${out.generatedPassword}` : 'Password reset.');
           } catch (e) { usersError(e.message); }
         });
       });
@@ -2269,7 +2271,7 @@ async function openAccountModal(opts = {}) {
     btn.textContent = 'Adding…';
     try {
       const out = await adminCall('create', { email });
-      usersOk(`Created ${out.user.email}. Default password: ${out.defaultPassword || '(custom)'}`);
+      usersOk(`Created ${out.user.email}. One-time password: ${out.generatedPassword || '(custom)'}`);
       inputEl.value = '';
       refreshUsers();
     } catch (e) { usersError(e.message); }
@@ -2356,7 +2358,7 @@ async function openAdminConsole() {
         <button id="admin-add-btn" class="np-button np-button--primary">Add user</button>
       </div>
       <p style="font-family:var(--np-font-mono);font-size:11px;color:var(--np-sepia);margin:6px 2px 14px;">
-        New users are created with password <code>newpress</code>. They can change it from the avatar menu after signing in.
+        New users get a one-time random password, shown once right here — copy it and hand it over. They can change it from the avatar menu after signing in.
       </p>
       <div id="admin-users-list" class="admin-users-list">
         <div class="admin-loading">Loading users…</div>
@@ -2418,11 +2420,13 @@ async function openAdminConsole() {
       list.querySelectorAll('[data-pw-for]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const userId = btn.dataset.pwFor;
-          const pw = await openPromptOverlay({ title: 'New password', message: 'Default: newpress', defaultValue: 'newpress', confirmLabel: 'Set password' });
+          const pw = await openPromptOverlay({ title: 'New password', message: 'Leave blank to generate a random one', defaultValue: '', confirmLabel: 'Set password' });
           if (pw == null) return;
           try {
-            await adminCall('set_password', { userId, password: pw });
-            ok(`Password reset.`);
+            // Blank → server generates a per-user random password and
+            // returns it exactly once. There is no shared default anymore.
+            const out = await adminCall('set_password', { userId, ...(pw.trim() ? { password: pw } : {}) });
+            ok(out.generatedPassword ? `Password reset. One-time password: ${out.generatedPassword} — copy it now, it won't be shown again.` : 'Password reset.');
           } catch (e) { err(e.message); }
         });
       });
@@ -2446,7 +2450,9 @@ async function openAdminConsole() {
     if (!email) return;
     try {
       const out = await adminCall('create', { email });
-      ok(`Created ${out.user.email}. Password: ${out.defaultPassword || '(custom)'}`);
+      ok(out.generatedPassword
+        ? `Created ${out.user.email}. One-time password: ${out.generatedPassword} — copy it now, it won't be shown again.`
+        : `Created ${out.user.email}.`);
       inputEl.value = '';
       refresh();
     } catch (e) { err(e.message); }

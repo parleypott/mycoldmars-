@@ -158,7 +158,7 @@ const FLOWS = {
   },
   admin: {
     title: 'Get multi-user logins working',
-    intro: 'Two env vars and one toggle: tell Vercel which Supabase project to talk to, give it the service-role key so it can manage users, name yourself the admin, and turn off open signups so only the admin console can add accounts. The admin user (johnny@newpress.com / newpress) gets seeded automatically on first page load once ADMIN_EMAILS is set — no manual create needed.',
+    intro: 'Two env vars and one toggle: tell Vercel which Supabase project to talk to, give it the service-role key so it can manage users, name yourself the admin, and turn off open signups so only the admin console can add accounts. The admin user (johnny@newpress.com) gets seeded automatically on first page load once ADMIN_EMAILS is set — with an undisclosed random password, so sign in the first time with a magic link and set your own password from the avatar menu. No manual create needed.',
     category: 'admin',
     verify: verifyAdmin,
   },
@@ -243,7 +243,10 @@ async function verifyDevchat() {
 }
 
 // Verify admin/auth: call the idempotent bootstrap and report what happened.
-// Server reads ADMIN_EMAILS, seeds missing users with password 'newpress'.
+// Server reads ADMIN_EMAILS and seeds missing users with an UNDISCLOSED
+// random password (no shared default anymore — the old fixed one was a
+// skeleton key). First sign-in for a seeded account is the magic link;
+// then set a password from the avatar menu.
 async function verifyAdmin() {
   try {
     const r = await fetch('/api/admin-users', {
@@ -272,7 +275,7 @@ async function verifyAdmin() {
     if (createdCount) parts.push(`created ${createdCount}`);
     if (skippedCount) parts.push(`${skippedCount} already existed`);
     const summary = parts.length ? parts.join(' · ') : 'no admin emails configured';
-    return { ok: true, detail: `${summary}. Sign in with password "newpress" and change it from the avatar menu.` };
+    return { ok: true, detail: `${summary}. Seeded accounts get a random undisclosed password — sign in with a magic link, then set your password from the avatar menu.` };
   } catch (err) {
     return { ok: false, reason: 'Could not reach /api/admin-users: ' + (err?.message || err) };
   }

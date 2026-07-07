@@ -85,8 +85,9 @@ export function getProfileError() { return _profileError; }
 
 /**
  * Email + password sign-in (preferred). The magic-link path stays as a
- * fallback / forgot-password recovery. New accounts default to password
- * 'newpress' — they're prompted to change it later from the dropdown.
+ * fallback / forgot-password recovery. New accounts get a server-generated
+ * random password (shown once to the admin who created them) — no shared
+ * default. They're prompted to change it later from the dropdown.
  */
 export async function signInWithPassword(email, password) {
   if (!supabase) return { ok: false, error: 'Supabase not configured' };
