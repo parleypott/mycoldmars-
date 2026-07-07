@@ -17,14 +17,19 @@ function el(tag, cls, attrs) {
 // Deletes the slash-command range first so "/archive" text is removed, then
 // stores the mark as a ProseMirror stored mark — the NEXT typed characters inherit it.
 // With inclusive:true on the mark, typing continues to carry the highlight.
-function setDirectionMark(editor, range, kind) {
+function setDirectionMark(editor, range, kind, seedText) {
   const attrs = defaultDirectionMarkAttrs(kind);
-  return editor
+  const chain = editor
     .chain()
     .focus()
     .deleteRange(range)
-    .setMark('directionMark', attrs)
-    .run();
+    .setMark('directionMark', attrs);
+  // SEED TEXT (Johnny: "/3d should automatically start with this state") — some kinds open
+  // with their keyword already typed INSIDE the chip (e.g. "3D "), caret after it, so he
+  // types straight into the highlight. The seed carries the mark explicitly (identical to
+  // having typed it), and inclusive:true keeps the following keystrokes in the chip.
+  if (seedText) chain.insertContent({ type: 'text', text: seedText, marks: [{ type: 'directionMark', attrs }] });
+  return chain.run();
 }
 
 // archiveOwnLine flag (Palau opts in): /archive pops onto its OWN small-indented line. We delete
@@ -298,7 +303,7 @@ export const SLASH_ITEMS = [
   makeItem('oncam',     ['on cam', 'on cam to film'], (editor, range) => setDirectionMark(editor, range, 'oncam')),
   makeItem('factcheck', ['fc', 'source'], (editor, range) => setDirectionMark(editor, range, 'factcheck')),
   makeItem('animation', ['anim'],         (editor, range) => setDirectionMark(editor, range, 'animation')),
-  makeItem('3d',        ['3d animation', 'threed'], (editor, range) => setDirectionMark(editor, range, '3d')),
+  makeItem('3d',        ['3d animation', 'threed'], (editor, range) => setDirectionMark(editor, range, '3d', '3D ')),
   makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),
   makeItem('direction', [],               (editor, range) => setDirectionMark(editor, range, 'direction')),
   makeItem('break',     [],               (editor, range) => editor.chain().focus().deleteRange(range).insertContent({ type: 'directionBreak' }).run()),

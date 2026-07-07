@@ -27,10 +27,10 @@ function el(tag, cls, attrs) {
   return n;
 }
 
-// Drag-to-reorder is gated by the episode's `rowDragReorder` feature flag (Palau opts in).
-// Gating it here keeps Burma's rack — and its existing split/merge grip — byte-for-byte
-// untouched: no drag handle is ever mounted, no drag listeners ever attach, on a Burma row.
-function isPalauEpisode() {
+// Drag-to-reorder is gated by the episode's `rowDragReorder` feature flag. BOTH current
+// episodes ship it (Burma AND Palau opt in via config) — episodes without the flag mount
+// no handle and attach no listeners, so their drop behavior stays byte-identical.
+function rowDragEnabled() {
   return episodeFlag('rowDragReorder');
 }
 
@@ -734,7 +734,7 @@ export const TableRow = Node.create({
   // The editor-owned row-drag plugin ships with the same episode flag as the grip: episodes
   // without rowDragReorder get no plugin at all, keeping Burma's drop behavior byte-identical.
   addProseMirrorPlugins() {
-    return isPalauEpisode() ? [rowDragPlugin()] : [];
+    return rowDragEnabled() ? [rowDragPlugin()] : [];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -786,15 +786,15 @@ export const TableRow = Node.create({
       spine.appendChild(btn);
       dom.appendChild(spine);
 
-      // ---- ROW DRAG HANDLE (PALAU ONLY) --------------------------------
-      // Far-left ⇕ grip. Hidden until row hover; grab to drag the whole row up/down. Kept
-      // strictly out of Burma so the split/merge spine is never touched there. The glyph is
+      // ---- ROW DRAG HANDLE (rowDragReorder episodes — Burma + Palau) ---------
+      // Far-left ⇕ grip. Hidden until row hover; grab to drag the whole row up/down. Never
+      // mounted in read-only share mode — a reader gets no reorder affordance. The glyph is
       // deliberately NOT ⠿ — that's the block grip's glyph, and two identical grips made
       // users grab PM's native BLOCK drag when they meant to move a row. This handle only
       // STARTS the gesture and records the row's IDENTITY; the editor-level rowDragPlugin
       // owns everything after (indicator, autoscroll, drop) — see OWNERSHIP LAW above.
       let handle = null;
-      if (isPalauEpisode()) {
+      if (rowDragEnabled() && !isReadOnly()) {
         handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
         handle.textContent = '⇕';
 
