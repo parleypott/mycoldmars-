@@ -41,6 +41,25 @@ const formatDuration = (() => {
   return new Function(`${m[0]}\nreturn formatDuration;`)();
 })();
 
+// The two INPUT MASKS, run on every keystroke in the card inspector. They format
+// what the editor types and STORE the result verbatim as card.source / card.duration
+// — the same card.duration parseDuration reads back for the runtime total and every
+// exported NLE marker In/Out/Duration. So the mask output IS the producer input;
+// a grouping drift here silently corrupts the stored value under Johnny's feet.
+// Their bodies carry regex literals with `{2}` (a bare `}`), so a naive non-greedy
+// `}` match truncates early — anchor each on its real `return padded.replace(...)`.
+const formatTimecode = (() => {
+  const m = html.match(/function formatTimecode\(value\)\s*\{[\s\S]*?return padded\.replace\([\s\S]*?\);\s*\}/);
+  assert.ok(m, 'could not find formatTimecode() in index.html');
+  return new Function(`${m[0]}\nreturn formatTimecode;`)();
+})();
+
+const formatDurationInput = (() => {
+  const m = html.match(/function formatDurationInput\(value\)\s*\{[\s\S]*?\$1:\$2:\$3'\);\s*\}\s*\}/);
+  assert.ok(m, 'could not find formatDurationInput() in index.html');
+  return new Function(`${m[0]}\nreturn formatDurationInput;`)();
+})();
+
 /* ───────────────────────── parseDuration ───────────────────────── */
 
 // Empty / garbage -> 0 (never NaN; the runtime total sums these).
@@ -106,5 +125,54 @@ assert.equal(formatDuration(-5), '00:00');
 assert.equal(formatDuration(NaN), '00:00');
 // Rounds to the nearest whole second.
 assert.equal(formatDuration(89.6), '01:30');
+
+/* ───────────────────────── formatTimecode (source-TC mask) ───────────────────────── */
+
+// Empty typing clears the field (never renders "00:00:00:00" onto an empty input).
+assert.equal(formatTimecode(''), '');
+assert.equal(formatTimecode('abc'), '');            // non-digits stripped to nothing
+// Right-to-left fill into HH:MM:SS:FF, zero-padded to 8 digits. Mutation: shrink the
+// padStart(8) and a short entry stops matching the 4-group regex → returns unformatted.
+assert.equal(formatTimecode('1'), '00:00:00:01');
+assert.equal(formatTimecode('12'), '00:00:00:12');
+assert.equal(formatTimecode('123456'), '00:12:34:56');
+assert.equal(formatTimecode('12345678'), '12:34:56:78');
+// Overflow keeps the LAST 8 digits (slice(-8)), matching the on-screen mask.
+assert.equal(formatTimecode('123456789'), '23:45:67:89');
+// Idempotent on an already-formatted value (re-typing / paste round-trips clean).
+assert.equal(formatTimecode('01:02:03:04'), '01:02:03:04');
+// Non-digits interspersed are stripped, not positional.
+assert.equal(formatTimecode('ab12cd'), '00:00:00:12');
+
+/* ───────────────────────── formatDurationInput (duration mask) ───────────────────────── */
+
+// Empty clears. Non-digits strip to nothing.
+assert.equal(formatDurationInput(''), '');
+assert.equal(formatDurationInput('xx'), '');
+// ≤4 digits → MM:SS. Mutation: change padStart(4)→(3) or the /(\d{2})(\d{2})/ groups
+// and "130" stops matching → the raw string leaks into card.duration.
+assert.equal(formatDurationInput('5'), '00:05');
+assert.equal(formatDurationInput('130'), '01:30');
+assert.equal(formatDurationInput('1234'), '12:34');
+// ≥5 digits → HH:MM:SS. Mutation: drop the `> 4` branch and an hour-long clip's
+// duration mis-groups.
+assert.equal(formatDurationInput('12345'), '01:23:45');
+assert.equal(formatDurationInput('123456'), '12:34:56');
+// Overflow keeps the LAST 6 digits (slice(-6)).
+assert.equal(formatDurationInput('1234567'), '23:45:67');
+// Non-digits stripped.
+assert.equal(formatDurationInput('a5b'), '00:05');
+
+/* ─────────────────── mask → parseDuration ROUND-TRIP (the pipeline contract) ─────────────────── */
+// What the mask STORES must be what parseDuration reads back in whole seconds — this
+// is the seam that keeps the runtime total and every exported marker Duration honest.
+// Locked so a future mask refactor can't drift the stored string away from what the
+// base-60 parser expects.
+assert.equal(parseDuration(formatDurationInput('5')), 5);        // 00:05
+assert.equal(parseDuration(formatDurationInput('130')), 90);     // 01:30
+assert.equal(parseDuration(formatDurationInput('500')), 300);    // 05:00 = 5 min
+assert.equal(parseDuration(formatDurationInput('1234')), 754);   // 12:34 = 12*60+34
+assert.equal(parseDuration(formatDurationInput('12345')), 5025); // 01:23:45
+assert.equal(parseDuration(formatDurationInput('130000')), 46800); // 13:00:00 = 13*3600
 
 console.log('duration-timecode.test.mjs — all assertions passed');
