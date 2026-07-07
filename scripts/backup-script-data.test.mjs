@@ -14,7 +14,7 @@
  * Run: bun scripts/backup-script-data.test.mjs
  */
 import assert from 'node:assert';
-import { parseEnvFile, dateStamp, dirsToPrune, pageUrl } from './backup-script-data.ts';
+import { parseEnvFile, dateStamp, dirsToPrune, pageUrl, previousBackupDir, objectDownloadUrl } from './backup-script-data.ts';
 
 let passed = 0, failed = 0;
 function ok(name, fn) {
@@ -83,6 +83,30 @@ ok('subsequent pages use strict gt (no overlap, no skip)', () => {
   assert.ok(u.includes('id=gt.1042'), 'must be gt, got: ' + u);
   assert.ok(!u.includes('gte'), 'gte would duplicate the boundary row');
   assert.ok(u.includes('order=id.asc'), 'keyset requires stable ordering');
+});
+
+// --- previousBackupDir -------------------------------------------------------
+ok('picks the newest dated dir strictly before today', () => {
+  assert.equal(previousBackupDir(['2026-07-05', '2026-07-06', '2026-07-07'], '2026-07-07'), '2026-07-06');
+});
+ok('never carries forward from today itself or non-date names', () => {
+  // today's own dir matching would make a re-run "carry forward" half-written files
+  assert.equal(previousBackupDir(['2026-07-07', 'backup.log', 'weeklies'], '2026-07-07'), null);
+});
+ok('returns null when no earlier dir exists (first ever run)', () => {
+  assert.equal(previousBackupDir([], '2026-07-07'), null);
+});
+
+// --- objectDownloadUrl -------------------------------------------------------
+ok('builds the storage download route with segments intact', () => {
+  assert.equal(
+    objectDownloadUrl('https://x.supabase.co', 'script-images', 'scripts/burma/a.png'),
+    'https://x.supabase.co/storage/v1/object/script-images/scripts/burma/a.png',
+  );
+});
+ok('encodes odd characters per-segment without eating the slashes', () => {
+  const u = objectDownloadUrl('https://x.supabase.co', 'script-images', 'scripts/my file#1.png');
+  assert.ok(u.endsWith('/script-images/scripts/my%20file%231.png'), u);
 });
 
 console.log(`\nbackup-script-data: ${passed} passed, ${failed} failed`);

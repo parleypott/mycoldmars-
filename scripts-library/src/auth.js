@@ -8,6 +8,7 @@
 //   onAuthChange(handler)           — subscribe to sign-in/out (fires immediately)
 //   signInWithPassword(email, pw)   — { ok, error? }
 //   sendMagicLink(email)            — { ok, error? } (forgot-password fallback)
+//   signUpWithMagicLink(email)      — { ok, error? } (self-signup, @newpress.com only)
 //   updatePassword(newPassword)     — self-service change from the account menu
 //   getAccessToken()                — current JWT for admin API calls
 //   signOut()                       — local + remote sign-out
@@ -16,6 +17,7 @@
 
 import { supabase } from './supa.js';
 import { tokenExpiresWithin } from './auth-token.js';
+import { isNewpressEmail } from '../../api/_lib/newpress-domain.js';
 
 let _user = null;
 const _listeners = new Set();
@@ -64,6 +66,41 @@ export async function sendMagicLink(email) {
     if (error) {
       // Supabase phrases the shouldCreateUser rejection as a signup error
       // ("Signups not allowed for otp") — translate to what it means here.
+      const msg = /signup/i.test(error.message)
+        ? 'No account exists for that email. Ask an admin to add you.'
+        : error.message;
+      return { ok: false, error: msg };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+}
+
+// Self-signup — magic link that MAY create an account, gated by domain.
+// shouldCreateUser flips true ONLY for @newpress.com addresses; every other
+// domain keeps the recovery posture of sendMagicLink above (existing accounts
+// still get a link, unknown ones get the refusal). This flag is UX, not the
+// wall: a tampered client can flip it, so the server enforces the same rule
+// in the Supabase `before-user-created` auth hook
+// (public.hook_restrict_signup_to_newpress), which rejects the insert with a
+// 403 before the user row exists. Rule lives in api/_lib/newpress-domain.js.
+export async function signUpWithMagicLink(email) {
+  if (!supabase) return { ok: false, error: 'Supabase not configured' };
+  const addr = (email || '').trim();
+  if (!/.+@.+\..+/.test(addr)) return { ok: false, error: 'Enter a valid email address.' };
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: addr,
+      options: {
+        emailRedirectTo: window.location.origin + window.location.pathname,
+        shouldCreateUser: isNewpressEmail(addr),
+      },
+    });
+    if (error) {
+      // Same translation as sendMagicLink: Supabase phrases the
+      // shouldCreateUser rejection as a signup error ("Signups not allowed
+      // for otp"). The server hook's 403 message passes through verbatim.
       const msg = /signup/i.test(error.message)
         ? 'No account exists for that email. Ask an admin to add you.'
         : error.message;

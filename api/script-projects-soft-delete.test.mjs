@@ -130,8 +130,11 @@ const req = (method, qs, body) => new Request(`https://x.test/api/script-project
   ok(calls[0].url.includes(ACTIVE_LIST_FILTER), 'l1. active list filters out BOTH trashed and deleted rows');
   calls.length = 0;
   await handler(req('GET', '?trashed=1'));
-  ok(calls[0].url.includes(encodeURI(TRASH_LIST_FILTER)) || calls[0].url.includes(TRASH_LIST_FILTER),
-    'l2. trash list is trashed OR deleted — deleted rows surface for the trash UI / restore');
+  // The trash filter is now archive-bounded (or=(trashed_at.gt.<cutoff>,and(trashed_at.is.null,
+  // deleted_at.gt.<cutoff>))) — still trashed OR deleted, so deleted rows surface for restore.
+  // Boundary behavior is locked in api/script-projects-archive.test.mjs.
+  ok(calls[0].url.includes('or=(trashed_at.gt.') && calls[0].url.includes('deleted_at.gt.'),
+    'l2. trash list is trashed OR deleted (archive-bounded) — deleted rows surface for the trash UI / restore');
   ok(calls[0].url.includes('deleted_at'), 'l3. deleted_at selected onto the wire for the client');
 }
 

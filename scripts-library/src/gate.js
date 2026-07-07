@@ -8,7 +8,7 @@
 // If Supabase isn't configured (no VITE_SUPABASE_URL/ANON_KEY), the app runs
 // OPEN — the gate never shows and boot() proceeds immediately (Palau posture).
 
-import { bootstrap, signInWithPassword, sendMagicLink, currentUser, onAuthChange, authRequired, getFreshAccessToken } from './auth.js';
+import { bootstrap, signInWithPassword, sendMagicLink, signUpWithMagicLink, currentUser, onAuthChange, authRequired, getFreshAccessToken } from './auth.js';
 import { readSupabaseAccessTokenSync, tokenExpiresWithin } from './auth-token.js';
 
 // ── Fetch interceptor: Bearer JWT on same-origin /api/* ──────────────────────
@@ -84,6 +84,12 @@ function buildGateDom() {
         <input id="sl-gate-magic" class="sl-gate-input" type="email" placeholder="Email for magic link" aria-label="Email for magic link">
         <button id="sl-gate-magic-submit" class="sl-gate-btn">Send sign-in link</button>
       </details>
+      <details class="sl-gate-fallback">
+        <summary>New here? Sign up with your @newpress.com email</summary>
+        <input id="sl-gate-signup" class="sl-gate-input" type="email" placeholder="you@newpress.com" aria-label="Email for sign-up"
+               autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
+        <button id="sl-gate-signup-submit" class="sl-gate-btn">Send sign-up link</button>
+      </details>
     </div>`;
   document.body.appendChild(gate);
 }
@@ -149,6 +155,22 @@ function wireGateForms() {
       if (res.ok) { okEl.textContent = `Link sent to ${addr}. Open it on this device.`; okEl.hidden = false; errEl.hidden = true; }
       else { showErr(res.error || 'Could not send the link.'); }
     } finally { magicBtn.disabled = false; magicBtn.textContent = 'Send sign-in link'; }
+  });
+
+  // Self-signup — @newpress.com addresses mint their own account via magic
+  // link; every other domain is refused (client flag + server auth hook).
+  const signup = document.getElementById('sl-gate-signup');
+  const signupBtn = document.getElementById('sl-gate-signup-submit');
+  signupBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const addr = signup.value.trim();
+    if (!addr) return;
+    signupBtn.disabled = true; signupBtn.textContent = 'Sending…';
+    try {
+      const res = await signUpWithMagicLink(addr);
+      if (res.ok) { okEl.textContent = `Link sent to ${addr}. Open it on this device to finish signing in.`; okEl.hidden = false; errEl.hidden = true; }
+      else { showErr(res.error || 'Could not send the link.'); }
+    } finally { signupBtn.disabled = false; signupBtn.textContent = 'Send sign-up link'; }
   });
 }
 

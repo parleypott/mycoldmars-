@@ -4,8 +4,11 @@
  * Exports script_projects, script_docs, script_doc_revisions as gzipped JSONL
  * (one row per line — pages stream straight into the gzip so the ~200MB
  * revisions table never has to fit in memory as one JSON array), plus a full
- * recursive object listing of the script-images bucket, into
- * ~/Backups/mycoldmars/YYYY-MM-DD/. Prunes dated dirs older than 30 days.
+ * recursive object listing of the script-images bucket AND the object bytes
+ * themselves (script-images/<path>), into ~/Backups/mycoldmars/YYYY-MM-DD/.
+ * Objects already present in the previous night's dir at the same path+size
+ * are hardlinked forward instead of re-downloaded — a 61MB GIF costs one
+ * download ever, not one per night. Prunes dated dirs older than 30 days.
  *
  * READ-ONLY by construction: the only Supabase calls are REST GETs and the
  * storage list endpoint (a POST in HTTP verb only — it cannot mutate).
@@ -14,9 +17,9 @@
  * Schedule: ~/Library/LaunchAgents/com.johnnyharris.mycoldmars-backup.plist (03:30 nightly)
  * Log:      ~/Backups/mycoldmars/backup.log
  */
-import { createWriteStream, mkdirSync, readdirSync, rmSync, statSync, appendFileSync, readFileSync } from 'node:fs';
+import { createWriteStream, mkdirSync, readdirSync, rmSync, statSync, appendFileSync, readFileSync, writeFileSync, linkSync, copyFileSync } from 'node:fs';
 import { createGzip } from 'node:zlib';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
 const BACKUP_ROOT = join(homedir(), 'Backups', 'mycoldmars');
@@ -71,6 +74,20 @@ export function dirsToPrune(names: string[], today: string, keepDays: number): s
     const d = new Date(n + 'T00:00:00');
     return !Number.isNaN(d.getTime()) && d < cutoff;
   });
+}
+
+/**
+ * Newest exact-YYYY-MM-DD name strictly before `today` — the carry-forward
+ * source for image bytes. Non-date names (backup.log, weeklies/) never match.
+ */
+export function previousBackupDir(names: string[], today: string): string | null {
+  const dated = names.filter((n) => /^\d{4}-\d{2}-\d{2}$/.test(n) && n < today).sort();
+  return dated.length ? dated[dated.length - 1] : null;
+}
+
+/** Storage download URL; each path segment encoded so odd filenames can't break the route. */
+export function objectDownloadUrl(base: string, bucket: string, path: string): string {
+  return `${base}/storage/v1/object/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
 /** Keyset-paginated REST URL: rows strictly after `afterId`, ordered by id. */
@@ -221,6 +238,48 @@ async function listBucket(base: string, key: string, prefix = ''): Promise<Array
   return objects;
 }
 
+/**
+ * Materialize bucket object bytes under dayDir/script-images/<path>.
+ * Dedupe key is path+size against the previous night's dir: match → hardlink
+ * forward (copy if the link fails), miss → download. Size is verified after
+ * download so a truncated response can't silently pass as a good backup.
+ */
+async function downloadImages(
+  base: string,
+  key: string,
+  objects: Array<Record<string, unknown>>,
+  dayDir: string,
+  prevDayDir: string | null,
+): Promise<{ downloaded: number; carried: number; bytes: number }> {
+  let downloaded = 0, carried = 0, bytes = 0;
+  for (const obj of objects) {
+    const path = String(obj.path);
+    const expectedSize = Number((obj.metadata as Record<string, unknown> | undefined)?.size ?? NaN);
+    const dest = join(dayDir, 'script-images', path);
+    mkdirSync(dirname(dest), { recursive: true });
+
+    const prev = prevDayDir ? join(prevDayDir, 'script-images', path) : null;
+    if (prev && Number.isFinite(expectedSize) && expectedSize > 0 && bytesOf(prev) === expectedSize) {
+      rmSync(dest, { force: true }); // same-day re-runs leave a dest that would EEXIST the link
+      try { linkSync(prev, dest); } catch { copyFileSync(prev, dest); }
+      carried++;
+      bytes += expectedSize;
+      continue;
+    }
+
+    const r = await sbFetch(objectDownloadUrl(base, BUCKET, path), key);
+    if (!r.ok) throw new Error(`download ${path} failed: ${r.status} ${(await r.text()).slice(0, 300)}`);
+    const buf = new Uint8Array(await r.arrayBuffer());
+    writeFileSync(dest, buf);
+    if (Number.isFinite(expectedSize) && buf.byteLength !== expectedSize) {
+      throw new Error(`download ${path}: got ${buf.byteLength} bytes, bucket says ${expectedSize}`);
+    }
+    downloaded++;
+    bytes += buf.byteLength;
+  }
+  return { downloaded, carried, bytes };
+}
+
 function pruneOld(today: string) {
   let names: string[] = [];
   try { names = readdirSync(BACKUP_ROOT); } catch { return; }
@@ -264,6 +323,12 @@ async function main() {
     await writer.write(JSON.stringify({ bucket: BUCKET, listed_at: new Date().toISOString(), count: objects.length, objects }, null, 2));
     await writer.close();
     results.push(`script-images listing: ${objects.length} objects, ${bytesOf(out)} bytes gz`);
+    log(results[results.length - 1]);
+
+    const prevName = previousBackupDir(readdirSync(BACKUP_ROOT), today);
+    const prevDayDir = prevName ? join(BACKUP_ROOT, prevName) : null;
+    const { downloaded, carried, bytes } = await downloadImages(url, key, objects, dayDir, prevDayDir);
+    results.push(`script-images bytes: ${downloaded} downloaded, ${carried} carried forward from ${prevName ?? 'nothing'}, ${bytes} bytes`);
     log(results[results.length - 1]);
   }
 

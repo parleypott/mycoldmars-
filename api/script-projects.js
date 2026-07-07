@@ -2,7 +2,7 @@ export const config = { runtime: 'edge' };
 
 import { pgrValue } from './_lib/pgrest.js';
 import { checkAccess, requestUserId } from './_lib/access.js';
-import { ACTIVE_LIST_FILTER, TRASH_LIST_FILTER, softDeleteFields } from './_lib/soft-delete.js';
+import { ACTIVE_LIST_FILTER, softDeleteFields } from './_lib/soft-delete.js';
 
 /**
  * Script Library — SHARED PROJECT LIST (Enterprise Wave 2, the #1 multi-user fix).
@@ -13,7 +13,9 @@ import { ACTIVE_LIST_FILTER, TRASH_LIST_FILTER, softDeleteFields } from './_lib/
  * CACHE that merges against it (cloud wins for shared visibility; local-only unsynced rows still show).
  *
  *   GET  /api/script-projects            -> { projects: [ {id,slug,title,episode,config,updated_at,trashed_at,deleted_at} ] }
- *        ?trashed=1                       -> the TRASH list (trashed OR soft-deleted rows) instead of the active one
+ *        ?trashed=1                       -> the TRASH list (trashed OR soft-deleted rows within the
+ *        90-day archive window) instead of the active one. Older rows are ARCHIVED: they stop being
+ *        listed but stay in the DB untouched, and PATCH-by-id restore is age-blind.
  *   POST /api/script-projects  { slug, title, episode?, config? }   (login-gated)
  *        -> { project }  the created row
  *   PATCH /api/script-projects?id=<uuid>  { title? , trashed_at? , deleted_at:null? , config? }   (login-gated)
@@ -114,10 +116,26 @@ export default async function handler(req) {
 
 /* -------------------------------------------------------------------- list */
 
+// Trash rows older than this stop appearing in the trash LIST — ARCHIVED, never destroyed (Johnny's
+// rule: nothing is ever destroyed). The row + its full revision history stay in the DB untouched,
+// and PATCH-by-id (the restore path) is age-blind, so an admin can always bring an archived project
+// back. Mirrors TRASH_ARCHIVE_DAYS in scripts-library/src/library-time.js (the client belt).
+export const TRASH_ARCHIVE_DAYS = 90;
+
+// PURE — PostgREST filter for the trash list, bounded to the archive window. The archive clock is
+// trashed_at (softDeleteFields deliberately preserves it across a later delete), falling back to
+// deleted_at for a row that somehow carries only that. `gt` on timestamptz is NULL-safe (SQL NULL
+// comparisons are false), so the trashed_at.gt branch also implies not-null. Exported for tests.
+export function trashListFilter(nowMs = Date.now()) {
+  const cutoff = new Date(nowMs - TRASH_ARCHIVE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  return `or=(trashed_at.gt.${cutoff},and(trashed_at.is.null,deleted_at.gt.${cutoff}))`;
+}
+
 async function listProjects(trashed) {
-  // ACTIVE = not trashed AND not soft-deleted. TRASH = trashed OR soft-deleted — deleted rows
-  // surface in the trash list so the existing client trash UI can show + Restore them.
-  const filter = trashed ? TRASH_LIST_FILTER : ACTIVE_LIST_FILTER;
+  // ACTIVE = not trashed AND not soft-deleted. TRASH = trashed OR soft-deleted AND still within the
+  // 90-day archive window — deleted rows surface in the trash list so the existing client trash UI
+  // can show + Restore them; archived rows simply drop off the list (restore-by-id still works).
+  const filter = trashed ? trashListFilter() : ACTIVE_LIST_FILTER;
   const r = await sb(`/rest/v1/script_projects?${filter}&select=${SELECT_COLS}&order=updated_at.desc`);
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json().catch(() => []);

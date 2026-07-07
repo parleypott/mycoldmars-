@@ -24,7 +24,7 @@ import {
   PROJECTS_CHANGED_EVENT,
 } from './project-store.js';
 import { configForProject, storageKeysForConfig, recoveryDbNameForConfig } from './config-for-project.js';
-import { relativeTimeFrom, trashDaysLeft } from './library-time.js';
+import { relativeTimeFrom, archiveDaysLeft } from './library-time.js';
 
 // Open a project by writing the URL hash. boot.jsx's route reconciler mounts the
 // engine for that slug (reload-to-hash — the engine is a singleton).
@@ -187,7 +187,7 @@ function LibraryApp() {
         {filtered.length === 0 ? (
           <div class="sl-empty">
             {isTrash
-              ? <><div class="sl-empty-title">Trash is empty.</div><div class="sl-empty-sub">Deleted scripts wait here for 30 days.</div></>
+              ? <><div class="sl-empty-title">Trash is empty.</div><div class="sl-empty-sub">Trashed scripts wait here for 90 days, then archive. Nothing is ever deleted.</div></>
               : query.trim()
                 ? <><div class="sl-empty-title">No scripts match “{query.trim()}”.</div><div class="sl-empty-sub">Try a different search.</div></>
                 : <><div class="sl-empty-title">No scripts yet.</div><div class="sl-empty-sub">Start one with <button class="sl-inline-new" onClick={onNew}>＋ New script</button>.</div></>}
@@ -221,7 +221,7 @@ function LibraryApp() {
                   )}
                   <span class="sl-card-time">
                     {isTrash
-                      ? (() => { const d = trashDaysLeft(row.trashedAt); return d === null ? 'in trash' : `${d}d left`; })()
+                      ? (() => { const d = archiveDaysLeft(row.trashedAt || row.deletedAt); return d === null ? 'in trash' : `archives in ${d}d`; })()
                       : `edited ${relativeTimeFrom(row.updatedAt)}`}
                   </span>
                 </button>

@@ -17,7 +17,7 @@
 // cloud-first (create) or optimistic-cache-then-cloud (rename/trash/restore), and the returned cloud row
 // is read back into the cache — never a fire-and-forget that leaves the cache guessing.
 
-import { recencyKey } from './library-time.js';
+import { recencyKey, isArchivedTrash } from './library-time.js';
 import { generateSlug } from './slug.js';
 
 export const INDEX_KEY = 'scripts_index_v1';
@@ -88,11 +88,16 @@ export function activeProjects() {
     .sort((a, b) => recencyKey(b && b.updatedAt) - recencyKey(a && a.updatedAt));
 }
 
-/** Trashed OR soft-deleted projects, most-recently-trashed first. Un-orderable rows KEPT (recencyKey→0).
+/** Trashed OR soft-deleted projects still within the 90-day archive window, most-recently-trashed
+ *  first. Un-orderable rows KEPT (recencyKey→0); a row with NO parseable trash clock is also kept
+ *  (never hide what you can't date). Rows past the window are ARCHIVED — hidden here (the server's
+ *  trash list already excludes them; this is the offline-cache belt) but NOT destroyed: the cloud
+ *  row + full revision history survive, and restoreProject / an admin PATCH still works (age-blind).
  *  Soft-deleted rows belong in the trash view — "deleted" is recoverable now, never gone. */
-export function trashedProjects() {
+export function trashedProjects(now = Date.now()) {
   return readIndex()
     .filter((r) => r && (r.trashedAt || r.deletedAt))
+    .filter((r) => !isArchivedTrash(r.trashedAt || r.deletedAt, now))
     .sort((a, b) => recencyKey(b && (b.trashedAt || b.deletedAt)) - recencyKey(a && (a.trashedAt || a.deletedAt)));
 }
 

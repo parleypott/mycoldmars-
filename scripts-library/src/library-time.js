@@ -115,6 +115,41 @@ export function trashDaysLeft(deletedAt, now = Date.now(), windowDays = 30) {
   return Math.max(0, windowDays - Math.floor((now - ms) / DAY_MS));
 }
 
+// ── 90-day trash ARCHIVE (script library) ──
+//
+// Johnny's rule: nothing is ever destroyed. A script project that has sat in the trash for 90 days
+// is ARCHIVED — it stops appearing in the trash view (server filter in api/script-projects.js
+// trashListFilter; these helpers are the offline-cache belt), but the row and its full revision
+// history stay in the DB and an admin can still restore it via a direct PATCH (age-blind).
+// Distinct from the transcript library's 30-day TRASH_WINDOW_MS purge semantics above — archive
+// hides, it never deletes, so the label wording must say "archives", never "left"/"deleted".
+
+export const TRASH_ARCHIVE_DAYS = 90;
+const TRASH_ARCHIVE_MS = TRASH_ARCHIVE_DAYS * DAY_MS;
+
+/**
+ * Has this trash row aged past the archive window (hidden from the trash view)? A missing or
+ * unparseable trash clock is NOT archived — keep it visible and recoverable, the same safety
+ * posture as isInTrashWindow (never hide what you can't date). Boundary matches the server's
+ * strict `gt` cutoff: exactly-90d is archived, a millisecond younger is shown.
+ */
+export function isArchivedTrash(trashedAt, now = Date.now(), windowMs = TRASH_ARCHIVE_MS) {
+  const ms = parseDateMs(trashedAt);
+  if (ms === null) return false; // unknown trash time -> keep visible, stay recoverable
+  return now - ms >= windowMs;
+}
+
+/**
+ * Whole days until a trashed row archives (0..windowDays), or null when the trash clock is
+ * missing/unparseable (caller renders "in trash", never "NaNd"). Feeds the "archives in Nd"
+ * label — archive is NOT deletion, and the copy must not pretend it is.
+ */
+export function archiveDaysLeft(trashedAt, now = Date.now(), windowDays = TRASH_ARCHIVE_DAYS) {
+  const ms = parseDateMs(trashedAt);
+  if (ms === null) return null;
+  return Math.max(0, windowDays - Math.floor((now - ms) / DAY_MS));
+}
+
 /**
  * Human relative-time label ("just now", "5m ago", "yesterday", "Mar 3").
  * Returns 'unknown' for a missing/unparseable date — the old inline relativeTime

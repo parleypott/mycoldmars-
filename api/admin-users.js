@@ -16,8 +16,19 @@
 // Auth model:
 //   • Authorization: Bearer <jwt> required (the caller's Supabase session).
 //   • The verified user's email must match an entry in ADMIN_EMAILS
-//     (env var, comma-separated; e.g. 'johnny@newpress.com').
+//     (env var, comma-separated; e.g. 'johnny@newpress.com' plus Ryan and
+//     any future teammates at the same domain).
 //   • Localhost without ADMIN_EMAILS set bypasses the check (dev only).
+//
+// Managing ADMIN_EMAILS (lives in Vercel, Production + Preview, type
+// "encrypted" — NOT "sensitive", or `vercel env pull` reads back empty and
+// the value can never be verified). To add an admin, pull the current value
+// and re-add the MERGED list — a plain `vercel env add --force` clobbers,
+// it does not append:
+//   vercel env pull --environment=production /tmp/e && grep ADMIN_EMAILS /tmp/e
+//   printf 'old1@x.com,old2@x.com,new@x.com' | vercel env add ADMIN_EMAILS production --force
+// (repeat for `preview`; takes effect on the next deploy). Or dashboard:
+// vercel.com → mycoldmars project → Settings → Environment Variables.
 //
 // Uses SUPABASE_SERVICE_ROLE_KEY to reach Supabase Admin API.
 
