@@ -232,7 +232,16 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // walden-2d, westchester, burma-essays, hakka/night-market). Ledger-backed
 // (scripts/unguarded-boot-localstorage-triage.tsv): --check fails only on a NEW
 // untriaged unguarded access, forcing a boot-vs-deferred judgment before merge.
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-inline-anthropic-messages.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-unguarded-boot-localstorage.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs'].flatMap((s) =>
+// find-noinitial-reduce flags `.reduce(callback)` written with NO initial/seed
+// value (exactly one top-level argument) — the `[].reduce(f)` → "Reduce of empty
+// array with no initial value" TypeError that WHITE-SCREENS a tool the moment the
+// array is empty (a corrupt-store `[]`, a match-nothing filter, a fresh board).
+// Sibling of the empty-collection crash class (spread-overflow, divide-by-length);
+// no other gate watches a bare reduce. Ledger-backed
+// (scripts/noinitial-reduce-triage.tsv): starts GREEN (repo has zero today);
+// --check fails only on a NEW site, forcing a can-this-array-be-empty judgment
+// (the fix is almost always just passing the seed as the second argument).
+const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-inline-anthropic-messages.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-unguarded-boot-localstorage.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs', 'find-noinitial-reduce.mjs'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bun',

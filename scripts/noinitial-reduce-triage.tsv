@@ -1,0 +1,7 @@
+# noinitial-reduce triage ledger — one row per JUDGED `.reduce(callback)` with NO
+# initial/seed value. Columns (TAB-separated): FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+#   STATUS = SAFE (array proven non-empty: literal / guarded / required field) | BUG (can be empty → add a seed)
+#   SNIPPET-KEY = the site snippet with ALL whitespace removed (see find-noinitial-reduce.mjs normalize()).
+# The repo currently has ZERO no-initial reduces, so this ledger is intentionally
+# empty — the gate locks that clean baseline. Add a row here ONLY after judging a
+# newly-introduced site genuinely safe (prefer just passing the initial value).
