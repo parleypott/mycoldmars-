@@ -19,7 +19,7 @@
 // a null body and the handler rejects, failing these cases).
 
 import assert from 'node:assert';
-import handler, { tkPrompt, fcPrompt, rateLimitCheck, identityKey, buildPayload, FC_UPSTREAM_TIMEOUT_MS } from './burma-tk.js';
+import handler, { tkPrompt, fcPrompt, quotePrompt, rateLimitCheck, identityKey, buildPayload, FC_UPSTREAM_TIMEOUT_MS } from './burma-tk.js';
 
 // The valid-marker path would reach the Anthropic fetch; unset the key so the handler
 // stops at the apiKey guard (500 'not set') BEFORE any network call — proving it runs
@@ -289,6 +289,57 @@ function mockNodeRes() {
   // no ANTHROPIC_API_KEY in the test env -> the valid body runs all the way to the key guard (500).
   ok('node adapter: raw stream body read end-to-end (hits the api-key guard, not a hang)',
     res3.out.ended && res3.out.statusCode === 500 && /ANTHROPIC_API_KEY/.test(res3.out.body || ''));
+}
+
+// ── mode:'quote' — the footnote RECHECK (commit c0c1e26). A brand-new THIRD web_search mode,
+// live in Johnny's script editor and previously UNLOCKED: it hunts the VERBATIM supporting
+// quotation for an already-checked fact and lands it in the on-script receipt. The fc/tk locks
+// above never touched it. Pin the three things a regression could silently break.
+{
+  const q = buildPayload('quote', { marker: 'M', block: 'B', context: 'C' });
+  ok('payload quote: emit_quotes tool present (the receipt tool)', (q.tools || []).some((t) => t.name === 'emit_quotes'));
+  ok('payload quote: web_search present + capped at 3 (it searches like fc)', (q.tools || []).some((t) => t.name === 'web_search' && t.max_uses === 3));
+  ok('payload quote: tool_choice auto (must search before it can quote)', q.tool_choice && q.tool_choice.type === 'auto');
+  ok('payload quote: NOT the fc verdict tool', !(q.tools || []).some((t) => t.name === 'emit_verdict'));
+  ok('payload quote: NOT the tk options tool', !(q.tools || []).some((t) => t.name === 'emit_options'));
+  ok('payload quote: uses quotePrompt + demands a VERBATIM quote',
+    String(q.messages[0].content) === quotePrompt({ marker: 'M', block: 'B', context: 'C' }) && /VERBATIM/.test(String(q.messages[0].content)));
+  ok('payload quote: prompt DISTINCT from fc + tk (never falls through to their wording)',
+    String(q.messages[0].content) !== fcPrompt({ marker: 'M', block: 'B', context: 'C' }) &&
+    String(q.messages[0].content) !== tkPrompt({ marker: 'M', block: 'B', context: 'C' }));
+}
+
+// (end-to-end) a mode:'quote' POST returns the RECEIPT shape. Mutation proof of the routing
+// (body.mode === 'quote') AND the emit_quotes tool-name pull: if quote collapsed back to tk,
+// buildPayload would force emit_options, the handler would hunt the wrong tool_use name, find
+// none -> 502 — never {mode:'quote', quotes:[…]}. And a quote timeout must carry the web-search
+// wording (isFc includes quote), not the generation-only "writing helper" line.
+{
+  const realFetch = globalThis.fetch;
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  process.env.BURMA_TK_TIMEOUT_MS = '5000';
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      content: [
+        { type: 'server_tool_use', name: 'web_search', input: { query: 'myanmar fuel crisis' } },
+        { type: 'tool_use', name: 'emit_quotes', input: { verdict: 'true', finding: 'The fuel shortage is documented.', quotes: [{ quote: 'Fuel queues stretched for blocks in Yangon.', source: 'Reuters, 2024-03-02', url: 'https://reuters.example/x' }] } },
+      ],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const r = await call({ body: { mode: 'quote', marker: 'fuel shortage in yangon' } });
+    ok('quote: success flows through -> 200', r.status === 200);
+    ok('quote: response carries mode:quote + the verbatim quotes (not collapsed to tk/fc)',
+      r.body && r.body.mode === 'quote' && Array.isArray(r.body.quotes) && r.body.quotes[0].quote.includes('Yangon') && r.body.verdict === 'true');
+
+    process.env.BURMA_TK_TIMEOUT_MS = '60';
+    globalThis.fetch = () => new Promise(() => {}); // hang -> deadline wins
+    const rt = await call({ body: { mode: 'quote', marker: 'slow claim' } });
+    ok('quote: timeout -> 504 with the web-search wording (isFc must include quote)',
+      rt.status === 504 && rt.body && rt.body.timeout === true && /verify in \d+s/.test(rt.body.error) && !/writing helper/.test(rt.body.error));
+  } finally {
+    delete process.env.BURMA_TK_TIMEOUT_MS;
+    delete process.env.ANTHROPIC_API_KEY;
+    globalThis.fetch = realFetch;
+  }
 }
 
 console.log(`burma-tk: ${pass} passed, ${fail} failed`);
