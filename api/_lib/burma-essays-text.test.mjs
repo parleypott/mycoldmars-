@@ -709,5 +709,26 @@ eq(stripMarkdown('Read [the report](https://x.com) now'), 'Read the report now',
 eq(stripMarkdown('See [Myanmar](https://e.org/M_(Burma)) here'), 'See Myanmar here',
    'GUARD: balanced-paren URL still handled (no stray ")" leak)');
 
+// ---- CommonMark HARD BREAK: a backslash at END of a line is a line break, not a
+// literal backslash. The escape rule at the top only protects "\" before PUNCTUATION,
+// so a trailing hard-break "\" slipped through and leaked into the audio, read aloud
+// as "backslash". The reader twin (research/md.js) already renders it as <br>; this is
+// the narrator catching up. MUTATION PROOF: delete the `.replace(/\\(?=\r?\n)/g,'')`
+// line in stripMarkdown and the two FIX asserts below go RED (the "\" reappears).
+eq(stripMarkdown('The toll rose sharply\\\nby the next morning.'),
+   'The toll rose sharply\nby the next morning.',
+   'FIX: hard-break "\\" at line end dropped, newline kept (no "backslash" read aloud)');
+eq(stripMarkdown('First point\\\nSecond point\\\nThird.').includes('\\'), false,
+   'FIX: no literal backslash survives consecutive hard breaks');
+// REGRESSION GUARDS: the rule ONLY targets a "\" immediately before a newline.
+eq(stripMarkdown('Costs \\$5 and 30\\% more.'), 'Costs $5 and 30% more.',
+   'GUARD: backslash-escaped punctuation ("\\$", "\\%") still keeps the literal char');
+eq(stripMarkdown('Not \\*italic\\* here.'), 'Not *italic* here.',
+   'GUARD: escaped emphasis markers ("\\*") stay literal, not stripped as a hard break');
+eq(stripMarkdown('path C:\\Users stays'), 'path C:\\Users stays',
+   'GUARD: a backslash before a LETTER (Windows path) is untouched — no newline follows');
+eq(stripMarkdown('literal backslash \\\\\nnext line.'), 'literal backslash \\\nnext line.',
+   'GUARD: an ESCAPED backslash "\\\\" before a newline is a literal "\\" (CommonMark), not a hard break');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -62,6 +62,17 @@ export function stripMarkdown(md) {
       escaped.push(ch);
       return `${escaped.length - 1}`;
     })
+    // CommonMark HARD BREAK: a backslash at END of a line ("sharply\<newline>by
+    // morning") is a line break, NOT a literal backslash. The escape rule above only
+    // protects a "\" before PUNCTUATION ([!-/:-@[-`{-~]) — a newline isn't in that
+    // class, so a trailing hard-break "\" slipped through and leaked a literal
+    // backslash into the audio, read aloud as "backslash". Drop the "\" and KEEP the
+    // newline (lookahead, so line-anchored rules below still see line boundaries). An
+    // ESCAPED backslash "\\" was already captured as a sentinel by the rule above, so
+    // "\\<newline>" (a literal trailing backslash, per CommonMark) is untouched here;
+    // and "C:\Users" ("\" before a letter, no newline) is untouched. Mirrors the
+    // reader twin (research/md.js), which already renders the hard break as <br>.
+    .replace(/\\(?=\r?\n)/g, '')
     .replace(/```[\s\S]*?```/g, '')        // fenced code blocks (backtick)
     // Tilde-fenced code blocks (CommonMark allows ~~~ as well as ```). Without
     // this, the code BODY got read aloud AND the fence tildes leaked: the strike
