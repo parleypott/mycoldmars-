@@ -1460,6 +1460,21 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-ws-generate[data-kind="fc"]:hover { background: #a23c15; }
 .wp-ws-generate[data-secondary="1"] { background: transparent; color: var(--label); }
 .wp-ws-generate[data-secondary="1"]:hover { border-color: var(--orange); color: var(--orange); }
+/* ---- HYPERLINKS (Cmd+K) — quiet editorial links: body ink, hairline underline that warms
+   to the accent on hover. Cmd/Ctrl+click opens while editing; plain click just places the
+   caret. FLAT: no button chrome, links are typography. */
+.wp-body a, .wp-tcell-content a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--label-2, #7d7768);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.wp-body a:hover, .wp-tcell-content a:hover {
+  color: var(--orange, #ff5b1f);
+  text-decoration-color: var(--orange, #ff5b1f);
+}
+
 /* ---- FACT-CHECK FOOTNOTE — the green ✓ receipt + its fly-out comment card ----
    The icon is an inline atom pinned right after a verified fact. FLAT law: solid fills,
    one hairline border on the card, no shadows. Green = the doctrine's one green

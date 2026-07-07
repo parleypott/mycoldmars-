@@ -31,14 +31,15 @@ import { FcFootnote } from './footnote.js';
 const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }, chapterId: { default: null } });
 
 // WP-09 — EXPLICIT marks allowlist per block node, replacing ProseMirror's allow-all default. The
-// live schema only registers these seven marks (the five Burma spans + StarterKit bold/italic), so
-// this list is COMPLETE — nothing a saved doc already carries is ever dropped (zero-loss). It is the
+// live schema registers the five Burma spans + StarterKit bold/italic/link (v3 StarterKit ships a
+// link mark; Cmd+K applies it — see link-kbd.js), so this list is COMPLETE — nothing a saved doc
+// already carries is ever dropped (zero-loss). It is the
 // lossless-paste BACKSTOP behind transformPastedHTML (paste-sanitize.js): ProseMirror silently
 // conforms nonconforming content to the schema, so anything a paste smuggles past the sanitizer that
 // isn't one of these gets dropped rather than corrupting the block. Kept identical across every
 // script block so the rack is uniform. (Editor.jsx + migrate-doc.js both import these nodes, so the
 // allowlist stays in lockstep automatically — no second edit site to drift.)
-const MARKS_ALLOWLIST = 'timecode tkSpan factCheckSpan visualSpan trimSpan bold italic';
+const MARKS_ALLOWLIST = 'timecode tkSpan factCheckSpan visualSpan trimSpan bold italic link';
 
 // chapter genre → ACT tag shown top-right of a chapter cartridge body.
 const ACT_TAG_FALLBACK = { coldopen: 'HISTORY', history: 'HISTORY', ground: 'GROUND', inquiry: 'GROUND', latm: 'GROUND', other: '' };

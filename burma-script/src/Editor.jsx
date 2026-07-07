@@ -27,6 +27,7 @@ import { ConvertMenu } from './extensions/convert-menu.js';
 import { PasteSanitize } from './extensions/paste-sanitize.js';
 import { FindReplace } from './extensions/find-replace.js';
 import { ImageDrop } from './extensions/image-drop.js';
+import { LinkKeymap } from './extensions/link-kbd.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
@@ -452,6 +453,9 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // does nothing, and in read-only sessions it only swallows file drops so the browser can
       // never navigate away from the editor (the pre-fix failure mode).
       ImageDrop,
+      // Cmd+K hyperlinks — the link MARK ships with StarterKit v3 (already in the schema +
+      // MARKS_ALLOWLIST); this only adds the gesture (prompt/edit/remove) + Cmd-click-to-open.
+      LinkKeymap,
       // COLLAB — Collaboration (binds the Y.Doc; the Yjs binding carries every PM transaction,
       // including the NodeViews' — spike-proven lossless) + CollaborationCaret (teammates' colored
       // cursors/selections via the Liveblocks awareness provider). Empty when the flag is off.
