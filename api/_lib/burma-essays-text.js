@@ -134,7 +134,14 @@ export function stripMarkdown(md) {
     .replace(/^[ \t]*\[[^\]]+\]:[ \t]+\S.*$/gm, '')
     // Inline footnote refs [^id] -> drop (reads "bracket caret one" otherwise).
     .replace(/\[\^[^\]]+\]/g, '')
-    // Raw inline HTML tags AND autolinks (<br>, <em>, </strong>, <https://…>, <mailto:…>)
+    // Line-break tags (<br>, <br/>, <br />) are a BREAK, not nothing — dropping them
+    // to '' (as the generic tag rule below does) GLUES the words on either side:
+    // "123 Main St<br>Apt 4" -> "123 Main StApt 4", read aloud as one mashed word.
+    // Convert to a newline FIRST so the words separate (and TTS gets a natural pause).
+    // Inline formatting tags (<em>, </strong>) still drop to '' below, so a word
+    // wrapped mid-emphasis ("un<em>real</em>" -> "unreal") stays correctly joined.
+    .replace(/<br\s*\/?>/gi, '\n')
+    // Raw inline HTML tags AND autolinks (<em>, </strong>, <https://…>, <mailto:…>)
     // -> drop. Requires a letter or "/" right after "<" AND a closing ">", so prose
     // comparisons ("a < b", "3 < 5", "x<y" with no close) are left untouched.
     .replace(/<\/?[a-zA-Z][^>]*>/g, '')

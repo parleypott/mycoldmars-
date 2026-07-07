@@ -136,7 +136,7 @@ eq(stripMarkdownPreHtml('Read more at <https://example.com/source>.').includes('
 eq(stripMarkdown('Read more at <https://example.com/source> now.').includes('https://'), false, 'FIX: autolink URL dropped');
 // Raw HTML tags — OLD code reads "<br>"/"<em>" aloud.
 eq(stripMarkdownPreHtml('Line.<br>Next.<em>x</em>'), 'Line.<br>Next.<em>x</em>', 'RED: old code leaves raw HTML tags');
-eq(stripMarkdown('Line.<br>Next.<em>x</em>'), 'Line.Next.x', 'FIX: raw HTML tags dropped, text kept');
+eq(stripMarkdown('Line.<br>Next.<em>x</em>'), 'Line.\nNext.x', 'FIX: <br> breaks (not glue), inline <em> drops to nothing');
 // Reference-style link USE — keep visible text, drop the [id].
 eq(stripMarkdown('See [the report][1] for details.'), 'See the report for details.', 'FIX: reference-style link use keeps text, drops [id]');
 // Reference-style IMAGES (![alt][id] / ![alt][]) — an image referenced by label.
@@ -369,7 +369,7 @@ eq(stripMarkdown('use &#8212; here'), 'use — here', 'FIX: decimal numeric enti
 eq(stripMarkdown('use &#x2014; here'), 'use — here', 'FIX: hex numeric entity &#x2014; -> em dash');
 eq(stripMarkdown('&#39;quoted&#39;'), "'quoted'", 'FIX: &#39; -> apostrophe');
 // entity-encoded HTML tag: decode then the tag rule drops it (no "<br>" spoken)
-eq(stripMarkdown('line&lt;br&gt;break'), 'linebreak', 'FIX: &lt;br&gt; decoded then dropped as a tag');
+eq(stripMarkdown('line&lt;br&gt;break'), 'line\nbreak', 'FIX: &lt;br&gt; decoded to <br> then converted to a line break (not glued into "linebreak")');
 // prose comparisons survive: "3 < 5" is NOT a tag, so it stays after decoding
 eq(stripMarkdown('3 &lt; 5 and 5 &gt; 3'), '3 < 5 and 5 > 3', 'FIX: decoded < / > in prose preserved (not a tag)');
 // unknown / malformed entities are LEFT INTACT, never guessed or crashed on
@@ -655,6 +655,23 @@ eq(stripMarkdown('[Newpress](https://newpress.co) and ![i](https://y.org/z.png) 
 eq(stripMarkdown('[the report][1] then [Newpress](https://newpress.co).'),
    'the report then Newpress.',
    'GUARD: reference-style link + inline link both still resolve');
+
+// ---- <br> line-break tags: a BREAK, not nothing. The generic tag-strip drops every
+// tag to '', which GLUES the words on either side of a <br> ("St<br>Apt" -> "StApt",
+// read aloud as one mashed word). The dedicated rule converts <br>/<br/>/<br /> (any
+// case) to a newline FIRST so the words separate. Mutation proof: delete the
+// `.replace(/<br\s*\/?>/gi, '\n')` line and every FIX below goes RED (the glue returns),
+// while the GUARD (inline emphasis wrapping a word) stays byte-identical.
+eq(stripMarkdown('123 Main St<br>Apt 4'), '123 Main St\nApt 4',
+   'FIX: <br> becomes a line break, not glue ("St<br>Apt" no longer mashes)');
+eq(stripMarkdown('line<br/>next'), 'line\nnext',
+   'FIX: self-closing <br/> also breaks instead of gluing');
+eq(stripMarkdown('a<br />b'), 'a\nb',
+   'FIX: <br /> with a space breaks instead of gluing');
+eq(stripMarkdown('A<BR>B'), 'A\nB',
+   'FIX: uppercase <BR> breaks too (case-insensitive)');
+eq(stripMarkdown('un<em>believable</em>'), 'unbelievable',
+   'GUARD: an inline tag wrapping mid-word still drops to nothing (word stays joined)');
 
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
