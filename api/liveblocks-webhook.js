@@ -1,6 +1,9 @@
 // NODEJS runtime (not edge): yjs + @tiptap/y-tiptap decode the room's Y.Doc binary here, and
-// @liveblocks/node's WebhookHandler needs Buffer. burma-tk.js proves the web-Request handler
-// signature works on the nodejs runtime in this repo.
+// @liveblocks/node's WebhookHandler needs Buffer. NOTE (incident 2026-07-08, second wave): the
+// nodejs runtime invokes the default export with (IncomingMessage, ServerResponse) — NOT the web
+// (Request) -> Response shape — so this file carries the same Node->web bridge adapter as
+// burma-tk.js/nano-banana.js. Shipping it web-shaped crashed every request at
+// `req.text is not a function` (FUNCTION_INVOCATION_FAILED).
 export const config = { runtime: 'nodejs', maxDuration: 30 };
 
 import { WebhookHandler } from '@liveblocks/node';
@@ -260,7 +263,9 @@ async function touchProject(sb, pid, iso) {
 
 /* ----------------------------------------------------------------- handler */
 
-export default async function handler(req) {
+// The web-shaped core — (Request) -> Response. Exported for tests and the dev middleware; in
+// production it is reached through the Node adapter below.
+export async function innerHandler(req) {
   if (req.method !== 'POST') return err(405, 'METHOD', `Method ${req.method} not allowed`);
 
   const webhookSecret = process.env.LIVEBLOCKS_WEBHOOK_SECRET;
@@ -306,4 +311,67 @@ function err(status, code, message) {
   return new Response(JSON.stringify({ error: { code, message } }), {
     status, headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/* --------------------------------------------------- Vercel Node adapter */
+// Same root cause burma-tk.js documents (2026-07-06): `runtime: 'nodejs'` calls the default
+// export with (IncomingMessage, ServerResponse) and IGNORES a returned web Response. This bridge
+// mirrors burma-tk's, with ONE load-bearing difference: the svix HMAC is computed over the EXACT
+// raw bytes Liveblocks signed, so the raw stream is read FIRST (Buffer-concat — no utf8 chunk
+// seams) and the platform helper's pre-parsed req.body is only a last resort when the stream was
+// already consumed (re-stringify is then the best available reconstruction).
+
+async function readRawBody(req) {
+  if (!req.readableEnded && req.body === undefined) {
+    const chunks = [];
+    await new Promise((resolve, reject) => {
+      req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      req.on('end', resolve);
+      req.on('error', reject);
+    });
+    return Buffer.concat(chunks).toString('utf8');
+  }
+  if (req.body === undefined || req.body === null) return '';
+  return typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+}
+
+function buildWebRequest(req, rawBody) {
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    if (v == null) continue;
+    headers.set(k, Array.isArray(v) ? v.join(', ') : String(v));
+  }
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers.host || 'localhost';
+  const method = (req.method || 'GET').toUpperCase();
+  return new Request(`${proto}://${host}${req.url || '/'}`, {
+    method,
+    headers,
+    body: method === 'GET' || method === 'HEAD' ? undefined : rawBody,
+  });
+}
+
+async function sendWebResponse(res, response) {
+  res.statusCode = response.status;
+  for (const [k, v] of response.headers) res.setHeader(k, v);
+  res.end(Buffer.from(await response.arrayBuffer()));
+}
+
+export default async function handler(req, res) {
+  // Express-style — Node runtime (what Vercel actually calls with runtime:'nodejs').
+  if (res !== undefined) {
+    try {
+      const rawBody = await readRawBody(req);
+      const response = await innerHandler(buildWebRequest(req, rawBody));
+      await sendWebResponse(res, response);
+    } catch (e) {
+      try { console.error('[liveblocks-webhook] ADAPTER', e?.message || e); } catch {}
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: { code: 'INTERNAL', message: e?.message || String(e) } }));
+    }
+    return;
+  }
+  // Web-style — single-arg invocation (unit tests, dev middleware).
+  return innerHandler(req);
 }

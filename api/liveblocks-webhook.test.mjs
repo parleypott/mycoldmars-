@@ -256,5 +256,64 @@ const DEPS = (stub) => ({ fetchImpl: stub.fetchImpl, liveblocksSecret: 'sk_test'
   eq(r2.outcome, 'room-gone', 'c7c. deleted room skips without retry');
 }
 
+/* ---- n. Vercel Node adapter (the FUNCTION_INVOCATION_FAILED regression, 2026-07-08) ---- */
+// runtime:'nodejs' invokes default(IncomingMessage, ServerResponse) — the web-shaped handler
+// crashed at req.text() on EVERY delivery. The adapter must bridge Node->web, end the response,
+// and verify the svix HMAC over the EXACT raw stream bytes (Buffer-concat, no utf8 chunk seams).
+{
+  // handler() checks module-level SUPABASE consts — arm env, then cache-bust reimport.
+  process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://stub.supabase.co';
+  process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'stub-key';
+  process.env.LIVEBLOCKS_WEBHOOK_SECRET = SECRET;
+  process.env.LIVEBLOCKS_SECRET_KEY = process.env.LIVEBLOCKS_SECRET_KEY || 'sk_stub';
+  const { default: nodeHandler } = await import('./liveblocks-webhook.js?node-adapter-test');
+
+  function makeNodeReq({ method = 'POST', headers = {}, bodyChunks = [] } = {}) {
+    return {
+      method,
+      url: '/api/liveblocks-webhook',
+      headers: { host: 'test.local', 'x-forwarded-proto': 'https', ...headers },
+      readableEnded: false,
+      body: undefined,
+      on(ev, cb) {
+        if (ev === 'data') setImmediate(() => { for (const c of bodyChunks) cb(Buffer.from(c)); });
+        if (ev === 'end') setImmediate(() => setImmediate(cb)); // after all data ticks
+      },
+    };
+  }
+  function makeNodeRes() {
+    const res = { statusCode: 0, headers: {}, body: null, ended: false };
+    res.setHeader = (k, v) => { res.headers[String(k).toLowerCase()] = v; };
+    res.end = (buf) => { res.body = buf ? buf.toString('utf8') : ''; res.ended = true; };
+    return res;
+  }
+
+  { // unsigned POST -> 401 BAD_SIGNATURE, written through `res` (no hang, no throw)
+    const res = makeNodeRes();
+    await nodeHandler(makeNodeReq({ bodyChunks: ['{}'] }), res);
+    ok(res.ended, 'n1. node-style invocation ends the response (the crash regression)');
+    eq(res.statusCode, 401, 'n2. unsigned delivery -> 401 through the adapter');
+    eq(JSON.parse(res.body)?.error?.code, 'BAD_SIGNATURE', 'n3. ...with code BAD_SIGNATURE');
+  }
+
+  { // signed non-ydocUpdated event: HMAC must verify over raw bytes read from the stream —
+    // multibyte content split MID-CHARACTER across chunks proves Buffer-concat fidelity.
+    const body = JSON.stringify({ type: 'roomCreated', data: { roomId: 'x', note: 'émojis 🦉' } });
+    const bytes = Buffer.from(body, 'utf8');
+    const cut = body.indexOf('é') >= 0 ? Buffer.byteLength(body.slice(0, body.indexOf('é'))) + 1 : 10;
+    const chunks = [bytes.subarray(0, cut), bytes.subarray(cut)]; // seam inside the é bytes
+    const res = makeNodeRes();
+    await nodeHandler(makeNodeReq({ headers: signedHeaders(body), bodyChunks: chunks }), res);
+    eq(res.statusCode, 200, 'n4. signed event verifies over exact raw stream bytes (chunk-seam safe)');
+    eq(JSON.parse(res.body)?.ignored, true, 'n5. ...and a non-ydocUpdated type is acknowledged-ignored');
+  }
+
+  { // GET through the adapter -> clean 405 (used to crash before reaching the method check)
+    const res = makeNodeRes();
+    await nodeHandler(makeNodeReq({ method: 'GET' }), res);
+    eq(res.statusCode, 405, 'n6. GET -> 405 through the adapter');
+  }
+}
+
 console.log(`\nliveblocks-webhook: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
