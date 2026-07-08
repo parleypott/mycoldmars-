@@ -18,6 +18,7 @@ import { EASINGS, totalDuration, resolveKeyframeSegment } from './playback-timin
 import { searchCountries as rankCountries } from './country-search.js';
 import { classifyOldMapInput, annotationBounds, annotationLabel } from './oldmap-resolve.js';
 import { featherPlan } from './feather-mask.js';
+import { escHtml } from './esc.js';
 import {
   findBySlug, syncFromCloud as syncProjectsFromCloud, loadProjectState,
   pushProjectState, beaconProjectState, writeStateCache, touchProject,
@@ -2296,7 +2297,7 @@ function renderLayersPanel() {
       <input type="checkbox" class="layer-vis" ${layer.visible ? 'checked' : ''} title="Toggle visibility">
       <span class="layer-swatch" style="background:${layer.style.color}"></span>
       <div class="layer-meta">
-        <div class="layer-name" title="${layer.name}">${layer.name}</div>
+        <div class="layer-name" title="${escHtml(layer.name)}">${escHtml(layer.name)}</div>
         <div class="layer-detail">${layer.coords.length} pts · ${Math.round(layer.totalDist)} km</div>
       </div>
       <div class="layer-actions">
@@ -2411,7 +2412,7 @@ function renderShapesPanel() {
       <span class="shape-swatch" style="background:${shape.type === 'polygon' ? shape.fill : shape.stroke}; border-color:${shape.stroke};"></span>
       <span class="shape-glyph">${glyph}</span>
       <div class="layer-meta">
-        <div class="layer-name" title="${shape.name}">${shape.name}</div>
+        <div class="layer-name" title="${escHtml(shape.name)}">${escHtml(shape.name)}</div>
         <div class="layer-detail">${stat}</div>
       </div>
       <div class="layer-actions">
@@ -2474,7 +2475,7 @@ function renderOverlaysPanel() {
       <span class="om-grip" title="Drag to reorder — top row shows on top">⠿</span>
       <input type="checkbox" class="layer-vis" ${overlay.visible ? 'checked' : ''} title="Toggle visibility">
       <div class="layer-meta">
-        <div class="layer-name" title="${overlay.name} — double-click to rename">${overlay.name}</div>
+        <div class="layer-name" title="${escHtml(overlay.name)} — double-click to rename">${escHtml(overlay.name)}</div>
         <div class="oldmap-opacity">
           <input type="range" class="om-opacity" min="0" max="100" step="1" value="${Math.round(overlay.opacity * 100)}" title="Opacity">
           <span class="om-opacity-val">${Math.round(overlay.opacity * 100)}%</span>
