@@ -730,5 +730,34 @@ eq(stripMarkdown('path C:\\Users stays'), 'path C:\\Users stays',
 eq(stripMarkdown('literal backslash \\\\\nnext line.'), 'literal backslash \\\nnext line.',
    'GUARD: an ESCAPED backslash "\\\\" before a newline is a literal "\\" (CommonMark), not a hard break');
 
+// ---- MULTI-BACKTICK inline code spans (CommonMark). A run of N>=2 backticks opens a
+// span closed by the next run of EXACTLY N backticks, so the code body can carry
+// SHORTER backtick runs verbatim (``a`b`` -> a`b). The old single-tick-only rule
+// mis-stripped these: the first inner backtick closed a spurious single span and the
+// leftover ticks were read ALOUD as "backtick". Reachable because this stripMarkdown
+// is the shared TTS core for research-tts, and deep-research prose emits ``…`` spans
+// whenever a code/shell sample itself contains a backtick. Mirrors the reader twin
+// (research/md.js), so the two must stay in lockstep — no stray backtick in either.
+// RED PROOF: the single-tick-only pass (the pre-fix behavior) leaks stray backticks.
+const stripInlineCodeOLD = (s) => s.replace(/`([^`]+)`/g, '$1');
+eq(stripInlineCodeOLD('Run ``git commit -m `msg``` now').includes('`'), true,
+   'RED: single-tick-only rule leaks stray backticks on a ``…`` span');
+eq(stripMarkdown('Run ``git commit -m `msg``` now'), 'Run git commit -m msg now',
+   'FIX: multi-backtick span stripped clean — no backtick read aloud');
+eq(stripMarkdown('Use ``a || b`` and ``rm `pwd``` here').includes('`'), false,
+   'FIX: two ``…`` spans on one line leave no backtick');
+eq(stripMarkdown('``a`b`` inline'), 'a`b inline',
+   'FIX: ``a`b`` drops delimiters; the inner backtick is genuine code content, kept in lockstep with the reader');
+// A bare-backtick showcase `` ` `` -> the char itself; per CommonMark ONE flanking
+// space is stripped when both present. TTS keeps the lone backtick as content (a
+// research report literally discussing "the ` character") rather than eating text.
+eq(stripMarkdown('the `` ` `` char'), 'the ` char',
+   'multi-tick: bare-backtick showcase keeps the single literal backtick, drops delimiters');
+// GUARD: a plain single-backtick span is byte-identical to before (the common case).
+eq(stripMarkdown('the `fps` field'), 'the fps field',
+   'GUARD: single-backtick inline code unchanged by the multi-tick rule');
+eq(stripMarkdown('no ticks at all here'), 'no ticks at all here',
+   'GUARD: tick-free prose untouched');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -94,7 +94,30 @@ export function stripMarkdown(md) {
     // ">> deeply" or spaced "> > " quote is fully unwrapped. Anchored to line
     // start, so a prose comparison ("5 > 3", "a > b") is never touched.
     .replace(/^[ \t]*(?:>[ \t]?)+/gm, '')
-    .replace(/`([^`]+)`/g, '$1')           // inline code
+    // MULTI-backtick inline code spans (CommonMark). A run of N>=2 backticks opens
+    // a span that closes at the next run of EXACTLY N backticks, so the code body
+    // can carry SHORTER backtick runs verbatim — the canonical way to show a literal
+    // backtick in code (``a`b`` -> a`b, or ``git commit -m `msg```). The single-tick
+    // rule below only handles N=1, so a 2+-tick span was mis-stripped: the FIRST
+    // inner backtick prematurely closed a spurious single span and the extra closing
+    // ticks LEAKED into the audio, read aloud as "backtick" — the exact failure this
+    // module exists to kill. Reachable because this stripMarkdown is the shared TTS
+    // core for research-tts (api/research-tts.js), and LLM deep-research prose emits
+    // ``…`` spans whenever a code/shell/markdown sample itself contains a backtick.
+    // Runs BEFORE the single-tick rule (a lone `code` still matches that) and AFTER
+    // the ``` fence drop above (a real fenced block is already gone). Per CommonMark,
+    // ONE leading + trailing space is stripped when both are present and the body
+    // isn't all spaces. Mirrors the reader twin (research/md.js) so the two stay in
+    // lockstep — keep the body as prose (the narrator reads inline code aloud), where
+    // the reader wraps it in <code>.
+    .replace(/(`{2,})([\s\S]+?)\1(?!`)/g, (_m, _ticks, c) => {
+      let body = c;
+      if (body.length > 1 && body.startsWith(' ') && body.endsWith(' ') && body.trim() !== '') {
+        body = body.slice(1, -1);
+      }
+      return body;
+    })
+    .replace(/`([^`]+)`/g, '$1')           // inline code (single backtick)
     // Linked images ([![alt](img)](url)) — an image wrapped in a link. It carries
     // NO readable text, so drop the whole construct. MUST run before the plain
     // image rule below: otherwise that rule eats the inner ![alt](img) and leaves
