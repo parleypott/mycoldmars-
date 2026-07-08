@@ -11,6 +11,13 @@ import assert from 'node:assert';
 // dev-mode gate for the handler paths: no ACCESS_CODE → checkAccess is open, like local dev.
 delete process.env.ACCESS_CODE;
 delete process.env.LIVEBLOCKS_SECRET_KEY;
+// SERVER-TWIN guardrail (commit 375f6f6): off-prod, the bare prod room `script-burma` is refused
+// 403 NON_PROD_ROOM BEFORE the secret/gate logic. The two handler tests below assert ENV-AGNOSTIC
+// behavior (missing-secret → 503, ACCESS_CODE gate → 401) and use `script-burma`, so they must run
+// under the ONE env where that room is valid — production. Pin it deterministically (not the ambient
+// shell VERCEL_ENV, which is what left this suite RED). The guardrail's off-prod 403 wiring gets its
+// OWN handler test at the bottom; the pure predicate is locked in burma-script/…-verdict.test.mjs.
+process.env.VERCEL_ENV = 'production';
 
 const { default: handler, isValidCollabRoom, collabIdentity, stableColorFor, validProfileColor, COLLAB_ROOM_RE } =
   await import('./liveblocks-auth.js');
@@ -172,6 +179,29 @@ await okAsync('when ACCESS_CODE is set, an ungated caller is refused 401 BEFORE 
     assert.equal(r2.status, 503, 'past the gate, no secret → 503 (never touched the network)');
   } finally {
     delete process.env.ACCESS_CODE;
+  }
+});
+
+// SERVER-TWIN guardrail (commit 375f6f6) at the HTTP boundary: off a NON-production deployment, an
+// auth request for the BARE prod room `script-burma` is refused 403 NON_PROD_ROOM — and refused
+// BEFORE the secret check (so even a fully-configured preview build can't mint a token into the live
+// script-burma room). This locks that the handler actually WIRES collabAuthVerdict → 403, not just
+// that the pure predicate says no. The env-suffixed room for THIS deployment still passes to 503.
+await okAsync('off-prod, an auth request for the bare prod room is 403 NON_PROD_ROOM (before secret)', async () => {
+  for (const env of ['preview', 'development']) {
+    process.env.VERCEL_ENV = env;
+    try {
+      const r = await handler(post({ room: 'script-burma' }));
+      assert.equal(r.status, 403, `env=${env}: bare prod room must be refused`);
+      const b = await r.json();
+      assert.equal(b.error.code, 'NON_PROD_ROOM');
+      assert.ok(r.headers.get('Access-Control-Allow-Origin'), '403 must carry CORS');
+      // this deployment's OWN env-suffixed room is allowed through to the missing-secret 503:
+      const r2 = await handler(post({ room: 'script-burma-' + env }));
+      assert.equal(r2.status, 503, `env=${env}: own -${env} room passes verdict, then no secret → 503`);
+    } finally {
+      process.env.VERCEL_ENV = 'production';
+    }
   }
 });
 
