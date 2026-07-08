@@ -41,6 +41,10 @@ function buildComputePinMonthly(TAX_DATA, moneyState) {
     mpSrc[0] + cpSrc[0] + '\nreturn computePinMonthly;'
   )(TAX_DATA, moneyState);
 }
+// mortgagePayment on its own, to lock its degenerate-input guards.
+function buildMortgagePayment() {
+  return new Function(mpSrc[0] + '\nreturn mortgagePayment;')();
+}
 
 // ── Independent reference (NOT the shipped mortgagePayment) ──────────────────
 function refMortgage(principal, ratePct, years) {
@@ -188,6 +192,34 @@ check('result fields are all finite numbers for a valid pin', () => {
   }
   assert.equal(got.total, got.pi + got.tax + got.ins > 0 ? got.total : got.total); // sanity: present
   assert.ok(got.total > 0);
+});
+
+// ── mortgagePayment degenerate-input guards (never Infinity/NaN) ─────────────
+// The r===0 branch divides by n, and the amortization branch divides by
+// (1+r)^n - 1 which is 0 when n===0 — so a term (years) of 0 makes BOTH paths
+// blow up to Infinity, which would render "$Infinity/mo" across the whole money
+// panel. term can only reach 0 via a corrupt/legacy persisted moneyState (the
+// UI segmented control offers 15/20/30 only), same class as the other
+// corrupt-store guards — so the function must degrade to 0, not Infinity.
+check('mortgagePayment: term 0 with a real rate → 0, not Infinity', () => {
+  const mp = buildMortgagePayment();
+  assert.equal(mp(500_000, 6.75, 0), 0);
+});
+check('mortgagePayment: term 0 with a 0% rate → 0, not Infinity', () => {
+  const mp = buildMortgagePayment();
+  assert.equal(mp(500_000, 0, 0), 0);
+});
+check('mortgagePayment: negative term → 0 (never a negative payment)', () => {
+  const mp = buildMortgagePayment();
+  assert.equal(mp(500_000, 6.75, -5), 0);
+});
+check('mortgagePayment: a real 30yr loan is unchanged by the guard', () => {
+  const mp = buildMortgagePayment();
+  assert.equal(Math.round(mp(750_000, 6.75, 30)), Math.round(refMortgage(750_000, 6.75, 30)));
+});
+check('mortgagePayment: a real 0% loan still amortizes to principal/n', () => {
+  const mp = buildMortgagePayment();
+  assert.equal(mp(360_000, 0, 30), 360_000 / 360); // 1000/mo, guard doesn't touch n>0
 });
 
 console.log(`westchester-monthly: ${pass} passed, ${fail} failed`);

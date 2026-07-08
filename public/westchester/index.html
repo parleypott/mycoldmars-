@@ -4783,7 +4783,7 @@ const parsePct = s => {
   const n = parseFloat(String(s ?? '').replace(/[^0-9.\-]/g, ''));
   return isNaN(n) ? 0 : n;
 };
-function mortgagePayment(p, ratePct, years) { if (p <= 0) return 0; const r = ratePct/100/12, n = years*12; if (r === 0) return p/n; return p * (r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1); }
+function mortgagePayment(p, ratePct, years) { if (p <= 0) return 0; const r = ratePct/100/12, n = years*12; if (n <= 0) return 0; if (r === 0) return p/n; return p * (r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1); }
 
 // NY (Westchester) buyer closing costs.
 // Sources: NY TIRSA Rate Manual (title), NY State + Westchester County mortgage recording tax,
