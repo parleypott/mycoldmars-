@@ -12,6 +12,8 @@ import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, rehydrateLocalFromNewest, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, readLatestSavedRaw, ensureResetBackup, LS_DOC_FALLBACK, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly, docsDiffer, snapshotDocConflictAsync } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
+import { isEditMode, setEditMode } from './edit-mode.js';
+import { chapterFocusKey } from './extensions/chapter-focus.js';
 import { isCollabEnabled, prepareCollab } from './collab.js';
 import { captureWriteTokenFromUrl } from './write-token.js';
 import { requestPersistentStorage, pruneIfLowHeadroom } from './storage-persist.js';
@@ -742,6 +744,9 @@ const TIPS = [
   ['click a yellow {tk} chip', 'opens the Workshop with 5 researched options to drop in.'],
   ['drag a block by its spine', 'grab the ⠿ grip on the left rail to reorder; click it for the block menu.'],
   ['the knobs on the left', 'change font, size, line-spacing and colour scheme — your reading, your way.'],
+  ['the READ / EDIT switch up top', 'every visit starts safe in READ — flip to EDIT to type.'],
+  ['⛶ on a chapter', 'opens just that chapter full screen. ESC or BACK TO SCRIPT returns instantly.'],
+  ['right-click the ⊟ box → Bookmark', 'plants a ⚑ on that row and copies a link straight to that spot.'],
 ];
 
 function TipsToggle() {
@@ -1085,6 +1090,46 @@ function CloudHistoryPanel() {
   );
 }
 
+// ── READ / EDIT MODE SWITCH — the sticky top-center toggle (Johnny: "a sticky button that
+// allows one to toggle between edit mode and read mode, and it starts in read mode"). Two flat
+// segments, TE-hardware register: the active one is inked. Fixed, so it rides every scroll.
+// Never mounted in a `?read` share — a reader has no edit mode to arm.
+function ModeToggle({ edit }) {
+  return (
+    <div class="wp-mode" role="group" aria-label="read or edit mode">
+      <button
+        class={`wp-mode-seg${!edit ? ' is-active' : ''}`}
+        aria-pressed={!edit}
+        onClick={() => setEditMode(false)}
+        title="Read mode — scroll and read, nothing can be typed or dragged"
+      >READ</button>
+      <button
+        class={`wp-mode-seg${edit ? ' is-active' : ''}`}
+        aria-pressed={edit}
+        onClick={() => setEditMode(true)}
+        title="Edit mode — the script is editable"
+      >EDIT</button>
+    </div>
+  );
+}
+
+// ── BOOKMARK DEEP LINK — `?bm=<id>` (search or hash-query, same posture as ?read/?backups).
+// The target row can render late (collab rooms sync after mount; cloud seeds after paint), so
+// we poll gently for it and stop after ~30s. On find: scroll to center + a brief accent flash.
+function bookmarkTargetFromUrl() {
+  try {
+    const { search = '', hash = '' } = window.location;
+    const hashQuery = hash.includes('?') ? hash.slice(hash.indexOf('?')) : '';
+    for (const qs of [search, hashQuery]) {
+      if (!qs) continue;
+      const params = new URLSearchParams(qs.startsWith('?') ? qs.slice(1) : qs);
+      const v = params.get('bm');
+      if (v) return v;
+    }
+    return null;
+  } catch { return null; }
+}
+
 // READ-ONLY SHARE BADGE (read-only-share) — the calm replacement for the save pill. A reader is never
 // saving anything, so the always-visible status indicator says plainly what this view is: a shared,
 // read-only copy of Johnny's live script. FLAT, JetBrains-mono, on-brand — no alarm, no action.
@@ -1101,11 +1146,98 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const [tel, setTel] = useState(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
+  // READ/EDIT MODE — mirror of the edit-mode module for rendering (the module is the truth;
+  // this state just re-renders the switch + data-mode attr when the broadcast lands).
+  const [editUi, setEditUi] = useState(isEditMode());
+  // CHAPTER FOCUS — the focused chapter's blockId (null = normal full-script view).
+  const [chFocus, setChFocus] = useState(null);
+  const chScroll = useRef(0);       // scroll position to come back to — the "seamless" return
+  const everFocused = useRef(false); // guards the restore effect from firing on plain mount
 
   useEffect(() => {
     document.title = `${EPISODE.wordmark} · ${DOC_TITLE}`;
     const icon = document.querySelector('link[rel="icon"]');
     if (icon && EPISODE.favicon) icon.setAttribute('href', EPISODE.favicon);
+  }, []);
+
+  // Keep the switch UI in lockstep with the module (the module also gets set programmatically —
+  // e.g. entering chapter focus arms EDIT).
+  useEffect(() => {
+    const onMode = (e) => setEditUi(!!(e.detail && e.detail.edit));
+    window.addEventListener('wp-edit-mode', onMode);
+    return () => window.removeEventListener('wp-edit-mode', onMode);
+  }, []);
+
+  // CHAPTER FOCUS — enter on the chapter cartridge's ⛶ (wp-chapter-focus event). Feeds the id
+  // into the decoration plugin as a meta (no doc change, no reload), remembers where the scroll
+  // was, and — since focusing a chapter is reaching for the pen — arms EDIT mode (never in a
+  // `?read` share, which stays structurally frozen).
+  useEffect(() => {
+    const onFocus = (e) => {
+      const id = e.detail && e.detail.id;
+      const ed = editorRef.current;
+      if (!id || !ed) return;
+      chScroll.current = window.scrollY;
+      try { ed.view.dispatch(ed.state.tr.setMeta(chapterFocusKey, { id })); } catch { return; }
+      setChFocus(id);
+      if (!readOnly) setEditMode(true);
+    };
+    window.addEventListener('wp-chapter-focus', onFocus);
+    return () => window.removeEventListener('wp-chapter-focus', onFocus);
+  }, [readOnly]);
+
+  const exitChapterFocus = useCallback(() => {
+    const ed = editorRef.current;
+    try { ed?.view.dispatch(ed.state.tr.setMeta(chapterFocusKey, null)); } catch {}
+    setChFocus(null);
+  }, []);
+
+  // Scroll choreography: entering focus starts the chapter at the top; exiting restores the
+  // exact pre-focus position on the next frame (after the hidden rows have re-rendered) — the
+  // "get back without reloading, seamless" contract.
+  useEffect(() => {
+    if (chFocus) { everFocused.current = true; window.scrollTo(0, 0); return undefined; }
+    if (!everFocused.current) return undefined;
+    const id = requestAnimationFrame(() => window.scrollTo(0, chScroll.current || 0));
+    return () => cancelAnimationFrame(id);
+  }, [chFocus]);
+
+  // ESC exits focus — unless a floating menu is open (those own their Esc and close first).
+  useEffect(() => {
+    if (!chFocus) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('.wp-rowmenu, .wp-addrows-menu, .wp-slash-menu, .wp-convert-menu, .wp-find')) return;
+      exitChapterFocus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [chFocus, exitChapterFocus]);
+
+  // BOOKMARK DEEP LINK — poll for the ⚑ row (it can render late: collab sync, cloud seed),
+  // then center + flash it once. Gives up quietly after ~30s.
+  useEffect(() => {
+    const target = bookmarkTargetFromUrl();
+    if (!target) return undefined;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      let node = null;
+      try {
+        const esc = (window.CSS && CSS.escape) ? CSS.escape(target) : target.replace(/["\\]/g, '');
+        node = document.querySelector(`[data-bookmark-id="${esc}"]`);
+      } catch {}
+      if (node) {
+        clearInterval(timer);
+        const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        node.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+        node.classList.add('wp-bm-target');
+        setTimeout(() => { try { node.classList.remove('wp-bm-target'); } catch {} }, 2600);
+      } else if (tries > 75) {
+        clearInterval(timer);
+      }
+    }, 400);
+    return () => clearInterval(timer);
   }, []);
 
   async function resetDoc() {
@@ -1163,8 +1295,27 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const done = tel?.done || 0;
   const scaffold = tel?.scaffold || 0;
 
+  // CHAPTER FOCUS BAR — the focused chapter's title (from the live outline) + the way back.
+  const focusItem = chFocus ? (tel?.outline || []).find((it) => it.id === chFocus) : null;
+
   return (
-    <div class="wp-page" data-episode={EPISODE.id} data-readonly={readOnly ? '' : undefined}>
+    <div
+      class="wp-page"
+      data-episode={EPISODE.id}
+      data-readonly={readOnly ? '' : undefined}
+      data-mode={!readOnly && editUi ? 'edit' : 'read'}
+      data-chfocus={chFocus ? '' : undefined}
+    >
+      {chFocus && (
+        <div class="wp-chfocus-bar" role="region" aria-label="chapter focus">
+          <button class="wp-chfocus-back" onClick={exitChapterFocus} title="Back to the full script (Esc)">‹ BACK TO SCRIPT</button>
+          <span class="wp-chfocus-lab">
+            CHAPTER FOCUS{focusItem ? ` · ${focusItem.ord ? focusItem.ord + ' — ' : ''}${focusItem.title}` : ''}
+          </span>
+          <span class="wp-chfocus-hint">ESC TO EXIT</span>
+        </div>
+      )}
+      {!readOnly && <ModeToggle edit={editUi} />}
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
       <OutlineRail items={tel?.outline} hidden={outlineOpen} />
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
@@ -1230,7 +1381,9 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
           {/* footer affordance — INSERT / EXPORT / RESET are edit-only and are dropped in read-only.
               PRINT stays: the print/PDF path must still work from a shared read-only view. */}
           <div class="wp-rack-foot">
-            {!readOnly && (
+            {/* INSERT + RESET are WRITE affordances — they follow the READ/EDIT switch, not just
+                the share gate, so read mode offers nothing that could change the script. */}
+            {!readOnly && editUi && (
               <button class="wp-insert" onClick={insertFromFooter} title="Insert a block">
                 <span class="wp-insert-box">+</span>
                 <span class="wp-insert-lab">INSERT BLOCK — CHAPTER · VO · SOT · B-ROLL · NOTE</span>
@@ -1239,7 +1392,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             <div class="wp-rack-foot-right">
               {!readOnly && <button class="wp-foot-btn" onClick={openExports} title="Export worklists">EXPORT</button>}
               <button class="wp-foot-btn" onClick={() => window.print()} title="Print / PDF">PRINT</button>
-              {!readOnly && <button class="wp-foot-btn" onClick={resetDoc} title="Reset to source script">RESET</button>}
+              {!readOnly && editUi && <button class="wp-foot-btn" onClick={resetDoc} title="Reset to source script">RESET</button>}
             </div>
           </div>
         </main>

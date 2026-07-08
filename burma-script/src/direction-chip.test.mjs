@@ -65,7 +65,7 @@ ok('schema accepts inline directionChip and round-trips attrs', () => {
     type: 'doc',
     content: [{
       type: 'tableRow',
-      attrs: { cols: 1, pairId: null },
+      attrs: { cols: 1, pairId: null, bookmarkId: null },
       content: [{
         type: 'tableCell',
         attrs: { role: 'full' },
@@ -108,7 +108,7 @@ ok('schema accepts inline directionChip and round-trips attrs', () => {
   // not a structurally-hollow one, and uses the real said/shown lane roles.
   const pairedRowJson = {
     type: 'tableRow',
-    attrs: { cols: 2, pairId: 'pair_palau_5' },
+    attrs: { cols: 2, pairId: 'pair_palau_5', bookmarkId: null },
     content: [
       {
         type: 'tableCell',

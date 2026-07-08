@@ -2043,3 +2043,109 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
   0%, 100% { opacity: .75; }
   50% { opacity: .35; }
 }
+
+/* ═══ READ / EDIT MODE — the sticky top-center switch ═══════════════════════════
+   Every session starts in READ (edit-mode.js). The switch is the ONE way to arm
+   editing; while in READ every write affordance inside the editor surface is
+   hidden or inert so a scroll-through can never nudge the script. Same flat pill
+   family as the save pill — mono, inked active segment, no shadow. */
+.wp-mode {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 470;
+  display: flex; align-items: stretch;
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 999px;
+  overflow: hidden; font-family: var(--mono);
+}
+.wp-mode-seg {
+  font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  padding: 7px 16px; border: 0; background: transparent; color: var(--label-3);
+  cursor: pointer; line-height: 1;
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.wp-mode-seg + .wp-mode-seg { border-left: 1.5px solid var(--ink); }
+.wp-mode-seg:hover { color: var(--ink); }
+.wp-mode-seg.is-active { background: var(--ink); color: var(--frame); cursor: default; }
+.wp-mode-seg:focus-visible { outline: 2px solid var(--ep-accent); outline-offset: -2px; }
+
+/* READ MODE — strip the write affordances from the surface. The editor is already
+   non-editable (Editor.jsx gates `editable` on the switch); this removes the
+   controls that dispatch transactions OUTSIDE the editable flag (row spines, add
+   "+", drag grips, block grips, done ticks) so read mode can never write. Copy
+   chips, bookmarks, the ⛶ chapter focus and reading controls all stay live. */
+.wp-page[data-mode="read"] .wp-row-spine,
+.wp-page[data-mode="read"] .wp-row-add,
+.wp-page[data-mode="read"] .wp-row-drag,
+.wp-page[data-mode="read"] .wp-grip { display: none; }
+.wp-page[data-mode="read"] .wp-done { pointer-events: none; }
+.wp-page[data-mode="read"] .wp-editor-content { caret-color: transparent; }
+
+/* ═══ CHAPTER FOCUS — one chapter, full screen, seamless return ═════════════════
+   The ⛶ on a chapter cartridge. All page chrome folds away, every row outside the
+   focused chapter's run is display:none via the wp-focus-out node decoration
+   (chapter-focus.js), and a fixed top bar holds the way back. No reload, no
+   unmount — the editor instance never notices. */
+.wp-ch-focus {
+  margin-left: 8px;
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: none; box-shadow: none; border-radius: 4px;
+  font-family: var(--mono); font-size: 13px; line-height: 1;
+  color: var(--ep-kind-label); opacity: .45; cursor: pointer;
+  transition: opacity .14s var(--ease), color .14s var(--ease);
+}
+.wp-chapter:hover .wp-ch-focus { opacity: .85; }
+.wp-ch-focus:hover { opacity: 1; color: var(--ep-accent); }
+
+.wp-chfocus-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 530;
+  display: flex; align-items: center; gap: 14px;
+  background: var(--frame); border-bottom: 1.5px solid var(--ink);
+  padding: 9px 16px; font-family: var(--mono);
+}
+.wp-chfocus-back {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  padding: 6px 12px; border: 1.5px solid var(--ink); border-radius: 6px;
+  background: var(--face); color: var(--ink); cursor: pointer; line-height: 1;
+}
+.wp-chfocus-back:hover { background: var(--ink); color: var(--frame); }
+.wp-chfocus-lab {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; flex: 1 1 auto;
+}
+.wp-chfocus-hint { font-size: 10px; letter-spacing: .1em; color: var(--label-3); white-space: nowrap; }
+
+/* Focus dress: hide everything that isn't the chapter. The device frame stays —
+   the chapter still sits on the instrument, just alone. */
+.wp-page[data-chfocus] { padding-top: 56px; }
+.wp-page[data-chfocus] .wp-masthead,
+.wp-page[data-chfocus] .wp-rack-head,
+.wp-page[data-chfocus] .wp-rack-foot,
+.wp-page[data-chfocus] .wp-prescript-cap,
+.wp-page[data-chfocus] .wp-rail,
+.wp-page[data-chfocus] .wp-outline,
+.wp-page[data-chfocus] .wp-control { display: none; }
+.wp-page[data-chfocus] .wp-mode { top: 52px; }
+.wp-page[data-chfocus] .wp-editor .wp-focus-out { display: none; }
+
+/* ═══ BOOKMARKS — ⚑ on the row, deep-linkable ═══════════════════════════════════
+   Right-click the ⊟/⊞ box → Bookmark. The flag is ALWAYS visible (a bookmark
+   marks a place — it must be findable at a glance), quiet ink until hover, the
+   one accent on reach. Click = copy the link to this exact row. */
+.wp-row-bm {
+  position: absolute; left: -26px; top: 24px;
+  width: 22px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; background: none; box-shadow: none; border-radius: 4px;
+  font-family: var(--mono); font-size: 12px; line-height: 1;
+  color: var(--lane-lab); opacity: .6; cursor: pointer;
+  transition: opacity .14s var(--ease), color .14s var(--ease);
+  user-select: none; -webkit-user-select: none;
+}
+.wp-row-bm:hover { opacity: 1; color: var(--ep-accent); }
+/* Read mode hides the spine above it — let the flag take the top slot so the
+   gutter stays tidy. */
+.wp-page[data-mode="read"] .wp-row-bm { top: 1px; }
+
+/* Deep-link landing flash — a brief accent ring on the bookmarked row. */
+.wp-bm-target { outline: 2px solid var(--ep-accent); outline-offset: 6px; border-radius: 6px; }

@@ -71,7 +71,7 @@ ok('every converted viz run round-trips through the live schema', () => {
       type: 'doc',
       content: [{
         type: 'tableRow',
-        attrs: { cols: 1, pairId: null },
+        attrs: { cols: 1, pairId: null, bookmarkId: null },
         content: [{
           type: 'tableCell',
           attrs: { role: 'full' },

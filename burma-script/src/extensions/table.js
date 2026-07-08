@@ -421,6 +421,79 @@ export function doAddRowsBelow(state, dispatch, rowPos, count = 1) {
   return true;
 }
 
+// ---- BOOKMARKS (right-click the ⊟/⊞ box → "Bookmark") ----------------------
+// Johnny: "I want to be able to make bookmarks by right clicking on the divider icon … it adds
+// a bookmark symbol that when clicked copies the link that will bring someone right to that
+// part of the script." A bookmark is a `bookmarkId` attr on the tableRow — additive with a
+// null default, exactly the pairId precedent (declared-attr nulls are covered as safe by the
+// migration/round-trip suites), so it persists in the saved doc, rides the Yjs room to every
+// teammate, and survives reorder/undo like any other attr. The row NodeView paints a ⚑ glyph
+// in the left gutter; clicking the glyph copies the deep link. On load, main.jsx reads the
+// `?bm=` param and scrolls the matching row into view.
+let bmCounter = 0;
+export function mintBookmarkId() {
+  bmCounter = (bmCounter + 1) % 1e6;
+  return `bm_${Date.now().toString(36)}_${bmCounter.toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// Set (or clear, with null) the bookmark on the row at rowPos. Pure (state, dispatch) ->
+// boolean like the other row ops, exported for the headless suite. setNodeMarkup keeps the
+// row's content byte-identical — only the attr changes — so undo restores exactly.
+export function doSetRowBookmark(state, dispatch, rowPos, bookmarkId) {
+  const { doc, tr } = state;
+  if (typeof rowPos !== 'number' || rowPos < 0 || rowPos > doc.content.size) return false;
+  const row = doc.nodeAt(rowPos);
+  if (!row || row.type.name !== 'tableRow') return false;
+  if (dispatch) dispatch(tr.setNodeMarkup(rowPos, undefined, { ...row.attrs, bookmarkId: bookmarkId || null }));
+  return true;
+}
+
+// Build the shareable deep link for a bookmark from the CURRENT location. The library router
+// keeps the project slug in the hash (`…/scripts-library/#burma`) and already strips hash-
+// queries (`#burma?backups`), so when a hash exists the `bm` param rides INSIDE it; a plain
+// URL gets a normal search param. Any existing `bm` (either side) is replaced, and the rest of
+// the URL — including a `?read` share flag — is preserved verbatim, so a bookmark link keeps
+// whatever access mode it was minted from. Pure(loc) for the suite.
+export function buildBookmarkUrl(bookmarkId, loc) {
+  const l = loc || (typeof window !== 'undefined' ? window.location : {});
+  const origin = l.origin || '';
+  const pathname = l.pathname || '';
+  let search = l.search || '';
+  let hash = l.hash || '';
+  const withParam = (qs, set) => {
+    const params = new URLSearchParams(qs.startsWith('?') ? qs.slice(1) : qs);
+    params.delete('bm');
+    if (set) params.set('bm', bookmarkId);
+    const s = params.toString();
+    return s ? '?' + s : '';
+  };
+  if (hash) {
+    const qi = hash.indexOf('?');
+    const base = qi >= 0 ? hash.slice(0, qi) : hash;
+    hash = base + withParam(qi >= 0 ? hash.slice(qi) : '', true);
+    if (search) search = withParam(search, false); // never carry a duplicate bm in the search
+  } else {
+    search = withParam(search, true);
+  }
+  return origin + pathname + search + hash;
+}
+
+// Copy a bookmark's link to the clipboard + confirm with the shared toast. Clipboard access
+// can be denied (permissions / non-secure context) — then say so honestly, never a false green.
+function copyBookmarkLink(bookmarkId) {
+  const url = buildBookmarkUrl(bookmarkId);
+  const done = () => {
+    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: 'BOOKMARK LINK' } })); } catch {}
+  };
+  const fail = () => {
+    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'could not copy — your browser blocked the clipboard' } })); } catch {}
+  };
+  try {
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done, fail);
+    else fail();
+  } catch { fail(); }
+}
+
 // Delete the row at rowPos — one transaction, undoable. LAST-ROW GUARD: if this is the only
 // row in its parent (doc, or a cell for nested rows), a bare delete would leave the parent
 // empty and schema-invalid — instead the row is REPLACED with a fresh empty full-width row,
@@ -573,9 +646,25 @@ function closeOpenRowMenu() {
 function createRowMenu(editor, rowPos, x, y) {
   const row = editor.state.doc.nodeAt(rowPos);
   const isSplit = !!row && ((row.childCount || row.attrs?.cols || 1) > 1);
+  const bookmarkId = row?.attrs?.bookmarkId || null;
   const items = [
     { label: 'Delete row', danger: true, run: () => doDeleteRow(editor.state, editor.view.dispatch, rowPos) },
     { label: 'Add row below', run: () => editor.chain().focus().addRowsBelow(rowPos, 1).run() },
+    // BOOKMARK — one entry, contextual like split/merge. Adding a bookmark also copies its
+    // link immediately (the whole point of making one is sharing/jumping to it); the ⚑ glyph
+    // the row now shows re-copies on click any time after.
+    ...(bookmarkId
+      ? [
+        { label: 'Copy bookmark link', run: () => copyBookmarkLink(bookmarkId) },
+        { label: 'Remove bookmark', run: () => doSetRowBookmark(editor.state, editor.view.dispatch, rowPos, null) },
+      ]
+      : [{
+        label: 'Bookmark',
+        run: () => {
+          const id = mintBookmarkId();
+          if (doSetRowBookmark(editor.state, editor.view.dispatch, rowPos, id)) copyBookmarkLink(id);
+        },
+      }]),
     isSplit
       ? { label: 'Merge columns to one row', run: () => editor.chain().focus().mergeRow(rowPos).run() }
       : { label: 'Split into two columns', run: () => editor.chain().focus().splitRow(rowPos).run() },
@@ -797,6 +886,14 @@ export const TableRow = Node.create({
         parseHTML: (element) => element.getAttribute('data-pair-id') || null,
         renderHTML: (attributes) => (attributes.pairId ? { 'data-pair-id': attributes.pairId } : {}),
       },
+      // BOOKMARK — additive null-default attr, same safety posture as pairId above: paired
+      // round-trip suites already cover declared-attr nulls, so old docs load unchanged and
+      // new saves carry `bookmarkId: null` harmlessly on unbookmarked rows.
+      bookmarkId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-bookmark-id') || null,
+        renderHTML: (attributes) => (attributes.bookmarkId ? { 'data-bookmark-id': attributes.bookmarkId } : {}),
+      },
     };
   },
   parseHTML() { return [{ tag: 'div[data-trow]' }]; },
@@ -863,8 +960,42 @@ export const TableRow = Node.create({
         if (n.attrs?.pairId) dom.setAttribute('data-pair-id', n.attrs.pairId);
         else dom.removeAttribute('data-pair-id');
       };
+      // ---- BOOKMARK GLYPH — a ⚑ in the left gutter, ALWAYS visible while the row carries a
+      // bookmarkId (a bookmark marks a place; it must be findable at a glance, not hover-only).
+      // Click = copy the deep link. Deliberately alive in read mode AND `?read` shares — copying
+      // a link is a reading affordance, not a write. Mounted lazily so unbookmarked rows carry
+      // zero extra DOM.
+      let bmBtn = null;
+      const paintBookmark = (n) => {
+        const id = n.attrs?.bookmarkId || null;
+        if (id) dom.setAttribute('data-bookmark-id', id);
+        else dom.removeAttribute('data-bookmark-id');
+        if (id && !bmBtn) {
+          bmBtn = el('button', 'wp-row-bm', {
+            type: 'button', contenteditable: 'false',
+            title: 'Bookmarked — click to copy the link to this spot',
+            'aria-label': 'copy bookmark link',
+          });
+          bmBtn.textContent = '⚑';
+          bmBtn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            // Read the CURRENT attr — the id captured at paint time can go stale across edits.
+            const pos = typeof getPos === 'function' ? getPos() : null;
+            const cur = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
+            const liveId = cur?.attrs?.bookmarkId || id;
+            copyBookmarkLink(liveId);
+          });
+          dom.appendChild(bmBtn);
+        } else if (!id && bmBtn) {
+          bmBtn.remove();
+          bmBtn = null;
+        }
+      };
       paintCols(node);
       paintPairId(node);
+      paintBookmark(node);
 
       // ---- ROW SPINE: the split / merge affordance ------------------------
       // A flat grip on the row's left margin. A FULL-WIDTH row shows ⊟ "split"; a
@@ -989,11 +1120,13 @@ export const TableRow = Node.create({
         contentDOM: content,
         ignoreMutation: (m) => spine.contains(m.target)
           || (handle && (handle === m.target || handle.contains(m.target)))
-          || (addWrap && (addWrap === m.target || addWrap.contains(m.target))),
+          || (addWrap && (addWrap === m.target || addWrap.contains(m.target)))
+          || (bmBtn && (bmBtn === m.target || bmBtn.contains(m.target))),
         update(updated) {
           if (updated.type.name !== 'tableRow') return false;
           paintCols(updated);
           paintPairId(updated);
+          paintBookmark(updated);
           paintBtn(updated);
           return true;
         },

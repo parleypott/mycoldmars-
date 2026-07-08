@@ -28,6 +28,7 @@ import { PasteSanitize } from './extensions/paste-sanitize.js';
 import { FindReplace } from './extensions/find-replace.js';
 import { ImageDrop } from './extensions/image-drop.js';
 import { LinkKeymap } from './extensions/link-kbd.js';
+import { ChapterFocus } from './extensions/chapter-focus.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
@@ -35,6 +36,7 @@ import { Workshop } from './Workshop.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, primeVersionFloor, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
+import { isEditMode } from './edit-mode.js';
 import { getEpisodeStorage, onEpisodeChange } from './episode-config.js';
 import { getCollabSession } from './collab.js';
 
@@ -468,6 +470,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // in read-only sessions too — the panel that drives it is edit-only (gated below), and its
       // replace commands refuse when the editor is non-editable.
       FindReplace,
+      // Chapter focus — decoration-only plugin (adds NO schema, dispatches NOTHING itself).
+      // Safe in read-only and collab sessions alike; the meta that drives it comes from the
+      // wp-chapter-focus listener in main.jsx.
+      ChapterFocus,
       // Image drag/drop + paste — decoration-placeholder plugin (adds NO schema; the imageBlock
       // node it inserts already lives in BURMA_NODES). Always-on: with no files on the gesture it
       // does nothing, and in read-only sessions it only swallows file drops so the browser can
@@ -500,7 +506,9 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     // COLLAB starts NON-editable until the room's initial sync lands (the effect below flips it).
     // A pre-sync editor is an empty shell — letting keystrokes in is how a failed Liveblocks
     // connect turned into "first typed word overwrites the cloud script". Non-collab: unchanged.
-    editable: !readOnly && (!collab || collab.hasSynced()),
+    // READ/EDIT MODE: every session ALSO starts in READ mode (isEditMode() is false at load) —
+    // the sticky switch arms editing; the wp-edit-mode effect below flips this live.
+    editable: !readOnly && (!collab || collab.hasSynced()) && isEditMode(),
     onCreate({ editor }) {
       onTelemetry?.(telemetry(editor.getJSON()));
       // Hand the live editor up so the Exports panel can read the current doc JSON
@@ -787,7 +795,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   // the gate still opens and the banner clears — a slow room is not a broken room.
   useEffect(() => {
     if (!collab || !editor || readOnly) return undefined;
-    if (collab.hasSynced()) { if (!editor.isEditable) editor.setEditable(true); return undefined; }
+    // READ/EDIT MODE: sync landing opens the collab gate, but the surface only goes live if the
+    // sticky switch is on EDIT — otherwise the session stays in its calm read-mode default and
+    // the wp-edit-mode listener below arms it when the switch flips.
+    if (collab.hasSynced()) { if (editor.isEditable !== isEditMode()) editor.setEditable(isEditMode()); return undefined; }
     const announce = (state) => {
       try { window.dispatchEvent(new CustomEvent('wp-collab-sync', { detail: { state } })); } catch {}
     };
@@ -795,10 +806,24 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     const stuckTimer = setTimeout(() => { if (!collab.hasSynced()) announce('stuck'); }, 20000);
     const off = collab.onSynced(() => {
       clearTimeout(stuckTimer);
-      if (!editor.isDestroyed) editor.setEditable(true);
+      if (!editor.isDestroyed) editor.setEditable(isEditMode());
       announce('synced');
     });
     return () => { off(); clearTimeout(stuckTimer); };
+  }, [editor]);
+
+  // READ/EDIT MODE — the sticky switch flipped. Editable is the AND of three gates: not a
+  // `?read` share (structural), collab room synced (overwrite safety), and the switch on EDIT.
+  // The first two never relax here; the switch only ever controls the last term.
+  useEffect(() => {
+    if (!editor || readOnly) return undefined;
+    const onMode = (e) => {
+      const wantEdit = !!(e.detail && e.detail.edit);
+      const synced = !collab || collab.hasSynced();
+      if (!editor.isDestroyed) editor.setEditable(wantEdit && synced);
+    };
+    window.addEventListener('wp-edit-mode', onMode);
+    return () => window.removeEventListener('wp-edit-mode', onMode);
   }, [editor]);
 
   useEffect(() => {

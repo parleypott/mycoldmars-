@@ -77,7 +77,7 @@ ok('a block with flavor + chapterId + timecode/tk/trim/bold marks + a chip round
   const docJson = {
     type: 'doc',
     content: [{
-      type: 'tableRow', attrs: { cols: 1, pairId: null },
+      type: 'tableRow', attrs: { cols: 1, pairId: null, bookmarkId: null },
       content: [{ type: 'tableCell', attrs: { role: 'full' }, content: [blockJson] }],
     }],
   };
@@ -105,7 +105,7 @@ ok('chapterId round-trips on a chapter block', () => {
   const chapterJson = {
     type: 'doc',
     content: [{
-      type: 'tableRow', attrs: { cols: 1, pairId: null },
+      type: 'tableRow', attrs: { cols: 1, pairId: null, bookmarkId: null },
       content: [{
         type: 'tableCell', attrs: { role: 'full' },
         content: [{

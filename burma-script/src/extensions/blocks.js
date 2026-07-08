@@ -573,6 +573,26 @@ export const ChapterBlock = Node.create({
       // integrity audit sees the original "CH: HISTORY 1 …" line as present on the page.
       const kind = Object.assign(el('span', 'wp-ch-kind'), { textContent: 'CH' });
       head.appendChild(kind);
+      // CHAPTER FOCUS (Johnny: "next to each chapter i want an icon that brings me into an
+      // isolated full screen"). The ⛶ dispatches `wp-chapter-focus` with this chapter's
+      // blockId; main.jsx flips the page into focus dress and the chapter-focus plugin hides
+      // every other chapter's rows. Pure event dispatch — no transaction, so it is safe in
+      // every session (collab, read mode, `?read` shares — focusing is a reading gesture too).
+      const focusBtn = el('button', 'wp-ch-focus', {
+        type: 'button', contenteditable: 'false',
+        title: 'Work on this chapter full screen', 'aria-label': 'open chapter full screen',
+      });
+      focusBtn.textContent = '⛶';
+      focusBtn.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const pos = typeof getPos === 'function' ? getPos() : null;
+        const cur = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
+        const id = cur?.attrs?.blockId || node.attrs?.blockId;
+        if (id) window.dispatchEvent(new CustomEvent('wp-chapter-focus', { detail: { id } }));
+      });
+      head.appendChild(focusBtn);
       const tag = Object.assign(el('span', 'wp-ch-tag'), { textContent: ACT_TAG[node.attrs.genre || 'other'] || '' });
       const view = cartridge({ blockClass: 'wp-chapter', dataAttr: 'data-chapter', node, editor, getPos, headChildren: [head] });
       // Place the genre ACT tag AFTER the editable content in DOM/reading order (it's pinned
