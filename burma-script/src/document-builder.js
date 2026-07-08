@@ -731,6 +731,9 @@ function rowHasVisibleWords(row) {
     // An image block carries no TEXT but is absolutely visible content — the empty-row culler
     // must never drop it (its words live in attrs.alt, not in text nodes).
     if (block?.type === 'imageBlock') return true;
+    // A bookmark is a visible glyph AND a deep-link target — like an imageBlock it carries no text,
+    // so the empty-row culler must never treat a bookmark-bearing block as word-less.
+    if (hasBookmarkedRow(block)) return true;
     if (nodeText(block).trim()) return true;
   }
   return false;
@@ -781,6 +784,12 @@ export function hasUserAddedRow(node) {
 export function hasBookmarkedRow(node) {
   if (!node || typeof node !== 'object') return false;
   if (node.type === 'tableRow' && node.attrs?.bookmarkId) return true;
+  // INLINE BOOKMARK (Johnny 2026-07-08 /bookmark): the new inline `bookmark` node is a deliberate
+  // keep-me mark exactly like the row-attr ⚑ — and it carries NO text, so a row whose only content
+  // is a bookmark reads as word-less to rowHasVisibleWords and would be culled on the next save
+  // normalize (the "it appeared then vanished a second later" bug). Detecting it here makes the
+  // empty-row cull AND the pristine-source rebuild both treat it as keep-me, wherever it sits.
+  if (node.type === 'bookmark') return true;
   return Array.isArray(node.content) && node.content.some(hasBookmarkedRow);
 }
 

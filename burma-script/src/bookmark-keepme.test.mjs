@@ -109,4 +109,44 @@ ok('§2 INERT — an un-bookmarked empty band is culled (fix is byte-identical f
   assert.deepEqual(bookmarkIds(out), [], 'no phantom bookmark');
 });
 
+// ── §3 INLINE BOOKMARK (Johnny 2026-07-08 /bookmark) — the node, not the row attr ──────────────
+// The /bookmark command inserts an inline `bookmark` ATOM node (carries no text). It reported
+// "appeared then vanished a second later": a row whose only content was the inline bookmark read as
+// word-less to rowHasVisibleWords, and hasBookmarkedRow (row-attr only) didn't see it → the save
+// normalize CULLED the row, taking the bookmark. §3 locks the fix at BOTH the predicate and the cull.
+const inlineBookmarkPara = (id) => ({ type: 'paragraph', content: [{ type: 'bookmark', attrs: { bookmarkId: id } }] });
+const inlineBookmarkRow = (id) => ({
+  type: 'tableRow', attrs: { cols: 1, pairId: null, bookmarkId: null },
+  content: [{ type: 'tableCell', attrs: { role: 'full' }, content: [inlineBookmarkPara(id)] }],
+});
+
+ok('§3 hasBookmarkedRow — true for the INLINE bookmark node at any depth (the /bookmark fix)', () => {
+  assert.equal(hasBookmarkedRow({ type: 'bookmark', attrs: { bookmarkId: 'bm_i' } }), true, 'the node itself → true');
+  assert.equal(hasBookmarkedRow(inlineBookmarkPara('bm_i')), true, 'a paragraph holding one → true');
+  assert.equal(hasBookmarkedRow(inlineBookmarkRow('bm_i')), true, 'a row holding one → true');
+  // mid-sentence: a bookmark among words is still keep-me
+  const midPara = { type: 'paragraph', content: [{ type: 'text', text: 'a ' }, { type: 'bookmark', attrs: { bookmarkId: 'bm_m' } }, { type: 'text', text: ' b' }] };
+  assert.equal(hasBookmarkedRow(midPara), true, 'mid-sentence bookmark → true');
+});
+
+ok('§3 CULL KEEP-ME — a WORD-LESS row whose only content is an inline bookmark SURVIVES the culler', () => {
+  const doc = {
+    type: 'doc',
+    content: [
+      textRow('r1', 'real line one'),
+      inlineBookmarkRow('bm_inline'), // the exact Johnny case — bookmark alone in a word-less row
+      emptyRow(null),                 // a genuinely empty band → still culled
+      textRow('r2', 'real line two'),
+    ],
+  };
+  const out = ensureTableDoc(clone(doc));
+  const rows = rowsOf(out);
+  assert.equal(rows.length, 3, `plain empty band culled, inline-bookmark row kept (got ${rows.length})`);
+  // the inline bookmark node itself survived, exactly once
+  const json = JSON.stringify(out);
+  const count = (json.match(/"bm_inline"/g) || []).length;
+  assert.equal(count, 1, 'the inline bookmark survived exactly once');
+  assert.ok(json.includes('real line one') && json.includes('real line two'), 'no real text lost');
+});
+
 console.log(`bookmark-keepme: ${pass} sections green`);
