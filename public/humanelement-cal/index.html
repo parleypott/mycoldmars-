@@ -450,6 +450,22 @@ const dayMs = 86400000;
    back (e.g. a Dec premiere counted from before Nov 1). Identical to ceil for every
    date that doesn't cross a DST boundary. */
 const daysUntil = (target, from) => Math.round((target - from)/dayMs);
+/* Column span [c0,c1] a week-bar occupies in a month-grid row, CLAMPED to the
+   row's IN-MONTH cells so a cross-month week (e.g. Jun 29 – Jul 3) never bleeds
+   onto adjacent-month (.out) cells — which the old row-only clamp let it do.
+   rowStartDay = the day-number of the row's first cell (may be < 1 for the
+   leading week, > dim for a trailing one); dim = days in this month; *Ms are
+   epoch-ms of local midnights. Math.round (not floor) recovers the integer day
+   index across a DST boundary (two local midnights are N*24±1h apart). Returns
+   null when the week doesn't intersect this row's in-month cells. */
+function monthBarCols(rowStartDay, dim, rowSMs, rowEMs, wsMs, weMs) {
+  const oS = Math.max(wsMs, rowSMs), oE = Math.min(weMs, rowEMs);
+  if (oS > oE) return null;
+  let c0 = Math.round((oS - rowSMs)/dayMs), c1 = Math.round((oE - rowSMs)/dayMs);
+  c0 = Math.max(c0, Math.max(0, 1 - rowStartDay)); c1 = Math.min(c1, Math.min(6, dim - rowStartDay)); /* clamp bar to in-month cells */
+  if (c1 < c0) return null;
+  return { c0, c1 };
+}
 const tPrem = daysUntil(PREMIERE, TODAY);
 document.getElementById('t-premiere').textContent = tPrem > 0 ? `Oct 26 · T-${tPrem} days` : (tPrem > -6 ? 'PREMIERE WEEK' : 'Premiered Oct 26');
 const nextCut = EPISODES.map(e=>({lbl:`${e.place} · ${e.pubCut.lbl}`, d:D(e.pubCut.d)})).filter(x=>x.d>=TODAY).sort((a,b)=>a.d-b.d)[0];
@@ -591,10 +607,9 @@ function shortLabel(w){
       const rowS = new Date(2026, mi, rowStart), rowE = new Date(2026, mi, rowStart+6);
       WEEKS.forEach(w => {
         const ws = D(w.s), we = D(w.e);
-        const oS = ws > rowS ? ws : rowS, oE = we < rowE ? we : rowE;
-        if (oS > oE) return;
-        /* clamp to this month's cells so cross-month weeks don't paint on .out days */
-        const c0 = Math.round((oS - rowS)/dayMs), c1 = Math.round((oE - rowS)/dayMs);
+        const cols = monthBarCols(rowStart, dim, rowS.getTime(), rowE.getTime(), ws.getTime(), we.getTime());
+        if (!cols) return;
+        const { c0, c1 } = cols;
         const left = c0/7*100, width = (c1-c0+1)/7*100;
         const isPast = we < TODAY ? ' past-bar' : '';
         const riskTip = w.risk ? ' — ⚠ ' + w.risk : '';
