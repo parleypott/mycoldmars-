@@ -572,7 +572,21 @@ export function mdToHtml(md) {
   html = html.replace(/\*\*\*([^\s*][^*\n]*?)\*([^*\n]*?[^\s*])\*\*/g, '<strong><em>$1</em>$2</strong>');
   html = html.replace(/\*\*([^\s*][^*\n]*?)\*([^\s*][^*\n]*?)\*\*\*/g, '<strong>$1<em>$2</em></strong>');
   html = html.replace(/\*\*\*([^\s*](?:(?:[^*\n]|\*(?!\*\*))*?[^\s*])?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*([^\s*](?:(?:[^*\n]|\*(?!\*))*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
+  // A `**bold**` span may cross ONE soft line break: an LLM report that soft-wraps
+  // at ~80 cols emits a bolded key phrase spanning a wrap ("**a long bolded\nphrase
+  // here**"), and the old line-scoped `[^*\n]` middle left its `**` markers LITERAL
+  // (the run couldn't bridge the `\n`). The middle now allows a single `\n(?!\n)` —
+  // a soft break, NOT a blank-line paragraph boundary — so the span joins across the
+  // wrap while a `\n\n` still ends it. Critically the middle also now EXCLUDES `<>`
+  // (it only allowed `\n` to stop bridging before): at this stage adjacent list
+  // items are already `<li>…</li>\n<li>…` and paragraphs are split on `\n\n` (both
+  // BEFORE the `<p>` wrap at the block pass below), so excluding `<>` stops a run
+  // from bridging across a `</li>`/`<br>`/inline tag on the next line — the job the
+  // `\n` exclusion used to do. No legit bold CONTENT carries a raw `<`/`>` here
+  // (esc() made every prose `<`/`>` an entity, inline code is a \uE0xx stub, nested
+  // `*italic*`/links aren't tagged until after this pass), so the exclusion is inert
+  // on real spans and byte-identical for every single-line `**bold**`.
+  html = html.replace(/\*\*([^\s*](?:(?:[^*<>\n]|\*(?!\*)|\n(?!\n))*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
   // Single `*em*` is FLANKING-AWARE per CommonMark: an opening `*` must be
   // immediately followed by a non-whitespace char (left-flanking) and a closing
   // `*` immediately preceded by one (right-flanking). The old `[^*\n]+` capture

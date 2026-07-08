@@ -2046,5 +2046,54 @@ function fullOldMd(md) {
      'RED PROOF: without list-marker conversion, bullet markers (- ) leak as visible text');
 }
 
+// ── `**bold**` spanning a SOFT LINE BREAK ────────────────────────────────────
+// An LLM research report that soft-wraps at ~80 cols emits a bolded key phrase
+// that straddles a wrap: "**a long bolded\nphrase here**". The old line-scoped
+// `[^*\n]` middle couldn't bridge the `\n`, so the `**` markers leaked LITERAL
+// into Johnny's reader. The fix lets the run cross ONE soft break (`\n(?!\n)`)
+// while still refusing to bridge a `\n\n` paragraph boundary OR any already-
+// emitted block/inline tag (the middle excludes `<>`). Mutation-proven: the
+// reconstructed OLD line-scoped middle leaks the markers on the wrap case.
+{
+  const oldBold = (h) =>
+    h.replace(/\*\*([^\s*](?:(?:[^*\n]|\*(?!\*))*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
+
+  // FIX: bold crosses a soft wrap inside a paragraph.
+  const softPara = mdToHtml('Intro **bold phrase\nwrapping here** end');
+  ok(/<strong>bold phrase<br>wrapping here<\/strong>/.test(softPara),
+     'bold spans a soft line break in a paragraph');
+  ok(!/\*\*/.test(softPara.replace(/<[^>]+>/g, '')),
+     'no literal ** leaks on the soft-wrapped bold');
+  // RED PROOF: the old line-scoped rule left the markers literal.
+  ok(/\*\*/.test(oldBold('Intro **bold phrase\nwrapping here** end')),
+     'RED PROOF: old line-scoped ** leaks its markers across a soft wrap');
+
+  // SAFETY: an UNCLOSED ** must NOT bridge across a blank-line paragraph break.
+  const blankBridge = mdToHtml('Para one has **an unclosed marker.\n\nPara two ends with C**+ code');
+  ok(!/<strong>[^<]*Para two/.test(blankBridge),
+     'unclosed ** does not bridge across a \\n\\n paragraph boundary');
+
+  // SAFETY: an UNCLOSED ** must NOT bridge across a list-item boundary.
+  const liBridge = mdToHtml('- item **open\n- next item close** here');
+  ok(!/<strong>[^<]*next item/.test(liBridge),
+     'unclosed ** does not bridge across a </li> boundary');
+
+  // SAFETY: two separate multi-line bolds stay INDEPENDENT (no bridge-through).
+  const twoBolds = mdToHtml('x **a\nb** y **c\nd** z');
+  ok(/<strong>a<br>b<\/strong>/.test(twoBolds) && /<strong>c<br>d<\/strong>/.test(twoBolds),
+     'two soft-wrapped bolds render as two independent spans');
+  ok(/<strong>a<br>b<\/strong> y <strong>c<br>d<\/strong>/.test(twoBolds),
+     'the two spans are distinct (y sits between them, unbolded)');
+
+  // SAFETY: whitespace-flanked ** (exponent) stays literal — flanking guard intact.
+  ok(/\*\*/.test(mdToHtml('2 ** 10 to 2 ** 20').replace(/<[^>]+>/g, '')),
+     'exponent 2 ** 10 stays literal (no spurious bold)');
+
+  // REGRESSION: single-line bold + nested italic unchanged (byte-identical class).
+  ok(/<strong>bold<\/strong>/.test(mdToHtml('a **bold** b')), 'single-line bold unchanged');
+  ok(/<strong>bold <em>it<\/em> more<\/strong>/.test(mdToHtml('**bold *it* more**')),
+     'nested *italic* inside single-line **bold** unchanged');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
