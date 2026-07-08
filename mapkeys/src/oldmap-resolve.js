@@ -81,26 +81,45 @@ export function annotationBounds(doc, padFrac = 0.25) {
   ];
 }
 
+// Read the first human string out of an IIIF `label`, whatever shape the
+// external server emitted it in. IIIF 2.x serializes a label as a bare string
+// ("David Rumsey Map") or an array of strings; 3.0 uses a language map
+// ({ en: ["…"] } / { none: […] }). The bare-string case is the trap: passing a
+// string to Object.values() explodes it into CHARACTERS, so the old code
+// returned just "D" for a plain-string title. Handle each shape explicitly.
+function labelText(label) {
+  if (typeof label === 'string') return label || null;
+  if (Array.isArray(label)) {
+    const s = label.find((v) => typeof v === 'string');
+    return s || null;
+  }
+  if (label && typeof label === 'object') {
+    const vals = Object.values(label).flat();
+    const s = vals.find((v) => typeof v === 'string');
+    return s || null;
+  }
+  return null;
+}
+
+// Coerce an arbitrary-external IIIF field to an array — the spec's array form is
+// common, but a single Manifest/Canvas is often serialized as a bare object, and
+// iterating that with for…of throws "…is not iterable". Mirrors the Array.isArray
+// guards in annotationItems/annotationBounds.
+function asArray(v) {
+  return Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+}
+
 // Human label from the annotation's IIIF lineage, if present.
 export function annotationLabel(doc) {
   for (const item of annotationItems(doc)) {
     // partOf comes from arbitrary external annotation servers (David Rumsey,
-    // OldMapsOnline, any IIIF). The spec's array form is common, but a single
-    // Manifest/Canvas is often serialized as a bare object — iterating that with
-    // for…of throws "partOf is not iterable" and fails an otherwise-valid map.
-    // Coerce to an array (single object → one-element) so the label still reads;
-    // any non-object (string/number/null) degrades to empty. Byte-identical for
-    // the array case. Mirrors the Array.isArray guards in annotationItems/Bounds.
-    const rawPartOf = item?.target?.source?.partOf;
-    const partOf = Array.isArray(rawPartOf)
-      ? rawPartOf
-      : (rawPartOf && typeof rawPartOf === 'object' ? [rawPartOf] : []);
-    for (const p of partOf) {
-      const label = p?.label || p?.partOf?.[0]?.label;
-      if (label) {
-        const vals = Object.values(label).flat();
-        if (vals.length && typeof vals[0] === 'string') return vals[0];
-      }
+    // OldMapsOnline, any IIIF), so both it AND its own nested partOf can be a
+    // bare object or an array — coerce both, so a single-object lineage still
+    // reads and never throws. Any non-object (string/number/null) → empty.
+    for (const p of asArray(item?.target?.source?.partOf)) {
+      const label = p?.label || asArray(p?.partOf)[0]?.label;
+      const text = labelText(label);
+      if (text) return text;
     }
   }
   return null;

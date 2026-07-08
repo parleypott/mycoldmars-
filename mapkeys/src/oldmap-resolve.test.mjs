@@ -128,6 +128,42 @@ eq(annotationLabel({}), null, 'no lineage → null label');
   eq(annotationLabel({ target: { source: { partOf: null } } }), null, 'null partOf → null');
 }
 
+// ── annotationLabel reads a BARE-STRING IIIF label (2.x), not just a lang map ──
+// IIIF 2.x servers (the "arbitrary external" ones in the file's own comment)
+// often serialize `label` as a plain string. LOAD-BEARING: the old code ran
+// Object.values(label) on that string, exploding it into CHARACTERS and
+// returning the first letter ("D") as the whole map's overlay name. The fix must
+// return the FULL string. Neuter labelText's string branch and this goes RED
+// with got "D".
+{
+  const bareString = {
+    type: 'Annotation',
+    target: { source: { partOf: { type: 'Manifest', label: 'David Rumsey Historical Map Collection' } } },
+  };
+  eq(annotationLabel(bareString), 'David Rumsey Historical Map Collection', 'bare-string IIIF label returns the whole title, not its first char');
+}
+
+// ── annotationLabel reads an ARRAY-of-strings IIIF label (2.x list form) ──
+{
+  const arrLabel = {
+    type: 'Annotation',
+    target: { source: { partOf: [{ label: ['Sanborn Fire Insurance Map', 'alt'] }] } },
+  };
+  eq(annotationLabel(arrLabel), 'Sanborn Fire Insurance Map', 'array IIIF label returns its first string');
+}
+
+// ── annotationLabel walks a SINGLE-OBJECT nested partOf lineage ──
+// The Canvas' own label is absent, so the reader climbs to its parent
+// Manifest via the nested partOf — which, like the outer one, can be a bare
+// object. Neutering the nested asArray coercion (p?.partOf?.[0]) drops this.
+{
+  const nested = {
+    type: 'Annotation',
+    target: { source: { partOf: { type: 'Canvas', partOf: { type: 'Manifest', label: { en: ['Panama Canal Zone 1912'] } } } } },
+  };
+  eq(annotationLabel(nested), 'Panama Canal Zone 1912', 'nested single-object partOf lineage still yields the parent label');
+}
+
 // ── inline RED proof: assertions have teeth ──
 // A resolver that ignored the hex-id branch would classify a bare id as a
 // bare annotation URL (kind stays allmaps, but annotation === the raw id, not
