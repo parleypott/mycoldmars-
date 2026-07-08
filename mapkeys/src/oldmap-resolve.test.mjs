@@ -101,6 +101,33 @@ eq(annotationBounds({ type: 'Annotation', body: { features: [] } }), null, 'no G
 eq(annotationLabel(FAKE_ANNO), 'Europa : Geologie', 'reads IIIF canvas label');
 eq(annotationLabel({}), null, 'no lineage → null label');
 
+// ── annotationLabel tolerates a SINGLE-OBJECT partOf (not an array) ──
+// External servers (David Rumsey / OldMapsOnline / arbitrary IIIF) often
+// serialize a single-valued partOf as a bare object rather than a 1-element
+// array. The old `for (const p of partOf)` threw "partOf is not iterable" on
+// that shape, failing an otherwise-valid georeferenced map with a cryptic error
+// (surfaced verbatim in the Add-Old-Map modal). LOAD-BEARING: neutering the
+// array-coercion in annotationLabel makes this throw → the whole test file exits
+// non-zero. The label must still READ (not just avoid the throw), proving the
+// single object is wrapped, not skipped.
+{
+  const singleObjectPartOf = {
+    type: 'Annotation',
+    target: { source: { partOf: { type: 'Canvas', label: { none: ['Nile Delta 1801'] } } } },
+  };
+  eq(annotationLabel(singleObjectPartOf), 'Nile Delta 1801', 'single-object partOf still yields its label');
+}
+
+// ── annotationLabel degrades non-object partOf shapes to null (never throws) ──
+{
+  // A string partOf would iterate its CHARACTERS under the old code (no throw,
+  // but p is a 1-char string → p?.label is undefined → null). A null/number
+  // partOf hit the `|| []` fallback. All must return null without throwing.
+  eq(annotationLabel({ target: { source: { partOf: 'https://example.org/manifest' } } }), null, 'string partOf → null');
+  eq(annotationLabel({ target: { source: { partOf: 42 } } }), null, 'numeric partOf → null');
+  eq(annotationLabel({ target: { source: { partOf: null } } }), null, 'null partOf → null');
+}
+
 // ── inline RED proof: assertions have teeth ──
 // A resolver that ignored the hex-id branch would classify a bare id as a
 // bare annotation URL (kind stays allmaps, but annotation === the raw id, not

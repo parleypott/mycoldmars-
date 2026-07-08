@@ -84,7 +84,17 @@ export function annotationBounds(doc, padFrac = 0.25) {
 // Human label from the annotation's IIIF lineage, if present.
 export function annotationLabel(doc) {
   for (const item of annotationItems(doc)) {
-    const partOf = item?.target?.source?.partOf || [];
+    // partOf comes from arbitrary external annotation servers (David Rumsey,
+    // OldMapsOnline, any IIIF). The spec's array form is common, but a single
+    // Manifest/Canvas is often serialized as a bare object — iterating that with
+    // for…of throws "partOf is not iterable" and fails an otherwise-valid map.
+    // Coerce to an array (single object → one-element) so the label still reads;
+    // any non-object (string/number/null) degrades to empty. Byte-identical for
+    // the array case. Mirrors the Array.isArray guards in annotationItems/Bounds.
+    const rawPartOf = item?.target?.source?.partOf;
+    const partOf = Array.isArray(rawPartOf)
+      ? rawPartOf
+      : (rawPartOf && typeof rawPartOf === 'object' ? [rawPartOf] : []);
     for (const p of partOf) {
       const label = p?.label || p?.partOf?.[0]?.label;
       if (label) {
