@@ -507,6 +507,100 @@ function copyBookmarkLink(bookmarkId) {
   } catch { fail(); }
 }
 
+// ── INLINE BOOKMARK (Johnny 2026-07-08) ─────────────────────────────────────────────────────
+// A tiny clickable BLUE bookmark you can drop ANYWHERE — mid-sentence, mid-cell — via /bookmark.
+// It is an inline ATOM: a place-marker that carries only a bookmarkId. Because it is a normal
+// inline insert at the caret, it CANNOT disturb the row/cell it lives in (unlike the old row-attr
+// bookmark, whose setNodeMarkup re-render is what "destroyed the formatting"). It renders a
+// `data-bookmark-id`, so the existing `?bm=` deep-link resolver (main.jsx querySelector on
+// [data-bookmark-id]) finds and scrolls to it with zero extra wiring. Click = copy the deep link.
+// Alive in read mode + `?read` shares: copying a link is a reading affordance, not a write.
+export const Bookmark = Node.create({
+  name: 'bookmark',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  draggable: false,
+  addAttributes() {
+    return {
+      bookmarkId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-bookmark-id') || null,
+        renderHTML: (attrs) => (attrs.bookmarkId ? { 'data-bookmark-id': attrs.bookmarkId } : {}),
+      },
+    };
+  },
+  parseHTML() { return [{ tag: 'span[data-bookmark]' }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', mergeAttributes({ 'data-bookmark': '', class: 'wp-bookmark' }, HTMLAttributes), '⌂'];
+  },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      const dom = el('span', 'wp-bookmark', {
+        'data-bookmark': '', contenteditable: 'false', role: 'button',
+        title: 'Bookmark — click to copy the link to this spot', 'aria-label': 'copy bookmark link',
+      });
+      if (node.attrs.bookmarkId) dom.setAttribute('data-bookmark-id', node.attrs.bookmarkId);
+      // crisp inline SVG ribbon, doctrine blue — never red (red is reserved for fact-check).
+      dom.innerHTML =
+        '<svg viewBox="0 0 16 16" width="12" height="14" aria-hidden="true">'
+        + '<path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z" class="wp-bookmark-shape"/>'
+        + '</svg>';
+      const copyLive = () => {
+        const pos = typeof getPos === 'function' ? getPos() : null;
+        const cur = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
+        copyBookmarkLink(cur?.attrs?.bookmarkId || node.attrs.bookmarkId);
+      };
+      dom.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault(); e.stopPropagation();
+        copyLive();
+      });
+      dom.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        e.preventDefault(); e.stopPropagation();
+        copyLive();
+      });
+      return { dom, update: (updated) => updated.type.name === 'bookmark', ignoreMutation: () => true };
+    };
+  },
+});
+
+// /bookmark — drop an inline bookmark at the caret and copy its deep link. Mid-sentence is fine:
+// it's a normal inline insert. `range` (the "/bookmark" trigger span) is deleted first when the
+// slash menu calls this; a direct call with no range just inserts at the current selection.
+export function insertBookmark(editor, range) {
+  if (editor.view.editable === false) return false;
+  const id = mintBookmarkId();
+  const chain = editor.chain().focus();
+  if (range) chain.deleteRange(range);
+  const ok = chain.insertContent({ type: 'bookmark', attrs: { bookmarkId: id } }).run();
+  if (ok) copyBookmarkLink(id);
+  return ok;
+}
+
+// Drop an inline bookmark at the START of the row at rowPos (the row-menu "Bookmark" path). This
+// REPLACES the old row-attr bookmark, whose setNodeMarkup re-render disturbed the row Johnny was
+// working in. Insert-at-a-position never re-markups the row, so formatting is untouched.
+export function insertBookmarkAtRow(editor, rowPos) {
+  if (editor.view.editable === false) return false;
+  const row = editor.state.doc.nodeAt(rowPos);
+  if (!row || row.type.name !== 'tableRow') return false;
+  // first inline position inside the row (start of its first textblock)
+  let target = null;
+  row.descendants((n, off) => {
+    if (target != null) return false;
+    if (n.isTextblock) { target = rowPos + 1 + off + 1; return false; }
+    return true;
+  });
+  if (target == null) return false;
+  const id = mintBookmarkId();
+  const ok = editor.chain().focus().insertContentAt(target, { type: 'bookmark', attrs: { bookmarkId: id } }).run();
+  if (ok) copyBookmarkLink(id);
+  return ok;
+}
+
 // Delete the row at rowPos — one transaction, undoable. LAST-ROW GUARD: if this is the only
 // row in its parent (doc, or a cell for nested rows), a bare delete would leave the parent
 // empty and schema-invalid — instead the row is REPLACED with a fresh empty full-width row,
@@ -689,12 +783,10 @@ function createRowMenu(editor, rowPos, x, y) {
       ]
       : [{
         label: 'Bookmark',
-        run: () => {
-          const p = livePos();
-          if (p == null) return;
-          const id = mintBookmarkId();
-          if (doSetRowBookmark(editor.state, editor.view.dispatch, p, id)) copyBookmarkLink(id);
-        },
+        // Insert an INLINE bookmark at the row's start instead of setting a row attr. The old
+        // setNodeMarkup path re-rendered the row and disturbed whatever cell Johnny was editing
+        // (2026-07-08 report); an inline insert leaves the row's formatting completely untouched.
+        run: () => { const p = livePos(); if (p != null) insertBookmarkAtRow(editor, p); },
       }]),
     isSplit
       ? { label: 'Merge columns to one row', run: () => { const p = livePos(); if (p != null) editor.chain().focus().mergeRow(p).run(); } }
@@ -1178,4 +1270,4 @@ export const TableRow = Node.create({
   },
 });
 
-export const BURMA_TABLE_NODES = [TableRow, TableCell];
+export const BURMA_TABLE_NODES = [TableRow, TableCell, Bookmark];

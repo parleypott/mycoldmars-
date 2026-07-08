@@ -4,7 +4,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
 import { episodeFlag } from '../episode-config.js';
-import { mintUserPairId } from './table.js';
+import { mintUserPairId, insertBookmark } from './table.js';
 import { insertFcFootnote } from './footnote.js';
 
 function el(tag, cls, attrs) {
@@ -309,6 +309,7 @@ export const SLASH_ITEMS = [
   makeItem('oncam',     ['on cam', 'on cam to film'], (editor, range) => setDirectionMark(editor, range, 'oncam')),
   makeItem('factcheck', ['fc', 'source'], (editor, range) => setDirectionMark(editor, range, 'factcheck')),
   makeItem('footnote',  ['fn', 'note', 'todo'], (editor, range) => insertFcFootnote(editor, range), { hint: 'FN' }),
+  makeItem('bookmark',  ['bm', 'mark', 'pin'], (editor, range) => insertBookmark(editor, range), { hint: 'BM' }),
   makeItem('animation', ['anim'],         (editor, range) => setDirectionMark(editor, range, 'animation')),
   makeItem('3d',        ['3d animation', 'threed'], (editor, range) => setDirectionMark(editor, range, '3d', '3D ')),
   makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),

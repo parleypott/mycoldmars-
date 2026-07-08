@@ -1633,6 +1633,14 @@ a[href*="liveblocks.io"] { display: none !important; }
    The icon is an inline atom pinned right after a verified fact. FLAT law: solid fills,
    one hairline border on the card, no shadows. Green = the doctrine's one green
    (--ep-copied), the same "confirmed" voice as the copied pulse. */
+/* Inline /bookmark — a small clickable BLUE ribbon dropped anywhere (mid-sentence OK). Blue is
+   deliberate: red is fact-check, green is the verified receipt; a bookmark is a neutral place-mark. */
+.wp-bookmark { display: inline-flex; vertical-align: baseline; margin: 0 2px; cursor: pointer; line-height: 1; }
+.wp-bookmark svg { display: block; transform: translateY(2px); }
+.wp-bookmark-shape { fill: #2b6cb0; }
+.wp-bookmark:hover .wp-bookmark-shape { fill: #1e4e8c; }
+span.wp-bookmark.ProseMirror-selectednode { outline: 2px solid rgba(43,108,176,.5); outline-offset: 1px; border-radius: 3px; }
+
 .wp-fcnote { display: inline-flex; vertical-align: baseline; margin: 0 3px 0 2px; cursor: pointer; }
 .wp-fcnote svg { display: block; transform: translateY(2px); }
 .wp-fcnote-circle { fill: var(--ep-copied, #1f8a72); }

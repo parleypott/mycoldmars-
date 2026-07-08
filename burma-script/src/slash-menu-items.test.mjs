@@ -22,10 +22,10 @@ let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
 // --- 1. Command set is structure (4) + the eight director marks, structure first -------
-ok('SLASH_ITEMS is the thirteen commands in order (structure above the tags)', () => {
+ok('SLASH_ITEMS is the fourteen commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'factcheck', 'footnote', 'animation', '3d', 'broll', 'direction', 'break'],
+    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'direction', 'break'],
   );
 });
 

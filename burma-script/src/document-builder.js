@@ -401,6 +401,14 @@ function inlineContent(rawText, type) {
       last = m.index + tok.length;
       continue;
     }
+    // {bm <id>} is an inline BOOKMARK token (bookmarkToken's inverse) — rebuild the real bookmark
+    // atom so an export → rebuild round-trip keeps the place-mark (and its deep link) intact.
+    if (isBrace && /^\{\s*bm\b/i.test(tok)) {
+      const id = tok.replace(/^\{\s*bm\s*/i, '').replace(/\}$/, '').trim() || null;
+      out.push({ type: 'bookmark', attrs: { bookmarkId: id } });
+      last = m.index + tok.length;
+      continue;
+    }
     const markType = isTrim ? 'trimSpan' : (isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan');
     // Strip only the STRUCTURAL braces/brackets — KEEP the leading keyword ("tk"/"fc") in the
     // visible chip text, matching the CARTRIDGES reference ("tk fractured-shape", "tk ~one
@@ -1010,6 +1018,13 @@ export function footnoteToken(attrs) {
   return '{fn ' + note + (source ? ' || ' + source : '') + '}';
 }
 
+// bookmark → its `{bm <id>}` export token; inlineContent's isBm branch is the inverse. The id is
+// the only payload (a bookmark is a pure place-mark). A bookmark with no id round-trips to nothing.
+export function bookmarkToken(attrs) {
+  const id = String(attrs?.bookmarkId || '').replace(/[{}\s]/g, '');
+  return id ? '{bm ' + id + '}' : '';
+}
+
 export function nodeText(node) {
   // Collect inline pieces tagged with their span-mark type, THEN coalesce consecutive
   // text nodes that share the same span type into ONE token before re-wrapping.
@@ -1051,6 +1066,12 @@ export function nodeText(node) {
       // view. Serialized as the `{fn …}` token inlineContent() parses back into a real
       // fcFootnote node, so an export → rebuild round-trip never drops a fact-check word.
       pieces.push({ span: null, text: footnoteToken(n.attrs) });
+    }
+    if (n.type === 'bookmark') {
+      // EXPORT LAW — the inline bookmark survives the derived blocks view as a {bm <id>} token
+      // inlineContent() parses back into a real bookmark node, so its deep link is never dropped.
+      const t = bookmarkToken(n.attrs);
+      if (t) pieces.push({ span: null, text: t });
     }
     if (n.content) n.content.forEach(walk);
   })(node);
