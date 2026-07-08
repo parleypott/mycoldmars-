@@ -32,12 +32,59 @@
 //
 // Uses SUPABASE_SERVICE_ROLE_KEY to reach Supabase Admin API.
 
-import { checkAccess } from './_lib/access.js';
+import { checkAccess, readHeader } from './_lib/access.js';
 import { parseAdminEmails, isAdminEmail, isLoopbackHost } from './_lib/admin-auth.js';
 import { readJsonBody } from './_lib/read-json-body.js';
 import { generatePassword } from './_lib/generate-password.js';
 
 export const config = { runtime: 'edge' };
+
+// ── Bootstrap rate limit ─────────────────────────────────────────────────────
+// The bootstrap action is the ONE anonymous door on this endpoint (chicken-and-egg:
+// no admin exists yet to auth as). It leaks nothing and only ever seeds
+// server-listed emails, but every anonymous call still costs two Supabase admin
+// round-trips — so an unauthenticated prober could grind the auth API through us.
+// A per-IP token bucket (capacity 5, refilling 5/min) shuts that down while leaving
+// Ryan's real first-time auto-seed untouched (one call, maybe a retry). Per-instance
+// memory (same posture as access.js's JWT cache): a determined distributed attacker
+// isn't the threat model here, a dumb loop is.
+export const BOOTSTRAP_RATE = { capacity: 5, refillPerMs: 5 / 60_000 };
+const RATE_BUCKET_MAX = 500;
+const _rateBuckets = new Map();
+
+// PURE token bucket — take one token for `key` at time `now`. Returns { ok } or
+// { ok:false, retryAfterSeconds }. Exported (with the map factory-free) for tests.
+export function takeRateToken(buckets, key, now, rate = BOOTSTRAP_RATE) {
+  let b = buckets.get(key);
+  if (!b) { b = { tokens: rate.capacity, last: now }; buckets.set(key, b); }
+  b.tokens = Math.min(rate.capacity, b.tokens + Math.max(0, now - b.last) * rate.refillPerMs);
+  b.last = now;
+  if (b.tokens >= 1) { b.tokens -= 1; return { ok: true }; }
+  return { ok: false, retryAfterSeconds: Math.ceil((1 - b.tokens) / rate.refillPerMs / 1000) };
+}
+
+// Keep the per-instance map bounded (same discipline as pruneJwtCache): drop buckets
+// that have refilled to capacity (indistinguishable from absent), then oldest-first.
+export function pruneRateBuckets(buckets, now, max = RATE_BUCKET_MAX, rate = BOOTSTRAP_RATE) {
+  if (buckets.size <= max) return;
+  const target = Math.floor(max / 2);
+  for (const [k, b] of buckets) {
+    if (buckets.size <= target) return;
+    if (b.tokens + Math.max(0, now - b.last) * rate.refillPerMs >= rate.capacity) buckets.delete(k);
+  }
+  for (const k of buckets.keys()) {
+    if (buckets.size <= target) return;
+    buckets.delete(k);
+  }
+}
+
+// Best-effort caller IP — Vercel puts the real client first in x-forwarded-for.
+// Falls back to a shared 'unknown' bucket, which is still a working global limiter.
+export function clientIpKey(req) {
+  const fwd = readHeader(req, 'x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim() || 'unknown';
+  return readHeader(req, 'x-real-ip') || 'unknown';
+}
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -105,6 +152,20 @@ export default async function handler(req) {
   // link, which works for existing accounts, then they set a password from
   // the account menu.
   if (action === 'bootstrap') {
+    // Anonymous door → per-IP rate limit before ANY Supabase round-trip.
+    const now = Date.now();
+    pruneRateBuckets(_rateBuckets, now);
+    const verdict = takeRateToken(_rateBuckets, clientIpKey(req), now);
+    if (!verdict.ok) {
+      return new Response(JSON.stringify({
+        error: 'rate_limited',
+        message: 'too many bootstrap attempts — try again in a minute.',
+        retryAfterSeconds: verdict.retryAfterSeconds,
+      }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(verdict.retryAfterSeconds) },
+      });
+    }
     const adminEmails = parseAdminEmails(process.env.ADMIN_EMAILS);
     if (!adminEmails.length) {
       return json({ error: 'ADMIN_EMAILS env var not set on the server.' }, 400);

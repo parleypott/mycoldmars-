@@ -13,7 +13,11 @@ import { withSentry, captureServerError } from './_lib/sentry.js';
  * project-store.js treats this endpoint as the source of truth and keeps localStorage as an OFFLINE
  * CACHE that merges against it (cloud wins for shared visibility; local-only unsynced rows still show).
  *
- *   GET  /api/script-projects            -> { projects: [ {id,slug,title,episode,config,updated_at,trashed_at,deleted_at} ] }
+ *   GET  /api/script-projects            -> { projects: [ {id,slug,title,episode,updated_at,trashed_at,deleted_at} ] }
+ *        NOTE config is deliberately NOT in the list rows: the list GET is world-readable (site gate
+ *        only) while config is a free-form jsonb bag teammates write — the library client never reads
+ *        it off the list (configForProject derives everything from id/episode/title), so echoing it
+ *        was pure surface. Authed writers still get config back on POST/PATCH responses unchanged.
  *        ?trashed=1                       -> the TRASH list (trashed OR soft-deleted rows within the
  *        90-day archive window) instead of the active one. Older rows are ARCHIVED: they stop being
  *        listed but stay in the DB untouched, and PATCH-by-id restore is age-blind.
@@ -63,7 +67,19 @@ const RESERVED_SLUGS = new Set(['library', 'trash', 'new', 'home']);
 
 // Columns the client needs — never SELECT * (keeps created_by/deleted_by out of the wire and the
 // shape stable). deleted_at rides along so the trash UI can tell "trashed" from "deleted" if it wants.
+// The LIST select additionally drops config (see the endpoint doc above): the list is world-readable,
+// config is not the world's business, and no list consumer reads it.
 const SELECT_COLS = 'id,slug,title,episode,config,created_at,updated_at,trashed_at,deleted_at';
+const LIST_COLS = 'id,slug,title,episode,created_at,updated_at,trashed_at,deleted_at';
+
+// config jsonb write clamp — a free-form object bag still needs a ceiling so one bad client (or a
+// prober) can't park megabytes in every row. 64KB is ~400× the biggest real config we store.
+export const CONFIG_MAX_BYTES = 64 * 1024;
+
+// PURE — serialized byte size of a config value (what jsonb storage actually costs). Exported for tests.
+export function configByteSize(config) {
+  try { return new TextEncoder().encode(JSON.stringify(config)).length; } catch { return Infinity; }
+}
 
 export default withSentry(async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -83,7 +99,7 @@ export default withSentry(async function handler(req) {
       let body;
       try { body = await req.json(); } catch { return err(400, 'BAD_JSON', 'Body must be JSON'); }
       const v = validateCreateBody(body);
-      if (!v.ok) return err(400, v.code, v.message);
+      if (!v.ok) return err(v.code === 'CONFIG_TOO_BIG' ? 413 : 400, v.code, v.message);
       return await createProject(v);
     }
 
@@ -95,7 +111,7 @@ export default withSentry(async function handler(req) {
       let body;
       try { body = await req.json(); } catch { return err(400, 'BAD_JSON', 'Body must be JSON'); }
       const patch = buildPatch(body);
-      if (!patch.ok) return err(400, patch.code, patch.message);
+      if (!patch.ok) return err(patch.code === 'CONFIG_TOO_BIG' ? 413 : 400, patch.code, patch.message);
       return await patchProject(id, patch.fields);
     }
 
@@ -141,10 +157,10 @@ async function listProjects(trashed) {
   // 90-day archive window — deleted rows surface in the trash list so the existing client trash UI
   // can show + Restore them; archived rows simply drop off the list (restore-by-id still works).
   const filter = trashed ? trashListFilter() : ACTIVE_LIST_FILTER;
-  const r = await sb(`/rest/v1/script_projects?${filter}&select=${SELECT_COLS}&order=updated_at.desc`);
+  const r = await sb(`/rest/v1/script_projects?${filter}&select=${LIST_COLS}&order=updated_at.desc`);
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json().catch(() => []);
-  return ok({ projects: Array.isArray(rows) ? rows.map(projectView) : [] });
+  return ok({ projects: Array.isArray(rows) ? rows.map(projectListView) : [] });
 }
 
 /* ------------------------------------------------------------------ create */
@@ -229,6 +245,14 @@ export function isProtectedSlug(slug) {
   return PROTECTED_SLUGS.has(String(slug || '').trim().toLowerCase());
 }
 
+// PURE — the world-readable LIST row: projectView minus config (the free-form jsonb bag stays behind
+// the login-gated write/response paths; no list consumer reads it). Exported for tests.
+export function projectListView(row) {
+  if (!row || typeof row !== 'object') return null;
+  const { config, ...rest } = projectView(row) || {};
+  return rest;
+}
+
 // Trim a DB row down to the wire shape the client consumes (never leak created_by).
 function projectView(row) {
   if (!row || typeof row !== 'object') return null;
@@ -263,11 +287,15 @@ export function validateCreateBody(body) {
   // episode is OPTIONAL — null for a brand-new project, a legacy id ('burma'|'palau') otherwise.
   const episode = body.episode == null ? null : String(body.episode).trim() || null;
 
-  // config is OPTIONAL — a plain object bag. Reject arrays / scalars so we never store garbage jsonb.
+  // config is OPTIONAL — a plain object bag. Reject arrays / scalars so we never store garbage jsonb,
+  // and clamp the serialized size (CONFIG_TOO_BIG maps to a 413 in the handler).
   let cfg = {};
   if (body.config != null) {
     if (typeof body.config !== 'object' || Array.isArray(body.config)) {
       return { ok: false, code: 'BAD_CONFIG', message: 'config must be an object' };
+    }
+    if (configByteSize(body.config) > CONFIG_MAX_BYTES) {
+      return { ok: false, code: 'CONFIG_TOO_BIG', message: `config too large (max ${CONFIG_MAX_BYTES} bytes)` };
     }
     cfg = body.config;
   }
@@ -306,6 +334,9 @@ export function buildPatch(body) {
   if ('config' in body) {
     if (body.config == null || typeof body.config !== 'object' || Array.isArray(body.config)) {
       return { ok: false, code: 'BAD_CONFIG', message: 'config must be an object' };
+    }
+    if (configByteSize(body.config) > CONFIG_MAX_BYTES) {
+      return { ok: false, code: 'CONFIG_TOO_BIG', message: `config too large (max ${CONFIG_MAX_BYTES} bytes)` };
     }
     fields.config = body.config;
   }

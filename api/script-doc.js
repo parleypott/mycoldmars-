@@ -22,7 +22,9 @@ import { withSentry, captureServerError } from './_lib/sentry.js';
  *        current row (null for pre-attribution rows / access-code writers).
  *   GET  /api/script-doc?project=<slug|uuid>&revisions=1 -> { revisions: [ {id,version,source,created_at,
  *        user_id,user_name,user_color} ] }   METADATA ONLY (no doc bodies), newest first, capped ~50.
+ *        LOGIN-GATED (checkAccess, same as PUT) — it exposes the teammate roster (names/colours).
  *   GET  /api/script-doc?project=<slug|uuid>&revision=<id> -> { doc, version }  one past revision's full doc
+ *        LOGIN-GATED too. Only the plain doc GET above stays open — the ?read share path needs it.
  *   PUT  /api/script-doc?project=<slug|uuid>  { doc, version, baseVersion? }
  *        accepted -> { version }               (also writes a revisions row; stamps updated_by)
  *        stale    -> 409 { doc, version, updated_by }  (the current row + WHO wrote it, so the client
@@ -56,10 +58,20 @@ export default withSentry(async function handler(req) {
 
   try {
     if (req.method === 'GET') {
-      // Reads are open to anyone who got past the site gate (matches burma-script-doc GET, and the
-      // ?read share model). The write path is the one that must be signed in.
+      // The PLAIN doc read stays open to anyone who got past the site gate (matches burma-script-doc
+      // GET) — the ?read/?view share links depend on it (cloud-sync.js fetchCloudDocReadOnly hits this
+      // with no login). REVISION HISTORY does not get that pass: the list carries teammate identities
+      // (who saved, display name, colour via user_profiles) and a single-revision fetch hands back any
+      // FULL past doc — neither is a share recipient's business. Both now sit behind the same
+      // checkAccess gate as the write path. Safe for the real client: the CloudHistoryPanel only
+      // mounts behind ?backups for signed-in editors inside the library route, whose gate.js fetch
+      // interceptor injects the JWT on every /api/* call.
       const wantsList = url.searchParams.has('revisions');
       const revisionId = url.searchParams.get('revision');
+      if (wantsList || revisionId) {
+        const denied = await checkAccess(req);
+        if (denied) return withCors(denied);
+      }
       const pid = await resolveProjectId(projectRef);
       if (!pid) {
         // Unknown project: an empty history / a not-found single revision / an empty doc — never an error.
