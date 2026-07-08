@@ -2171,3 +2171,106 @@ body:has(.wp-save-banner) .wp-page[data-chfocus] .wp-mode { top: 96px; }
 /* FIND PANEL × CHAPTER FOCUS (audit): Cmd+F docks at top:14px z-520; the focus bar is z-530 —
    the panel was buried under it. In focus, the panel steps below the bar. */
 .wp-page[data-chfocus] .wp-find { top: 64px; }
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════
+   SHORTCUTS OVERLAY (night/shortcuts-overlay) — the ⌘/ help card + the "? keys" masthead pill.
+   Appended block, clearly delimited — other night branches append below/above; keep intact.
+   FLAT per the house design: paper card, 3px ink border, mono chrome, ONE accent
+   (var(--ep-accent)), no shadows anywhere. Big clear type — the card exists for a dyslexic
+   reader, so key caps and labels run larger than the usual chrome floor.
+   ════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* the pill — sits in the masthead meta row next to the tips toggle; mirrors its grammar */
+.wp-keys { display: inline-flex; }
+.wp-keys-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.wp-keys-pill:hover { background: var(--panel); color: var(--ink); }
+.wp-keys-pill[aria-expanded="true"] { background: var(--ink); color: var(--frame); }
+.wp-keys-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 50%;
+  font-size: var(--chrome-size); font-weight: 700; line-height: 1;
+}
+
+/* the veil — a flat ink scrim; z above the banners (1000) and the library backbar (9999) */
+.wp-keys-veil {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(31, 29, 24, .45);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 7vh 16px 5vh; overflow-y: auto;
+}
+
+/* the card — paper, 3px ink border, FLAT */
+.wp-keys-card {
+  background: var(--frame); border: 3px solid var(--ink); border-radius: 14px;
+  width: 100%; max-width: 620px; padding: 20px 24px 24px;
+}
+.wp-keys-head {
+  display: flex; align-items: baseline; gap: 12px;
+  border-bottom: 2px solid var(--ink); padding-bottom: 12px; margin-bottom: 6px;
+}
+.wp-keys-title {
+  font-family: var(--mono); font-weight: 700; font-size: 17px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+}
+.wp-keys-sub { font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .1em; color: var(--label-2); }
+.wp-keys-close {
+  margin-left: auto; align-self: center;
+  background: transparent; border: 2px solid var(--ink); border-radius: 7px;
+  width: 30px; height: 30px; cursor: pointer; line-height: 1;
+  font-family: var(--mono); font-size: 13px; color: var(--ink);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.wp-keys-close:hover, .wp-keys-close:focus-visible { background: var(--ink); color: var(--frame); }
+.wp-keys-close:focus-visible { outline: 2px solid var(--ep-accent, var(--orange)); outline-offset: 2px; }
+
+.wp-keys-group { margin-top: 16px; }
+.wp-keys-group-lab {
+  margin: 0 0 8px; font-family: var(--mono); font-weight: 700; font-size: var(--chrome-size);
+  letter-spacing: .18em; text-transform: uppercase; color: var(--ep-accent, var(--orange));
+}
+.wp-keys-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wp-keys-row { display: flex; align-items: baseline; gap: 14px; }
+.wp-keys-cell { flex: 0 0 168px; display: inline-flex; flex-wrap: wrap; row-gap: 4px; }
+
+/* key caps — flat hardware keys: 2px ink border, cartridge-face fill, NO shadow */
+.wp-keys-combo { display: inline-flex; align-items: center; }
+.wp-keys-combo-part { display: inline-flex; align-items: center; }
+.wp-keys-cap {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 26px;
+  background: var(--face); border: 2px solid var(--ink); border-radius: 6px; padding: 2px 7px;
+  font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--ink); line-height: 1.35;
+}
+.wp-keys-plus { margin: 0 4px; font-family: var(--mono); font-size: 12px; color: var(--label-2); }
+
+/* mouse gestures get a quiet mono chip instead of key caps */
+.wp-keys-mouse {
+  font-family: var(--mono); font-size: 12.5px; letter-spacing: .02em; color: var(--ink);
+  border: 2px dashed var(--rule); border-radius: 6px; padding: 2px 7px; line-height: 1.4;
+}
+
+/* the plain-words half — bigger than chrome on purpose (dyslexia-clear) */
+.wp-keys-does { flex: 1; font-size: 15.5px; line-height: 1.55; color: var(--body); min-width: 0; }
+.wp-keys-edittag {
+  margin-left: 8px; vertical-align: 1px;
+  font-family: var(--mono); font-size: var(--chrome-size-sm, 10px); font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ep-accent, var(--orange));
+  border: 1.5px solid var(--ep-accent, var(--orange)); border-radius: 5px; padding: 1px 5px;
+}
+
+/* narrow screens — the two columns stack, the cell stops reserving width */
+@media (max-width: 560px) {
+  .wp-keys-row { flex-direction: column; gap: 4px; }
+  .wp-keys-cell { flex: none; }
+  .wp-keys-veil { padding: 4vh 10px; }
+}
+
+/* print — help chrome never lands on paper */
+@media print {
+  .wp-keys, .wp-keys-veil { display: none !important; }
+}
+/* ══ end SHORTCUTS OVERLAY ══ */
