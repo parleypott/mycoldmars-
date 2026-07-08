@@ -23,6 +23,7 @@ import { idbDeleteDoc } from './recovery-store.js';
 import { restoreSnapshot, restoreDoc } from './restore.js';
 import { getEpisode } from './episode-config.js';
 import { startVersionBeacon } from './version-beacon.js';
+import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
 // palau-script/main.jsx) which calls setEpisode(...) BEFORE dynamically importing this
@@ -1361,6 +1362,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             <span class="wp-masthead-tag">{readOnly ? 'SCRIPT · SHARED' : 'SCRIPT · DRAFT'}</span>
             {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader. */}
             {!readOnly && <TipsToggle />}
+            <ShortcutsOverlay />{/* ⌘/ help card — read-only chrome, works on ?read shares too */}
           </div>
         </div>
 
