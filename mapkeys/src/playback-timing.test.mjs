@@ -101,5 +101,49 @@ if (Math.abs(easedSegmentAt([kf(4, 'easeIn'), kf(1)], 2).eased - 0.5) < 1e-9) {
   fail++; console.error('FAIL: easedSegmentAt must apply easing, not pass localT through');
 } else pass++;
 
+// ── non-finite duration guard: a legacy/corrupt keyframe (missing/null/NaN
+//    duration, restored verbatim by main.js) must NOT NaN-poison the timeline ──
+for (const bad of [undefined, null, NaN, 'x', {}]) {
+  // totalDuration stays finite: the bad segment counts as 0, the good one as 3.
+  eq(totalDuration([kf(bad), kf(3)]), 0, `totalDuration: non-finite dur (${JSON.stringify(bad)}) → counts as 0`);
+  eq(totalDuration([kf(2), kf(bad), kf(3)]), 2, `totalDuration: skips only the bad segment (${JSON.stringify(bad)})`);
+  // resolveKeyframeSegment returns a finite localT (bad segment → jump/localT 1).
+  const seg = resolveKeyframeSegment([kf(bad), kf(3)], 1);
+  if (seg && Number.isFinite(seg.localT)) { pass++; }
+  else { fail++; console.error(`FAIL: resolver localT must be finite on non-finite dur (${JSON.stringify(bad)}), got ${seg && seg.localT}`); }
+}
+// RED proof: the OLD unguarded forms NaN-poison. Reconstruct them verbatim.
+function totalDurationUnguarded(keyframes) {
+  let t = 0;
+  for (let i = 0; i < keyframes.length - 1; i++) t += keyframes[i].duration;
+  return t;
+}
+function resolverUnguarded(keyframes, timeSec) {
+  let acc = 0;
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    const dur = keyframes[i].duration;
+    if (timeSec <= acc + dur || i === keyframes.length - 2) {
+      return { index: i, localT: dur > 0 ? Math.max(0, Math.min(1, (timeSec - acc) / dur)) : 1 };
+    }
+    acc += dur;
+  }
+  return null;
+}
+if (Number.isNaN(totalDurationUnguarded([kf(NaN), kf(3)]))) { pass++; }
+else { fail++; console.error('FAIL: unguarded totalDuration must return NaN to prove the guard matters'); }
+if (Number.isFinite(totalDuration([kf(NaN), kf(3)]))) { pass++; }
+else { fail++; console.error('FAIL: real totalDuration must stay finite on a NaN duration'); }
+// unguarded resolver: a bad segment BEFORE the last poisons the acc accumulator
+// (acc += NaN), so a later segment's localT = (timeSec - NaN)/dur → NaN. Real
+// resolver counts the bad segment as 0, keeping acc + localT finite.
+const nanPoison = [kf(NaN), kf(3), kf(2)];
+if (Number.isNaN(resolverUnguarded(nanPoison, 4).localT)) { pass++; }
+else { fail++; console.error('FAIL: unguarded resolver must return NaN localT to prove the guard matters'); }
+if (Number.isFinite(resolveKeyframeSegment(nanPoison, 4).localT)) { pass++; }
+else { fail++; console.error('FAIL: real resolver must return a finite localT on a NaN duration'); }
+// zero-regression: identical output for every valid finite-duration list.
+eq(totalDuration([kf(4), kf(3), kf(2)]), totalDurationUnguarded([kf(4), kf(3), kf(2)]),
+  'zero-regression: guard is byte-identical to old form for valid durations');
+
 console.log(`playback-timing: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -33,7 +33,14 @@ export const EASINGS = {
 export function totalDuration(keyframes) {
   if (!keyframes || keyframes.length < 2) return 0;
   let t = 0;
-  for (let i = 0; i < keyframes.length - 1; i++) t += keyframes[i].duration;
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    const dur = keyframes[i].duration;
+    // A legacy/corrupt project (restored verbatim in main.js) can carry a
+    // keyframe with a missing/null/non-numeric duration. Treat it as 0 so one
+    // bad segment can't NaN-poison the whole timeline (time-total chip, play()
+    // length, GIF-range math all read this).
+    t += Number.isFinite(dur) ? dur : 0;
+  }
   return t;
 }
 
@@ -44,7 +51,11 @@ export function resolveKeyframeSegment(keyframes, timeSec) {
   if (!keyframes || keyframes.length < 2) return null;
   let acc = 0;
   for (let i = 0; i < keyframes.length - 1; i++) {
-    const dur = keyframes[i].duration;
+    // Non-finite duration (legacy/corrupt keyframe) → treat as a 0-length
+    // segment: localT jumps to 1 instead of `timeSec <= acc + NaN` (always
+    // false) silently skipping every segment and returning NaN localT.
+    const rawDur = keyframes[i].duration;
+    const dur = Number.isFinite(rawDur) ? rawDur : 0;
     if (timeSec <= acc + dur || i === keyframes.length - 2) {
       const localT = dur > 0 ? Math.max(0, Math.min(1, (timeSec - acc) / dur)) : 1;
       return { index: i, localT };
