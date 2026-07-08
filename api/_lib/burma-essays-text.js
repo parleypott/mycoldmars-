@@ -222,6 +222,16 @@ export function stripMarkdown(md) {
     // Bullet lists. CommonMark allows THREE bullet markers — -, *, AND + — so a
     // "+ point" list leaked its literal "+" into the audio (read aloud as "plus").
     .replace(/^\s*[-*+]\s+/gm, '')         // bullet lists (-, *, +)
+    // Unicode bullet glyphs used as LIST MARKERS at line start (•, ‣, ◦, ⁃, ∙, ·).
+    // These are NOT CommonMark, so the ASCII bullet rule above misses them — but they
+    // are exactly what a list PASTED from Word/Google-Docs/a PDF leaves behind, and
+    // what decodeEntities() above produces from a &bull;/&middot; source. Left alone,
+    // ElevenLabs reads the leftover glyph ALOUD ("bullet", "middle dot") — the exact
+    // read-it-aloud leak this module exists to kill (proven: "Britain &bull; Burma"
+    // decodes to "Britain • Burma"). Line-anchored AND requires trailing whitespace,
+    // so an INLINE interpunct separator ("Britain • Burma", "coup · a turning") is
+    // untouched — only a glyph that OPENS a line as a bullet is dropped.
+    .replace(/^[ \t]*[•‣◦⁃∙·][ \t]+/gm, '')  // unicode bullet list markers
     // Numbered lists. CommonMark allows BOTH "1." and "1)" as ordered markers, so
     // a "1) point" list leaked its literal ")" into the audio (read as "close paren").
     .replace(/^\s*\d+[.)]\s+/gm, '');      // numbered lists (1. and 1))

@@ -64,6 +64,23 @@ eq(stripMarkdown('+ plus one\n+ plus two'), 'plus one\nplus two', 'plus bullet l
 eq(stripMarkdown('* star one\n+ plus two\n- dash three'), 'star one\nplus two\ndash three', 'mixed -/*/+ bullets');
 eq(stripMarkdown('1) first\n2) second'), 'first\nsecond', 'paren-numbered list (1))');
 eq(stripMarkdown('  + indented plus'), 'indented plus', 'indented + bullet');
+// Unicode bullet glyphs used as LIST MARKERS at line start (•, ‣, ◦, ⁃, ∙, ·). Not
+// CommonMark, so the ASCII -/*/+ rule misses them — but they are exactly what a list
+// PASTED from Word/Docs/PDF leaves, and what decodeEntities() produces from &bull;/
+// &middot;. Left alone the glyph was read ALOUD ("bullet", "middle dot"). RED PROOF:
+// stripMarkdownOLD (no unicode-bullet rule) leaves the glyph; the live fn drops it.
+eq(stripMarkdownOLD('• First\n• Second'), '• First\n• Second', 'RED: old code leaves the • bullet glyph');
+eq(stripMarkdown('• First\n• Second'), 'First\nSecond', 'FIX: • bullet markers dropped');
+eq(stripMarkdown('· Alpha\n· Beta'), 'Alpha\nBeta', 'FIX: · (middot) bullet markers dropped');
+eq(stripMarkdown('‣ tri\n◦ ring\n⁃ hyph\n∙ op'), 'tri\nring\nhyph\nop', 'FIX: ‣ ◦ ⁃ ∙ bullet markers dropped');
+eq(stripMarkdown('  • indented'), 'indented', 'FIX: indented • bullet dropped');
+// The module DECODES these entities into the glyph, so it must then not read it aloud.
+eq(stripMarkdown('&bull; decoded bullet\n&bull; and again'), 'decoded bullet\nand again', 'FIX: &bull;-decoded line-leading bullet dropped');
+// REGRESSION GUARDS: an INLINE interpunct separator is NOT a list marker — leave it
+// (and its decoded-entity form) intact, since it is real spoken content.
+eq(stripMarkdown('Britain • Burma'), 'Britain • Burma', 'GUARD: inline • separator untouched');
+eq(stripMarkdown('the coup &middot; a turning'), 'the coup · a turning', 'GUARD: inline · separator untouched');
+eq(stripMarkdown('•glued'), '•glued', 'GUARD: a bullet glyph with NO trailing space is not a list marker');
 eq(stripMarkdown('> quoted line'), 'quoted line', 'blockquote');
 eq(stripMarkdown('[Newpress](https://newpress.co) link'), 'Newpress link', 'link -> text');
 eq(stripMarkdown('![alt](https://x/y.png) caption'), 'caption', 'image removed');
