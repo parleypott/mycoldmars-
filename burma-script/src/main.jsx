@@ -1579,7 +1579,14 @@ async function startup() {
   // BOOT READ SIDE (palau-v2) — recover the newest canonical doc BEFORE migration or render so a
   // quota-full edit parked in `.z`/IDB is the doc every downstream path reasons from on reload.
   let resolved = await rehydrateLocalFromNewest();
-  runStartupMigration();
+  // CLUNKY-RELOAD + FALSE "SAVE FAILED" FLASH (Johnny 2026-07-08): in a COLLAB session the Yjs
+  // room is canonical and the local store is a demoted snapshot (healed by ensureTableDoc at
+  // load — see table.js). The single-writer boot migration doesn't apply there, and because his
+  // live doc carries a bare top-level node the migration's "already migrated" early-return never
+  // fires — so it re-ran a full ~167KB parse/rewrite on EVERY reload (the "clunky reload"), and
+  // its STEP-1 backup could fail on a tight origin and raise a big red "SAVE FAILED" banner that
+  // the first real save cleared 1-2s later. Untrue AND slow. Skip it entirely in collab.
+  if (!collabActive) runStartupMigration();
   // Migration may have rewritten the canonical bytes + version; resolve once more so the render
   // fork, recovered seed override, and first reconcile all reason from the post-migration newest doc.
   resolved = await rehydrateLocalFromNewest();

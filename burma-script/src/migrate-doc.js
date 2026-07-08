@@ -666,13 +666,21 @@ function palauSourceRebuildCandidate(original) {
 // NOT proceed with a migration we can't back up first.
 export function backupRaw(raw) {
   const key = snapshotKey(BAK_PREFIX);
-  try {
-    localStorage.setItem(key, raw);
-    pruneBackups();
-    mirrorSnapshotToIDB('bak', raw);  // Phase 3: park a copy in the big IDB store too.
-    return key;
-  } catch {
-    return null;
+  // QUOTA-ESCALATOR BELT (Johnny 2026-07-08): this was the one storage write in the engine with
+  // no eviction ladder, so on a near-quota origin it returned null and false-aborted migration
+  // (→ a spurious "SAVE FAILED" banner every reload). Give it the SAME escalator writeCanonicalRaw
+  // uses: on QuotaExceeded, evict a tier (old backups / recovery snapshots) and retry, until the
+  // write lands or the ladder is exhausted. Only a genuinely wedged store now returns null.
+  const evict = makeQuotaEscalator();
+  for (;;) {
+    try {
+      localStorage.setItem(key, raw);
+      pruneBackups();
+      mirrorSnapshotToIDB('bak', raw);  // Phase 3: park a copy in the big IDB store too.
+      return key;
+    } catch {
+      if (!evict()) return null;
+    }
   }
 }
 
