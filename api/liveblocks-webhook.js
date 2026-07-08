@@ -22,7 +22,7 @@ import { pgrValue } from './_lib/pgrest.js';
 // THE SHARED WRITE GATES — imported from the generalized doc endpoint, never re-implemented, so a
 // webhook write obeys the exact same version contract as every client PUT: strictly-advancing
 // versions vetted by isWriteAcceptable, made atomic at the DB by updateGuardClause's CAS filter.
-import { toVersion, isWriteAcceptable, updateGuardClause, UUID_RE } from './script-doc.js';
+import { toVersion, isWriteAcceptable, updateGuardClause, UUID_RE, shrinkVerdict } from './script-doc.js';
 // The room-id shape is owned by the auth endpoint (only `script-*` rooms are mintable there);
 // reusing its validator means the webhook accepts exactly the rooms auth can create — no drift.
 import { isValidCollabRoom } from './liveblocks-auth.js';
@@ -193,6 +193,15 @@ export async function processYDocUpdated(roomId, deps = {}) {
   // 4. IDEMPOTENCY — double-delivery / already-mirrored content writes nothing.
   if (exists && docsContentEqual(doc, curRows[0].doc)) {
     return { outcome: 'identical', version: stored };
+  }
+
+  // 4b. BACK-DOOR BLOCK — a webhook has no `force`, and an automated near-total collapse of a large
+  //     stored doc is never intentional (a deliberate gut goes through the client PUT). Refuse to
+  //     mirror it: the canonical row stays intact, so the room can be reseeded from the good copy.
+  if (exists && !shrinkVerdict(doc, curRows[0].doc).ok) {
+    const sv = shrinkVerdict(doc, curRows[0].doc);
+    console.warn(`[shrink-quarantine] REFUSED webhook write on ${pid}: ${sv.stored}->${sv.incoming} bytes (${Math.round(sv.ratio * 100)}%). Canonical preserved.`);
+    return { outcome: 'shrink-quarantine', stored: sv.stored, incoming: sv.incoming };
   }
 
   // 5. The shared write gate. version = stored+1 built on base = stored always passes in memory —

@@ -191,7 +191,7 @@ async function resolveProfiles(userIds) {
 
 /* ------------------------------------------------------------------ write */
 
-async function putDoc(pid, { doc, version, baseVersion }, userId = null) {
+async function putDoc(pid, { doc, version, baseVersion, force = false }, userId = null) {
   // Read current stored version to decide accept vs 409. updated_by rides along so a refusal can
   // tell the client WHO wrote the version it lost to (the same-user false-conflict fix).
   const cur = await sb(`/rest/v1/script_docs?project_id=eq.${pgrValue(pid)}&select=doc,version,updated_by`);
@@ -202,6 +202,21 @@ async function putDoc(pid, { doc, version, baseVersion }, userId = null) {
 
   if (!isWriteAcceptable({ version, baseVersion, stored })) {
     return err409(stalePayload(exists ? curRows[0] : null, exists));
+  }
+
+  // BACK-DOOR BLOCK — refuse to overwrite a large canonical doc with a catastrophic collapse. The
+  // stored (good) doc is left intact and handed back through the CONFLICT path (which snapshots the
+  // client's local doc losslessly before anything), so a bad sync can never destroy the script. A
+  // deliberate gut passes force:true. Logged loudly so a real trigger is never silent.
+  if (exists && !force) {
+    const sv = shrinkVerdict(doc, curRows[0].doc);
+    if (!sv.ok) {
+      console.warn(`[shrink-quarantine] REFUSED put on ${pid}: ${sv.stored}->${sv.incoming} bytes (${Math.round(sv.ratio * 100)}%). Canonical preserved. force:true to override.`);
+      return new Response(
+        JSON.stringify({ error: { code: 'SHRINK_QUARANTINE', message: `refused a ${Math.round((1 - sv.ratio) * 100)}% doc collapse; the large doc is preserved (send force:true to override)` }, ...stalePayload(curRows[0], true) }),
+        { status: 409, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
   }
 
   const nowIso = new Date().toISOString();
@@ -353,7 +368,23 @@ function validatePutBody(body) {
   // version still equals what this client built on). Absent -> strictly-greater optimistic rule.
   const hasBase = body?.baseVersion !== undefined && body?.baseVersion !== null;
   const baseVersion = hasBase ? toVersion(body.baseVersion) : null;
-  return { ok: true, doc, version, baseVersion };
+  // force:true is the deliberate-large-edit escape hatch for the shrink quarantine below — a client
+  // that truly means to gut a big doc opts in explicitly. Absent/!== true → the guard applies.
+  const force = body?.force === true;
+  return { ok: true, doc, version, baseVersion, force };
+}
+
+// SHRINK QUARANTINE (2026-07-08 data-loss audit — the BACK-DOOR block). PURE. Would accepting
+// `incoming` catastrophically collapse the stored doc? Only guards substantial docs (>= floorBytes)
+// and only trips on a near-total wipe (incoming < minRatio of stored) — the 271KB→381-byte failure
+// mode that overwrote Johnny's script. Autosave granularity means a LEGIT edit shrinks gradually,
+// never >80% in one save, so this effectively never false-positives; a deliberate gut passes force.
+export function shrinkVerdict(incoming, stored, { floorBytes = 40000, minRatio = 0.2 } = {}) {
+  const s = stored == null ? 0 : JSON.stringify(stored).length;
+  if (s < floorBytes) return { ok: true };           // small stored doc — nothing precious to protect
+  const i = incoming == null ? 0 : JSON.stringify(incoming).length;
+  if (i >= s * minRatio) return { ok: true };
+  return { ok: false, stored: s, incoming: i, ratio: i / s };
 }
 
 // THE data-integrity contract. With baseVersion: strict compare-and-swap (the client must have built
@@ -397,3 +428,4 @@ function withCors(res) {
 }
 
 export { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP, stalePayload };
+// shrinkVerdict is exported inline at its definition (both the autosave path here and the webhook use it).
