@@ -271,6 +271,45 @@ function createPlaceholderChipPlugin() {
   });
 }
 
+// Pure, headless-testable command behind the archive-checklist Enter (see DirectionMark's
+// addKeyboardShortcuts). Split out — same shape as blocks.js doExitVoOnEmptyTail — so a test can
+// drive it against a real EditorState without the full Editor/keymap. `markType` is the
+// directionMark type; `dispatch(tr)` applies the transaction (omit for a dry probe). Returns true
+// when it handled the key (caller stops), false to let the next Enter handler run.
+//
+// An archive that leads its own line is a CHECKLIST item, so Enter behaves like every to-do list:
+//  • NON-EMPTY archive-led line → CONTINUE: split here and arm the fresh empty line as a new
+//    archive item (storedMarks), so the caret lands in the next checkbox ready to type.
+//  • EMPTY archive line → EXIT: a freshly-continued line has NO text node yet, so its archive-ness
+//    lives ONLY in storedMarks (the placeholder red chip is driven by storedMarks — see
+//    storedDirectionMark). Clearing the stored mark drops the chip and leaves a plain paragraph:
+//    one Enter out, no stray blank paragraph, no orphan red chip. (The prior inline version keyed
+//    the empty-line EXIT off para.firstChild being archive-marked text — which an empty line never
+//    has — so EXIT was unreachable and the second Enter fell through to a default paragraph break,
+//    the exact bug Johnny reported.)
+//  • Anything else (non-archive line, or an empty line not armed as archive) → false.
+export function doArchiveChecklistEnter(state, markType, dispatch) {
+  if (!markType) return false;
+  const sel = state.selection;
+  if (!sel.empty) return false;
+  const $from = sel.$from;
+  const para = $from.parent;
+  if (!para.isTextblock) return false;
+  const isArchive = (mk) => mk.type === markType && mk.attrs.kind === 'archive';
+
+  if (para.content.size === 0) {
+    // Empty line: archive-ness can only live in the stored marks (see comment above).
+    if (!(state.storedMarks || []).some(isArchive)) return false;
+    if (dispatch) dispatch(state.tr.setStoredMarks([]).scrollIntoView());
+    return true;
+  }
+  const first = para.firstChild;
+  if (!first || !first.isText || !first.marks.some(isArchive)) return false;
+  const archiveMark = markType.create({ kind: 'archive', status: 'needed' });
+  if (dispatch) dispatch(state.tr.split($from.pos).setStoredMarks([archiveMark]).scrollIntoView());
+  return true;
+}
+
 // ── DIRECTION MARK — the highlighter ────────────────────────────────────────────────────────
 // A mark (not an atom node) so the user types their own direction text with highlight
 // formatting applied. inclusive: true means typing at the end of a marked range continues
@@ -307,45 +346,16 @@ export const DirectionMark = Mark.create({
   },
 
   // ARCHIVE CHECKLIST ENTER (Johnny 2026-07-08: "/archive + Enter always makes a paragraph
-  // break which I don't want"). An archive that leads its own line is a CHECKLIST item, so
-  // Enter should behave like every to-do list: continue the list, not drop a stray blank
-  // paragraph. On a NON-empty archive line → split and carry the archive mark, so the caret
-  // lands in a fresh checkbox item ready to type. On an EMPTY archive line → the classic
-  // list-exit: strip the archive mark to a plain paragraph (one Enter out, no orphan red chip).
-  // Only touches archive-leading lines under the archiveOwnLine flag; every other Enter (VO
-  // exit, plain split) is untouched — this handler returns false and the next one runs.
+  // break which I don't want"). See doArchiveChecklistEnter for the full contract. This just
+  // gates on the flag + read-mode and delegates to the pure command (same split-out shape as
+  // blocks.js doExitVoOnEmptyTail, so it's testable without the full Editor/keymap).
   addKeyboardShortcuts() {
-    const archiveLeadAt = (state) => {
-      const sel = state.selection;
-      if (!sel.empty) return null;
-      const $from = sel.$from;
-      const para = $from.parent;
-      if (!para.isTextblock) return null;
-      const first = para.firstChild;
-      if (!first || !first.isText) return null;
-      const m = first.marks.find((mk) => mk.type === this.type && mk.attrs.kind === 'archive');
-      return m ? { para, mark: m, start: $from.start(), end: $from.end() } : null;
-    };
     return {
       Enter: () => {
         if (!episodeFlag('archiveOwnLine')) return false;
         const { state, view } = this.editor;
         if (view.editable === false) return false;   // READ MODE never writes (own guard)
-        const info = archiveLeadAt(state);
-        if (!info) return false;                      // not an archive line → let others handle
-        const { $from } = state.selection;
-        const tr = state.tr;
-        if (info.para.textContent.length === 0) {
-          // EXIT the checklist: this empty archive line becomes a plain paragraph.
-          tr.removeMark(info.start, info.end, this.type).setStoredMarks([]);
-          view.dispatch(tr.scrollIntoView());
-          return true;
-        }
-        // CONTINUE the checklist: split here, and arm the new line as a fresh archive item.
-        const archiveMark = this.type.create({ kind: 'archive', status: 'needed' });
-        tr.split($from.pos).setStoredMarks([archiveMark]);
-        view.dispatch(tr.scrollIntoView());
-        return true;
+        return doArchiveChecklistEnter(state, this.type, (tr) => view.dispatch(tr));
       },
     };
   },
