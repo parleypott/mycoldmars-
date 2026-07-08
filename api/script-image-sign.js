@@ -10,12 +10,14 @@
 // same public-URL-only-in-the-doc law as the base64 route.
 //
 // SECURITY POSTURE — same as script-image-upload: checkAccess gate (signed-in JWT via the
-// library's fetch interceptor), mediaStorageMeta coerces the Content-Type/extension to the
-// raster allow-list PLUS video/mp4 (local wrapper below — the gif→mp4 transcode's output;
-// the shared QSS imageStorageMeta map stays image-only). The signed token pins the exact
-// path we mint here — a client can't redirect it. The token is single-use and expires in ~2h
-// (Supabase default). The declared size is advisory (Supabase enforces any bucket-level
-// cap); the gate + tight mime coercion carry the real weight, as they do next door.
+// library's fetch interceptor), then a STRICT mime allowlist (SIGNABLE_MIMES below — a
+// declared type outside the client's media map is 415-refused, never coerced), then
+// mediaStorageMeta normalizes the Content-Type/extension to the raster allow-list PLUS
+// video/mp4 (local wrapper below — the gif→mp4 transcode's output; the shared QSS
+// imageStorageMeta map stays image-only). The signed token pins the exact path we mint
+// here — a client can't redirect it. The token is single-use and expires in ~2h (Supabase
+// default). Size is enforced here too: a declared sizeBytes over MAX_SIGNED_BYTES is a
+// clean 413 before any token is minted.
 //
 // Body:     { project, block_id, mimeType, sizeBytes }
 // Response: { ok, uploadUrl, path, publicUrl, mime }
@@ -52,6 +54,23 @@ export function mediaStorageMeta(rawMime) {
   return imageStorageMeta(rawMime);
 }
 
+// STRICT ALLOWLIST — the declared mimeType must be one the client's media map actually
+// produces, or the sign request is REFUSED (415) instead of silently coerced. Mirrors
+// SUPPORTED_IMAGE_MIMES in burma-script/src/extensions/image-drop.js (png/jpeg/jpg/webp/gif)
+// plus the video/mp4 the gif-transcode road emits — nothing else can even mint a signed URL.
+// Why refuse rather than coerce: mediaStorageMeta's coercion made the STORED type safe, but
+// it still handed a signed direct-upload URL to any junk declaration (application/pdf,
+// text/html, video/webm…). The real client pre-gates drops against this exact set, so a
+// mime outside it is never a legitimate upload — refusing at sign time closes the road
+// entirely instead of politely re-labeling it. Exported (with the set) for tests.
+export const SIGNABLE_MIMES = new Set([
+  'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', // client SUPPORTED_IMAGE_MIMES
+  'video/mp4',                                                       // gif→mp4 transcode output (local allowance)
+]);
+export function isSignableMime(rawMime) {
+  return SIGNABLE_MIMES.has(String(rawMime ?? '').trim().toLowerCase());
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -83,6 +102,10 @@ export default async function handler(req) {
   if (sizeBytes <= 0) return j(400, { error: 'sizeBytes required' });
   if (sizeBytes > MAX_SIGNED_BYTES) {
     return j(413, { error: 'image_too_large', maxBytes: MAX_SIGNED_BYTES });
+  }
+
+  if (!isSignableMime(body.mimeType)) {
+    return j(415, { error: 'unsupported_media_type', allowed: [...SIGNABLE_MIMES] });
   }
 
   const { mime, ext } = mediaStorageMeta(body.mimeType);
