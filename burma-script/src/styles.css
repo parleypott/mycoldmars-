@@ -2149,3 +2149,14 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
 
 /* Deep-link landing flash — a brief accent ring on the bookmarked row. */
 .wp-bm-target { outline: 2px solid var(--ep-accent); outline-offset: 6px; border-radius: 6px; }
+
+/* The bubble menu applies marks straight through dispatch (editable doesn't gate commands) —
+   in READ mode it must not exist as a click target. */
+.wp-page[data-mode="read"] .wp-bubble { display: none; }
+
+/* CHAPTER FOCUS × LIBRARY SHELL — the library's floating "back to library" pill (#sl-backbar,
+   z-index 9999) sits exactly over the focus bar's BACK TO SCRIPT button and swallowed its
+   clicks (caught live 2026-07-07). In focus the ONLY way out should be the focus bar anyway —
+   hide the shell pill while a chapter has the screen. :has() is fine here: every browser this
+   tool supports ships it, and a non-matching engine just leaves the pill visible (cosmetic). */
+body:has(.wp-page[data-chfocus]) .sl-backbar { display: none; }
