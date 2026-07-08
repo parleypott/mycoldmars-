@@ -14,6 +14,7 @@ import { TextSelection as PMTextSelection } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { getEpisode, episodeFlag } from '../episode-config.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
+import { blockHeadControlWritable } from './block-write-guard.js';
 import { DirectionChip, DirectionBreak } from './direction-chip.js';
 import { FcFootnote } from './footnote.js';
 
@@ -513,6 +514,9 @@ function directionNodeView({ node, editor, getPos }) {
     });
     done.textContent = '✓';
     const toggleDone = () => {
+      // READ MODE / share: a done toggle is a doc write — refuse it in code, not by CSS alone
+      // (the keyboard path fires past `editable:false`). Mirrors the direction-chip guard.
+      if (!blockHeadControlWritable({ readOnly: isReadOnly(), editable: editor.view.editable })) return;
       const cur = editor.state.doc.nodeAt(getPos());
       setAttr(editor, getPos, { done: !cur?.attrs.done });
     };
@@ -745,6 +749,8 @@ export const VoBlock = Node.create({
       paint(status0);
       const cycle = (e) => {
         e.preventDefault();
+        // READ MODE / share: cycling REC state writes to the doc — same guard as the done tick.
+        if (!blockHeadControlWritable({ readOnly: isReadOnly(), editable: editor.view.editable })) return;
         const cur = editor.state.doc.nodeAt(getPos())?.attrs.status || 'todo';
         setAttr(editor, getPos, { status: VO_ORDER[(VO_ORDER.indexOf(cur) + 1) % VO_ORDER.length] });
       };
