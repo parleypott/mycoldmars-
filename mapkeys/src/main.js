@@ -17,6 +17,7 @@ import { computeGifRange } from './gif-range.js';
 import { EASINGS, totalDuration, resolveKeyframeSegment } from './playback-timing.js';
 import { searchCountries as rankCountries } from './country-search.js';
 import { classifyOldMapInput, annotationBounds, annotationLabel } from './oldmap-resolve.js';
+import { featherPlan } from './feather-mask.js';
 import {
   findBySlug, syncFromCloud as syncProjectsFromCloud, loadProjectState,
   pushProjectState, beaconProjectState, writeStateCache, touchProject,
@@ -419,7 +420,7 @@ function snapshotForUndo(label) {
       style: { ...l.style }, visible: l.visible,
     })),
     keyframes: JSON.parse(JSON.stringify(state.keyframes)),
-    overlays: state.overlays.map(o => ({ ...o })),
+    overlays: state.overlays.map(serializeOverlay),
     activeShapeId: state.activeShapeId,
     activeLayerId: state.activeLayerId,
     selectedId: state.selectedId,
@@ -447,7 +448,7 @@ function undo() {
     };
   });
   state.keyframes = snap.keyframes;
-  state.overlays = (snap.overlays || []).map(o => ({ ...o }));
+  state.overlays = (snap.overlays || []).map(hydrateOverlay).filter(Boolean);
   state.activeShapeId = snap.activeShapeId;
   state.activeLayerId = snap.activeLayerId;
   state.selectedId = snap.selectedId;
@@ -1092,8 +1093,78 @@ function applyShapeStateAtKeyframe(kf) {
 
 // ─── Old-map overlays (georeferenced paper maps as raster tiles) ───
 
+// Feathered-crop tiles via Mapbox's CustomSource API: loadTile fetches the
+// real tile, then multiplies its alpha by four edge ramps so the map fades
+// out toward its crop rectangle — Photoshop-style feather, applied per tile
+// at every zoom. (mapbox-gl has no addProtocol — custom sources are the
+// supported hook for synthesized raster tiles.)
+const DEFAULT_FEATHER = { on: false, rect: null, crop: 0.06, width: 0.12 };
+
+// loadTile reads the overlay's live feather params; param changes rebuild the
+// source (refreshOverlayTiles) so cached tiles can't go stale.
+function featherCustomSource(overlay) {
+  return {
+    type: 'custom',
+    dataType: 'raster',
+    tileSize: 256,
+    maxzoom: 20,
+    async loadTile({ z, x, y }, { signal }) {
+      const f = overlay.feather;
+      if (!f || !Array.isArray(f.rect)) return new ImageData(4, 4);
+      const plan = featherPlan({ z, x, y }, f.rect, f.crop, f.width, 256);
+      if (plan.coverage === 'outside') return new ImageData(4, 4); // transparent
+      const url = overlay.tiles
+        .replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`tile fetch failed (${res.status})`);
+      const bmp = await createImageBitmap(await res.blob());
+      if (plan.coverage === 'inside') return bmp;
+      // Re-plan at the bitmap's real pixel size (256 vs 512 tiles).
+      const px = featherPlan({ z, x, y }, f.rect, f.crop, f.width, bmp.width);
+      const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+      ctx.globalCompositeOperation = 'destination-in';
+      for (const r of px.ramps) {
+        const g = r.axis === 'x'
+          ? ctx.createLinearGradient(r.fromPx, 0, r.toPx, 0)
+          : ctx.createLinearGradient(0, r.fromPx, 0, r.toPx);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      return canvas.transferToImageBitmap();
+    },
+  };
+}
+
 function overlaySourceIds(id) {
   return { src: `oldmap-src-${id}`, layer: `oldmap-${id}` };
+}
+
+function overlayFeatherActive(overlay) {
+  const f = overlay.feather;
+  return !!(f && f.on && Array.isArray(f.rect));
+}
+
+// Rebuild an overlay's source + layer (feather toggled or params changed).
+// Custom sources cache composited tiles, so a rebuild is the only reliable
+// invalidation; the browser's HTTP cache keeps the refetch cheap.
+function refreshOverlayTiles(overlay) {
+  removeOverlayFromMap(overlay);
+  ensureOverlayOnMap(overlay);
+  applyOverlayOrder();
+}
+
+// Restack every overlay layer to match state.overlays order (index 0 =
+// bottom). Each move drops the layer just under the first route/shape layer,
+// so walking bottom→top leaves the last overlay on top — Photoshop rules.
+function applyOverlayOrder() {
+  for (const o of state.overlays) {
+    const ids = overlaySourceIds(o.id);
+    if (map.getLayer(ids.layer)) map.moveLayer(ids.layer, overlayBeforeId());
+  }
 }
 
 // Overlays live above the basemap/hillshade but below every route, shape,
@@ -1108,12 +1179,9 @@ function overlayBeforeId() {
 function ensureOverlayOnMap(overlay) {
   const ids = overlaySourceIds(overlay.id);
   if (!map.getSource(ids.src)) {
-    map.addSource(ids.src, {
-      type: 'raster',
-      tiles: [overlay.tiles],
-      tileSize: 256,
-      maxzoom: 20,
-    });
+    map.addSource(ids.src, overlayFeatherActive(overlay)
+      ? featherCustomSource(overlay)
+      : { type: 'raster', tiles: [overlay.tiles], tileSize: 256, maxzoom: 20 });
   }
   if (!map.getLayer(ids.layer)) {
     map.addLayer({
@@ -1154,6 +1222,7 @@ async function addOldMapFromInput(raw) {
     opacity: 1,
     visible: true,
     bounds: null,
+    feather: { ...DEFAULT_FEATHER },
   };
 
   // For Allmaps annotations, fetch label + GCP bounds so we can name the
@@ -1168,8 +1237,11 @@ async function addOldMapFromInput(raw) {
     overlay.name = annotationLabel(doc) || 'Old map';
     overlay.bounds = annotationBounds(doc);
   } else {
+    // XYZ templates carry no title — number them so a stack of maps from the
+    // same server stays tellable-apart (rename any row by double-clicking it).
     try {
-      overlay.name = new URL(classified.tiles.replace(/\{[zxy]\}/g, '0')).hostname;
+      const host = new URL(classified.tiles.replace(/\{[zxy]\}/g, '0')).hostname;
+      overlay.name = `${host.replace(/^wmts\.|^tiles\./, '')} · ${state.overlays.length + 1}`;
     } catch { /* keep default */ }
   }
 
@@ -1208,7 +1280,50 @@ function setOverlayVisible(id, visible) {
 }
 
 function fitToOverlay(overlay) {
-  if (overlay.bounds) map.fitBounds(overlay.bounds, { padding: 60, duration: 800 });
+  const target = overlay.bounds || overlay.feather?.rect;
+  if (target) map.fitBounds(target, { padding: 60, duration: 800 });
+}
+
+// ── Feather controls ──
+
+function currentViewRect() {
+  const b = map.getBounds();
+  return [[b.getWest(), b.getSouth()], [b.getEast(), b.getNorth()]];
+}
+
+function toggleOverlayFeather(overlay) {
+  const f = overlay.feather || (overlay.feather = { ...DEFAULT_FEATHER });
+  f.on = !f.on;
+  // First switch-on needs a frame: the map's own bounds when we know them
+  // (Allmaps), otherwise whatever is framed in the viewport right now.
+  if (f.on && !Array.isArray(f.rect)) {
+    f.rect = overlay.bounds ? [
+      [overlay.bounds[0][0], overlay.bounds[0][1]],
+      [overlay.bounds[1][0], overlay.bounds[1][1]],
+    ] : currentViewRect();
+  }
+  refreshOverlayTiles(overlay);
+  saveLayers();
+  renderOverlaysPanel();
+}
+
+function setOverlayFeatherRectToView(overlay) {
+  const f = overlay.feather || (overlay.feather = { ...DEFAULT_FEATHER });
+  f.rect = currentViewRect();
+  if (f.on) refreshOverlayTiles(overlay);
+  saveLayers();
+}
+
+// Debounced per-overlay tile refresh so slider drags don't thrash the source.
+const featherRefreshTimers = {};
+function mutateOverlayFeather(overlay, fn) {
+  const f = overlay.feather || (overlay.feather = { ...DEFAULT_FEATHER });
+  fn(f);
+  clearTimeout(featherRefreshTimers[overlay.id]);
+  featherRefreshTimers[overlay.id] = setTimeout(() => {
+    if (f.on) refreshOverlayTiles(overlay);
+    saveLayers();
+  }, 180);
 }
 
 // ── Overlay keyframing — opacity animates between keyframes, so a paper
@@ -1947,11 +2062,13 @@ function serializeOverlay(o) {
   return {
     id: o.id, name: o.name, kind: o.kind, source: o.source, tiles: o.tiles,
     opacity: o.opacity, visible: o.visible, bounds: o.bounds,
+    feather: o.feather ? { ...o.feather } : null,
   };
 }
 
 function hydrateOverlay(raw) {
   if (!raw || !raw.id || typeof raw.tiles !== 'string') return null;
+  const f = raw.feather;
   return {
     id: raw.id,
     name: raw.name || 'Old map',
@@ -1961,6 +2078,15 @@ function hydrateOverlay(raw) {
     opacity: typeof raw.opacity === 'number' ? raw.opacity : 1,
     visible: raw.visible !== false,
     bounds: Array.isArray(raw.bounds) ? raw.bounds : null,
+    feather: {
+      ...DEFAULT_FEATHER,
+      ...(f && typeof f === 'object' ? {
+        on: f.on === true && Array.isArray(f.rect),
+        rect: Array.isArray(f.rect) ? f.rect : null,
+        crop: typeof f.crop === 'number' ? f.crop : DEFAULT_FEATHER.crop,
+        width: typeof f.width === 'number' ? f.width : DEFAULT_FEATHER.width,
+      } : {}),
+    },
   };
 }
 
@@ -2316,30 +2442,107 @@ function renderShapesPanel() {
 }
 
 // ─── Old-maps panel rendering ───
+// Rows render TOP-FIRST (Photoshop order): the first row in the panel is the
+// topmost layer on the globe. state.overlays stays bottom→top (map order).
+
+let draggedOverlayId = null;
+
+function reorderOverlayByDisplay(dragId, targetDisplayIdx) {
+  const display = [...state.overlays].reverse();
+  const from = display.findIndex(o => o.id === dragId);
+  if (from === -1) return;
+  const [moved] = display.splice(from, 1);
+  display.splice(Math.max(0, Math.min(targetDisplayIdx, display.length)), 0, moved);
+  state.overlays = display.reverse();
+  applyOverlayOrder();
+  saveLayers();
+  renderOverlaysPanel();
+}
 
 function renderOverlaysPanel() {
   const list = document.getElementById('oldmaps-list');
   list.innerHTML = '';
   if (state.overlays.length === 0) return;
-  for (const overlay of state.overlays) {
+  const display = [...state.overlays].reverse();
+  display.forEach((overlay, displayIdx) => {
+    const f = overlay.feather || (overlay.feather = { ...DEFAULT_FEATHER });
     const row = document.createElement('div');
     row.className = 'layer-row oldmap-row';
+    row.draggable = true;
     if (!overlay.visible) row.classList.add('hidden-layer');
     row.innerHTML = `
+      <span class="om-grip" title="Drag to reorder — top row shows on top">⠿</span>
       <input type="checkbox" class="layer-vis" ${overlay.visible ? 'checked' : ''} title="Toggle visibility">
-      <span class="shape-glyph">🗺</span>
       <div class="layer-meta">
-        <div class="layer-name" title="${overlay.name}">${overlay.name}</div>
+        <div class="layer-name" title="${overlay.name} — double-click to rename">${overlay.name}</div>
         <div class="oldmap-opacity">
           <input type="range" class="om-opacity" min="0" max="100" step="1" value="${Math.round(overlay.opacity * 100)}" title="Opacity">
           <span class="om-opacity-val">${Math.round(overlay.opacity * 100)}%</span>
         </div>
       </div>
       <div class="layer-actions">
+        <button class="layer-btn oldmap-btn-feather ${f.on ? 'is-on' : ''}" title="Feathered crop — fade the map's edges">✂</button>
         <button class="layer-btn oldmap-btn-fit" title="Fit to map">⊕</button>
         <button class="layer-btn oldmap-btn-del" title="Remove old map">×</button>
       </div>
     `;
+
+    // ── drag to reorder ──
+    row.addEventListener('dragstart', e => {
+      draggedOverlayId = overlay.id;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', overlay.id); } catch {}
+    });
+    row.addEventListener('dragend', () => {
+      draggedOverlayId = null;
+      list.querySelectorAll('.drop-above, .drop-below').forEach(el =>
+        el.classList.remove('drop-above', 'drop-below'));
+      row.classList.remove('dragging');
+    });
+    row.addEventListener('dragover', e => {
+      if (!draggedOverlayId || draggedOverlayId === overlay.id) return;
+      e.preventDefault();
+      const above = e.offsetY < row.offsetHeight / 2;
+      row.classList.toggle('drop-above', above);
+      row.classList.toggle('drop-below', !above);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-above', 'drop-below'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!draggedOverlayId || draggedOverlayId === overlay.id) return;
+      const above = e.offsetY < row.offsetHeight / 2;
+      const dragDisplayIdx = display.findIndex(o => o.id === draggedOverlayId);
+      let target = displayIdx + (above ? 0 : 1);
+      if (dragDisplayIdx < target) target -= 1; // removal shifts insertion point
+      reorderOverlayByDisplay(draggedOverlayId, target);
+    });
+
+    // ── rename on double-click ──
+    const nameEl = row.querySelector('.layer-name');
+    nameEl.addEventListener('dblclick', () => {
+      const input = document.createElement('input');
+      input.className = 'om-rename';
+      input.value = overlay.name;
+      nameEl.replaceWith(input);
+      input.focus();
+      input.select();
+      let done = false;
+      const commit = () => {
+        if (done) return;
+        done = true;
+        const v = input.value.trim();
+        if (v) { overlay.name = v; saveLayers(); }
+        renderOverlaysPanel();
+      };
+      input.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') { done = true; renderOverlaysPanel(); }
+      });
+      input.addEventListener('blur', commit);
+    });
+
     row.querySelector('.layer-vis').addEventListener('click', e => {
       e.stopPropagation();
       setOverlayVisible(overlay.id, e.target.checked);
@@ -2352,6 +2555,10 @@ function renderOverlaysPanel() {
       applyOverlayStyle(overlay);
     });
     slider.addEventListener('change', () => saveLayers());
+    row.querySelector('.oldmap-btn-feather').addEventListener('click', e => {
+      e.stopPropagation();
+      toggleOverlayFeather(overlay);
+    });
     row.querySelector('.oldmap-btn-fit').addEventListener('click', e => {
       e.stopPropagation();
       fitToOverlay(overlay);
@@ -2361,7 +2568,36 @@ function renderOverlaysPanel() {
       if (confirm(`Remove "${overlay.name}"?`)) deleteOverlay(overlay.id);
     });
     list.appendChild(row);
-  }
+
+    // ── feather controls (expanded under the row while ✂ is on) ──
+    if (f.on) {
+      const ctl = document.createElement('div');
+      ctl.className = 'oldmap-feather-ctl';
+      ctl.innerHTML = `
+        <label class="omf-field"><span>Crop</span>
+          <input type="range" class="omf-crop" min="0" max="45" step="1" value="${Math.round(f.crop * 100)}">
+          <span class="omf-val omf-crop-val">${Math.round(f.crop * 100)}%</span>
+        </label>
+        <label class="omf-field"><span>Feather</span>
+          <input type="range" class="omf-width" min="0" max="40" step="1" value="${Math.round(f.width * 100)}">
+          <span class="omf-val omf-width-val">${Math.round(f.width * 100)}%</span>
+        </label>
+        <button class="btn ghost omf-setview" title="Use the current viewport as this map's crop frame">⌖ frame = view</button>
+      `;
+      const crop = ctl.querySelector('.omf-crop');
+      crop.addEventListener('input', e => {
+        ctl.querySelector('.omf-crop-val').textContent = e.target.value + '%';
+        mutateOverlayFeather(overlay, ff => { ff.crop = parseInt(e.target.value, 10) / 100; });
+      });
+      const width = ctl.querySelector('.omf-width');
+      width.addEventListener('input', e => {
+        ctl.querySelector('.omf-width-val').textContent = e.target.value + '%';
+        mutateOverlayFeather(overlay, ff => { ff.width = parseInt(e.target.value, 10) / 100; });
+      });
+      ctl.querySelector('.omf-setview').addEventListener('click', () => setOverlayFeatherRectToView(overlay));
+      list.appendChild(ctl);
+    }
+  });
 }
 
 function fitToShape(shape) {

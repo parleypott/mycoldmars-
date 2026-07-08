@@ -1331,3 +1331,60 @@ body.dragging-shape .mapboxgl-canvas {
   width: 32px;
   text-align: right;
 }
+
+/* ─── Old-map reordering + feather controls ─── */
+
+.oldmap-row { cursor: grab; }
+.oldmap-row.dragging { opacity: 0.4; cursor: grabbing; }
+.oldmap-row.drop-above { box-shadow: 0 -2px 0 var(--ink); }
+.oldmap-row.drop-below { box-shadow: 0 2px 0 var(--ink); }
+.om-grip {
+  font-size: 11px;
+  color: var(--ink-faint);
+  cursor: grab;
+  user-select: none;
+  padding: 0 2px;
+}
+.oldmap-row:hover .om-grip { color: var(--ink); }
+.om-rename {
+  appearance: none;
+  background: #fffaf0;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--ink);
+  width: 100%;
+}
+.oldmap-btn-feather.is-on {
+  background: var(--ink);
+  color: var(--panel);
+  border-radius: 3px;
+}
+.oldmap-feather-ctl {
+  margin: -2px 10px 6px 30px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--panel-edge);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.omf-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.omf-field span:first-child { width: 46px; }
+.omf-field input[type="range"] { flex: 1; height: 3px; accent-color: var(--ink); }
+.omf-val { width: 32px; text-align: right; color: var(--ink); }
+.omf-setview {
+  align-self: flex-start;
+  font-size: 9px;
+  padding: 3px 8px;
+}
