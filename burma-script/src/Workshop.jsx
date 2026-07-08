@@ -165,6 +165,35 @@ export function Workshop() {
     return () => window.removeEventListener('wp-open-workshop', onOpen);
   }, []);
 
+  // DISMISSAL (Johnny 2026-07-08: "I can't make it go away after it pops out"). The dock used to
+  // have exactly one exit — the small × in the corner — and no Escape, no click-away. Give it the
+  // two reflexes every panel needs: Esc closes it, and a click anywhere outside it closes it. The
+  // outside-click is a mousedown so it fires BEFORE a chip's own mousedown (which reopens on the
+  // new span) — clicking a different marker cleanly switches spans instead of dead-locking. Guard
+  // on `open` so the listeners only live while the dock is up.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (resizing.current) return;         // let Esc cancel a resize drag first, not the panel
+      e.preventDefault();
+      setOpen(false);
+    };
+    const onDocDown = (e) => {
+      if (asideRef.current && asideRef.current.contains(e.target)) return;  // inside the dock — keep it
+      // A mousedown on a {tk}/{fc}/[visual] chip reopens via its own handler; don't fight that —
+      // just close, and the chip's openWorkshop re-mounts us on the new span this same tick.
+      setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    // capture phase so we win the race against ProseMirror's own mousedown handlers.
+    document.addEventListener('mousedown', onDocDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDocDown, true);
+    };
+  }, [open]);
+
   function persist(patch) {
     if (!span) return;
     const all = loadAll();
