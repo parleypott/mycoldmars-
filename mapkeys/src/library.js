@@ -129,9 +129,18 @@ function renderLibrary() {
   if (view === 'all') {
     const newBtn = el('button', 'mkl-new', '＋ New map');
     newBtn.onclick = async () => {
+      // Never die silently: a failure anywhere in create/open re-enables the
+      // button and says what broke, instead of leaving a dead library.
       newBtn.disabled = true;
-      const row = await createProject('Untitled Map');
-      if (onOpenProject) onOpenProject(row);
+      try {
+        const row = await createProject('Untitled Map');
+        if (onOpenProject) onOpenProject(row);
+      } catch (err) {
+        console.error('[mapkeys] new map failed:', err);
+        window.alert(`Couldn’t create the map: ${err?.message || err}`);
+      } finally {
+        newBtn.disabled = false;
+      }
     };
     bar.appendChild(newBtn);
 
