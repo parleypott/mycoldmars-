@@ -251,6 +251,14 @@
   padding-top: 6px;
   margin-top: 30px;
 }
+/* HEADER AREA (Johnny 2026-07-08: "the vibes of this header arn't pro and classy … establish
+   the header area … subtitle language under the header … then a nice visual break and THEN
+   row 1"). The masthead row closes with a DELIBERATE 2px band — visibly heavier than the 1px
+   gridlines between script rows — so the doc reads masthead → break → row 1. This rule doubles
+   as row 1's "top line". Overrides the generic 1px member divider below. */
+.wp-trow.wp-chframe.wp-chframe-first:not(.wp-chframe-last) {
+  border-bottom: 2px solid var(--ep-frame-band);
+}
 .wp-trow.wp-chframe-last {
   border-bottom: 2px solid var(--ep-frame-rule);
   border-bottom-left-radius: 14px;
@@ -281,30 +289,57 @@
   background: transparent;
   border: 0;
 }
-.wp-chframe-first .wp-chapter .wp-cart-body { padding: 14px 10px 20px 4px; }
+.wp-chframe-first .wp-chapter .wp-cart-body { padding: 22px 10px 24px 4px; }
 .wp-chframe-first .wp-chapter .wp-ch-head { border-bottom: 0; }
+
+/* EYEBROW DASH (masthead ceremony, 2026-07-08) — a short thick stroke above the title, the
+   classic editorial "a chapter opens here" mark. On the NodeView wrapper (never the editable
+   paragraph) so the caret and PM content are untouched. */
+.wp-chframe-first .wp-chapter .wp-cart-body::before {
+  content: '';
+  display: block;
+  width: 46px;
+  height: 3.5px;
+  background: var(--ep-frame-band);
+  margin: 0 0 14px;
+}
 
 /* The chapter TITLE — big, elegant, book-chapter serif. */
 .wp-chframe-first .wp-chapter .wp-body > p:first-child {
   font-family: var(--ep-display-serif);
-  font-size: 33px;
+  font-size: 36px;
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.06;
   letter-spacing: -0.015em;
   color: var(--ep-chapter-ink);
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   text-transform: none;
 }
-/* Everything after the title = quiet italic subtext (the director's note). */
+/* Everything after the title = the SUBTITLE DECK (the director's note) — a touch larger and
+   roomier than before so it reads as deliberate subtitle language, not an afterthought. */
 .wp-chframe-first .wp-chapter .wp-body > p:not(:first-child) {
   font-family: var(--ep-display-serif);
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 400;
   font-style: italic;
-  line-height: 1.45;
+  line-height: 1.5;
   letter-spacing: 0;
   color: var(--ep-chapter-subtext);
-  margin: 0 0 3px;
+  margin: 0 0 4px;
+  max-width: 62ch;
+}
+/* SUBTITLE INVITE — a title-only chapter (one paragraph) shows a quiet ghost line teaching
+   the mechanic: Enter at the end of the title opens the subtitle slot. Pseudo-element only
+   (never DOM, never PM content); edit sessions only — read pages stay clean. */
+[data-mode="edit"] .wp-chframe-first .wp-chapter .wp-body:has(> p:first-child:last-child)::after {
+  content: 'press ⏎ at the end of the title to add a subtitle';
+  display: block;
+  font-family: var(--ep-display-serif);
+  font-size: 14px;
+  font-style: italic;
+  color: var(--ep-chapter-subtext);
+  opacity: .45;
+  margin-top: 2px;
 }
 /* Genre tag (MAP / EXPLAINER / COLD OPEN) — a small quiet uppercase mono eyebrow. */
 .wp-chframe-first .wp-chapter .wp-ch-tag {
