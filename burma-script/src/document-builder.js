@@ -737,7 +737,17 @@ function splitPalauFullWidthRow(row) {
   if (blocks.length <= 1) return [row];
   // A stale Palau saved doc can stack multiple cartridges inside one full-width cell. Split each
   // block back into its own top-level row so chapter/scene headers regain the fresh-build shape.
-  return blocks.map((block) => fullWidthRow(block));
+  const rows = blocks.map((block) => fullWidthRow(block));
+  // KEEP-ME marker survival (audit 2026-07-07 follow-up): a bookmark lives on the ROW attrs, not
+  // the block — and fullWidthRow() mints fresh {cols:1} attrs, so re-wrapping a bookmarked stacked
+  // row here would silently DROP its ⚑ (a visible glyph AND a deep-link target). The same audit
+  // taught the culler hasBookmarkedRow; this closes the split-side hole so the bookmark survives
+  // the split too. Carry it onto the FIRST split row only — a bookmarkId must stay unique (a
+  // duplicate data-bookmark-id makes the ?bm deep link ambiguous). Byte-identical when unbookmarked.
+  if (row.attrs?.bookmarkId && rows[0]) {
+    rows[0] = { ...rows[0], attrs: { ...rows[0].attrs, bookmarkId: row.attrs.bookmarkId } };
+  }
+  return rows;
 }
 
 // A row the author DELIBERATELY added with the "+" row tool (table.js doAddRowsBelow) carries a
