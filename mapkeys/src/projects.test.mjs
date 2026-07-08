@@ -29,7 +29,7 @@ globalThis.CustomEvent = class { constructor(t) { this.type = t; } };
 const {
   INDEX_KEY, RESERVED_SLUGS,
   generateSlug, ensureUniqueSlug, readIndex,
-  activeProjects, trashedProjects, mergeCloud,
+  activeProjects, trashedProjects, mergeCloud, findBySlug,
 } = await import('./projects.js');
 
 let pass = 0, fail = 0;
@@ -146,6 +146,27 @@ function seed(projects, folders) {
     [{ id: 'f_new', name: 'cloud folder' }],
   );
   ok(again === false, 'mergeCloud: identical re-merge → changed=false (no spurious event)');
+}
+
+// ── QUOTA-DEATH survival (the mycoldmars.com "New map does nothing" bug) ──────
+// When the origin's localStorage is FULL, setItem throws QuotaExceededError.
+// The store must stay coherent in memory: a write that can't persist must
+// still be visible to the very next read (findBySlug), or the router bounces
+// every freshly-created project back to the library. LOAD-BEARING: removing
+// the memIndex mirror in projects.js makes this fail.
+{
+  reset();
+  const realSetItem = globalThis.localStorage.setItem;
+  globalThis.localStorage.setItem = () => {
+    const e = new Error('exceeded the quota');
+    e.name = 'QuotaExceededError';
+    throw e;
+  };
+  const changed = mergeCloud([{ id: 'srv_q', slug: 'quota-map', name: 'Quota Map' }], null);
+  ok(changed === true, 'quota: merge with dead storage still reports the change');
+  const row = findBySlug('quota-map');
+  ok(!!row && row.id === 'srv_q', 'quota: row written under QuotaExceededError is readable in-session');
+  globalThis.localStorage.setItem = realSetItem;
 }
 
 console.log(`\nprojects (mapkeys store): ${pass} passed, ${fail} failed`);

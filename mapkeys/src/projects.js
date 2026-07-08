@@ -51,7 +51,17 @@ export function ensureUniqueSlug(base, excludeId = null) {
 
 /* ── cache I/O (always shape-safe) ────────────────────────────────────── */
 
+// In-memory mirror of the index, set on every write. localStorage is
+// best-effort persistence — when the origin's 5MB quota is full
+// (mycoldmars.com shares it across every tool), setItem throws and a
+// cache-only store would "create" projects the router can never find.
+// Once anything has been written this session, the mirror is the truth,
+// so a dead localStorage can't lose in-session state; the cloud still
+// persists across reloads and devices.
+let memIndex = null;
+
 export function readIndex() {
+  if (memIndex) return memIndex;
   try {
     const raw = localStorage.getItem(INDEX_KEY);
     const v = raw ? JSON.parse(raw) : null;
@@ -65,7 +75,10 @@ export function readIndex() {
 }
 
 function writeIndex(idx) {
-  try { localStorage.setItem(INDEX_KEY, JSON.stringify(idx)); } catch {}
+  memIndex = idx;
+  try { localStorage.setItem(INDEX_KEY, JSON.stringify(idx)); } catch (e) {
+    console.warn('[mapkeys] index persist failed (storage full?) — running from memory + cloud:', e.message);
+  }
   return idx;
 }
 
