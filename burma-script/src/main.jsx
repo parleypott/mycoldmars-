@@ -422,6 +422,7 @@ function OutlinePanel({ items, open, onClose }) {
 function CopyToast() {
   const [tc, setTc] = useState(null);
   const [tone, setTone] = useState('ok'); // ux-01 — 'ok' (green COPIED) vs 'error' (red INVALID)
+  const [lab, setLab] = useState('COPIED'); // restore-collab — ok toasts can carry their own label
   const [up, setUp] = useState(false);
   const hideTimer = useRef(null);
   const clearTimer = useRef(null);
@@ -432,18 +433,22 @@ function CopyToast() {
       // ux-01 — an error toast carries { tone:'error', msg }; a copy carries { tc, tone:'ok' }. The
       // toast used to render every payload as a green "COPIED", so a REJECTED timecode edit looked
       // like a success the instant Johnny mistyped. Read the tone and surface a distinct red state.
+      // restore-collab — an ok toast may also carry { msg, lab } (e.g. a live-room restore, which
+      // has no reload to confirm it): render the msg with its own label instead of "COPIED".
       const isError = d.tone === 'error';
-      const val = isError ? d.msg : d.tc;
+      const val = isError ? d.msg : (d.tc || d.msg);
       // Back-compat: a bare { tc } with no tone is still a copy.
       if (!val) return;
       if (hideTimer.current) clearTimeout(hideTimer.current);
       if (clearTimer.current) clearTimeout(clearTimer.current);
       setTone(isError ? 'error' : 'ok');
+      setLab(isError ? 'INVALID' : (d.tc ? 'COPIED' : (d.lab || 'DONE')));
       setTc(val);
       // next frame: flip to the raised/visible state so the transition runs.
       requestAnimationFrame(() => requestAnimationFrame(() => setUp(true)));
       // Errors linger a touch longer — they ask Johnny to re-do something, not just confirm.
-      const hold = isError ? 2200 : 1300;
+      // Sentence-length ok toasts (restore confirmations) get the longer hold too — they're read, not glanced.
+      const hold = isError || !d.tc ? 2200 : 1300;
       hideTimer.current = setTimeout(() => setUp(false), hold);
       clearTimer.current = setTimeout(() => setTc(null), hold + 200);
     };
@@ -463,7 +468,7 @@ function CopyToast() {
       role={isError ? 'alert' : 'status'}
       aria-live={isError ? 'assertive' : 'polite'}
     >
-      <span class="wp-toast-lab">{isError ? 'INVALID' : 'COPIED'}</span>
+      <span class="wp-toast-lab">{isError ? 'INVALID' : lab}</span>
       <span class="wp-toast-tc">{tc}</span>
     </div>
   );
@@ -816,7 +821,7 @@ function showAdminBackups() {
   } catch { return false; }
 }
 
-function RecoveryBanner() {
+function RecoveryBanner({ getEditor = null }) {
   // LOCAL-ONLY episodes (Palau) can never have a cloud "newer version pulled in" conflict, so this
   // "unsynced backup found" banner is pure noise there — never show it. (EPISODE.localOnly is a
   // constant per entry, so this early return keeps the hook order consistent across renders.)
@@ -887,9 +892,10 @@ function RecoveryBanner() {
   }
 
   // RESTORE THIS VERSION — put a backed-up version back on screen, SAFELY. restoreSnapshot() backs up
-  // the CURRENT live doc FIRST (so this can never cost Johnny what's on screen), then adopts the chosen
-  // snapshot through the canonical saveDoc path and reloads so the editor re-seeds from it. A confirm
-  // step guards the (reversible, but disruptive) reload.
+  // the CURRENT live doc FIRST (so this can never cost Johnny what's on screen), then restores by
+  // strategy: single-writer projects adopt through the canonical saveDoc path + reload; a LIVE collab
+  // session gets the doc applied straight into the live editor (one user-initiated transaction — the
+  // room converges, no reload); a collab project with an unreachable room is refused honestly.
   async function restoreOne(snap) {
     const yes = typeof window !== 'undefined' && typeof window.confirm === 'function'
       ? window.confirm('Restore this version? Your current copy is backed up first.')
@@ -897,19 +903,27 @@ function RecoveryBanner() {
     if (!yes) return;
     setRestoring(snap.key);
     let result = null;
-    try { result = await restoreSnapshot(snap); } catch { result = { ok: false, reason: 'error' }; }
-    // restoreSnapshot reloads the page on success, so we only reach here on failure/abort.
+    try { result = await restoreSnapshot(snap, { getEditor }); } catch { result = { ok: false, reason: 'error' }; }
+    // Single-writer success reloads the page, so reaching here means: collab-live success, or failure.
     setRestoring(null);
-    if (!result || !result.ok) {
-      const why = result && result.reason === 'backup-failed'
-        ? 'could not back up your current copy first (storage is full) — nothing was changed. Free up space, then try again.'
-        : result && result.reason === 'snapshot-unreadable'
-          ? 'that backup could not be read. Try DOWNLOAD .TXT instead.'
-          : 'restore did not complete — your current copy is unchanged.';
+    if (result && result.ok) {
       try {
-        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: why } }));
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'ok', lab: 'RESTORED', msg: 'version restored — the live room now shows it (everyone sees the change).' } }));
       } catch {}
+      return;
     }
+    const why = result && result.reason === 'backup-failed'
+      ? 'could not back up your current copy first (storage is full) — nothing was changed. Free up space, then try again.'
+      : result && result.reason === 'snapshot-unreadable'
+        ? 'that backup could not be read. Try DOWNLOAD .TXT instead.'
+        : result && result.reason === 'collab-unreachable'
+          ? "can't restore while the live room is unreachable — reconnect (or reload), then try again."
+          : result && result.reason === 'collab-apply-failed'
+            ? 'restore could not be applied to the live editor — nothing changed (your current copy was backed up).'
+            : 'restore did not complete — your current copy is unchanged.';
+    try {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: why } }));
+    } catch {}
   }
 
   const n = snaps.length;
@@ -969,7 +983,7 @@ function revSourceLabel(src) {
   return s ? s.replace(/[_-]+/g, ' ') : '—';
 }
 
-function CloudHistoryPanel() {
+function CloudHistoryPanel({ getEditor = null }) {
   // Gate: cloud-backed projects only. A constant per entry, so this early return keeps hook order stable.
   if (!isCloudBackedProject()) return null;
   const api = cloudApiBase();
@@ -1021,16 +1035,23 @@ function CloudHistoryPanel() {
       try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'could not fetch that version from the cloud — try again.' } })); } catch {}
       return;
     }
-    // 2. Adopt through the SAME safe path the local restore uses (back up current FIRST, then reload).
+    // 2. Adopt through the SAME safe path the local restore uses (back up current FIRST, then restore
+    //    by strategy: single-writer adopts + reloads; a live collab room gets it applied in place).
     let result = null;
-    try { result = await restoreDoc(doc); } catch { result = { ok: false, reason: 'error' }; }
-    setRestoring(null); // only reached on failure — a success reloads the page.
-    if (!result || !result.ok) {
-      const why = result && result.reason === 'backup-failed'
-        ? 'could not back up your current copy first (storage is full) — nothing changed. Free up space, then try again.'
-        : 'restore did not complete — your current copy is unchanged.';
-      try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: why } })); } catch {}
+    try { result = await restoreDoc(doc, { getEditor }); } catch { result = { ok: false, reason: 'error' }; }
+    setRestoring(null); // single-writer success reloads — reaching here means collab-live success or failure.
+    if (result && result.ok) {
+      try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'ok', lab: 'RESTORED', msg: 'version restored — the live room now shows it (everyone sees the change).' } })); } catch {}
+      return;
     }
+    const why = result && result.reason === 'backup-failed'
+      ? 'could not back up your current copy first (storage is full) — nothing changed. Free up space, then try again.'
+      : result && result.reason === 'collab-unreachable'
+        ? "can't restore while the live room is unreachable — reconnect (or reload), then try again."
+        : result && result.reason === 'collab-apply-failed'
+          ? 'restore could not be applied to the live editor — nothing changed (your current copy was backed up).'
+          : 'restore did not complete — your current copy is unchanged.';
+    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: why } })); } catch {}
   }
 
   return (
@@ -1413,8 +1434,11 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
           everyday editor — they mount ONLY when the project is opened through the library's
           BACKUPS entry (#slug?backups). The save/cloud STATUS pill is untouched — that's the
           one signal he wants always visible. */}
-      {!readOnly && showAdminBackups() && <RecoveryBanner />}
-      {!readOnly && showAdminBackups() && <CloudHistoryPanel />}
+      {/* restore-collab: both restore surfaces get the live editor so a collab-flagged project can
+          restore INTO the live room (one user-initiated transaction) instead of the silent
+          adopt+reload no-op the Yjs room used to repaint right over. */}
+      {!readOnly && showAdminBackups() && <RecoveryBanner getEditor={() => editorRef.current} />}
+      {!readOnly && showAdminBackups() && <CloudHistoryPanel getEditor={() => editorRef.current} />}
     </div>
   );
 }

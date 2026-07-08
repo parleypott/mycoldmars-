@@ -9,11 +9,19 @@
  *   3. and if the backup CANNOT land, the restore is ABORTED — no write, no reload.
  *
  * All deps are injected, so this drives the real restore.js ordering logic without a browser.
+ *
+ * restore-collab (2026-07): restore now picks a strategy first (single-writer / collab-live /
+ * refuse — see restore-collab-decision.test.mjs). THIS file locks the SINGLE-WRITER contract, so
+ * every call pins `collabEnabled: () => false` (Burma's live config has the collab flag ON, which
+ * would otherwise route these through the collab decision instead of the adopt+reload path).
  */
 import { restoreSnapshot, restoreDoc, snapshotDocBody } from './restore.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) pass++; else { fail++; console.log('FAIL ' + label); } };
+
+// Pin the single-writer strategy for every case in this file (spread into each deps object).
+const SW = { collabEnabled: () => false };
 
 const CHOSEN = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'restored' }] }] };
 
@@ -29,6 +37,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreSnapshot({ key: 'k.conflict.1', store: 'idb' }, {
+    ...SW,
     backupCurrent: async () => { order.push('backup'); return 'k.conflict.backup'; },
     readSnap: async () => { order.push('read'); return CHOSEN; },
     save: (doc) => { order.push('save'); ok(doc === CHOSEN, 'save receives the chosen doc body'); return { ok: true, version: 7 }; },
@@ -47,6 +56,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreSnapshot({ key: 'k.conflict.1', store: 'idb' }, {
+    ...SW,
     backupCurrent: async () => { order.push('backup'); return null; }, // storage refused
     readSnap: async () => { order.push('read'); return CHOSEN; },
     save: () => { order.push('save'); return { ok: true }; },
@@ -62,6 +72,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreSnapshot({ key: 'k.conflict.1', store: 'idb' }, {
+    ...SW,
     backupCurrent: async () => { order.push('backup'); return 'k.backup'; },
     readSnap: async () => { order.push('read'); return null; },
     save: () => { order.push('save'); return { ok: true }; },
@@ -77,6 +88,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreSnapshot({ key: 'k.conflict.1', store: 'idb' }, {
+    ...SW,
     backupCurrent: async () => { order.push('backup'); return 'k.backup'; },
     readSnap: async () => CHOSEN,
     save: () => { order.push('save'); return { ok: false, reason: 'cross-tab-conflict' }; },
@@ -99,6 +111,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreDoc(CHOSEN, {
+    ...SW,
     backupCurrent: async () => { order.push('backup'); return 'k.conflict.backup'; },
     save: (doc) => { order.push('save'); ok(doc === CHOSEN, 'restoreDoc: save receives the given body'); return { ok: true, version: 9 }; },
     armReloadGuard: () => order.push('arm'),
@@ -115,6 +128,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreDoc(CHOSEN, {
+    ...SW,
     backupCurrent: async () => { order.push('backup'); return null; },
     save: () => { order.push('save'); return { ok: true }; },
     armReloadGuard: () => order.push('arm'),
@@ -128,6 +142,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreDoc(CHOSEN, {
+    ...SW,
     backupCurrent: async () => 'k.backup',
     save: () => { order.push('save'); return { ok: false, reason: 'cross-tab-conflict' }; },
     reload: () => order.push('reload'),
@@ -148,6 +163,7 @@ ok(snapshotDocBody(null) === null, 'snapshotDocBody: null → null');
 {
   const order = [];
   const res = await restoreDoc({ doc: CHOSEN, version: 12 }, {
+    ...SW,
     backupCurrent: async () => 'k.backup',
     save: (doc) => { order.push('save'); ok(doc === CHOSEN, 'restoreDoc: unwraps {doc:...} before saving'); return { ok: true }; },
     armReloadGuard: () => {},

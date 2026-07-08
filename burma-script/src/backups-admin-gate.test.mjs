@@ -39,7 +39,9 @@ const ok = (label, fn) => { fn(); pass++; };
 // ── 1: both recovery-chrome mount sites carry the full gate ────────────────────────────────
 ok('RecoveryBanner and CloudHistoryPanel mount ONLY behind !readOnly && showAdminBackups()', () => {
   for (const comp of ['RecoveryBanner', 'CloudHistoryPanel']) {
-    const mounts = [...src.matchAll(new RegExp(`\\{([^{}]*)<${comp}\\s*/>`, 'g'))];
+    // restore-collab: the mounts now carry props (getEditor={...}), so match `<Comp ... />` —
+    // the capture group is still ONLY the gate expression between `{` and the component tag.
+    const mounts = [...src.matchAll(new RegExp(`\\{([^{}]*)<${comp}\\b[\\s\\S]*?/>`, 'g'))];
     assert.ok(mounts.length >= 1, `<${comp} /> is mounted somewhere`);
     for (const m of mounts) {
       assert.ok(/!readOnly\s*&&/.test(m[1]), `<${comp} /> gated off read-only`);
