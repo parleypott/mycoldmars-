@@ -444,7 +444,13 @@ function phaseStatus(ep, ph) {
 /* ═══ header dynamics ═══ */
 const PREMIERE = D('2026-10-26');
 const dayMs = 86400000;
-const tPrem = Math.ceil((PREMIERE - TODAY)/dayMs);
+/* Whole calendar days between two local-midnight dates. Math.round (not ceil): two
+   local midnights that straddle a DST change are (N*24 ± 1)h apart, so raw/dayMs is
+   N ± 0.042 — round lands on the true N, ceil would over-count a day across the fall
+   back (e.g. a Dec premiere counted from before Nov 1). Identical to ceil for every
+   date that doesn't cross a DST boundary. */
+const daysUntil = (target, from) => Math.round((target - from)/dayMs);
+const tPrem = daysUntil(PREMIERE, TODAY);
 document.getElementById('t-premiere').textContent = tPrem > 0 ? `Oct 26 · T-${tPrem} days` : (tPrem > -6 ? 'PREMIERE WEEK' : 'Premiered Oct 26');
 const nextCut = EPISODES.map(e=>({lbl:`${e.place} · ${e.pubCut.lbl}`, d:D(e.pubCut.d)})).filter(x=>x.d>=TODAY).sort((a,b)=>a.d-b.d)[0];
 document.getElementById('t-next').textContent = nextCut ? nextCut.lbl : '—';
