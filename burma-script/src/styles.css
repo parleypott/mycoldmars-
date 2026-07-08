@@ -973,6 +973,18 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* ---- VO — blue cap + REC toggle + prose ---- */
 .wp-vo-head { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 7px; gap: 12px; }
 .wp-vo-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
+/* Boxed "VO" tag — click toggles recorded (Johnny 2026-07-08). BLACK = not recorded, GREEN =
+   recorded (mirrors the block status). margin-right:auto pushes it left in the flex-end head. */
+.wp-vo-tag {
+  margin-right: auto; font-size: var(--chrome-size); letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; line-height: 1; color: var(--ink); border: 1.5px solid var(--ink);
+  border-radius: 4px; padding: 2px 6px; cursor: pointer; user-select: none;
+  transition: color .12s var(--ease), border-color .12s var(--ease), background .12s var(--ease);
+}
+.wp-vo-tag:hover { background: var(--page); }
+.wp-vo-tag.is-recorded { color: var(--ep-copied, #1f8a72); border-color: var(--ep-copied, #1f8a72); background: rgba(31,138,114,.08); }
+.wp-vo-tag:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wp-page[data-mode="read"] .wp-vo-tag { cursor: default; }
 
 .wp-rec {
   display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
@@ -1627,6 +1639,13 @@ a[href*="liveblocks.io"] { display: none !important; }
 .wp-fcnote-check { stroke: #fff; stroke-width: 1.8; }
 .wp-fcnote:hover .wp-fcnote-circle { fill: #17705d; }
 span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45); outline-offset: 1px; border-radius: 50%; }
+/* /footnote red-square TO-DO face — a fact-check still open (status:'needed'). Same
+   fact-check red as the pending status square, so a red footnote reads as "unverified". */
+.wp-fcnote-square { fill: #d23b2c; }
+.wp-fcnote.is-needed:hover .wp-fcnote-square { fill: #b3241a; }
+span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-color: rgba(210,59,44,.5); }
+.wp-fnote-badge.is-needed { color: #d23b2c; }
+.wp-fnote-status-btn[data-status="needed"] { background: #d23b2c; }
 
 .wp-fnote-panel {
   position: fixed; z-index: 90; width: 320px; max-width: calc(100vw - 16px);
@@ -2091,8 +2110,12 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
    chips, bookmarks, the ⛶ chapter focus and reading controls all stay live. */
 .wp-page[data-mode="read"] .wp-row-spine,
 .wp-page[data-mode="read"] .wp-row-add,
-.wp-page[data-mode="read"] .wp-row-drag,
 .wp-page[data-mode="read"] .wp-grip { display: none; }
+/* EXCEPTION — the ⇕ row-drag grip stays live in read mode (Johnny 2026-07-08: "the row
+   dragger doesn't work"). Reordering is the one structural move worth reaching for while
+   reading; grabbing it AUTO-ARMS edit (armEditForRowGrip in table.js), the same read-mode
+   permissiveness the timecode right-click already has. It's opacity:0 until row-hover, so it
+   adds no resting clutter. A real ?read SHARE still can't drag — armEditForRowGrip refuses. */
 .wp-page[data-mode="read"] .wp-done { pointer-events: none; }
 .wp-page[data-mode="read"] .wp-editor-content { caret-color: transparent; }
 

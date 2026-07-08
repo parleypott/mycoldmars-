@@ -306,6 +306,50 @@ export const DirectionMark = Mark.create({
     return ['span', { 'data-dhl': '', class: 'wp-dhl', ...HTMLAttributes }, 0];
   },
 
+  // ARCHIVE CHECKLIST ENTER (Johnny 2026-07-08: "/archive + Enter always makes a paragraph
+  // break which I don't want"). An archive that leads its own line is a CHECKLIST item, so
+  // Enter should behave like every to-do list: continue the list, not drop a stray blank
+  // paragraph. On a NON-empty archive line → split and carry the archive mark, so the caret
+  // lands in a fresh checkbox item ready to type. On an EMPTY archive line → the classic
+  // list-exit: strip the archive mark to a plain paragraph (one Enter out, no orphan red chip).
+  // Only touches archive-leading lines under the archiveOwnLine flag; every other Enter (VO
+  // exit, plain split) is untouched — this handler returns false and the next one runs.
+  addKeyboardShortcuts() {
+    const archiveLeadAt = (state) => {
+      const sel = state.selection;
+      if (!sel.empty) return null;
+      const $from = sel.$from;
+      const para = $from.parent;
+      if (!para.isTextblock) return null;
+      const first = para.firstChild;
+      if (!first || !first.isText) return null;
+      const m = first.marks.find((mk) => mk.type === this.type && mk.attrs.kind === 'archive');
+      return m ? { para, mark: m, start: $from.start(), end: $from.end() } : null;
+    };
+    return {
+      Enter: () => {
+        if (!episodeFlag('archiveOwnLine')) return false;
+        const { state, view } = this.editor;
+        if (view.editable === false) return false;   // READ MODE never writes (own guard)
+        const info = archiveLeadAt(state);
+        if (!info) return false;                      // not an archive line → let others handle
+        const { $from } = state.selection;
+        const tr = state.tr;
+        if (info.para.textContent.length === 0) {
+          // EXIT the checklist: this empty archive line becomes a plain paragraph.
+          tr.removeMark(info.start, info.end, this.type).setStoredMarks([]);
+          view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+        // CONTINUE the checklist: split here, and arm the new line as a fresh archive item.
+        const archiveMark = this.type.create({ kind: 'archive', status: 'needed' });
+        tr.split($from.pos).setStoredMarks([archiveMark]);
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      },
+    };
+  },
+
   addProseMirrorPlugins() {
     return [createArchiveCheckboxPlugin(), createPlaceholderChipPlugin()];
   },

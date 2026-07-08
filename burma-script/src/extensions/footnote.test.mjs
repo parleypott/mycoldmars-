@@ -57,6 +57,7 @@ const FN_ATTRS = {
   source: 'https://example.org/irrawaddy',
   marker: 'fc river named after an Elephant',
   verdict: 'supported',
+  status: '',   // '' = the verified green ✓ receipt; 'needed' = a red-square /footnote to-do
 };
 
 const docWithFootnote = {
@@ -91,7 +92,7 @@ ok('fcFootnote passes the mirror schema and round-trips byte-exact', () => {
   let found = null;
   doc.descendants((n) => { if (n.type.name === 'fcFootnote') found = n; });
   assert.ok(found, 'footnote present');
-  assert.deepEqual({ ...found.attrs }, FN_ATTRS, 'all five attrs intact');
+  assert.deepEqual({ ...found.attrs }, FN_ATTRS, 'all six attrs intact');
 });
 
 // ── 2: export law — the words survive docToBlocks ──────────────────────────────────────────

@@ -109,7 +109,11 @@ function createFootnotePanel(editor, getPos, iconDom) {
   // HEAD — green check identity + close
   const head = el('div', 'wp-fnote-head');
   const badge = el('span', 'wp-fnote-badge');
-  badge.textContent = '✓ FACT CHECK';
+  const paintBadge = (status) => {
+    badge.textContent = status === 'needed' ? '▪ FACT CHECK — TO DO' : '✓ FACT CHECK';
+    badge.classList.toggle('is-needed', status === 'needed');
+  };
+  paintBadge(attrs0.status || '');
   head.appendChild(badge);
   const closeBtn = el('button', 'wp-fnote-close', { type: 'button', title: 'Close' });
   closeBtn.textContent = '×';
@@ -185,6 +189,39 @@ function createFootnotePanel(editor, getPos, iconDom) {
       stRow.appendChild(b);
     }
     paintStatus(claimRun0.status || 'pending');
+    panel.appendChild(stRow);
+  } else if (!readOnly && !claimRun0) {
+    // STANDALONE /footnote — no claim span to grade, so the footnote carries its OWN state.
+    // One toggle: RED "needs check" ⇄ GREEN "checked". Flipping it saves the node's status attr
+    // (queueSave → setNodeMarkup), which the NodeView.update repaints into the red-square/green
+    // icon live. This is what turns a fresh red /footnote green once Johnny has vetted it.
+    const stLabel = el('label', 'wp-fnote-label');
+    stLabel.textContent = 'Status';
+    panel.appendChild(stLabel);
+    const stRow = el('div', 'wp-fnote-status-row');
+    // Button tokens 'needed'/'checked' reuse the existing red/green status-btn styles; the NODE
+    // attr they write is 'needed' or '' (green). Kept off the empty-string attr selector on purpose.
+    const states = [['needed', 'still checking — red', '▪'], ['checked', 'checked — green', '✓']];
+    const nodeStatusOf = (btnStatus) => (btnStatus === 'checked' ? '' : 'needed');
+    const btnStatusOf = (nodeStatus) => (nodeStatus === 'needed' ? 'needed' : 'checked');
+    const btns = [];
+    const paint = (activeBtn) => btns.forEach((b) => b.classList.toggle('is-active', b.getAttribute('data-status') === activeBtn));
+    for (const [btnStatus, title, glyph] of states) {
+      const b = el('button', 'wp-fnote-status-btn', { type: 'button', title, 'data-status': btnStatus });
+      b.textContent = glyph;
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (editor.view.editable === false) return; // READ MODE: status flip is a write
+        const nodeStatus = nodeStatusOf(btnStatus);
+        queueSave({ status: nodeStatus });
+        flush();               // commit now so the icon flips immediately
+        paint(btnStatus);
+        paintBadge(nodeStatus);
+      });
+      btns.push(b);
+      stRow.appendChild(b);
+    }
+    paint(btnStatusOf(attrs0.status || ''));
     panel.appendChild(stRow);
   }
 
@@ -411,6 +448,9 @@ export const FcFootnote = Node.create({
       source: { default: '' },   // source link / citation — editable in the fly-out
       marker: { default: '' },   // the original {fc}/{TK} claim text (lineage, read-only)
       verdict: { default: '' },  // supported / contradicted / unclear ('' = unset)
+      // status (Johnny 2026-07-08 /footnote): 'needed' → a RED SQUARE fact-check waiting to be
+      // filled/verified; '' (default) → the verified green ✓ receipt (every legacy footnote).
+      status: { default: '' },
     };
   },
 
@@ -423,6 +463,7 @@ export const FcFootnote = Node.create({
         source: dom.getAttribute('data-source') || '',
         marker: dom.getAttribute('data-marker') || '',
         verdict: dom.getAttribute('data-verdict') || '',
+        status: dom.getAttribute('data-status') || '',
       }),
     }];
   },
@@ -436,19 +477,35 @@ export const FcFootnote = Node.create({
       'data-source': a.source || '',
       'data-marker': a.marker || '',
       'data-verdict': a.verdict || '',
+      'data-status': a.status || '',
       class: 'wp-fcnote',
-    }), '✓'];
+    }), a.status === 'needed' ? '▪' : '✓'];
   },
 
   addNodeView() {
-    return ({ editor, getPos }) => {
-      const dom = el('span', 'wp-fcnote', { 'data-fcnote': '', contenteditable: 'false', title: 'fact-check footnote — click to open', role: 'button', 'aria-label': 'fact-check footnote' });
-      // crisp inline SVG: green circle, white check (the doctrine's one green, --ep-copied)
-      dom.innerHTML =
+    return ({ editor, node, getPos }) => {
+      const dom = el('span', 'wp-fcnote', { 'data-fcnote': '', contenteditable: 'false', role: 'button', 'aria-label': 'fact-check footnote' });
+      // Two faces (Johnny 2026-07-08): a RED SQUARE while the fact-check is still open
+      // (status:'needed'), and the green circle-check once it's verified. paint() is called on
+      // first mount AND from update() so marking it checked in the fly-out flips the icon live.
+      const GREEN =
         '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">'
         + '<circle cx="8" cy="8" r="7.25" class="wp-fcnote-circle"/>'
         + '<path d="M4.7 8.4l2.1 2.1 4.4-4.6" class="wp-fcnote-check" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
         + '</svg>';
+      const RED =
+        '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">'
+        + '<rect x="2" y="2" width="12" height="12" rx="2.5" class="wp-fcnote-square"/>'
+        + '</svg>';
+      let painted = null;
+      const paint = (status) => {
+        if (status === painted) return;
+        painted = status;
+        dom.classList.toggle('is-needed', status === 'needed');
+        dom.innerHTML = status === 'needed' ? RED : GREEN;
+        dom.title = status === 'needed' ? 'fact-check to do — click to add notes & sources' : 'fact-check footnote — click to open';
+      };
+      paint(node?.attrs?.status || '');
       dom.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -457,10 +514,51 @@ export const FcFootnote = Node.create({
       });
       return {
         dom,
-        // attr saves from the fly-out repaint nothing in the icon — ignore them
-        update(updated) { return updated.type.name === 'fcFootnote'; },
+        // repaint the icon when the fly-out flips status (red ⇄ green); ignore other attr saves.
+        update(updated) {
+          if (updated.type.name !== 'fcFootnote') return false;
+          paint(updated.attrs.status || '');
+          return true;
+        },
         ignoreMutation: () => true,
       };
     };
   },
 });
+
+// ── /footnote — drop a RED-SQUARE fact-check footnote at the cursor and pop its editor open
+// so Johnny can add notes + sources on the spot (2026-07-08). Unlike the green receipt born
+// from a verified claim, this one starts OPEN (status:'needed') and turns green when he marks
+// it checked in the fly-out. One transaction (delete trigger + insert) → one undo, one save.
+function findFootnotePos(editor, noteId) {
+  let found = null;
+  editor.state.doc.descendants((n, pos) => {
+    if (found != null) return false;
+    if (n.type.name === 'fcFootnote' && n.attrs.noteId === noteId) { found = pos; return false; }
+    return true;
+  });
+  return found;
+}
+
+export function insertFcFootnote(editor, range) {
+  if (editor.view.editable === false) return false;
+  const noteId = mintNoteId();
+  const ok = editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .insertContent({ type: 'fcFootnote', attrs: { noteId, note: '', source: '', marker: '', verdict: '', status: 'needed' } })
+    .run();
+  if (!ok) return false;
+  // Pop the fly-out open on the just-inserted node so he types straight into it. getPos
+  // re-finds by noteId every call, so it survives collab/edits shifting positions.
+  setTimeout(() => {
+    const pos = findFootnotePos(editor, noteId);
+    if (pos == null) return;
+    const dom = editor.view.nodeDOM(pos);
+    if (!dom) return;
+    closeOpenFootnotePanel();
+    openPanel = createFootnotePanel(editor, () => findFootnotePos(editor, noteId), dom);
+  }, 0);
+  return true;
+}

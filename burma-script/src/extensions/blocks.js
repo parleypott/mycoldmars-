@@ -718,13 +718,22 @@ export const VoBlock = Node.create({
       const status0 = node.attrs.status || 'todo';
       const isPalauChrome = isPalauChromeEnabled();
       const head = el('div', 'wp-vo-head', { contenteditable: 'false' });
+      let voTag = null;
       if (!isPalauChrome) {
         head.appendChild(Object.assign(el('span', 'wp-vo-kind'), { textContent: 'VO · NARRATION' }));
       } else {
         // Chip chrome (Burma / Palau / library): the shouty label is gone, so the block's one
         // identity mark is a small boxed "VO" tag pinned upper-left — doctrine cap ink on
         // cream, never red. The head is flex-end; margin-right:auto pushes the tag left.
-        head.appendChild(Object.assign(el('span', 'wp-vo-tag'), { textContent: 'VO' }));
+        // CLICK-TO-RECORD (Johnny 2026-07-08): clicking the tag flips it black→green to mark
+        // the VO as recorded, and green→black to un-mark — a one-click binary twin of the REC
+        // pill's OFF/ARM/REC cycle. Both write the SAME `status` attr, so the tag colour and the
+        // pill always agree: green tag ⇔ status is 'recorded' or 'in-edit', black ⇔ 'todo'.
+        voTag = Object.assign(
+          el('span', 'wp-vo-tag', { role: 'button', tabindex: isReadOnly() ? '-1' : '0', title: 'click to mark recorded (green) / not recorded (black)', 'aria-label': 'toggle recorded' }),
+          { textContent: 'VO' },
+        );
+        head.appendChild(voTag);
       }
 
       // REC control: word REC + 3-position pill (3 pips) + state label.
@@ -745,6 +754,11 @@ export const VoBlock = Node.create({
         pips.forEach((p, i) => p.classList.toggle('on', i === idx));
         label.textContent = VO_LABEL[st];
         rec.setAttribute('data-status', st);
+        if (voTag) {
+          const recorded = st !== 'todo';
+          voTag.classList.toggle('is-recorded', recorded);
+          voTag.setAttribute('aria-pressed', recorded ? 'true' : 'false');
+        }
       };
       paint(status0);
       const cycle = (e) => {
@@ -762,6 +776,22 @@ export const VoBlock = Node.create({
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') cycle(e);
       });
       head.appendChild(rec);
+
+      // VO-tag binary toggle: black ⇄ green. 'todo' ↔ 'recorded' (never lands on 'in-edit' — the
+      // pill owns that nuance). Same write-guard as the pill so read/share sessions stay frozen.
+      if (voTag) {
+        const toggleRecorded = (e) => {
+          e.preventDefault();
+          if (!blockHeadControlWritable({ readOnly: isReadOnly(), editable: editor.view.editable })) return;
+          const cur = editor.state.doc.nodeAt(getPos())?.attrs.status || 'todo';
+          setAttr(editor, getPos, { status: cur === 'todo' ? 'recorded' : 'todo' });
+        };
+        voTag.addEventListener('mousedown', toggleRecorded);
+        voTag.addEventListener('click', (e) => { e.preventDefault(); });
+        voTag.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') toggleRecorded(e);
+        });
+      }
 
       const headChildren = [];
       appendIfChildren(headChildren, head);

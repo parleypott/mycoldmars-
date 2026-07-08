@@ -19,6 +19,19 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { TextSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { episodeFlag } from '../episode-config.js';
 import { isReadOnly } from '../read-mode.js';
+import { setEditMode } from '../edit-mode.js';
+
+// Row grips (split/merge + drag-reorder) are EDIT gestures, but the session starts in READ mode.
+// Rather than sit dead in READ (Johnny: "the row dragger doesn't work, I click it and nothing
+// happens"), grabbing a grip ARMS edit mode first — the same auto-arm the timecode right-click
+// uses. Returns true once the surface is writable (already-editable, or just flipped). Only the
+// URL `?read` SHARE stays truly frozen — a reader has no business reordering the author's script.
+function armEditForRowGrip(view) {
+  if (isReadOnly()) return false;      // real read-only share → never writable
+  if (view.editable) return true;
+  try { setEditMode(true); } catch {}  // sticky READ→EDIT flip; Editor calls setEditable synchronously
+  return view.editable;
+}
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -1042,6 +1055,7 @@ export const TableRow = Node.create({
         if (e.button !== 0) return;   // left-click only; right-click opens the row menu
         e.preventDefault();
         e.stopPropagation();
+        if (!armEditForRowGrip(editor.view)) return;   // READ→EDIT auto-arm (no-op in a ?read share)
         const pos = typeof getPos === 'function' ? getPos() : getPos;
         if (typeof pos !== 'number') return;
         const cur = editor.state.doc.nodeAt(pos);
@@ -1074,7 +1088,9 @@ export const TableRow = Node.create({
         handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
         handle.textContent = '⇕';
 
-        handle.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+        // Arm edit BEFORE the browser starts the native drag (mousedown precedes dragstart). The
+        // flip is synchronous, so by dragstart view.editable is true and the reorder writes cleanly.
+        handle.addEventListener('mousedown', (e) => { e.stopPropagation(); armEditForRowGrip(editor.view); });
         handle.addEventListener('dragstart', (e) => {
           const pos = typeof getPos === 'function' ? getPos() : null;
           const rowNode = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
