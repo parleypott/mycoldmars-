@@ -1207,6 +1207,10 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     if (!chFocus) return undefined;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
+      // A floating menu's capture-phase Esc closes it SYNCHRONOUSLY (the menu is out of the
+      // DOM before this bubble listener runs) — but it calls preventDefault, so that is the
+      // reliable "someone already consumed this Esc" signal (audit 2026-07-07).
+      if (e.defaultPrevented) return;
       if (document.querySelector('.wp-rowmenu, .wp-addrows-menu, .wp-slash-menu, .wp-convert-menu, .wp-find')) return;
       exitChapterFocus();
     };

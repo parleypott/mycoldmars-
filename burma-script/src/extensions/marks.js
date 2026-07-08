@@ -23,7 +23,10 @@ import { getEpisode, episodeFlag } from '../episode-config.js';
 function openWorkshop(view, event, markName, kind) {
   // READ-ONLY SHARE: the Workshop is edit-only chrome (and isn't even mounted for a reader).
   // Don't intercept the click — let the {tk}/[visual] span read as plain styled text.
-  if (isReadOnly()) return false;
+  // READ MODE (audit P1 2026-07-07): `view.editable` is the live truth for the sticky switch
+  // (plus the collab sync gate). TipTap commands are NOT stopped by a non-editable surface, so
+  // the write path must be closed HERE — or a READ-mode chip click still rewrites the script.
+  if (isReadOnly() || !view.editable) return false;
   const target = event.target.closest(`span[data-${kind}]`);
   if (!target) return false;
   event.preventDefault();
@@ -235,7 +238,8 @@ function fcFlagPlugin(markType) {
           const flag = event.target && event.target.closest && event.target.closest('.wp-fc-flag');
           if (!flag) return false;
           event.preventDefault();
-          if (isReadOnly()) return true;
+          // READ MODE: same choke as openWorkshop — a flag click must not open the write dock.
+          if (isReadOnly() || !view.editable) return true;
           const probe = Number(flag.dataset.fcProbe);
           if (!Number.isFinite(probe)) return true;
           const clamped = Math.max(0, Math.min(probe, view.state.doc.content.size - 1));
@@ -376,6 +380,8 @@ function timecodeMarkAt(state, pos) {
 // When tc changes we also replace the visible text (the chip wraps the bare code) so body prose +
 // the integrity audit stay in sync. One dispatch → onUpdate → autosave. Returns true on success.
 function patchTimecodeAt(view, pos, patch) {
+  // READ MODE choke: every timecode write (day/seq/tc) funnels through here.
+  if (!view.editable) return false;
   const found = timecodeMarkAt(view.state, pos);
   if (!found) return false;
   const { markType, range, mark } = found;
@@ -680,7 +686,8 @@ export const TimecodeMark = Mark.create({
           contextmenu: (view, event) => {
             // READ-ONLY SHARE: the right-click DAY menu mutates the doc (sets the shooting day),
             // which a reader must never do. Let the browser's native menu through, change nothing.
-            if (isReadOnly()) return false;
+            // READ MODE: same rule — the menu is a write affordance, don't even open it.
+            if (isReadOnly() || !view.editable) return false;
             const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
             if (!target) return false;
             event.preventDefault();

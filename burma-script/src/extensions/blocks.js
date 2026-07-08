@@ -405,7 +405,11 @@ function openBlockMenu(editor, getPos, anchor) {
 }
 
 // Position the node, then dispatch a markup change to its attrs.
+// READ MODE (audit 2026-07-07): every NodeView attr control (done tick, REC cycle, …) funnels
+// through here, and NodeView handlers dispatch straight past the editable flag — so the live
+// `view.editable` check has to live at this choke point.
 function setAttr(editor, getPos, patch) {
+  if (!editor.view.editable) return;
   const pos = getPos();
   if (typeof pos !== 'number') return;
   const { state, view } = editor;
@@ -583,14 +587,24 @@ export const ChapterBlock = Node.create({
         title: 'Work on this chapter full screen', 'aria-label': 'open chapter full screen',
       });
       focusBtn.textContent = '⛶';
-      focusBtn.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        e.stopPropagation();
+      const fireFocus = () => {
         const pos = typeof getPos === 'function' ? getPos() : null;
         const cur = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
         const id = cur?.attrs?.blockId || node.attrs?.blockId;
         if (id) window.dispatchEvent(new CustomEvent('wp-chapter-focus', { detail: { id } }));
+      };
+      focusBtn.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        fireFocus();
+      });
+      // Keyboard path (audit: mousedown-only made a focusable button dead to Enter/Space).
+      focusBtn.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        e.preventDefault();
+        e.stopPropagation();
+        fireFocus();
       });
       head.appendChild(focusBtn);
       const tag = Object.assign(el('span', 'wp-ch-tag'), { textContent: ACT_TAG[node.attrs.genre || 'other'] || '' });

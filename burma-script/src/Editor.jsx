@@ -297,6 +297,12 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   // user and removes the only unbounded synchronous per-keystroke work. wp-dirty still fires instantly.
   const telTimer = useRef(null);
   const telIdleTask = useRef(null);
+  // ZERO-EDIT VISIT GUARD (audit 2026-07-07): the pagehide/visibility/unmount flushes exist to
+  // save the LAST KEYSTROKES — but they used to run on every teardown, so a purely passive
+  // visit (open, scroll, close — the READ-mode default) still wrote LS_DOC and bumped/pushed
+  // the canonical cloud version. Flipped true on the first LOCAL (non-echo) edit; until then
+  // the teardown flushes have nothing to protect and stay silent.
+  const hadLocalEdit = useRef(false);
 
   // The SINGLE canonical-write path. Cancels any pending debounce and writes the absolute latest
   // editor JSON through saveDoc (quota-aware retry + read-back invariant + loud failure). Used by
@@ -553,6 +559,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       if (collab && collab.isRemoteEcho && collab.isRemoteEcho(transaction)) return;
       // We have unsaved keystrokes in volatile editor state right now — say so, so the
       // save-status indicator can show "unsaved" between keystroke and the debounced write.
+      hadLocalEdit.current = true; // arms the teardown flushes (zero-edit visit guard)
       window.dispatchEvent(new CustomEvent('wp-dirty'));
       if (saveTimer.current) clearTimeout(saveTimer.current);
       // PERF-7 — keep the durable write OFF the hot keystroke path too. 300ms is still well inside
@@ -587,6 +594,14 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     const onReplace = (e) => {
       const { from, to, text, markerText, kind } = e.detail || {};
       if (typeof from !== 'number' || typeof to !== 'number' || !text) return;
+      // READ MODE (audit P1): commands dispatch past `editable:false`, so a stale Workshop dock
+      // (opened in EDIT, clicked after flipping to READ) must be refused here — loudly.
+      if (!editor.isEditable) {
+        window.dispatchEvent(new CustomEvent('wp-toast', {
+          detail: { tone: 'error', msg: 'you are in READ mode — flip the switch to EDIT to insert' },
+        }));
+        return;
+      }
       const { state } = editor;
       const size = state.doc.content.size;
       let a = Math.max(0, Math.min(from, size));
@@ -667,6 +682,13 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     const onFootnote = (e) => {
       const { from, to, markerText, kind, note, source, verdict } = e.detail || {};
       if (typeof from !== 'number' || typeof to !== 'number') return;
+      // READ MODE: same refusal as onReplace — a footnote drop is a doc write.
+      if (!editor.isEditable) {
+        window.dispatchEvent(new CustomEvent('wp-toast', {
+          detail: { tone: 'error', msg: 'you are in READ mode — flip the switch to EDIT to add the footnote' },
+        }));
+        return;
+      }
       const { state } = editor;
       const size = state.doc.content.size;
       let a = Math.max(0, Math.min(from, size));
@@ -730,7 +752,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   useEffect(() => {
     if (!editor) return;
     if (readOnly) return; // READ-ONLY SHARE: no teardown flush — there is nothing to persist.
-    const flushNow = () => { flushRef.current(editor); };
+    const flushNow = () => { if (hadLocalEdit.current) flushRef.current(editor); };
     const onPageHide = () => flushNow();
     const onVisibility = () => { if (document.visibilityState === 'hidden') flushNow(); };
     const onBeforeUnload = () => flushNow();
@@ -851,7 +873,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       if (telTimer.current) { clearTimeout(telTimer.current); telTimer.current = null; }
       if (telIdleTask.current) { cancelIdleTask(telIdleTask.current); telIdleTask.current = null; }
       clearActiveSelectionWrappers(editor);
-      flushRef.current(editor);
+      if (hadLocalEdit.current) flushRef.current(editor); // zero-edit visit guard
     };
   }, [editor]);
 

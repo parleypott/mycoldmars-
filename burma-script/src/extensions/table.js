@@ -647,27 +647,45 @@ function createRowMenu(editor, rowPos, x, y) {
   const row = editor.state.doc.nodeAt(rowPos);
   const isSplit = !!row && ((row.childCount || row.attrs?.cols || 1) > 1);
   const bookmarkId = row?.attrs?.bookmarkId || null;
+  // STALE-POS GUARD (audit 2026-07-07): rowPos was captured at menu-OPEN; under collab a
+  // teammate's edit while the menu sits there shifts every later position, and "Delete row"
+  // would then hit the WRONG row. Same cure as row drag: remember the row's IDENTITY and
+  // re-resolve its CURRENT position at action time; a row that vanished mid-menu = calm no-op.
+  const ref = row ? { node: row, blockId: rowFirstBlockId(row), pairId: row.attrs?.pairId || null } : null;
+  const livePos = () => {
+    const pos = ref ? findRowByIdentity(editor.state.doc, ref) : null;
+    if (pos == null) {
+      try {
+        window.dispatchEvent(new CustomEvent('wp-toast', {
+          detail: { tone: 'error', msg: 'that row just moved or was deleted — nothing changed' },
+        }));
+      } catch {}
+    }
+    return pos;
+  };
   const items = [
-    { label: 'Delete row', danger: true, run: () => doDeleteRow(editor.state, editor.view.dispatch, rowPos) },
-    { label: 'Add row below', run: () => editor.chain().focus().addRowsBelow(rowPos, 1).run() },
+    { label: 'Delete row', danger: true, run: () => { const p = livePos(); if (p != null) doDeleteRow(editor.state, editor.view.dispatch, p); } },
+    { label: 'Add row below', run: () => { const p = livePos(); if (p != null) editor.chain().focus().addRowsBelow(p, 1).run(); } },
     // BOOKMARK — one entry, contextual like split/merge. Adding a bookmark also copies its
     // link immediately (the whole point of making one is sharing/jumping to it); the ⚑ glyph
     // the row now shows re-copies on click any time after.
     ...(bookmarkId
       ? [
         { label: 'Copy bookmark link', run: () => copyBookmarkLink(bookmarkId) },
-        { label: 'Remove bookmark', run: () => doSetRowBookmark(editor.state, editor.view.dispatch, rowPos, null) },
+        { label: 'Remove bookmark', run: () => { const p = livePos(); if (p != null) doSetRowBookmark(editor.state, editor.view.dispatch, p, null); } },
       ]
       : [{
         label: 'Bookmark',
         run: () => {
+          const p = livePos();
+          if (p == null) return;
           const id = mintBookmarkId();
-          if (doSetRowBookmark(editor.state, editor.view.dispatch, rowPos, id)) copyBookmarkLink(id);
+          if (doSetRowBookmark(editor.state, editor.view.dispatch, p, id)) copyBookmarkLink(id);
         },
       }]),
     isSplit
-      ? { label: 'Merge columns to one row', run: () => editor.chain().focus().mergeRow(rowPos).run() }
-      : { label: 'Split into two columns', run: () => editor.chain().focus().splitRow(rowPos).run() },
+      ? { label: 'Merge columns to one row', run: () => { const p = livePos(); if (p != null) editor.chain().focus().mergeRow(p).run(); } }
+      : { label: 'Split into two columns', run: () => { const p = livePos(); if (p != null) editor.chain().focus().splitRow(p).run(); } },
   ];
 
   let activeIndex = 0;
@@ -977,15 +995,24 @@ export const TableRow = Node.create({
             'aria-label': 'copy bookmark link',
           });
           bmBtn.textContent = '⚑';
+          const copyLive = () => {
+            // Read the CURRENT attr — the id captured at paint time can go stale across edits.
+            const pos = typeof getPos === 'function' ? getPos() : null;
+            const cur = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
+            copyBookmarkLink(cur?.attrs?.bookmarkId || id);
+          };
           bmBtn.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
             e.preventDefault();
             e.stopPropagation();
-            // Read the CURRENT attr — the id captured at paint time can go stale across edits.
-            const pos = typeof getPos === 'function' ? getPos() : null;
-            const cur = typeof pos === 'number' ? editor.state.doc.nodeAt(pos) : null;
-            const liveId = cur?.attrs?.bookmarkId || id;
-            copyBookmarkLink(liveId);
+            copyLive();
+          });
+          // Keyboard path (audit: mousedown-only made a focusable button dead to Enter/Space).
+          bmBtn.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+            e.preventDefault();
+            e.stopPropagation();
+            copyLive();
           });
           dom.appendChild(bmBtn);
         } else if (!id && bmBtn) {

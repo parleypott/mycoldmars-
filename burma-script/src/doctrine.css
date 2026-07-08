@@ -414,3 +414,22 @@
    padding). Cartridge children (.wp-cart) are untouched — they own their chrome. */
 .wp-trow[data-cols="1"] .wp-tcell-content > p:first-child { padding-top: 9px; }
 .wp-trow[data-cols="1"] .wp-tcell-content > p:last-child { padding-bottom: 9px; }
+
+/* ───────────────────────── CHAPTER FOCUS ⛶ ON THE BOOK HEADER ─────────────────────────
+   On framed chapters (the big HISTORY 1 book header) the cartridge chrome is stripped —
+   the .wp-ch-head row collapses to nothing — so the ⛶ would sit as stray dust above the
+   title. Pin it to the frame's top-right instead, just under the genre eyebrow, sized for
+   the header's scale. Always faintly there; the one accent on reach. */
+.wp-chframe-first .wp-chapter .wp-ch-head { margin: 0; }
+.wp-chframe-first .wp-chapter .wp-ch-focus {
+  position: absolute;
+  top: 34px;
+  right: 12px;
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  opacity: .4;
+}
+.wp-chframe-first .wp-chapter:hover .wp-ch-focus { opacity: .85; }
+.wp-chframe-first .wp-chapter .wp-ch-focus:hover { opacity: 1; }

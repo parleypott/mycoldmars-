@@ -21,7 +21,7 @@ import { Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { buildFocusDecorations, rowChapterStartId } from './chapter-focus.js';
+import { buildFocusDecorations, rowChapterStartId, focusRunRange } from './chapter-focus.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
@@ -122,11 +122,25 @@ ok('§3/§4 focusing chB hides everything above it, keeps its run + trailing ¶'
   assert.deepEqual(hidden, [true, true, true, true, false, false, false]);
 });
 
-ok('rowChapterStartId finds a chapter anywhere in the row, null otherwise', () => {
+ok('rowChapterStartId = chapter-frames run model (FIRST block of first cell only)', () => {
   const doc = docFrom(DOC);
   assert.equal(rowChapterStartId(doc.child(1)), 'chA');
   assert.equal(rowChapterStartId(doc.child(0)), null);
   assert.equal(rowChapterStartId(doc.child(2)), null); // a scene does NOT start a run
+  // a chapter that is NOT the first block does not open a run — same as the frames
+  const mixed = docFrom({ type: 'doc', content: [row([vo('x'), chapter('chX')])] });
+  assert.equal(rowChapterStartId(mixed.child(0)), null);
+});
+
+ok('focusRunRange covers exactly the focused run (drives the Mod-A fence)', () => {
+  const doc = docFrom(DOC);
+  const range = focusRunRange(doc, 'chA');
+  // run = children 1..3 (chapter, scene, body) — from child(1) start to child(3) end
+  let starts = [];
+  doc.forEach((child, pos) => starts.push([pos, pos + child.nodeSize]));
+  assert.deepEqual(range, { from: starts[1][0], to: starts[3][1] });
+  assert.equal(focusRunRange(doc, 'ch_gone'), null);
+  assert.equal(focusRunRange(doc, null), null);
 });
 
 console.log(`chapter-focus: ${pass} sections green`);

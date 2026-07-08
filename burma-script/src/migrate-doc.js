@@ -33,7 +33,7 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { DirectionMark } from './extensions/direction-chip.js';
-import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument, hasUserAddedRow } from './document-builder.js';
+import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument, hasUserAddedRow, hasBookmarkedRow } from './document-builder.js';
 // Re-export the CANONICAL pairu_ predicate (defined once in document-builder.js) so callers that
 // already depend on migrate-doc's surface — the pristine-source rebuild guard below and the
 // add-rows suite — resolve the same single implementation instead of a divergent hand-copy.
@@ -650,6 +650,10 @@ function sourceComparableBlocks(blocks) {
 function palauSourceRebuildCandidate(original) {
   if (!episodeFlag('rebuildFromSourceWhenPristine')) return null;
   if (hasUserAddedRow(original)) return null;
+  // BOOKMARK GUARD (audit 2026-07-07): a bookmark is invisible to docToBlocks, so a doc whose
+  // only edit is a ⚑ compares byte-pristine to source — and the rebuild would discard it.
+  // A bookmark is a deliberate user edit; its presence vetoes the rebuild like pairu_ does.
+  if (hasBookmarkedRow(original)) return null;
   const episode = getEpisode();
   const savedComparable = sourceComparableBlocks(docToBlocks(ensureTableDoc(original)));
   const sourceComparable = sourceComparableBlocks(episode?.blocksData || []);

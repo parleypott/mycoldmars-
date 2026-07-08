@@ -756,6 +756,16 @@ export function hasUserAddedRow(node) {
   return Array.isArray(node.content) && node.content.some(hasUserAddedRow);
 }
 
+// BOOKMARK twin of the pairu_ predicate (audit 2026-07-07): a row the author bookmarked is a
+// deliberate mark of intent exactly like a row added with the "+" tool — the Palau empty-row
+// cull and the pristine-source rebuild must both treat it as keep-me, or the ⚑ (and, for a
+// still-empty spacer row, the row itself) silently vanishes on the next load.
+export function hasBookmarkedRow(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'tableRow' && node.attrs?.bookmarkId) return true;
+  return Array.isArray(node.content) && node.content.some(hasBookmarkedRow);
+}
+
 function normalizePalauTableDoc(doc) {
   if (!isPalauEpisodeNow() || !doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
   const content = [];
@@ -765,7 +775,7 @@ function normalizePalauTableDoc(doc) {
       // Drop only rows that carry no visible words at all; this removes stray empty grid bands
       // without touching any real script text or timecodes. Rows the author added on purpose
       // with the "+" row tool (pairu_ pairId) are KEPT even while still empty.
-      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow) && !hasUserAddedRow(splitRow)) continue;
+      if (splitRow?.type === 'tableRow' && !rowHasVisibleWords(splitRow) && !hasUserAddedRow(splitRow) && !hasBookmarkedRow(splitRow)) continue;
       content.push(splitRow);
     }
   }

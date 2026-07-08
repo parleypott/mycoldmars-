@@ -67,6 +67,7 @@ function createFootnotePanel(editor, getPos, iconDom) {
     if (typeof pos !== 'number') return;
     const cur = editor.state.doc.nodeAt(pos);
     if (!cur || cur.type.name !== 'fcFootnote') return;
+    if (editor.view.editable === false) return; // READ MODE: fly-out edits are writes
     editor.view.dispatch(
       editor.state.tr.setNodeMarkup(pos, undefined, { ...cur.attrs, ...pending }),
     );
@@ -172,6 +173,7 @@ function createFootnotePanel(editor, getPos, iconDom) {
       b.textContent = glyph;
       b.addEventListener('mousedown', (e) => {
         e.preventDefault();
+        if (editor.view.editable === false) return; // READ MODE: status flip is a write
         const run = adjacentClaimRun();
         if (!run) return;
         editor.view.dispatch(
@@ -355,6 +357,7 @@ function createFootnotePanel(editor, getPos, iconDom) {
     del.textContent = 'Delete footnote';
     del.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      if (editor.view.editable === false) return; // READ MODE: delete is a write
       const pos = typeof getPos === 'function' ? getPos() : getPos;
       if (typeof pos !== 'number') return;
       const cur = editor.state.doc.nodeAt(pos);

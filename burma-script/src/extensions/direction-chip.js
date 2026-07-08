@@ -77,7 +77,7 @@ function readDirectionChipAttr(element, name, fallback) {
 }
 
 function editArchivePath(editor, getPos) {
-  if (isReadOnly()) return;
+  if (isReadOnly() || !editor.view.editable) return; // READ MODE: path edit is a write
   const pos = typeof getPos === 'function' ? getPos() : getPos;
   if (typeof pos !== 'number') return;
   const cur = editor.state.doc.nodeAt(pos);
@@ -148,7 +148,7 @@ function buildCheckboxDecorations(state) {
 
           cb.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            if (isReadOnly()) return;
+            if (isReadOnly() || !view.editable) return; // READ MODE: checkbox flip is a write
             const currentState = view.state;
             const mt = currentState.schema.marks.directionMark;
             if (!mt) return;
@@ -169,7 +169,10 @@ function buildCheckboxDecorations(state) {
 
           return cb;
         },
-        { side: -1 }, // widget appears BEFORE the first character of the run
+        // side:-1 = widget appears BEFORE the first character of the run. The KEY stops PM
+        // tearing down + rebuilding every checkbox DOM node on every remote y-sync transaction
+        // (audit 2026-07-07 — the fc flags already carry keys for exactly this reason).
+        { side: -1, key: `dhlcb:${from}:${kind}:${status}` },
       ),
     );
 
@@ -373,7 +376,7 @@ export const DirectionChip = Node.create({
       dom.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
-        if (isReadOnly()) return;
+        if (isReadOnly() || !editor.view.editable) return; // READ MODE: chip cycle is a write
         const pos = getPos();
         if (typeof pos !== 'number') return;
         const cur = editor.state.doc.nodeAt(pos);
@@ -390,7 +393,7 @@ export const DirectionChip = Node.create({
       dom.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
         e.preventDefault();
-        if (isReadOnly()) return;
+        if (isReadOnly() || !editor.view.editable) return; // READ MODE: keyboard path too
         const cur = editor.state.doc.nodeAt(getPos());
         if (e.shiftKey && cur?.attrs.kind === 'archive' && cur?.attrs.status === 'found') {
           editArchivePath(editor, getPos);

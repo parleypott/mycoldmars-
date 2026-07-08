@@ -1765,7 +1765,8 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
   html, body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .wp-screw, .wp-rack-head, .wp-rack-foot, .wp-outline, .wp-spine, .wp-grip, .wp-cap-num,
   .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
-  .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag { display: none !important; }
+  .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag,
+  .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill { display: none !important; }
   .wp-page { padding: 0 !important; }
   .wp-device { border: 0 !important; border-radius: 0 !important; padding: 0 !important; max-width: none !important; background: #fff !important; transform: none !important; }
   .wp-cart { border: 0 !important; border-radius: 0 !important; margin: 0 0 6pt !important; background: none !important; break-inside: avoid; page-break-inside: avoid; }
@@ -2160,3 +2161,13 @@ span.wp-fcnote.ProseMirror-selectednode { outline: 2px solid rgba(31,138,114,.45
    hide the shell pill while a chapter has the screen. :has() is fine here: every browser this
    tool supports ships it, and a non-matching engine just leaves the pill visible (cosmetic). */
 body:has(.wp-page[data-chfocus]) .sl-backbar { display: none; }
+
+/* MODE SWITCH × STICKY BANNERS (audit 2026-07-07): the full-width save/conflict banners are
+   z-1000 fixed at top:0 — they buried the top-center switch and made the mode unswitchable
+   until reload. When any banner is up, the switch steps down below it. */
+body:has(.wp-save-banner) .wp-mode { top: 58px; }
+body:has(.wp-save-banner) .wp-page[data-chfocus] .wp-mode { top: 96px; }
+
+/* FIND PANEL × CHAPTER FOCUS (audit): Cmd+F docks at top:14px z-520; the focus bar is z-530 —
+   the panel was buried under it. In focus, the panel steps below the bar. */
+.wp-page[data-chfocus] .wp-find { top: 64px; }
