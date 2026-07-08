@@ -22,6 +22,7 @@
 //   client then: PUT uploadUrl, headers { Content-Type: mime, x-upsert: 'false' }, body: file
 
 import { checkAccess } from './_lib/access.js';
+import { withSentry } from './_lib/sentry.js';
 import { imageStorageMeta } from './_lib/image-storage.js';
 import { readJsonBody } from './_lib/read-json-body.js';
 import { buildImagePath } from './script-image-upload.js';
@@ -62,7 +63,7 @@ function j(status, payload) {
   return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
-export default async function handler(req) {
+export default withSentry(async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return j(405, { error: 'Method not allowed' });
 
@@ -115,4 +116,4 @@ export default async function handler(req) {
     publicUrl: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`,
     mime,
   });
-}
+});
