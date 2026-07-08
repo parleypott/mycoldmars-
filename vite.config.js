@@ -1,6 +1,44 @@
 import { resolve } from 'path';
 import { defineConfig, loadEnv } from 'vite';
 
+// PROD-WRITE GUARD (2026-07-08 data-loss audit, rank 5): local dev proxies /api to a target that
+// DEFAULTS to production, so a localhost cloud-sync PUT silently overwrites the prod database — an
+// independent clobber channel beside the collab room. This pure predicate says whether a given
+// request must be refused: a data-mutating method to a script-doc/script-projects endpoint whose
+// proxy target is a production host, unless MCM_ALLOW_PROD_WRITES=1 is set. GET always passes (the
+// ?read share + normal reads need it). Exported for the unit test.
+const PROD_API_HOSTS = ['mycoldmars.vercel.app', 'mycoldmars.com', 'newpress.press'];
+const MUTATING_METHODS = new Set(['PUT', 'POST', 'DELETE', 'PATCH']);
+const MUTATING_API = /^\/api\/(script-doc|script-projects)\b/;
+export function shouldBlockProdWrite({ method, path, target, allow }) {
+  if (allow === '1' || allow === true) return false;
+  if (!MUTATING_METHODS.has(String(method || '').toUpperCase())) return false;
+  if (!MUTATING_API.test(String(path || '').split('?')[0])) return false;
+  const t = String(target || '');
+  return PROD_API_HOSTS.some((h) => t.includes(h));
+}
+
+// Dev-only middleware that enforces the predicate BEFORE vite's proxy forwards the write.
+function blockProdApiWritesPlugin(target) {
+  return {
+    name: 'block-prod-api-writes',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api', (req, res, next) => {
+        if (shouldBlockProdWrite({ method: req.method, path: req.originalUrl || req.url, target, allow: process.env.MCM_ALLOW_PROD_WRITES })) {
+          // eslint-disable-next-line no-console
+          console.warn(`[guardrail] BLOCKED ${req.method} ${req.url} → PRODUCTION (${target}). Set MCM_DEV_API to a preview, or MCM_ALLOW_PROD_WRITES=1 to override.`);
+          res.statusCode = 403;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: { code: 'PROD_WRITE_BLOCKED', message: 'local dev refuses a write to a PRODUCTION /api data endpoint (2026-07-08 guardrail)' } }));
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 // LOCAL LIVEBLOCKS AUTH (collab Phase 1) — dev-only middleware that serves POST
 // /api/liveblocks-auth from the LOCAL handler (api/liveblocks-auth.js) instead of proxying it.
 // Two reasons: (a) the proxy target may not have the endpoint deployed yet, and (b) the token
@@ -56,8 +94,16 @@ export default defineConfig(({ mode }) => {
   // .env.local (gitignored) carries the Liveblocks keys; loadEnv with the '' prefix exposes the
   // non-VITE_ vars to the dev middleware above. Vite still only ships VITE_* vars to the client.
   const env = loadEnv(mode, __dirname, '');
+  const apiTarget = process.env.MCM_DEV_API || 'https://mycoldmars.vercel.app';
   return {
-  plugins: [localLiveblocksAuthPlugin(env)],
+  plugins: [localLiveblocksAuthPlugin(env), blockProdApiWritesPlugin(apiTarget)],
+  // COLLAB ENV (2026-07-08 data-loss guardrail): inject VERCEL_ENV so collab.js can namespace the
+  // Liveblocks room by environment (prod → `script-burma`, preview → `-preview`, dev → `-development`).
+  // Keyed on VERCEL_ENV, NOT import.meta.env.PROD (which is true for preview builds too). Unset on
+  // localhost `vite dev` → 'development', so a dev build can never name the production room.
+  define: {
+    'import.meta.env.VITE_COLLAB_ENV': JSON.stringify(process.env.VERCEL_ENV || 'development'),
+  },
   // Local dev proxies /api to the URL in MCM_DEV_API. Defaults to the
   // prod Vercel deployment so existing workflows keep working, but
   // setting MCM_DEV_API=https://preview-branch.vercel.app in .env.local
@@ -66,7 +112,7 @@ export default defineConfig(({ mode }) => {
   server: {
     proxy: {
       '/api': {
-        target: process.env.MCM_DEV_API || 'https://mycoldmars.vercel.app',
+        target: apiTarget,
         changeOrigin: true,
         secure: true,
       },

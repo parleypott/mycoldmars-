@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/deploy-gate.mjs && vite build",
+    "build": "node scripts/deploy-gate.mjs && node scripts/check-no-pm-fill.mjs && vite build",
     "gate": "node scripts/deploy-gate.mjs",
     "preview": "vite preview",
     "test": "bun scripts/run-tests.mjs"

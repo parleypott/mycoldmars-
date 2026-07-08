@@ -31,11 +31,26 @@ export function isCollabEnabled() {
   }
 }
 
-// The room id convention: `script-<projectSlugOrId>`. The episode id IS the project ref the
-// generalized cloud endpoint routes on (burma / palau / palau2 / a library row's uuid), so the
-// room namespace lines up 1:1 with /api/script-doc?project=<same ref>.
-export function collabRoomId(episode = getEpisode()) {
-  return 'script-' + String(episode?.id || 'unknown');
+// The build's collab environment, injected by vite `define` from VERCEL_ENV (production /
+// preview / development). NOT `import.meta.env.PROD` — that is TRUE for preview deploys too, so a
+// Vercel PREVIEW would still name the prod room and clobber the live doc (the 2026-07-08 incident).
+// VERCEL_ENV is the only signal that distinguishes prod from preview, and it is immune to
+// origin/hash tampering. Defaults to 'development' (localhost `vite dev`, or any missing inject).
+export function collabEnv() {
+  try {
+    const e = import.meta.env?.VITE_COLLAB_ENV;
+    return (typeof e === 'string' && e) ? e : 'development';
+  } catch { return 'development'; }
+}
+
+// The room id convention: `script-<projectSlugOrId>` in PRODUCTION, and
+// `script-<projectSlugOrId>-<env>` everywhere else. This is the FRONT-DOOR hard block from the
+// 2026-07-08 data-loss audit: a dev/preview build structurally CANNOT name the production room, so
+// opening an editable build off-prod can never Yjs-sync into Johnny's live script. The episode id
+// still lines up 1:1 with /api/script-doc?project=<ref> in prod. Pure in `env` for the test suite.
+export function collabRoomId(episode = getEpisode(), env = collabEnv()) {
+  const base = 'script-' + String(episode?.id || 'unknown');
+  return env === 'production' ? base : `${base}-${env}`;
 }
 
 // PURE — should we seed the room's Y.Doc from the cloud doc? ONLY when the room is genuinely

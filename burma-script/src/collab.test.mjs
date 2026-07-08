@@ -59,16 +59,19 @@ ok('flag value must be truthy — collab:false is off', () => {
 
 /* ── 2. room convention ──────────────────────────────────────────────────── */
 
-ok('room id is script-<episode id> for slugs and uuids', () => {
-  assert.equal(collabRoomId(episode('burma')), 'script-burma');
-  assert.equal(collabRoomId(episode('palau2')), 'script-palau2');
+// PRODUCTION room ids are the bare `script-<episode id>` (env passed explicitly so this test is
+// independent of the build-injected VITE_COLLAB_ENV). Non-prod namespacing is covered in depth by
+// collab-room-namespace.test.mjs — the 2026-07-08 guardrail that stops a dev build joining prod.
+ok('room id is script-<episode id> for slugs and uuids (production)', () => {
+  assert.equal(collabRoomId(episode('burma'), 'production'), 'script-burma');
+  assert.equal(collabRoomId(episode('palau2'), 'production'), 'script-palau2');
   const uuid = '3f2c8a1e-9b4d-4f6a-8c2e-1d5b7a9c0e3f';
-  assert.equal(collabRoomId(episode(uuid)), 'script-' + uuid);
+  assert.equal(collabRoomId(episode(uuid), 'production'), 'script-' + uuid);
 });
 
 ok('room id degrades safely on a junk episode (never throws)', () => {
-  assert.equal(collabRoomId({}), 'script-unknown');
-  assert.equal(collabRoomId(null), 'script-unknown');
+  assert.equal(collabRoomId({}, 'production'), 'script-unknown');
+  assert.equal(collabRoomId(null, 'production'), 'script-unknown');
 });
 
 /* ── 3. seed-only-when-empty ─────────────────────────────────────────────── */

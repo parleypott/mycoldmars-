@@ -44,6 +44,19 @@ export function isValidCollabRoom(room) {
   return typeof room === 'string' && COLLAB_ROOM_RE.test(room);
 }
 
+// SERVER TWIN of the client room-namespace (2026-07-08 data-loss audit, rank 3). Drift-free hard
+// backstop: even if a future client build regressed and asked for the bare prod room `script-burma`
+// from a non-prod deployment, the SERVER refuses to mint the token. In production any valid room is
+// allowed; in preview/development a room MUST carry this deployment's own `-<env>` suffix. So a
+// localhost/preview auth request for `script-burma` (the prod room) is rejected outright. Pure for
+// the test suite. `vercelEnv` comes from process.env.VERCEL_ENV (unset off-Vercel → 'development').
+export function collabAuthVerdict({ room, vercelEnv }) {
+  if (!isValidCollabRoom(room)) return { ok: false, code: 'BAD_ROOM' };
+  const env = vercelEnv || 'development';
+  if (env === 'production') return { ok: true };
+  return room.endsWith('-' + env) ? { ok: true } : { ok: false, code: 'NON_PROD_ROOM' };
+}
+
 // Deterministic fallback color from a string — mirrors scripts-library/src/presence.js's palette so
 // a profile-less user gets the SAME stable dot color in both presence systems.
 const FALLBACK_COLORS = ['#2b7fff', '#9b59d0', '#1f8a72', '#d4703a', '#c0405f', '#5c7cc0', '#b0431f'];
@@ -93,7 +106,11 @@ export default withSentry(async function handler(req) {
   let body;
   try { body = await req.json(); } catch { return err(400, 'BAD_JSON', 'Body must be JSON'); }
   const room = body?.room;
-  if (!isValidCollabRoom(room)) {
+  const verdict = collabAuthVerdict({ room, vercelEnv: process.env.VERCEL_ENV });
+  if (!verdict.ok) {
+    if (verdict.code === 'NON_PROD_ROOM') {
+      return err(403, 'NON_PROD_ROOM', 'this non-production deployment may not open a production collab room');
+    }
     return err(400, 'BAD_ROOM', 'room must look like script-<project> ([A-Za-z0-9_-], <=80 chars)');
   }
 
