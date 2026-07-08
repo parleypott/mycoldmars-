@@ -221,8 +221,22 @@ export function mdToHtml(md) {
   // esc() leaves `~` untouched, so the fences survive to here intact; the inline
   // `~~strike~~` rule below needs 3+ tildes to be a fence, so 2-tilde strike
   // spans are unaffected. Same fenceCode() info-string handling as backticks.
-  html = html.replace(/~~~+([\s\S]*?)~~~+/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
-  html = html.replace(/```([\s\S]*?)```/g, (_, c) => stub(`<pre><code>${fenceCode(c)}</code></pre>`));
+  // A fenced block written INSIDE a blockquote ("&gt; ```\n&gt; code\n&gt; ```")
+  // carried its "&gt; " quote markers INTO the captured code body, because this fence
+  // stash runs BEFORE the blockquote pass below — so the interior prefixes were baked
+  // into the <pre> and the reader rendered "> code" verbatim inside the code block
+  // (an LLM quoting a source's code sample as a blockquote emits exactly this). Capture
+  // an OPTIONAL blockquote prefix immediately preceding the OPENING fence: when present,
+  // strip the leading "&gt; " run from every content line so the code is clean, and
+  // RE-EMIT the opener's own prefix untouched so the blockquote pass below still wraps
+  // the block in <blockquote>. A non-quoted fence (the common case) has no such prefix,
+  // so `pfx` is undefined and the content passes through byte-identically; even a stray
+  // "&gt;" right before a fence is a no-op unless the CONTENT lines are actually
+  // "&gt; "-prefixed — the single case this strip is meant to change.
+  const stashFence = (pfx, c) =>
+    (pfx || '') + stub(`<pre><code>${fenceCode(pfx ? c.replace(/^(?:&gt;[ \t]?)+/gm, '') : c)}</code></pre>`);
+  html = html.replace(/((?:&gt;[ \t]?)+)?~~~+([\s\S]*?)~~~+/g, (_, pfx, c) => stashFence(pfx, c));
+  html = html.replace(/((?:&gt;[ \t]?)+)?```([\s\S]*?)```/g, (_, pfx, c) => stashFence(pfx, c));
   // MULTI-backtick inline code spans (CommonMark). A run of N>=2 backticks opens
   // a span that closes at the next run of EXACTLY N backticks, so the content can
   // carry SHORTER backtick runs verbatim — this is the canonical way to show a

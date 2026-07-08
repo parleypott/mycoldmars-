@@ -502,6 +502,57 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
   ok(/<blockquote>-&gt; keep this arrow<\/blockquote>/.test(mdToHtml('> -> keep this arrow')),
      'a lone `>`-arrow in quote content is still preserved, not folded into a list');
 }
+{
+  // ── a fenced CODE BLOCK inside a blockquote does NOT leak its `> ` markers ──
+  // The fence stash runs BEFORE the blockquote pass, so a quoted fence
+  // ("> ```\n> code\n> ```") baked its `&gt; ` quote prefixes INTO the captured
+  // code body and the reader rendered "> code" verbatim inside the <pre>. An LLM
+  // quoting a source's code sample as a blockquote emits exactly this. The fix
+  // captures the opener's blockquote prefix and strips a matching `&gt; ` run from
+  // every content line while re-emitting the opener prefix so the block still wraps
+  // in <blockquote>.
+  const bqFence = mdToHtml('> ```\n> code line\n> ```');
+  eq(bqFence, '<blockquote><pre><code>code line</code></pre></blockquote>',
+     'FIX: quoted backtick fence renders clean code inside a <blockquote>');
+  ok(!/&gt;/.test(bqFence), 'FIX: no leaked `&gt;` marker inside the quoted fence body');
+
+  const bqTilde = mdToHtml('> ~~~\n> one\n> two\n> ~~~');
+  eq(bqTilde, '<blockquote><pre><code>one\ntwo</code></pre></blockquote>',
+     'a quoted TILDE fence also strips the `> ` prefixes');
+
+  const bqLang = mdToHtml('> ```js\n> const x = 1;\n> ```');
+  ok(/<blockquote><pre><code>const x = 1;<\/code><\/pre><\/blockquote>/.test(bqLang) && !/&gt;/.test(bqLang),
+     'a quoted fence WITH a language hint strips prefixes and drops the info string');
+
+  const bqNested = mdToHtml('>> ```\n>> deep\n>> ```');
+  ok(/<blockquote><pre><code>deep<\/code><\/pre><\/blockquote>/.test(bqNested) && !/&gt;/.test(bqNested),
+     'a `>>`-nested quoted fence strips both marker levels');
+
+  // Byte-identical guard: a NON-quoted fence is untouched (the common case).
+  eq(mdToHtml('```\nplain code\n```'), '<pre><code>plain code</code></pre>',
+     'zero regression: a normal (non-quoted) fence is byte-identical');
+
+  // CRITICAL DISTINGUISHER: a fence whose OPENER is NOT quoted keeps literal `>`
+  // content lines (a diff / quoted-email code sample) verbatim — the strip only
+  // fires when the opening fence itself was blockquote-prefixed.
+  const litGt = mdToHtml('```\n> not a quote\n> just a diff\n```');
+  ok(/<pre><code>&gt; not a quote\n&gt; just a diff<\/code><\/pre>/.test(litGt),
+     'a literal `>` inside a NON-quoted fence is preserved (diff/email sample), not stripped');
+  ok(!/<blockquote>/.test(litGt), 'a non-quoted fence with `>` content does not spawn a <blockquote>');
+
+  // RED PROOF: the OLD fence stash (no opener-prefix capture) baked the `&gt; `
+  // quote markers into the code body — reconstruct it and show the leak.
+  const oldFenceStash = (md) => {
+    let h = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const stash = [];
+    h = h.replace(/```([\s\S]*?)```/g, (_, c) => `${stash.push(`<pre><code>${c.trim()}</code></pre>`) - 1}`);
+    h = h.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) =>
+      `<blockquote>${m.replace(/^(?:&gt;[ \t]?)+/gm, '')}</blockquote>`);
+    return h.replace(/(\d+)/g, (_, i) => stash[+i]);
+  };
+  ok(/&gt; code line/.test(oldFenceStash('> ```\n> code line\n> ```')),
+     'RED PROOF: the old fence stash leaks `&gt; code line` inside the quoted <pre>');
+}
 
 // ── GFM tables render as <table>, not a leaked `| a | b |` paragraph ──
 // LLM research reports (esp. deep-research runs) emit pipe tables constantly.
