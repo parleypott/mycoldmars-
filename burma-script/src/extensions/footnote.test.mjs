@@ -13,6 +13,12 @@
  *      and never mis-routes it into a tk/fc mark.
  *   4. TOKEN HYGIENE — braces / `||` inside the note can't break the token (scrubbed).
  *   5. Attr edit (the fly-out's setNodeMarkup path) round-trips the mirror schema too.
+ *   6. STATUS CONTRACT (Johnny 2026-07-08 /footnote) — a RED "to-do" footnote (status:'needed')
+ *      must STAY red through save/reload. Locks the JSON round-trip AND the toDOM/parseDOM
+ *      render/parse spec: 'needed' → ▪ + data-status="needed" (red), '' → ✓ + data-status=""
+ *      (the verified green receipt every legacy footnote is). A dropped data-status or a flipped
+ *      glyph would silently turn an UNVERIFIED fact-check into a "✓ checked" one — the exact
+ *      data-integrity regression this lock exists to catch.
  *
  * Run: bun src/extensions/footnote.test.mjs  (auto-discovered by scripts/run-tests.mjs)
  */
@@ -148,6 +154,47 @@ ok('editing note/source attrs round-trips the mirror schema', () => {
   const redoc = docFrom(json);
   redoc.check();
   assert.ok(typeof pos === 'number', 'footnote position found');
+});
+
+// ── 6: status contract — a red /footnote to-do stays red through save AND HTML round-trip ────
+ok('a needed (red) footnote survives the JSON round-trip as needed', () => {
+  const redAttrs = { ...FN_ATTRS, noteId: 'fn_red1', status: 'needed' };
+  const redDoc = clone(docWithFootnote);
+  redDoc.content[0].content[0].content[0].content[0].content[1].attrs = redAttrs;
+  const doc = docFrom(redDoc);
+  doc.check();
+  const normalized = clone(doc.toJSON());
+  assert.deepEqual(clone(docFrom(normalized).toJSON()), normalized, 'needed footnote is reparse-stable');
+  let found = null;
+  doc.descendants((n) => { if (n.type.name === 'fcFootnote') found = n; });
+  assert.equal(found.attrs.status, 'needed', 'red status survives fromJSON → toJSON (never silently green)');
+});
+
+ok('toDOM renders the red-square glyph + data-status for a needed footnote, green ✓ otherwise', () => {
+  const spec = schema.nodes.fcFootnote.spec;
+  const mk = (status) => schema.nodes.fcFootnote.create({ ...FN_ATTRS, noteId: 'fn_dom', status });
+  const dom = (status) => spec.toDOM(mk(status));
+
+  const needed = dom('needed');
+  assert.equal(needed[0], 'span', 'needed footnote is a span');
+  assert.equal(needed[1]['data-status'], 'needed', 'needed carries data-status="needed" (persists red on reparse)');
+  assert.equal(needed[2], '▪', 'needed renders the RED-SQUARE glyph');
+
+  const green = dom('');
+  assert.equal(green[1]['data-status'], '', 'verified footnote carries empty data-status');
+  assert.equal(green[2], '✓', 'verified renders the green ✓ receipt');
+
+  // the two faces must never collapse to the same glyph — that is the whole regression
+  assert.notEqual(needed[2], green[2], 'red and green footnotes render DISTINCT glyphs');
+});
+
+ok('parseDOM reads data-status back (needed stays needed; a legacy footnote defaults to green)', () => {
+  const getAttrs = schema.nodes.fcFootnote.spec.parseDOM[0].getAttrs;
+  const stub = (attrs) => ({ getAttribute: (k) => (k in attrs ? attrs[k] : null) });
+  assert.equal(getAttrs(stub({ 'data-note-id': 'n', 'data-status': 'needed' })).status, 'needed',
+    'a stored red footnote parses back as needed');
+  assert.equal(getAttrs(stub({ 'data-note-id': 'n' })).status, '',
+    'a legacy footnote with NO data-status defaults to the green receipt (safe, back-compatible)');
 });
 
 console.log(`footnote.test.mjs: ${pass} assertions passed`);
