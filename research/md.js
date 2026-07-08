@@ -602,7 +602,16 @@ export function mdToHtml(md) {
   // as single-em content; without it the stray `*`s mis-paired into
   // "2 <em>* 10 to 2 *</em> 20". Every real, tightly-wrapped `*italic*` (and
   // single-char `*x*` via the optional inner group) is unchanged.
-  html = html.replace(/(^|[^*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '$1<em>$2</em>');
+  // The inner content now also crosses ONE soft line break — `\n(?![\n<])` — so an
+  // `*italic*` phrase the LLM soft-wrapped at ~80 cols joins across the wrap instead
+  // of leaking its `*` markers, while a `\n\n` paragraph break OR a `\n` that opens
+  // an already-emitted tag (`\n<li>`) still ends it. `<>` stays ALLOWED in content
+  // (only the newline is tag-guarded): single `*em*` runs AFTER the `**bold**`/`***`
+  // passes and legitimately WRAPS their emitted `<strong>` (`*text **bold** text*`),
+  // so excluding `<>` would eat the inner tag. The flanking edges `[^\s*]` keep
+  // spaced arithmetic ("3 * 4\n5 * 6") literal across the wrap. Byte-identical for
+  // every single-line `*italic*`.
+  html = html.replace(/(^|[^*])\*([^\s*](?:(?:[^*\n]|\n(?![\n<]))*?[^\s*])?)\*/g, '$1<em>$2</em>');
   // Underscore emphasis (__bold__, _italic_) and GFM strikethrough (~~struck~~).
   // The TTS stripMarkdown already unwraps all three; the visual reader leaked
   // them as literal `_italic_` / `__bold__` / `~~cancelled~~` markers — LLM
@@ -620,12 +629,14 @@ export function mdToHtml(md) {
   // content never holds a rendered tag, but `__`/`~~`/`==` run AFTER them and
   // legitimately WRAP emitted `<em>`/`<strong>` (`__bold *it*__`), so `<>` must
   // stay allowed in the content — only the newline is tag-boundary-guarded.
-  // Byte-identical for single-line spans. (Single `_` stays line-scoped — the
-  // false-positive-prone form, deferred.) Strikethrough needs no flanking guard: a
+  // Byte-identical for single-line spans. Single `_italic_` now ALSO crosses one
+  // soft wrap (same `\n(?![\n<])` guard) — it's boundary-aware (word-boundary
+  // enforced), so it carries the same low false-positive risk as `__`, unlike the
+  // flanking-only single `*` above. Strikethrough needs no flanking guard: a
   // doubled `~~` is vanishingly rare outside real strike spans, and code (where
   // `~` could appear) is already stashed.
   html = html.replace(/(^|[^\w])__(\S(?:(?:[^_\n]|\n(?![\n<]))*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
-  html = html.replace(/(^|[^\w])_(\S(?:[^_\n]*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
+  html = html.replace(/(^|[^\w])_(\S(?:(?:[^_\n]|\n(?![\n<]))*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
   // Content is `(?:[^~\n]|~(?!~))+?`, NOT `[^~\n]+?`: a struck span may carry a
   // LONE `~` (a GFM run of one tilde never closes a `~~` opener), so a struck
   // approximate figure — `~~around ~5 million~~`, common in a revised-casualty

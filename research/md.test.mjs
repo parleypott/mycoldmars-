@@ -2163,5 +2163,57 @@ function fullOldMd(md) {
   ok(!/<mark>/.test(mdToHtml('check a == b == c now')), 'whitespace-flanked == comparison stays literal');
 }
 
+// Same soft-wrap class as the `**`/`__`/`~~`/`==` fixes above, now extended to the
+// SINGLE-delimiter `*italic*` and `_italic_`. The old line-scoped middles (`[^*\n]`,
+// `[^_\n]`) couldn't bridge a soft wrap, so an LLM report that soft-wrapped at ~80
+// cols inside `*…*` / `_…_` leaked the LITERAL markers. Each now crosses ONE soft
+// break (`\n(?![\n<])`) but still refuses a `\n\n` paragraph boundary and a `\n`
+// that opens an emitted `<>` tag. `<>` stays ALLOWED in content — single `*em*`/`_em_`
+// run AFTER `**bold**`/`***`/`__` and legitimately WRAP their emitted tags. The
+// flanking (`*`) / word-boundary (`_`) guards keep the same false-positive floor.
+// Three-regex `***` stays line-scoped on purpose (deferred to an attended pass).
+{
+  const oldI = (h) => h.replace(/(^|[^*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*/g, '$1<em>$2</em>');
+  const oldU = (h) => h.replace(/(^|[^\w])_(\S(?:[^_\n]*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
+
+  // FIX: single `*italic*` / `_italic_` cross a soft wrap inside a paragraph.
+  const iSoft = mdToHtml('Intro *italic phrase\nwrapping here* end');
+  ok(/<em>italic phrase<br>wrapping here<\/em>/.test(iSoft), '*italic* spans a soft line break');
+  ok(!/\*/.test(iSoft.replace(/<[^>]+>/g, '')), 'no literal * leaks on the soft-wrapped italic');
+
+  const uSoft = mdToHtml('Intro _under phrase\nwrapping here_ end');
+  ok(/<em>under phrase<br>wrapping here<\/em>/.test(uSoft), '_italic_ spans a soft line break');
+  ok(!/_/.test(uSoft.replace(/<[^>]+>/g, '')), 'no literal _ leaks on the soft-wrapped underscore-italic');
+
+  // RED PROOF: the reconstructed old line-scoped middles leak the markers.
+  ok(/\*/.test(oldI('Intro *italic phrase\nwrapping here* end')),
+     'RED PROOF: old line-scoped * leaks its markers across a soft wrap');
+  ok(/_/.test(oldU('Intro _under phrase\nwrapping here_ end')),
+     'RED PROOF: old line-scoped _ leaks its markers across a soft wrap');
+
+  // SAFETY: an UNCLOSED opener must NOT bridge across a \n\n paragraph break.
+  const iBlank = mdToHtml('Para with *unclosed marker.\n\nNext para ends italic* here');
+  ok(!/<em>[^<]*Next para/.test(iBlank), 'unclosed * does not bridge a \\n\\n boundary');
+  const uBlank = mdToHtml('Para with _unclosed marker.\n\nNext para ends under_ here');
+  ok(!/<em>[^<]*Next para/.test(uBlank), 'unclosed _ does not bridge a \\n\\n boundary');
+
+  // SAFETY: an UNCLOSED opener must NOT bridge across a </li> boundary.
+  const iLi = mdToHtml('- item with *open\n- other item close* here');
+  ok(!/<em>[^<]*other item/.test(iLi), 'unclosed * does not bridge a </li> boundary');
+
+  // SAFETY: spaced arithmetic across a wrap stays literal (flanking edges hold).
+  ok(!/<em>/.test(mdToHtml('3 * 4\n5 * 6')), 'spaced arithmetic across the wrap is not italicised');
+  // SAFETY: snake_case across a wrap stays literal (word-boundary edges hold).
+  ok(!/<em>/.test(mdToHtml('the foo_bar\nbaz_qux name')), 'snake_case across a wrap stays literal');
+
+  // REGRESSION: single `*em*` wrapping an emitted <strong> survives (the `<>`-allowed case).
+  ok(/<em>text <strong>bold<\/strong> text<\/em>/.test(mdToHtml('*text **bold** text*')),
+     '*italic* wrapping a nested **bold** stays intact');
+
+  // REGRESSION: single-line spans byte-identical.
+  ok(/<em>word<\/em>/.test(mdToHtml('a *word* b')), 'single-line *italic* unchanged');
+  ok(/<em>word<\/em>/.test(mdToHtml('a _word_ b')), 'single-line _italic_ unchanged');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }
