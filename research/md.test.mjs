@@ -2095,5 +2095,73 @@ function fullOldMd(md) {
      'nested *italic* inside single-line **bold** unchanged');
 }
 
+// ── `__bold__` / `~~strike~~` / `==mark==` spanning a SOFT LINE BREAK ─────────
+// Same class as the `**bold**` soft-wrap fix above, extended to the other
+// DOUBLE-delimiter emphasis forms (identical low false-positive risk — two
+// adjacent delimiter chars). The old line-scoped middles (`[^_\n]`, `[^~\n]`,
+// `[^=\n]`) couldn't bridge a soft wrap, so an LLM report that soft-wraps at
+// ~80 cols inside `__…__` / `~~…~~` / `==…==` leaked the LITERAL markers. Each
+// now crosses ONE soft break (`\n(?!\n)`) but still refuses a `\n\n` paragraph
+// boundary and any already-emitted `<>` tag. Single `*`/`_` and the three-regex
+// `***` stay line-scoped on purpose (deferred to an attended pass).
+{
+  const oldU  = (h) => h.replace(/(^|[^\w])__(\S(?:[^_\n]*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
+  const oldS  = (h) => h.replace(/~~((?:[^~\n]|~(?!~))+?)~~/g, '<del>$1</del>');
+  const oldM  = (h) => h.replace(/==([^\s=](?:[^=\n]*?[^\s=])?)==/g, '<mark>$1</mark>');
+
+  // FIX: each double-delimiter form crosses a soft wrap inside a paragraph.
+  const uSoft = mdToHtml('Intro __bold phrase\nwrapping here__ end');
+  ok(/<strong>bold phrase<br>wrapping here<\/strong>/.test(uSoft), '__bold__ spans a soft line break');
+  ok(!/__/.test(uSoft.replace(/<[^>]+>/g, '')), 'no literal __ leaks on the soft-wrapped bold');
+
+  const sSoft = mdToHtml('Intro ~~struck phrase\nwrapping here~~ end');
+  ok(/<del>struck phrase<br>wrapping here<\/del>/.test(sSoft), '~~strike~~ spans a soft line break');
+  ok(!/~~/.test(sSoft.replace(/<[^>]+>/g, '')), 'no literal ~~ leaks on the soft-wrapped strike');
+
+  const mSoft = mdToHtml('Intro ==marked phrase\nwrapping here== end');
+  ok(/<mark>marked phrase<br>wrapping here<\/mark>/.test(mSoft), '==mark== spans a soft line break');
+  ok(!/==/.test(mSoft.replace(/<[^>]+>/g, '')), 'no literal == leaks on the soft-wrapped mark');
+
+  // RED PROOF: the reconstructed old line-scoped middles leak the markers.
+  ok(/__/.test(oldU('Intro __bold phrase\nwrapping here__ end')),
+     'RED PROOF: old line-scoped __ leaks its markers across a soft wrap');
+  ok(/~~/.test(oldS('Intro ~~struck phrase\nwrapping here~~ end')),
+     'RED PROOF: old line-scoped ~~ leaks its markers across a soft wrap');
+  ok(/==/.test(oldM('Intro ==marked phrase\nwrapping here== end')),
+     'RED PROOF: old line-scoped == leaks its markers across a soft wrap');
+
+  // SAFETY: an UNCLOSED opener must NOT bridge across a \n\n paragraph break.
+  const uBlank = mdToHtml('Para with __unclosed marker.\n\nNext para ends bold__ here');
+  ok(!/<strong>[^<]*Next para/.test(uBlank), 'unclosed __ does not bridge a \\n\\n boundary');
+  const sBlank = mdToHtml('Para with ~~unclosed marker.\n\nNext para ends strike~~ here');
+  ok(!/<del>[^<]*Next para/.test(sBlank), 'unclosed ~~ does not bridge a \\n\\n boundary');
+  const mBlank = mdToHtml('Para with ==unclosed marker.\n\nNext para ends mark== here');
+  ok(!/<mark>[^<]*Next para/.test(mBlank), 'unclosed == does not bridge a \\n\\n boundary');
+
+  // SAFETY: an UNCLOSED opener must NOT bridge across a </li> boundary.
+  const uLi = mdToHtml('- item with __open\n- other item close__ here');
+  ok(!/<strong>[^<]*other item/.test(uLi), 'unclosed __ does not bridge a </li> boundary');
+
+  // REGRESSION: NESTED emphasis must survive — these forms run AFTER the `*em*`
+  // pass and WRAP its emitted `<em>`/`<strong>`, so the newline (not `<>`) is what
+  // gets tag-guarded. (A naive `<>`-exclusion would eat the inner tag — the exact
+  // trap this fix avoids.)
+  ok(/<strong>bold with <em>italic<\/em> inside<\/strong>/.test(mdToHtml('a __bold with *italic* inside__ b')),
+     '__bold__ wrapping a nested *italic* stays intact');
+  ok(/<del>struck with <em>italic<\/em> inside<\/del>/.test(mdToHtml('a ~~struck with *italic* inside~~ b')),
+     '~~strike~~ wrapping a nested *italic* stays intact');
+  ok(/<mark>mark with <strong>bold<\/strong> inside<\/mark>/.test(mdToHtml('a ==mark with **bold** inside== b')),
+     '==mark== wrapping a nested **bold** stays intact');
+
+  // REGRESSION: single-line spans byte-identical; lone-tilde / snake_case / == comparison preserved.
+  ok(/<strong>word<\/strong>/.test(mdToHtml('a __word__ b')), 'single-line __bold__ unchanged');
+  ok(/<del>word<\/del>/.test(mdToHtml('a ~~word~~ b')), 'single-line ~~strike~~ unchanged');
+  ok(/<mark>word<\/mark>/.test(mdToHtml('a ==word== b')), 'single-line ==mark== unchanged');
+  ok(/<del>around ~5 million<\/del>/.test(mdToHtml('a ~~around ~5 million~~ b')),
+     'strike with an inner lone tilde still renders (~5 million preserved)');
+  ok(!/<strong>/.test(mdToHtml('use foo__bar__baz here')), 'snake_case foo__bar__baz stays literal');
+  ok(!/<mark>/.test(mdToHtml('check a == b == c now')), 'whitespace-flanked == comparison stays literal');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

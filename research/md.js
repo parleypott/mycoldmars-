@@ -612,10 +612,19 @@ export function mdToHtml(md) {
   // path segments (foo_bar_baz) are left literal — the `(^|[^\w])` prefix and
   // `(?![\w])` tail enforce that (asterisk has no intraword restriction, which
   // is why the rules above don't need it). Double-underscore runs before single
-  // so `__bold__` isn't half-eaten. Strikethrough needs no flanking guard: a
+  // so `__bold__` isn't half-eaten. Double-underscore also crosses a SOFT line
+  // break — `__a long bold\nphrase__` — via `\n(?![\n<])`: one soft wrap joins,
+  // but a `\n\n` paragraph break OR a `\n` that opens an already-emitted tag
+  // (`\n<li>` / `\n<br>`) stops it. NOTE this differs from the `**bold**` rule,
+  // which excludes `<>` outright: `**` runs BEFORE the `*em*`/`__` passes so its
+  // content never holds a rendered tag, but `__`/`~~`/`==` run AFTER them and
+  // legitimately WRAP emitted `<em>`/`<strong>` (`__bold *it*__`), so `<>` must
+  // stay allowed in the content — only the newline is tag-boundary-guarded.
+  // Byte-identical for single-line spans. (Single `_` stays line-scoped — the
+  // false-positive-prone form, deferred.) Strikethrough needs no flanking guard: a
   // doubled `~~` is vanishingly rare outside real strike spans, and code (where
   // `~` could appear) is already stashed.
-  html = html.replace(/(^|[^\w])__(\S(?:[^_\n]*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
+  html = html.replace(/(^|[^\w])__(\S(?:(?:[^_\n]|\n(?![\n<]))*?\S)?)__(?![\w])/g, '$1<strong>$2</strong>');
   html = html.replace(/(^|[^\w])_(\S(?:[^_\n]*?\S)?)_(?![\w])/g, '$1<em>$2</em>');
   // Content is `(?:[^~\n]|~(?!~))+?`, NOT `[^~\n]+?`: a struck span may carry a
   // LONE `~` (a GFM run of one tilde never closes a `~~` opener), so a struck
@@ -625,8 +634,11 @@ export function mdToHtml(md) {
   // never matched). Mirrors the `**bold**` rule's `\*(?!\*)` guard: a single `~`
   // (not followed by another) is content; a `~~` run ends it, so the closer is
   // still claimed at the first following `~~` and adjacent spans stay independent.
-  // Byte-identical for every strike span without an inner lone tilde.
-  html = html.replace(/~~((?:[^~\n]|~(?!~))+?)~~/g, '<del>$1</del>');
+  // Byte-identical for every strike span without an inner lone tilde. Also joins
+  // across a single soft line break via `\n(?![\n<])` (stops at `\n\n` and at a
+  // `\n` that opens an emitted tag) — `<>` stays allowed in content because a
+  // strike may WRAP a rendered `<em>` (`~~struck *word*~~`, run after `*em*`).
+  html = html.replace(/~~((?:[^~\n]|~(?!~)|\n(?![\n<]))+?)~~/g, '<del>$1</del>');
   // GFM/Obsidian HIGHLIGHT (`==important==`) -> <mark>. The TTS narrator
   // (api/_lib/burma-essays-text.js) already unwraps `==…==` (so it isn't read aloud
   // as "equals equals"); the VISUAL reader leaked the literal `==markers==`. Render
@@ -639,7 +651,10 @@ export function mdToHtml(md) {
   // untouched by esc() and by every transform above (setext/thematic-break use only
   // `- * _`), so the markers survive intact to here. Runs after the emphasis passes,
   // so a nested `==**bold**==` already rendered its <strong> and just gets wrapped.
-  html = html.replace(/==([^\s=](?:[^=\n]*?[^\s=])?)==/g, '<mark>$1</mark>');
+  // Joins across a single soft line break via `\n(?![\n<])` (stops at `\n\n` and
+  // at a `\n` that opens an emitted tag); `<>` stays allowed in content precisely
+  // BECAUSE it wraps that emitted <strong> — same tag-boundary guard as `__`/`~~`.
+  html = html.replace(/==([^\s=](?:(?:[^=\n]|\n(?![\n<]))*?[^\s=])?)==/g, '<mark>$1</mark>');
   // URL capture allows one level of balanced parens so Wikipedia-style
   // disambiguation links — [Taiwan](…/Taiwan_(island)) — keep their closing
   // paren in the href instead of truncating at the first ')' and leaking a
