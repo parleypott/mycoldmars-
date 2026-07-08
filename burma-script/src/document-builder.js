@@ -395,8 +395,10 @@ function inlineContent(rawText, type) {
     if (isBrace && /^\{\s*fn\b/i.test(tok)) {
       const fnInner = tok.replace(/^\{\s*fn\s*/i, '').replace(/\}$/, '');
       const sep = fnInner.indexOf('||');
-      const note = (sep >= 0 ? fnInner.slice(0, sep) : fnInner).trim();
-      const source = (sep >= 0 ? fnInner.slice(sep + 2) : '').trim();
+      // ` ∥ ` is footnoteToken's newline stand-in (multi-line findings / one-source-per-line) —
+      // decode it back so the words rebuild exactly as written.
+      const note = (sep >= 0 ? fnInner.slice(0, sep) : fnInner).trim().replace(FN_NL_RE, '\n');
+      const source = (sep >= 0 ? fnInner.slice(sep + 2) : '').trim().replace(FN_NL_RE, '\n');
       out.push({ type: 'fcFootnote', attrs: { noteId: null, note, source, marker: '', verdict: '' } });
       last = m.index + tok.length;
       continue;
@@ -1020,8 +1022,16 @@ export function wrapToken(text, kind) {
 // the || separator) are scrubbed from the content so the token always re-parses cleanly;
 // inlineContent's isFn branch is the inverse. marker/verdict are icon-side lineage — they
 // are NOT encoded (the doc JSON is canonical for them; the token carries the WORDS).
+// NEWLINES (2026-07-08 full-screen multi-source): note holds RECHECK's multi-line findings and
+// source is one-per-line — a literal \n inside the single-line token would tear it apart on the
+// paragraph-split rebuild. Encode \n as ` ∥ ` (U+2225, not a citation character) on export;
+// FN_NL_RE below is the inverse. Round-trip locked by footnote-newline.test.mjs.
+const FN_NL_TOKEN = ' ∥ ';
+export const FN_NL_RE = /\s*∥\s*/g;
 export function footnoteToken(attrs) {
-  const clean = (s) => String(s || '').replace(/[{}]/g, '').replace(/\|\|/g, '∕∕').trim();
+  const clean = (s) => String(s || '')
+    .replace(/[{}]/g, '').replace(/\|\|/g, '∕∕').replace(/∥/g, '∕')
+    .replace(/\n+/g, FN_NL_TOKEN).trim();
   const note = clean(attrs?.note);
   const source = clean(attrs?.source);
   return '{fn ' + note + (source ? ' || ' + source : '') + '}';

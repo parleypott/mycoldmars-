@@ -42,6 +42,36 @@ export function closeOpenFootnotePanel() {
   if (openPanel) { openPanel.close(); openPanel = null; }
 }
 
+// ── the FULL-SCREEN stage (one live instance, same singleton discipline as the panel) ───────
+let openStage = null;
+export function closeOpenFootnoteStage() {
+  if (openStage) { openStage.close(); openStage = null; }
+}
+
+// The ASSERTION being fact-checked — the big bold headline of the full-screen stage. Same
+// 3-step fallback the RECHECK handler proved out: the stored marker (lineage) first; else the
+// prose immediately before the icon in its paragraph; else the note itself. Strips the literal
+// {fc …}/{tk …}/{fact …} wrapper so the headline reads as the CLAIM, not as markup. Exported for
+// the test suite. Returns { text, derived } — derived=true when we fell past the marker (the
+// stage renders that in a quieter tone so a blank slash-command footnote still shows something).
+export function stripClaimBraces(s) {
+  return String(s || '').replace(/^\{\s*(?:fc|fact|tk)\b\s*/i, '').replace(/\}\s*$/, '').trim();
+}
+export function assertionText(editor, getPos, attrs, noteValue) {
+  const marker = stripClaimBraces(attrs?.marker);
+  if (marker) return { text: marker, derived: false };
+  try {
+    const pos = typeof getPos === 'function' ? getPos() : getPos;
+    if (typeof pos === 'number') {
+      const $pos = editor.state.doc.resolve(pos);
+      const before = $pos.parent.textBetween(0, $pos.parentOffset, ' ').slice(-300).trim();
+      if (before) return { text: before, derived: true };
+    }
+  } catch {}
+  const note = String(noteValue ?? attrs?.note ?? '').trim().slice(0, 300);
+  return { text: note || 'untitled fact check', derived: true };
+}
+
 function createFootnotePanel(editor, getPos, iconDom) {
   const readOnly = isReadOnly();
   const panel = el('div', 'wp-fnote-panel', { contenteditable: 'false', role: 'dialog', 'aria-label': 'fact-check footnote' });
@@ -115,6 +145,18 @@ function createFootnotePanel(editor, getPos, iconDom) {
   };
   paintBadge(attrs0.status || '');
   head.appendChild(badge);
+  // EXPAND (Johnny 2026-07-08): ⛶ opens the FULL-SCREEN stage — assertion big+bold up top,
+  // roomy blurb + source list. The fly-out closes first (flushing) so the two write UIs can
+  // never hold the same node open and race their debounced saves.
+  const expandBtn = el('button', 'wp-fnote-expand', { type: 'button', title: 'Open full screen — more room, more sources' });
+  expandBtn.textContent = '⛶';
+  expandBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    close(); openPanel = null;
+    closeOpenFootnoteStage();
+    openStage = createFootnoteStage(editor, getPos);
+  });
+  head.appendChild(expandBtn);
   const closeBtn = el('button', 'wp-fnote-close', { type: 'button', title: 'Close' });
   closeBtn.textContent = '×';
   closeBtn.addEventListener('mousedown', (e) => { e.preventDefault(); close(); openPanel = null; });
@@ -430,6 +472,289 @@ function createFootnotePanel(editor, getPos, iconDom) {
   // stealing focus from the editor on open would be pure loss.
 
   return { panel, close };
+}
+
+// ── FULL-SCREEN STAGE (Johnny 2026-07-08: "open it into a full screen mode to add more
+// sources and see it more clearly … the assertion we're fact checking comes over and is a big
+// bold thing at the top … easily get back into the script and not lose our place").
+//
+// An OVERLAY, deliberately not a route/mode change: the ProseMirror editor never unmounts and
+// the page never scrolls, so closing it returns to the script byte-for-byte where it was —
+// there is nothing to restore. Same veil chrome as the KEYS card (.wp-keys-veil), same
+// debounced-single-setNodeMarkup save engine as the fly-out panel (its own copy — the panel's
+// data-loss-critical closures stay untouched). Read mode opens a browse-only stage: the
+// assertion + blurb + sources render, every write affordance is gated off.
+function createFootnoteStage(editor, getPos) {
+  const readOnly = isReadOnly();
+  const veil = el('div', 'wp-fc-veil', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'fact check — full screen' });
+  const stage = el('div', 'wp-fc-stage', { contenteditable: 'false' });
+  veil.appendChild(stage);
+
+  const liveAttrs = () => {
+    const pos = typeof getPos === 'function' ? getPos() : getPos;
+    if (typeof pos !== 'number') return null;
+    const node = editor.state.doc.nodeAt(pos);
+    return node && node.type.name === 'fcFootnote' ? node.attrs : null;
+  };
+  const attrs0 = liveAttrs() || {};
+
+  // save engine — the panel's proven pattern verbatim (queue → 500ms flush → teardown flush)
+  let saveTimer = null;
+  const pending = {};
+  const flush = () => {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    if (!Object.keys(pending).length) return;
+    const pos = typeof getPos === 'function' ? getPos() : getPos;
+    if (typeof pos !== 'number') return;
+    const cur = editor.state.doc.nodeAt(pos);
+    if (!cur || cur.type.name !== 'fcFootnote') return;
+    if (editor.view.editable === false) return; // READ MODE: stage edits are writes
+    editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...cur.attrs, ...pending }));
+    for (const k in pending) delete pending[k];
+  };
+  const queueSave = (patch) => {
+    Object.assign(pending, patch);
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(flush, 500);
+  };
+  const onTeardown = () => { try { flush(); } catch {} };
+  const onVis = () => { if (document.visibilityState === 'hidden') onTeardown(); };
+  window.addEventListener('pagehide', onTeardown);
+  window.addEventListener('beforeunload', onTeardown);
+  document.addEventListener('visibilitychange', onVis);
+
+  let onKey = null;
+  const close = () => {
+    if (!veil.parentNode) return;
+    flush(); // never lose in-flight words — flush-first discipline
+    window.removeEventListener('pagehide', onTeardown);
+    window.removeEventListener('beforeunload', onTeardown);
+    document.removeEventListener('visibilitychange', onVis);
+    if (onKey) document.removeEventListener('keydown', onKey, true);
+    veil.remove();
+    editor.view.focus(); // hand the caret straight back to the script — the place never moved
+  };
+
+  // TOP BAR — kind label left, the return affordance right (the promise in words)
+  const topbar = el('div', 'wp-fc-topbar');
+  const kind = el('span', 'wp-fc-kind');
+  kind.textContent = 'FACT CHECK';
+  topbar.appendChild(kind);
+  const closeBtn = el('button', 'wp-fc-close', { type: 'button', title: 'Return to the script — right where you left it (Esc)' });
+  closeBtn.textContent = '× return to script';
+  closeBtn.addEventListener('mousedown', (e) => { e.preventDefault(); close(); openStage = null; });
+  topbar.appendChild(closeBtn);
+  stage.appendChild(topbar);
+
+  // THE ASSERTION — the big bold thing at the top
+  let noteValue = String(attrs0.note || '');
+  const claim = assertionText(editor, getPos, attrs0, noteValue);
+  const assertion = el('div', 'wp-fc-assertion' + (claim.derived ? ' wp-fc-assertion--derived' : ''));
+  assertion.textContent = claim.text;
+  stage.appendChild(assertion);
+
+  // STATUS — the node's red-square/green-check state, flipped immediately (same tokens as the
+  // fly-out's standalone toggle: button 'needed'→node 'needed', button 'checked'→node '').
+  if (!readOnly) {
+    const stRow = el('div', 'wp-fc-status-row');
+    const states = [
+      ['needed', 'still to be checked — red square', '▪ TO CHECK', 'needed'],
+      ['checked', 'verified — green check', '✓ VERIFIED', ''],
+    ];
+    const btns = [];
+    const paint = (nodeStatus) => btns.forEach((b) => b.classList.toggle('is-active', b.getAttribute('data-status') === (nodeStatus === 'needed' ? 'needed' : 'checked')));
+    for (const [btnStatus, title, label, nodeStatus] of states) {
+      const b = el('button', 'wp-fc-status-btn', { type: 'button', title, 'data-status': btnStatus });
+      b.textContent = label;
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        queueSave({ status: nodeStatus });
+        flush(); // commit now so the icon in the script flips immediately
+        paint(nodeStatus);
+      });
+      btns.push(b);
+      stRow.appendChild(b);
+    }
+    paint(attrs0.status || '');
+    stage.appendChild(stRow);
+  }
+
+  // THE BLURB — always-open editor (full screen has the room; no double-click gate)
+  const blurbLabel = el('label', 'wp-fc-label');
+  blurbLabel.textContent = 'Finding';
+  stage.appendChild(blurbLabel);
+  const noteEd = el('textarea', 'wp-fc-blurb-ed', { rows: '6', placeholder: 'the verbatim quote / finding that checks this fact — or hit RECHECK to fish one from the sources' });
+  noteEd.value = noteValue;
+  if (readOnly) noteEd.setAttribute('disabled', '');
+  noteEd.addEventListener('input', () => { noteValue = noteEd.value; queueSave({ note: noteValue }); });
+  noteEd.addEventListener('keydown', (e) => e.stopPropagation()); // keep typing out of the PM keymap
+  stage.appendChild(noteEd);
+
+  // SOURCES — a real LIST: one row per line of the (newline-delimited) source attr, each row an
+  // editable input + delete ×, plus an always-ready add row. Writes back lines.join('\n')
+  // through the same queueSave path, so the fly-out, RECHECK dedupe, and export token all agree.
+  const srcLabel = el('label', 'wp-fc-label');
+  srcLabel.textContent = 'Sources';
+  stage.appendChild(srcLabel);
+  const srcList = el('div', 'wp-fc-sources');
+  stage.appendChild(srcList);
+  let sourceLines = String(attrs0.source || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const saveSources = () => queueSave({ source: sourceLines.join('\n') });
+  const renderSources = () => {
+    srcList.textContent = '';
+    sourceLines.forEach((line, i) => {
+      const row = el('div', 'wp-fc-source-row');
+      const isUrl = /^https?:\/\//i.test(line);
+      if (isUrl) {
+        const a = el('a', 'wp-fc-source-link', { href: line, target: '_blank', rel: 'noopener noreferrer', title: line });
+        a.textContent = '↗';
+        row.appendChild(a);
+      }
+      const input = el('input', 'wp-fc-source-input', { type: 'text', value: line });
+      input.value = line;
+      if (readOnly) input.setAttribute('disabled', '');
+      input.addEventListener('input', () => { sourceLines[i] = input.value; saveSources(); });
+      input.addEventListener('keydown', (e) => e.stopPropagation());
+      row.appendChild(input);
+      if (!readOnly) {
+        const del = el('button', 'wp-fc-source-del', { type: 'button', title: 'remove this source' });
+        del.textContent = '×';
+        del.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          sourceLines.splice(i, 1);
+          saveSources();
+          renderSources();
+        });
+        row.appendChild(del);
+      }
+      srcList.appendChild(row);
+    });
+    if (!sourceLines.length) {
+      const none = el('div', 'wp-fc-nosources');
+      none.textContent = 'no sources yet';
+      srcList.appendChild(none);
+    }
+    if (!readOnly) {
+      const addRow = el('div', 'wp-fc-source-add');
+      const addInput = el('input', 'wp-fc-source-input', { type: 'text', placeholder: 'paste a link or citation…' });
+      const commit = () => {
+        const v = addInput.value.trim();
+        if (!v) return;
+        sourceLines.push(v);
+        saveSources();
+        renderSources();
+        // keep the writer in flow: re-focus the fresh add input
+        srcList.querySelector('.wp-fc-source-add .wp-fc-source-input')?.focus();
+      };
+      addInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      });
+      const addBtn = el('button', 'wp-fc-source-addbtn', { type: 'button', title: 'add this source' });
+      addBtn.textContent = '+ add source';
+      addBtn.addEventListener('mousedown', (e) => { e.preventDefault(); commit(); });
+      addRow.appendChild(addInput);
+      addRow.appendChild(addBtn);
+      srcList.appendChild(addRow);
+    }
+  };
+  renderSources();
+
+  // RECHECK — same backend contract as the fly-out (mode:'quote', 70s hard timeout)
+  if (!readOnly) {
+    const reRow = el('div', 'wp-fc-recheck-row');
+    const reBtn = el('button', 'wp-fnote-recheck', { type: 'button', title: 'Find the exact quote from the sources that checks this fact' });
+    reBtn.textContent = 'RECHECK';
+    const reErr = el('div', 'wp-fnote-recheck-err');
+    let checking = false;
+    reBtn.addEventListener('mousedown', async (e) => {
+      e.preventDefault();
+      if (checking) return;
+      const attrs = liveAttrs() || {};
+      let claimText = stripClaimBraces(attrs.marker);
+      let blockText = '';
+      const pos = typeof getPos === 'function' ? getPos() : getPos;
+      if (typeof pos === 'number') {
+        try {
+          const $pos = editor.state.doc.resolve(pos);
+          blockText = $pos.parent.textContent.slice(0, 2000);
+          if (!claimText) claimText = $pos.parent.textBetween(0, $pos.parentOffset, ' ').slice(-300).trim();
+        } catch {}
+      }
+      if (!claimText) claimText = String(noteValue || '').trim().slice(0, 300);
+      if (!claimText) { reErr.textContent = 'nothing to check yet — give the footnote a claim or some context first'; return; }
+      checking = true;
+      reErr.textContent = '';
+      const t0 = Date.now();
+      const tick = setInterval(() => { reBtn.textContent = `CHECKING… ${Math.floor((Date.now() - t0) / 1000)}s`; }, 1000);
+      reBtn.textContent = 'CHECKING…';
+      const ac = new AbortController();
+      const killer = setTimeout(() => ac.abort(), 70_000);
+      try {
+        const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'quote', marker: claimText, block: blockText, context: [noteValue, sourceLines.join('\n')].filter(Boolean).join('\n').slice(0, 3000) }),
+          signal: ac.signal,
+        });
+        const rawBody = await res.text();
+        let data;
+        try { data = rawBody ? JSON.parse(rawBody) : {}; } catch {
+          throw new Error(res.status === 504 || /timed?\s*out/i.test(rawBody) ? 'the recheck timed out — try again' : `server error (${res.status})`);
+        }
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        const quotes = Array.isArray(data.quotes) ? data.quotes : [];
+        const lines = [];
+        if (data.finding) lines.push(String(data.finding).trim());
+        for (const q of quotes) {
+          if (!q || !q.quote) continue;
+          lines.push(`“${String(q.quote).trim()}” — ${String(q.source || '').trim()}`);
+        }
+        if (lines.length) {
+          noteValue = (noteValue ? noteValue.trim() + '\n\n' : '') + lines.join('\n\n');
+          noteEd.value = noteValue;
+          queueSave({ note: noteValue });
+        }
+        const newUrls = quotes.map((q) => String(q.url || '').trim()).filter((u) => u && !sourceLines.includes(u));
+        if (newUrls.length) {
+          sourceLines.push(...newUrls);
+          saveSources();
+          renderSources();
+        }
+        if (data.verdict) queueSave({ verdict: String(data.verdict) });
+        flush(); // the receipt is on the doc the moment it lands — never only in the stage
+        if (!lines.length && !newUrls.length) reErr.textContent = 'no verbatim quote surfaced — the sources may be thin here';
+      } catch (err) {
+        reErr.textContent = err?.name === 'AbortError' ? 'the recheck timed out after 70s — try again' : (err?.message || String(err));
+      } finally {
+        clearTimeout(killer);
+        clearInterval(tick);
+        checking = false;
+        reBtn.textContent = 'RECHECK';
+      }
+    });
+    reRow.appendChild(reBtn);
+    stage.appendChild(reRow);
+    stage.appendChild(reErr);
+  }
+
+  document.body.appendChild(veil);
+
+  // Esc returns to the script (bail if a menu is open or someone already handled it)
+  onKey = (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (document.querySelector('.wp-slash-menu, .wp-convert-menu')) return;
+    e.preventDefault();
+    close();
+    openStage = null;
+  };
+  document.addEventListener('keydown', onKey, true);
+  // click the scrim (not the card) to return
+  veil.addEventListener('mousedown', (e) => { if (e.target === veil) { e.preventDefault(); close(); openStage = null; } });
+
+  if (!readOnly) noteEd.focus();
+
+  return { veil, close };
 }
 
 // ── the node ─────────────────────────────────────────────────────────────────────────────────

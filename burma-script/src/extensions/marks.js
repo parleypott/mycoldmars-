@@ -669,12 +669,21 @@ export const TimecodeMark = Mark.create({
   // Left-click a timecode chip → copy it (flash + toast), exactly like the SOT LCD. Right-click →
   // the DAY / edit-timecode menu (the left-click guard keeps copy on button 0 only).
   addProseMirrorPlugins() {
+    // SAFARI (Johnny 2026-07-08: "right-click works in Chrome, Safari opens the regular menu"):
+    // inside contenteditable Safari targets the TEXT NODE for contextmenu/mousedown, and Text has
+    // no .closest() — the old `event.target.closest(...)` threw, the handler died, and the native
+    // menu won. Normalize to the nearest ELEMENT first; Chrome behavior is unchanged.
+    const chipFromEvent = (event) => {
+      const t = event.target;
+      const node = t && t.nodeType === 1 ? t : (t ? t.parentElement : null);
+      return node && node.closest ? node.closest('span.wp-tc-tag, span[data-tc]') : null;
+    };
     return [new Plugin({
       props: {
         handleDOMEvents: {
           mousedown: (view, event) => {
             if (event.button !== 0) return false; // right/middle → contextmenu handles it
-            const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
+            const target = chipFromEvent(event);
             if (!target) return false;
             event.preventDefault();
             copyTimecodeChip(target);
@@ -699,7 +708,7 @@ export const TimecodeMark = Mark.create({
             // option is picked, and patchTimecodeAt arms EDIT mode at that moment (the same
             // reaching-for-the-pen rule the chapter ⛶ uses).
             if (isReadOnly()) return false;
-            const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
+            const target = chipFromEvent(event);
             if (!target) return false;
             event.preventDefault();
             const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
