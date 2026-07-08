@@ -46,7 +46,6 @@ const ENDPOINTS = [
   ['script-projects.js', { reports: true }],
   ['script-image-sign.js', { reports: false }],
   ['liveblocks-auth.js', { reports: true }],
-  ['liveblocks-webhook.js', { reports: true }],
 ];
 for (const [f, { reports }] of ENDPOINTS) {
   const src = await readFile(new URL('./' + f, import.meta.url), 'utf8');
@@ -58,6 +57,22 @@ for (const [f, { reports }] of ENDPOINTS) {
     ok(src.includes('await captureServerError(e,'),
       `w3. ${f} reports the throws its catch-all swallows (captureServerError)`);
   }
+}
+
+/* ---- 2b. the NODEJS-runtime exclusion (incident 2026-07-08) ----
+   liveblocks-webhook is the repo's one runtime:'nodejs' function; _lib/sentry.js imports
+   @sentry/vercel-edge at module top, which CRASHES the nodejs runtime at cold start —
+   every delivery became FUNCTION_INVOCATION_FAILED the moment the wrap shipped. The
+   webhook must stay UNWRAPPED until a runtime-agnostic helper exists. This guard makes
+   re-wrapping it a red test instead of a silent production outage. */
+{
+  const src = await readFile(new URL('./liveblocks-webhook.js', import.meta.url), 'utf8');
+  ok(/runtime:\s*'nodejs'/.test(src),
+    'w4. liveblocks-webhook still declares the nodejs runtime (the reason for the exclusion)');
+  ok(!src.includes("from './_lib/sentry.js'"),
+    'w5. liveblocks-webhook does NOT import the edge-only sentry helper (crashes nodejs runtime)');
+  ok(/export default async function handler/.test(src),
+    'w6. liveblocks-webhook default export is a bare handler (unwrapped)');
 }
 
 console.log(`\nsentry-wiring: ${pass} passed, ${fail} failed`);

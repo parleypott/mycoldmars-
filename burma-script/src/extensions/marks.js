@@ -15,6 +15,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { contiguousMarkRun } from './mark-run.js';
 import { isReadOnly } from '../read-mode.js';
+import { setEditMode } from '../edit-mode.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 import { getEpisode, episodeFlag } from '../episode-config.js';
 
@@ -380,8 +381,15 @@ function timecodeMarkAt(state, pos) {
 // When tc changes we also replace the visible text (the chip wraps the bare code) so body prose +
 // the integrity audit stay in sync. One dispatch → onUpdate → autosave. Returns true on success.
 function patchTimecodeAt(view, pos, patch) {
-  // READ MODE choke: every timecode write (day/seq/tc) funnels through here.
-  if (!view.editable) return false;
+  // READ MODE choke: every timecode write (day/seq/tc) funnels through here. Picking a day or
+  // sequence from the right-click menu IS reaching for the pen — arm EDIT mode and proceed
+  // (setEditMode broadcasts synchronously; Editor.jsx flips view.editable in the same tick).
+  // If the surface STILL isn't editable after arming (?read share, collab room not synced),
+  // refuse — those gates are structural and never relax from here.
+  if (!view.editable) {
+    try { setEditMode(true); } catch {}
+    if (!view.editable) return false;
+  }
   const found = timecodeMarkAt(view.state, pos);
   if (!found) return false;
   const { markType, range, mark } = found;
@@ -686,8 +694,11 @@ export const TimecodeMark = Mark.create({
           contextmenu: (view, event) => {
             // READ-ONLY SHARE: the right-click DAY menu mutates the doc (sets the shooting day),
             // which a reader must never do. Let the browser's native menu through, change nothing.
-            // READ MODE: same rule — the menu is a write affordance, don't even open it.
-            if (isReadOnly() || !view.editable) return false;
+            // READ MODE (Johnny 2026-07-08: "bring that back"): the menu DOES open — right-click
+            // is deliberate reach, not a scroll-through accident. The WRITE happens only when an
+            // option is picked, and patchTimecodeAt arms EDIT mode at that moment (the same
+            // reaching-for-the-pen rule the chapter ⛶ uses).
+            if (isReadOnly()) return false;
             const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
             if (!target) return false;
             event.preventDefault();

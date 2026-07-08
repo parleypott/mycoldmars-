@@ -1239,7 +1239,23 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
   padding: 12px 14px 14px; display: flex; flex-direction: column;
 }
 .wp-rail-list .wp-outline-head { margin-bottom: 6px; }
-@media (max-width: 1180px) { .wp-rail { display: none; } }
+/* NARROW WINDOWS (Johnny 2026-07-08: "when I narrow the browser window it disappears — keep
+   it accessible"): below 1180px the dash stack would sit on top of the device frame, so the
+   rail used to display:none away entirely. Now it collapses to a slim EDGE PEEK instead: the
+   dashes hide, a faint nub stays visible at the left edge mid-height, and hovering the edge
+   opens the same full fly-out outline (the React hover machinery never unmounts). */
+@media (max-width: 1180px) {
+  .wp-rail { padding: 14px 10px 14px 0; }
+  .wp-rail:not(.is-open) .wp-rail-marks { opacity: 0; }
+  .wp-rail::before {
+    content: '';
+    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 4px; height: 64px; border-radius: 0 3px 3px 0;
+    background: var(--label-4, #b6ad99); opacity: .55;
+    transition: opacity .14s var(--ease);
+  }
+  .wp-rail:hover::before, .wp-rail.is-open::before { opacity: 0; }
+}
 
 .wp-outline {
   position: fixed; top: 0; left: 0; z-index: 160; width: 280px; height: 100vh;
