@@ -6,6 +6,7 @@
 import { BURMA } from '../config.js';
 import { setEpisode } from './episode-config.js';
 import { redirectStandaloneToLibrary } from './standalone-gate.js';
+import { armSentry } from './sentry-boot.js';
 
 // GATE THE STANDALONE DOOR (audit finding L): /burma-script/ mounts the full editor + live cloud sync
 // with NO login, bypassing the Script Library's sign-in gate. Redirect the EDITABLE door into the
@@ -16,4 +17,6 @@ import { redirectStandaloneToLibrary } from './standalone-gate.js';
 if (!redirectStandaloneToLibrary('burma')) {
   setEpisode(BURMA);
   import('./main.jsx');
+  // Error monitoring — lazy chunk after first paint, clean no-op without VITE_SENTRY_DSN.
+  armSentry({ episode: BURMA.id });
 }

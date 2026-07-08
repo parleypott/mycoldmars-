@@ -20,6 +20,7 @@
 import { seedIfAbsent, findBySlug, touchProject } from './project-store.js';
 import { configForProject } from './config-for-project.js';
 import { ensureUnlocked } from './gate.js';
+import { armSentry } from '../../burma-script/src/sentry-boot.js';
 
 const RESERVED_LIBRARY = new Set(['', 'library', 'home']);
 
@@ -159,3 +160,8 @@ window.addEventListener('popstate', applyRouteFromUrl);
 // only mounts behind a valid session, and the fetch interceptor is installed so
 // /api/admin-users receives the caller's JWT for the ADMIN_EMAILS check.
 ensureUnlocked().then(() => applyRouteFromUrl());
+
+// Error monitoring — lazy chunk after first paint, clean no-op without VITE_SENTRY_DSN.
+// One shot per page load is enough to tag correctly: a route CHANGE reloads the page
+// (engine singleton), so the tag chosen here is the tag for this whole page lifetime.
+armSentry({ episode: isLibraryRoute(currentSlug()) ? 'library' : currentSlug() });

@@ -7,6 +7,10 @@ import { WebhookHandler } from '@liveblocks/node';
 import * as Y from 'yjs';
 import { yDocToProsemirrorJSON } from '@tiptap/y-tiptap';
 import { pgrValue } from './_lib/pgrest.js';
+// Sentry: the shared _lib/sentry.js wrapper is built on @sentry/vercel-edge, which is fetch-
+// transport only — no Node-specific APIs — so it works on this nodejs-runtime handler too
+// (Vercel's node runtime has global fetch). Same no-op-without-SENTRY_DSN contract as everywhere.
+import { withSentry, captureServerError } from './_lib/sentry.js';
 // THE SHARED WRITE GATES — imported from the generalized doc endpoint, never re-implemented, so a
 // webhook write obeys the exact same version contract as every client PUT: strictly-advancing
 // versions vetted by isWriteAcceptable, made atomic at the DB by updateGuardClause's CAS filter.
@@ -251,7 +255,7 @@ async function touchProject(sb, pid, iso) {
 
 /* ----------------------------------------------------------------- handler */
 
-export default async function handler(req) {
+export default withSentry(async function handler(req) {
   if (req.method !== 'POST') return err(405, 'METHOD', `Method ${req.method} not allowed`);
 
   const webhookSecret = process.env.LIVEBLOCKS_WEBHOOK_SECRET;
@@ -282,9 +286,14 @@ export default async function handler(req) {
       (result.version ? ' v' + result.version : ''));
     return ok(result);
   } catch (e) {
+    // The catch-all keeps the webhook contract clean (non-2xx -> Liveblocks re-delivers) — but it
+    // also means withSentry's own catch never fires. Report explicitly: a silently-failing webhook
+    // is exactly the "cloud save quietly stopped" failure this endpoint exists to prevent.
+    // (No-op when SENTRY_DSN is unset.)
+    await captureServerError(e, { route: 'liveblocks-webhook' });
     return err(502, 'INTERNAL', e?.message || 'unknown error');
   }
-}
+});
 
 function ok(payload) {
   return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });

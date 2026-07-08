@@ -3,6 +3,7 @@ export const config = { runtime: 'edge' };
 import { Liveblocks } from '@liveblocks/node';
 import { checkAccess, requestUserId } from './_lib/access.js';
 import { pgrValue } from './_lib/pgrest.js';
+import { withSentry, captureServerError } from './_lib/sentry.js';
 
 /**
  * Script Library — LIVEBLOCKS AUTH (collab Phase 1).
@@ -80,7 +81,7 @@ export function collabIdentity(userId, profile, randomSuffix = null) {
   return { id, name, color, attributed };
 }
 
-export default async function handler(req) {
+export default withSentry(async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return err(405, 'METHOD', `Method ${req.method} not allowed`);
 
@@ -120,9 +121,13 @@ export default async function handler(req) {
       headers: { 'Content-Type': 'application/json', ...CORS },
     });
   } catch (e) {
+    // The catch turns any throw in the mint path into a clean 502 — so withSentry's own catch
+    // never fires. Report explicitly; a broken token mint takes down ALL collab, exactly the
+    // kind of failure monitoring exists for. (No-op when SENTRY_DSN is unset.)
+    await captureServerError(e, { route: 'liveblocks-auth' });
     return err(502, 'LIVEBLOCKS_AUTH', e?.message || 'liveblocks authorize failed');
   }
-}
+});
 
 // Best-effort user_profiles lookup ({ display_name, color }) via the service key. Any failure —
 // missing env, missing table, no row — resolves to null and the identity falls back gracefully.

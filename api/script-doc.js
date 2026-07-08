@@ -2,6 +2,7 @@ export const config = { runtime: 'edge' };
 
 import { pgrValue } from './_lib/pgrest.js';
 import { checkAccess, requestUserId } from './_lib/access.js';
+import { withSentry, captureServerError } from './_lib/sentry.js';
 
 /**
  * Script Library — GENERALIZED per-project cloud doc (Enterprise Wave 2).
@@ -45,7 +46,7 @@ const CORS = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function handler(req) {
+export default withSentry(async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (!SUPABASE_URL || !SUPABASE_KEY) return err(500, 'NO_DB', 'Supabase env not configured');
 
@@ -94,9 +95,13 @@ export default async function handler(req) {
 
     return err(405, 'METHOD', `Method ${req.method} not allowed`);
   } catch (e) {
+    // This catch-all turns any unexpected throw into a clean 500 for the client — which also
+    // means withSentry's own catch never fires. Report explicitly so returning a tidy error
+    // never means hiding the error from monitoring. (No-op when SENTRY_DSN is unset.)
+    await captureServerError(e, { route: 'script-doc' });
     return err(500, 'INTERNAL', e?.message || 'unknown error');
   }
-}
+});
 
 /* ---------------------------------------------------------------- resolve */
 
