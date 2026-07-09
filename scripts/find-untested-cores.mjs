@@ -24,16 +24,22 @@
 // Usage:
 //   bun scripts/find-untested-cores.mjs          # human summary
 //   bun scripts/find-untested-cores.mjs --json    # machine list of NONE modules
+//   bun scripts/find-untested-cores.mjs --prune   # self-heal: drop STALE ledger entries
 //
 // Exit code is ALWAYS 0 — this is a census, not a gate. Coverage gaps here are a
 // judgment call (much of NONE is un-unit-testable DOM glue), so it never fails CI.
 
-import { readdirSync, statSync, readFileSync, existsSync, realpathSync } from 'node:fs';
+import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve, relative, extname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pruneLedgerText } from './lib/prune-ledger.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const JSON_OUT = process.argv.includes('--json');
+// --prune self-heals the ledger: it deletes STALE entries (file gone OR now
+// test-locked), codifying the manual step the ledger _README documents. Safe by
+// construction — a stale entry's suppression is already dead weight (see below).
+const PRUNE = process.argv.includes('--prune');
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.vercel', 'coverage']);
 const isTest = (p) => /\.(test|spec)\.(mjs|js|ts)$/.test(p) || /-test\.(mjs|js|ts)$/.test(p);
@@ -224,6 +230,28 @@ const suppressed = allGaps.filter((p) => SUPPRESS.has(ledgerStatus(p)));
 const noneSet = new Set(none);
 const staleLedger = Object.keys(ledger).filter((p) => !noneSet.has(p));
 
+if (PRUNE) {
+  if (!staleLedger.length) {
+    console.log('Ledger is clean — no stale entries to prune.');
+    process.exit(0);
+  }
+  // Surgically drop each stale entry's line via the pure, mutation-locked helper
+  // (preserves the file's one-line-per-entry formatting → minimal diff; refuses
+  // rather than corrupt the ledger). See scripts/lib/prune-ledger.mjs.
+  let text;
+  try { text = readFileSync(LEDGER_PATH, 'utf8'); }
+  catch { console.error('Cannot --prune: ledger is missing or malformed.'); process.exit(1); }
+  const { next, pruned, ok } = pruneLedgerText(text, staleLedger);
+  if (!ok) {
+    console.error('Refusing to --prune: surgical removal would not cleanly drop exactly the stale entries. Prune by hand.');
+    process.exit(1);
+  }
+  writeFileSync(LEDGER_PATH, next);
+  console.log(`Pruned ${pruned.length} stale ledger entr${pruned.length === 1 ? 'y' : 'ies'} (file gone OR now test-locked):`);
+  for (const p of pruned) console.log('  - ' + p);
+  process.exit(0);
+}
+
 if (JSON_OUT) {
   console.log(JSON.stringify({ gaps, suppressed, glue, staleLedger }, null, 2));
   process.exit(0);
@@ -256,7 +284,7 @@ if (suppressed.length) {
 }
 if (staleLedger.length) {
   console.log('');
-  console.log('⚠ STALE ledger entries (file gone OR now test-locked — prune from the ledger):');
+  console.log('⚠ STALE ledger entries (file gone OR now test-locked — run with --prune to drop them):');
   for (const p of staleLedger) console.log('  ! ' + p);
 }
 console.log('');
