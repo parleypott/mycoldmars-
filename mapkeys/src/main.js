@@ -7,7 +7,7 @@ import { feature as topoFeature } from 'topojson-client';
 // (coastlines, archipelagos, peninsulas all detailed) instead of low-poly
 // 110m blocks. Worth the payload for a video/animation tool.
 import countriesTopo from 'world-atlas/countries-10m.json';
-import { regularPolygonCoords, KM_PER_DEG_LAT } from './polygon-geom.js';
+import { regularPolygonCoords, KM_PER_DEG_LAT, clampSides } from './polygon-geom.js';
 import { extractKmlCoords } from './kml-coords.js';
 import {
   haversine, buildRoute, sliceRoute, lineCentroid, transformLineCoords,
@@ -2102,7 +2102,7 @@ function hydrateShape(raw) {
     id: raw.id,
     type: raw.type,
     name: raw.name || baseName,
-    sides: typeof raw.sides === 'number' ? raw.sides : 8,
+    sides: clampSides(raw.sides),
     label: typeof raw.label === 'string' ? raw.label : '',
     baseCoords: Array.isArray(raw.baseCoords) ? raw.baseCoords : [],
     countryId: raw.countryId,

@@ -8,7 +8,7 @@
 // shapes (the default octagon) are symmetric under a 180° flip, so the fix is a
 // no-op for them and only corrects odd-sided shapes.
 
-import { regularPolygonCoords, KM_PER_DEG_LAT } from './polygon-geom.js';
+import { regularPolygonCoords, KM_PER_DEG_LAT, clampSides } from './polygon-geom.js';
 
 let pass = 0, fail = 0;
 const EPS = 1e-9;
@@ -116,6 +116,40 @@ for (const sides of [3, 5, 7, 9, 11]) {
   const a = regularPolygonCoords([0, 0], 6, 50, 0);
   const b = regularPolygonCoords([5, 0], 6, 50, 0);
   ok(near(b[0][0] - a[0][0], 5) && near(b[0][1], a[0][1]), 'center offset translates every vertex by the same delta');
+}
+
+// ── clampSides: the import/hydrate guard on `sides`. The editor clamps its input
+// to [3,24], but hydrateShape trusted raw.sides verbatim — so an imported project
+// .json with a huge or Infinity `sides` (JSON.parse('1e999') === Infinity) ran
+// regularPolygonCoords' `for (i < sides)` loop a billion times / forever and FROZE
+// the tab. clampSides pins the import path to the same [3,24] the editor enforces. ──
+
+// Legit editor values pass through byte-identical (the no-regression contract).
+for (const n of [3, 4, 8, 12, 24]) ok(clampSides(n) === n, `legit sides ${n} unchanged`);
+ok(clampSides(undefined) === 8, 'missing sides -> octagon default (was: typeof-guard default 8)');
+ok(clampSides('8') === 8, 'non-number string -> default (Number.isFinite("8") is false)');
+
+// The freeze vectors — the whole point of the guard.
+ok(clampSides(Infinity) === 8, 'Infinity (from JSON 1e999) -> default, not a hang');
+ok(clampSides(-Infinity) === 8, '-Infinity -> default');
+ok(clampSides(NaN) === 8, 'NaN -> default');
+ok(clampSides(1e9) === 24, 'huge finite side count clamped to 24, not a billion-vertex loop');
+ok(clampSides(999999999) === 24, 'another huge finite value clamped to the [3,24] cap');
+ok(clampSides(2) === 3, 'below-min clamped up to 3 (a 2-gon has no area)');
+ok(clampSides(5.7) === 5, 'fractional floored to a whole side count');
+
+// The clamped sides is safe to feed the ring builder — no freeze, bounded ring.
+{
+  const ring = regularPolygonCoords([0, 0], clampSides(Infinity), 50, 0);
+  ok(ring.length === 8 + 1, 'Infinity sides -> clamped 8-gon ring (8 verts + closing dup), no hang');
+}
+
+// ── Inline RED proof: the OLD unguarded hydrate expression let the freeze value
+// straight through. Reconstruct it and show the guard is load-bearing. ──
+{
+  const oldHydrateSides = (raw) => (typeof raw === 'number' ? raw : 8);
+  ok(oldHydrateSides(Infinity) === Infinity, 'OLD guard admitted Infinity (the freeze) — clampSides now blocks it');
+  ok(oldHydrateSides(1e9) === 1e9, 'OLD guard admitted a billion sides — clampSides now caps it at 24');
 }
 
 console.log(`polygon-geom: ${pass} passed, ${fail} failed`);

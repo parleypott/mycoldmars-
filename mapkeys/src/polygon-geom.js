@@ -3,6 +3,20 @@
 
 export const KM_PER_DEG_LAT = 111.32;
 
+// Editor-legal side count for a regular polygon: an integer in [3, 24] (the
+// ss-sides input's min/max, and what the editor's own input handler clamps to).
+// The IMPORT/hydrate path (hydrateShape) trusted raw.sides verbatim, so a
+// project .json with a huge `"sides": 999999999` — or `1e999`, which JSON.parse
+// turns into Infinity — sailed past its `typeof === 'number'` guard straight
+// into regularPolygonCoords' `for (i < sides)` vertex loop and FROZE the tab
+// (a billion-iteration loop / Infinity = hang). Clamp to the same [3,24] the
+// editor enforces; non-finite / non-numeric falls back to the octagon default.
+// Byte-identical for every legit stored value (3..24 integers pass through).
+export function clampSides(raw, fallback = 8) {
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.max(3, Math.min(24, Math.floor(raw)));
+}
+
 // Approximate regular polygon ring in lng/lat. Not perfectly geodesic but
 // visually correct at typical zoom levels. Scales lng by 1/cos(lat) so the
 // shape doesn't squash near the poles.
