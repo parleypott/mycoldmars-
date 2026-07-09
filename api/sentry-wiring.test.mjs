@@ -59,18 +59,22 @@ for (const [f, { reports }] of ENDPOINTS) {
   }
 }
 
-/* ---- 2b. the NODEJS-runtime exclusion (incident 2026-07-08) ----
-   liveblocks-webhook is the repo's one runtime:'nodejs' function; _lib/sentry.js imports
-   @sentry/vercel-edge at module top, which CRASHES the nodejs runtime at cold start —
-   every delivery became FUNCTION_INVOCATION_FAILED the moment the wrap shipped. The
-   webhook must stay UNWRAPPED until a runtime-agnostic helper exists. This guard makes
-   re-wrapping it a red test instead of a silent production outage. */
+/* ---- 2b. the NODEJS-runtime webhook is DELIBERATELY unwrapped (not a runtime constraint) ----
+   liveblocks-webhook is the repo's one runtime:'nodejs' function. It stays UNWRAPPED for now,
+   but NOT because @sentry crashes node: the earlier "crashes the nodejs runtime at cold start"
+   note was a MISDIAGNOSIS (iteration #17) — the real 2026-07-08 FUNCTION_INVOCATION_FAILED cause
+   was a web-shaped req.text() on a nodejs handler, since fixed by a Node->web bridge adapter.
+   The @sentry/vercel-edge SDK loads fine on node (it's fetch-transport only, and this webhook's
+   own module graph already imports it transitively via script-doc.js/liveblocks-auth.js while
+   staying live-healthy). So wrapping is SAFE; it's deferred only until an attended signed-delivery
+   test can confirm end-to-end reporting. This guard locks the current unwrapped state so any
+   future wrap is a deliberate, visible decision (a red test) rather than a silent drift. */
 {
   const src = await readFile(new URL('./liveblocks-webhook.js', import.meta.url), 'utf8');
   ok(/runtime:\s*'nodejs'/.test(src),
-    'w4. liveblocks-webhook still declares the nodejs runtime (the reason for the exclusion)');
+    'w4. liveblocks-webhook still declares the nodejs runtime');
   ok(!src.includes("from './_lib/sentry.js'"),
-    'w5. liveblocks-webhook does NOT import the edge-only sentry helper (crashes nodejs runtime)');
+    'w5. liveblocks-webhook does NOT import the sentry helper directly (deliberately unwrapped)');
   ok(/export default async function handler/.test(src),
     'w6. liveblocks-webhook default export is a bare handler (unwrapped)');
 }

@@ -13,12 +13,19 @@ import { pgrValue } from './_lib/pgrest.js';
 // Sentry: the shared _lib/sentry.js wrapper is built on @sentry/vercel-edge, which is fetch-
 // transport only — no Node-specific APIs — so it works on this nodejs-runtime handler too
 // (Vercel's node runtime has global fetch). Same no-op-without-SENTRY_DSN contract as everywhere.
-// SENTRY EXCLUSION (incident 2026-07-08): this is the repo's ONE nodejs-runtime function
-// (see config below — yjs needs it). api/_lib/sentry.js imports @sentry/vercel-edge at module
-// top, which CRASHES the nodejs runtime at cold start — every invocation became
-// FUNCTION_INVOCATION_FAILED the moment the withSentry wrap shipped, killing webhook
-// deliveries exactly when the signing secret was armed. This endpoint keeps its own thorough
-// error handling + console logs and stays UNWRAPPED until a runtime-agnostic helper exists.
+// SENTRY EXCLUSION (deliberate, NOT a runtime constraint): this is the repo's ONE nodejs-runtime
+// function (see config below — yjs needs it), and it stays UNWRAPPED for now. The earlier note
+// blaming @sentry/vercel-edge for crashing the nodejs runtime at cold start was a MISDIAGNOSIS
+// (iteration #17, 2026-07-08): the real cause of the FUNCTION_INVOCATION_FAILED wave was the
+// web-shaped `req.text()` call on a nodejs handler (fixed by the Node->web bridge adapter noted
+// at the top). The @sentry SDK does NOT crash this runtime — proven two ways: (1) this file's
+// own module graph already pulls in @sentry/vercel-edge transitively (script-doc.js and
+// liveblocks-auth.js below are both withSentry-wrapped) and the webhook is live-healthy, and
+// (2) per the note just above, the edge SDK is fetch-transport only and loads fine on node.
+// So this endpoint COULD be withSentry-wrapped safely; it's left unwrapped only until an
+// attended signed-delivery test confirms wrapping reports end-to-end (can't be driven headless).
+// Until then it keeps its own thorough error handling + console logs. The w4-w6 guard in
+// sentry-wiring.test.mjs locks this unwrapped state so any future wrap is a deliberate, visible call.
 // THE SHARED WRITE GATES — imported from the generalized doc endpoint, never re-implemented, so a
 // webhook write obeys the exact same version contract as every client PUT: strictly-advancing
 // versions vetted by isWriteAcceptable, made atomic at the DB by updateGuardClause's CAS filter.
