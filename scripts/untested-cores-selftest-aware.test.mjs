@@ -24,16 +24,23 @@ const out = execFileSync('node', [join(HERE, 'find-untested-cores.mjs'), '--json
 const census = JSON.parse(out);
 const gaps = new Set(census.gaps || []);
 
-// Parse the runner's actual gate lists — the same source of truth the census reads.
+// The gate list comes from the SHARED discovery module — the SAME source of truth the
+// suite runner AND the census read, so all three can't drift. (Old design: three separate
+// copies — a hardcoded array in run-tests.mjs re-parsed by regex here + in the census.)
+const { gateBasenames } = await import('./lib/gate-scripts.mjs');
+const gates = gateBasenames(join(HERE));
+ok(gates.length >= 20, `shared discovery exposes a real gate list (got ${gates.length})`);
+
+// The runner and census must both consume that shared discovery — assert the coupling
+// is real (guards against someone silently reverting run-tests.mjs to a hardcoded list
+// that drifts from the census's self-test awareness).
 const runnerSrc = readFileSync(join(HERE, 'run-tests.mjs'), 'utf8');
-const gateBasenames = [];
-for (const m of runnerSrc.matchAll(/const\s+(?:SHELL|BUN)_GATES\s*=\s*\[([^\]]*)\]/g)) {
-  for (const lit of m[1].matchAll(/['"]([^'"]+\.(?:mjs|js|sh))['"]/g)) gateBasenames.push(lit[1]);
-}
-ok(gateBasenames.length >= 20, `runner exposes a real gate list (got ${gateBasenames.length})`);
+const censusSrc = readFileSync(join(HERE, 'find-untested-cores.mjs'), 'utf8');
+ok(/gate-scripts\.mjs/.test(runnerSrc), 'run-tests.mjs uses the shared gate discovery');
+ok(/gate-scripts\.mjs/.test(censusSrc), 'find-untested-cores.mjs uses the shared gate discovery');
 
 // (a) No runner-executed gate script is ever reported as an untested gap.
-for (const b of gateBasenames) {
+for (const b of gates) {
   ok(!gaps.has(`scripts/${b}`), `self-tested gate scripts/${b} must not be a census gap`);
 }
 

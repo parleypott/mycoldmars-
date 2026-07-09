@@ -35,6 +35,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cpus } from 'node:os';
+import { gateBasenames } from './lib/gate-scripts.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const IGNORE_DIRS = new Set(['node_modules', 'dist', '.git', '.vercel']);
@@ -97,14 +98,28 @@ const EXPLICIT_TESTS = [
 // belong here. The divergence scanner is a TRIAGE tool (a new shared-name copy isn't
 // inherently a bug — it'd false-RED), and the deploy/route scripts need a live network,
 // so all of those stay manual dev tools, out of the offline suite.
-const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.sh', 'find-unguarded-date-format.sh', 'find-hour-drop-timecode.sh', 'find-html-parse-errors.sh'].flatMap((s) =>
-  ['--self-test', '--check'].map((mode) => ({
-    file: join(ROOT, 'scripts', s),
-    cmd: 'bash',
-    args: [join(ROOT, 'scripts', s), mode],
-    label: `scripts/${s} ${mode}`,
-  })),
-);
+//
+// AUTO-DISCOVERY (not a hand-listed array): a script is a GATE iff it lives in scripts/,
+// is named find-*.{mjs,sh}, and its source implements BOTH the --self-test AND --check
+// contract (both flag literals present). This is the SAME forget-proofing the *.test.mjs
+// auto-glob gives suites: the moment a future iteration drops a new find-*.mjs gate it
+// auto-wires into `bun run test` with ZERO edit here — so a gate can't sit on disk,
+// pass by hand, and silently NEVER run in the suite (the exact false-green this runner is
+// paranoid about, and which the OLD hardcoded SHELL_GATES/BUN_GATES arrays were one
+// forgotten append away from). The catalog comment below documents WHY each gate exists;
+// it is no longer the source of truth for WHICH gates run — the contract on disk is.
+// Triage/census tools (find-divergent-fns.sh, diff-divergent-fn.sh, find-untested-cores.mjs)
+// implement no --self-test+--check pass/fail contract, so they're excluded by construction.
+// .sh gates run under bash, .mjs gates under bun; each runs both modes (rationale below).
+// gateBasenames() (scripts/lib/gate-scripts.mjs) is the shared discovery — the SAME list
+// the coverage census + its lock test read, so the three can't drift.
+const GATES = gateBasenames(join(ROOT, 'scripts')).flatMap((name) => {
+  const full = join(ROOT, 'scripts', name);
+  const cmd = name.endsWith('.sh') ? 'bash' : 'bun';
+  return ['--self-test', '--check'].map((mode) => ({
+    file: full, cmd, args: [full, mode], label: `scripts/${name} ${mode}`,
+  }));
+});
 
 // Same dual-mode contract as SHELL_GATES, but these gates are bun scripts (cleaner
 // paren-balanced parsing than awk for AST-shaped checks). find-bool-sort-comparator
@@ -241,24 +256,17 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // (scripts/noinitial-reduce-triage.tsv): starts GREEN (repo has zero today);
 // --check fails only on a NEW site, forcing a can-this-array-be-empty judgment
 // (the fix is almost always just passing the seed as the second argument).
-const BUN_GATES = ['find-bool-sort-comparator.mjs', 'find-truthy-zero.mjs', 'find-nan-sort-comparator.mjs', 'find-naive-body-read.mjs', 'find-inline-gemini-contents.mjs', 'find-inline-anthropic-messages.mjs', 'find-divide-by-length.mjs', 'find-wrongtype-json-parse.mjs', 'find-unguarded-decode.mjs', 'find-unguarded-boot-localstorage.mjs', 'find-tz-date-drift.mjs', 'find-bare-sort.mjs', 'find-dynamic-regex.mjs', 'find-spread-overflow.mjs', 'find-negative-slice.mjs', 'find-naive-json-extract.mjs', 'find-utf16-byte-cap.mjs', 'find-stateful-global-regex.mjs', 'find-divergent-md-stripper.mjs', 'find-attr-unsafe-escaper.mjs', 'find-rangeerror-alloc.mjs', 'find-noinitial-reduce.mjs', 'find-flavor-legend-drift.mjs'].flatMap((s) =>
-  ['--self-test', '--check'].map((mode) => ({
-    file: join(ROOT, 'scripts', s),
-    cmd: 'bun',
-    args: [join(ROOT, 'scripts', s), mode],
-    label: `scripts/${s} ${mode}`,
-  })),
-);
+// (The gate SET is auto-discovered by discoverGates() above — this catalog documents
+// each gate's rationale but no longer decides which run.)
 
-// Union of auto-discovered + explicit, de-duped by absolute path so a file that somehow
-// matches both lists (e.g. an explicit entry later renamed to a standard suffix) can't
-// run twice.
+// Union of auto-discovered suites + explicit + auto-discovered gates, de-duped by absolute
+// path (+ args) so a file that somehow matches two sources can't run twice.
 // Dedup key includes args, because a gate lists the SAME script twice (--self-test and
 // --check) — keying on `file` alone would silently drop one mode. Auto/explicit suites
 // carry no args, so their key stays just the path (unchanged behaviour).
 const suiteKey = (t) => t.file + (t.args ? ' ' + t.args.join(' ') : '');
 const seenPaths = new Set();
-const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS, ...SHELL_GATES, ...BUN_GATES]
+const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS, ...GATES]
   .filter((t) => (seenPaths.has(suiteKey(t)) ? false : (seenPaths.add(suiteKey(t)), true)))
   .sort((a, b) => (a.label || relative(ROOT, a.file)).localeCompare(b.label || relative(ROOT, b.file)));
 

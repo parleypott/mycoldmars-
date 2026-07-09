@@ -144,22 +144,18 @@ for (const t of testFiles) {
 // that mode on every `bun run test` via its SHELL_GATES + BUN_GATES lists. So a
 // gate in those lists IS locked against regression, just through a different
 // mechanism than import/extraction. The import-only census was blind to this and
-// re-flagged find-inline-gemini-contents / find-naive-body-read (both in BUN_GATES)
+// re-flagged find-inline-gemini-contents / find-naive-body-read (both gates)
 // AND sort-comparators.mjs (the shared classifier those gates import + self-test)
 // as untested "gaps" EVERY iteration — pure recurring triage waste. Resolve the
-// runner's gate list to absolute paths and follow each gate's relative imports one
-// level so the shared cores they exercise are covered too. Parsing the runner's
-// actual arrays (not a hardcoded list) means any FUTURE gate added to BUN_GATES is
-// auto-recognized with zero census edit.
+// gate list to absolute paths and follow each gate's relative imports one level so
+// the shared cores they exercise are covered too. The gate list comes from the SHARED
+// discovery (scripts/lib/gate-scripts.mjs) — the SAME source the suite runner reads —
+// so a FUTURE gate (any find-*.{mjs,sh} carrying the --self-test/--check contract) is
+// auto-recognized here with zero census edit.
 const selfTestedByRunner = new Set();
 try {
-  const runnerSrc = readFileSync(join(ROOT, 'scripts', 'run-tests.mjs'), 'utf8');
-  // Pull every gate basename out of the SHELL_GATES / BUN_GATES array literals.
-  const gateBasenames = [];
-  for (const m of runnerSrc.matchAll(/const\s+(?:SHELL|BUN)_GATES\s*=\s*\[([^\]]*)\]/g)) {
-    for (const lit of m[1].matchAll(/['"]([^'"]+\.(?:mjs|js|sh))['"]/g)) gateBasenames.push(lit[1]);
-  }
-  for (const b of gateBasenames) {
+  const { gateBasenames } = await import('./lib/gate-scripts.mjs');
+  for (const b of gateBasenames(join(ROOT, 'scripts'))) {
     const gatePath = join(ROOT, 'scripts', b);
     if (!existsSync(gatePath)) continue;
     let real = gatePath; try { real = realpathSync(gatePath); } catch {}
