@@ -531,6 +531,36 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
      'a lone `>`-arrow in quote content is still preserved, not folded into a list');
 }
 {
+  // ── MULTI-PARAGRAPH blockquote: a blank `>` line is a PARAGRAPH BREAK ──
+  // Deep-research reports quote multi-paragraph passages ("> p1\n>\n> p2"). The blank
+  // quote line is semantically a paragraph boundary, DISTINCT from a soft wrap. Within
+  // the reader's deliberate no-<p> quote design (soft wrap => a single <br>, see the
+  // "zero regression" guard above), a paragraph break renders as <br><br> — a bigger
+  // gap that reads AS a new paragraph. This form was previously UNTESTED; lock it so a
+  // future renderQuoteInner refactor can't silently collapse quoted paragraphs together.
+  eq(mdToHtml('> First paragraph of the quote.\n>\n> Second paragraph continues.'),
+     '<blockquote>First paragraph of the quote.<br><br>Second paragraph continues.</blockquote>',
+     'a blank `>` line splits quoted paragraphs with <br><br> (bigger than a soft-wrap <br>)');
+
+  // The paragraph break (<br><br>) must be STRICTLY MORE separation than a soft wrap
+  // (<br>) — this is the load-bearing distinction. A soft-wrapped line then a blank-line
+  // paragraph break in the same quote proves the two render differently.
+  eq(mdToHtml('> line one\n> line two\n>\n> new para'),
+     '<blockquote>line one<br>line two<br><br>new para</blockquote>',
+     'soft wrap (<br>) and paragraph break (<br><br>) stay distinct in one quote');
+
+  // Three paragraphs => two <br><br> gaps, one <blockquote>.
+  const q3 = mdToHtml('> a\n>\n> b\n>\n> c');
+  eq(q3, '<blockquote>a<br><br>b<br><br>c</blockquote>', 'three quoted paragraphs keep both breaks in one quote');
+  ok((q3.match(/<blockquote>/g) || []).length === 1, 'multi-paragraph quote is still a SINGLE <blockquote>');
+
+  // Inline transforms (bold, links) still render across the paragraph break.
+  const qRich = mdToHtml('> **Bold** intro.\n>\n> A [link](https://x.com) follows.');
+  ok(/<strong>Bold<\/strong>/.test(qRich) && /<a href="https:\/\/x\.com"[^>]*>link<\/a>/.test(qRich),
+     'bold + link render inside a multi-paragraph blockquote');
+  ok(/intro\.<br><br>A /.test(qRich), 'the paragraph break survives between rich paragraphs');
+}
+{
   // ── a fenced CODE BLOCK inside a blockquote does NOT leak its `> ` markers ──
   // The fence stash runs BEFORE the blockquote pass, so a quoted fence
   // ("> ```\n> code\n> ```") baked its `&gt; ` quote prefixes INTO the captured
