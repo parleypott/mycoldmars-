@@ -1581,7 +1581,10 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
   opacity: .24; filter: grayscale(.65);
   transition: opacity .2s var(--ease), filter .2s var(--ease);
 }
-.wp-page[data-roles] .wp-editor [data-trow].wp-chframe { opacity: 1; filter: none; }
+/* keep only the chapter MASTHEAD lit (wp-chframe-first), NOT every framed row — .wp-chframe
+   is decorated onto every row in a chapter run, so keying the exception off it kept the whole
+   doc lit and nothing faded. The masthead is the -first row only. */
+.wp-page[data-roles] .wp-editor [data-trow].wp-chframe-first { opacity: 1; filter: none; }
 
 .wp-page[data-roles~="animation"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="animation"]) { opacity: 1; filter: none; }
 .wp-page[data-roles~="3d"]        .wp-editor [data-trow]:has(.wp-dhl[data-kind="3d"]) { opacity: 1; filter: none; }
