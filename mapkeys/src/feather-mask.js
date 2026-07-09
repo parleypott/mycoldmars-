@@ -62,7 +62,12 @@ export function featherPlan({ z, x, y }, rectLngLat, cropFrac, featherFrac, size
   const rect = insetRect(rectToMerc(rectLngLat), cropFrac);
   if (rect.x1 <= rect.x0 || rect.y1 <= rect.y0) return { coverage: 'outside', ramps: [] };
 
-  const featherM = Math.max(0, featherFrac || 0) * Math.min(rect.x1 - rect.x0, rect.y1 - rect.y0);
+  // Clamp featherFrac to [0, 0.5] — symmetric with insetRect's cropFrac clamp. At 0.5 the two
+  // opposing feather ramps meet exactly at the rect's center on its short axis; beyond that they
+  // cross and the mask over-darkens (a corrupt/hydrated/legacy value would otherwise slip through
+  // — the UI slider caps at 0.40, but this pure core is the real chokepoint the URL/undo paths hit).
+  const ff = Math.max(0, Math.min(0.5, featherFrac || 0));
+  const featherM = ff * Math.min(rect.x1 - rect.x0, rect.y1 - rect.y0);
 
   // Fully outside the (un-feathered) rect → transparent tile.
   if (tile.x1 <= rect.x0 || tile.x0 >= rect.x1 || tile.y1 <= rect.y0 || tile.y0 >= rect.y1) {

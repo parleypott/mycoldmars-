@@ -109,5 +109,35 @@ const EU = [[0, 40], [40, 60]]; // a Europe-ish rect
 eq(parseFeatherUrl('https://normal.example/5/1/1.png'), null, 'non-mkfeather URL → null');
 eq(parseFeatherUrl('mkfeather://tile/5/1/1?src=&rect=1,2,3'), null, 'malformed params → null');
 
+// ── featherFrac upper-clamp — symmetric with insetRect's cropFrac clamp ──
+// featherFrac flows persisted→hydrate→URL→featherPlan; the UI slider caps at 0.40 but this pure
+// core is the real chokepoint. Guard: [0, 0.5]. Byte-identical for every reachable value (≤0.40),
+// and an out-of-range value (corrupt cloud doc / undo snapshot / future slider bump) can no longer
+// push the opposing feather ramps past the rect center into an over-darkened mask.
+{
+  // Reuse the west-edge tile from the partial-coverage case above — it straddles rect.x0 at every
+  // feather width, so it stays 'partial' and its west ramp (ramps[0]) carries the featherM signal.
+  const rect = rectToMerc(EU);
+  const z = 4, s = 1 / 16;
+  const x = Math.floor(rect.x0 / s);
+  const y = Math.floor(((rect.y0 + rect.y1) / 2) / s);
+  // West feather width in px = ramps[0].toPx - ramps[0].fromPx = fpx (∝ clamped featherFrac).
+  const fpx = (ff) => { const p = featherPlan({ z, x, y }, EU, 0, ff, 256); return p.ramps[0].toPx - p.ramps[0].fromPx; };
+
+  const at040 = fpx(0.40);   // top of the reachable UI range
+  const at050 = fpx(0.50);   // the clamp target
+  ok(at040 > 1 && at050 > 1, 'both feathers produce a real (non-hair) ramp at z4');
+  ok(at050 > at040, '0.5 is strictly wider than 0.40 — the clamp target is a real distinct value');
+
+  // In-range value is UNTOUCHED (identical to itself; clamp is a no-op below 0.5).
+  near(fpx(0.40), at040, 1e-9, 'in-range 0.40 is stable under the clamp');
+  // Over-range values ALL collapse to the 0.5 result — the upper clamp is load-bearing.
+  near(fpx(0.9), at050, 1e-9, 'featherFrac 0.9 clamps to 0.5');
+  near(fpx(4),   at050, 1e-9, 'featherFrac 4 clamps to 0.5');
+  near(fpx(1e6), at050, 1e-9, 'a wild value clamps to 0.5, never runs away');
+  // The pre-existing Math.max(0,…) lower floor is untouched by the added upper bound: a negative
+  // value still yields featherM 0 (verified elsewhere via insetRect's negative-crop clamp).
+}
+
 console.log(`feather-mask: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
