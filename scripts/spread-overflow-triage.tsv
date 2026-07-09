@@ -44,3 +44,4 @@ zanyplans/src/mac-window.js	Math.max(...Array.from(win.parentElement?.children||
 public/ascent/src/app.js	Math.max(...window.LANDMARKS.map(l=>l.h))	SAFE	LANDMARKS = fixed 12-entry hardcoded landmark seed in landmarks.js — bounded, never empty
 public/ascent/src/app.js	Math.min(...P.map((p)=>p[1]))	SAFE	P = one curves points, guarded by `if (pts.length < 2) return` above and downsampled to <=700 pts — bounded, never empty
 public/humanelement-cal/index.html	Math.min(...dated.map(p=>D(p.s).getTime()))	SAFE	dated = one episode phases minus pre-phases — a handful of static hardcoded entries, never unbounded, so no spread stack-overflow. Every EPISODES entry has dated phases, so the array is never empty either.
+public/humanelement-cal/index.html	Math.min(...datedStartMs)	SAFE	datedStartMs = one episode dated (non-pre) phase starts, a handful of hand-authored phases per episode, never unbounded

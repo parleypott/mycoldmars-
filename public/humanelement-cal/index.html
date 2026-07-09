@@ -498,6 +498,23 @@ document.getElementById('legend-gantt').innerHTML =
   `<span class="li"><span class="dot" style="background:transparent;border:1px solid var(--c-ooo)"></span>OOO</span>` +
   `<span class="li"><span class="dot" style="background:var(--grey)"></span>Adam / channel</span>`;
 
+/* Percent-complete for a card's progress bar. Guards total === 0 (an episode
+   added with NO phases — a Season-2 stub / placeholder Johnny might drop into a
+   plan he actively edits) so the bar reads 0%, never `NaN%`. Same stub-episode
+   resilience story as pickNextCut above; extracted for the mutation-lock test. */
+function pctComplete(doneN, total){ return total > 0 ? Math.round(doneN / total * 100) : 0; }
+/* Gantt bar span [s,e] (epoch-ms) for an episode: earliest dated-phase start →
+   latest of (dated-phase ends, pub-cut ms). Returns null when the episode has NO
+   dated phase (all `pre`, or an empty-phases stub): the old inline
+   Math.min(...[])/Math.max(pubMs, ...[]) produced Infinity/-Infinity, which
+   pct-clamped to a negative-width (broken/invisible) bar. Byte-identical to the
+   old spanS/spanE for every episode WITH a dated phase; the caller skips the bar
+   when null (the pub-cut ◆ marker is drawn separately, so a stub still shows). */
+function episodeSpan(datedStartMs, datedEndMs, pubMs){
+  if (!datedStartMs.length) return null;
+  return { s: Math.min(...datedStartMs), e: Math.max(pubMs, ...datedEndMs) };
+}
+
 /* ═══ GANTT ═══ */
 (function buildGantt(){
   const g = document.getElementById('gantt');
@@ -513,11 +530,10 @@ document.getElementById('legend-gantt').innerHTML =
 
   EPISODES.forEach(ep => {
     const dated = ep.phases.filter(p=>!p.pre);
-    const spanS = Math.min(...dated.map(p=>D(p.s).getTime()));
     const pubMs = ep.pubCut && ep.pubCut.d ? D(ep.pubCut.d).getTime() : -Infinity;
-    const spanE = Math.max(pubMs, ...dated.map(p=>D(p.e).getTime()));
+    const span = episodeSpan(dated.map(p=>D(p.s).getTime()), dated.map(p=>D(p.e).getTime()), pubMs);
     html += `<div class="g-lane"><div class="g-label"><span class="num">${ep.n}</span><span class="place">${ep.place}</span><span class="who">${ep.editors}</span></div><div class="g-track">`;
-    html += `<div class="g-span" style="left:${pct(spanS)}%;width:${pct(spanE)-pct(spanS)}%;background:${ep.raw}"></div>`;
+    if (span) html += `<div class="g-span" style="left:${pct(span.s)}%;width:${pct(span.e)-pct(span.s)}%;background:${ep.raw}"></div>`;
     dated.forEach(p => {
       const s = D(p.s), e = new Date(D(p.e).getTime()+dayMs); /* inclusive end */
       const done = D(p.e) < TODAY ? ' past-done' : '';
@@ -652,7 +668,7 @@ function buildCards(){
   wrap.innerHTML = EPISODES.map(ep => {
     const sts = ep.phases.map(p => phaseStatus(ep, p));
     const doneN = sts.filter(s=>s.st==='done').length;
-    const pctDone = Math.round(doneN / ep.phases.length * 100);
+    const pctDone = pctComplete(doneN, ep.phases.length);
     const rows = ep.phases.map((p,i) => {
       const s = sts[i];
       const glyph = s.st==='done' ? '●' : s.st==='now' ? '◐' : '○';
