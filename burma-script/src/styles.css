@@ -1485,6 +1485,114 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 @media print { .wp-control { display: none !important; } }
 
 /* ============================================================
+   ROLE FOCUS HUB — the crew lens. Chrome cloned from .wp-control,
+   docked in the SAME left gutter but stacked BELOW the READING unit.
+   The dimming itself is the [data-roles] lens further down.
+   ============================================================ */
+.wp-role {
+  position: fixed; left: 16px; top: 372px; z-index: 139;
+  width: 188px;
+  font-family: var(--mono);
+  transition: transform .2s var(--ease), left .2s var(--ease);
+}
+.wp-role-body {
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 12px;
+  padding: 12px 13px 13px;
+  display: flex; flex-direction: column; gap: 10px;
+  transform-origin: 18px 18px;
+  opacity: 1; transform: scale(1);
+  transition: opacity .17s var(--ease-settle), transform .21s var(--ease-settle);
+}
+.wp-role.is-collapsed .wp-role-body {
+  opacity: 0; transform: scale(.55); pointer-events: none;
+  position: absolute; inset: 0;
+}
+.wp-role-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1.5px solid var(--ink); }
+.wp-role-ttl { font-size: 9px; letter-spacing: .22em; color: var(--ink); font-weight: 700; }
+.wp-role-collapse {
+  width: 22px; height: 22px; border: 1.5px solid var(--ink); border-radius: 6px; background: transparent;
+  font-family: var(--mono); font-size: 15px; line-height: 1; color: var(--label); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.wp-role-collapse:hover { background: var(--ink); color: var(--frame); }
+.wp-role-hint { font-size: var(--chrome-size-sm); line-height: 1.4; color: var(--label); margin: 0; }
+
+.wp-role-list { display: flex; flex-direction: column; gap: 5px; }
+.wp-role-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 30px; padding: 4px 8px;
+  border: 1.5px solid var(--ink); border-radius: 7px; background: transparent;
+  font-family: var(--mono); cursor: pointer; text-align: left;
+  transition: background .12s var(--ease), transform .12s var(--ease);
+}
+.wp-role-item:hover { transform: translateY(-1px); }
+.wp-role-item.is-active { border-width: 2.5px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.wp-role-swatch { width: 13px; height: 13px; border-radius: 4px; border: 1px solid var(--ink); flex: 0 0 auto; }
+.wp-role-name { flex: 1; font-size: 11.5px; color: var(--ink); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wp-role-check { font-size: 12px; color: var(--ink); width: 12px; text-align: center; }
+
+.wp-role-reset {
+  margin-top: 2px; padding: 6px 0; width: 100%;
+  border: 1.5px dashed var(--ink); border-radius: 7px; background: transparent;
+  font-family: var(--mono); font-size: var(--chrome-size-sm); letter-spacing: .1em; color: var(--label);
+  cursor: pointer; transition: background .12s var(--ease);
+}
+.wp-role-reset:hover:not(:disabled) { background: var(--ink); color: var(--frame); }
+.wp-role-reset:disabled { opacity: .35; cursor: default; }
+
+/* collapsed pill — an eye icon, mirroring the READING knob-icon */
+.wp-role-knobicon {
+  position: absolute; left: 0; top: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 56px; padding: 7px 0; border: 1.5px solid var(--ink); border-radius: 12px;
+  background: var(--frame); cursor: pointer; font-family: var(--mono);
+  opacity: 0; transform: scale(.7); pointer-events: none;
+  transition: opacity .17s var(--ease-settle), transform .21s var(--ease-settle);
+}
+.wp-role.is-collapsed .wp-role-knobicon { opacity: 1; transform: scale(1); pointer-events: auto; }
+.wp-role-eye { font-size: 20px; line-height: 1; color: var(--ink); }
+.wp-role-iconlab { font-size: var(--chrome-size); letter-spacing: .14em; color: var(--label); }
+.wp-role-knobicon:hover .wp-role-iconlab { color: var(--ink); }
+/* a small orange bead on the collapsed pill = a lens is active behind it */
+.wp-role-dot { position: absolute; top: 5px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
+
+/* slide right with the OUTLINE panel, exactly like the READING unit */
+.wp-role.outline-open { left: 296px; }
+
+/* narrow screens: the left gutter collapses — dock the role hub bottom-RIGHT so it never
+   collides with the READING unit (which docks bottom-left at these widths). */
+@media (max-width: 1280px) {
+  .wp-role, .wp-role.outline-open { left: auto; right: 12px; top: auto; bottom: 16px; }
+}
+@media (max-width: 720px) {
+  .wp-role, .wp-role.outline-open { right: 10px; bottom: 10px; width: 170px; }
+}
+@media print { .wp-role { display: none !important; } }
+
+/* ── THE LENS — pure CSS off .wp-page[data-roles]. Dim the ROW; a row that :has() an active
+   craft's tag stays fully lit — and because a VO always shares its row with the direction
+   spoken over it, keeping the row keeps that speech too (the co-occurrence guarantee).
+   Chapter mastheads (.wp-chframe rows) never dim: they're wayfinding, not craft content. ── */
+.wp-page[data-roles] .wp-editor [data-trow] {
+  opacity: .24; filter: grayscale(.65);
+  transition: opacity .2s var(--ease), filter .2s var(--ease);
+}
+.wp-page[data-roles] .wp-editor [data-trow].wp-chframe { opacity: 1; filter: none; }
+
+.wp-page[data-roles~="animation"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="animation"]) { opacity: 1; filter: none; }
+.wp-page[data-roles~="3d"]        .wp-editor [data-trow]:has(.wp-dhl[data-kind="3d"]) { opacity: 1; filter: none; }
+.wp-page[data-roles~="archive"]   .wp-editor [data-trow]:has(.wp-dhl[data-kind="archive"]) { opacity: 1; filter: none; }
+.wp-page[data-roles~="factcheck"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="factcheck"], [data-fc]) { opacity: 1; filter: none; }
+.wp-page[data-roles~="broll"]     .wp-editor [data-trow]:has(.wp-dhl[data-kind="broll"], [data-broll]) { opacity: 1; filter: none; }
+
+/* BOOST — inside a lit row, make YOUR craft's chip pop with a highlighter underlay */
+.wp-page[data-roles~="animation"] .wp-dhl[data-kind="animation"] { box-shadow: inset 0 -.55em 0 rgba(122,106,181,.35); }
+.wp-page[data-roles~="3d"]        .wp-dhl[data-kind="3d"] { box-shadow: inset 0 -.55em 0 rgba(184,167,46,.38); }
+.wp-page[data-roles~="archive"]   .wp-dhl[data-kind="archive"] { box-shadow: inset 0 -.55em 0 rgba(181,107,107,.35); }
+.wp-page[data-roles~="factcheck"] :is(.wp-dhl[data-kind="factcheck"], [data-fc]) { box-shadow: inset 0 -.55em 0 rgba(192,57,43,.30); }
+.wp-page[data-roles~="broll"]     :is(.wp-dhl[data-kind="broll"], [data-broll]) { box-shadow: inset 0 -.55em 0 rgba(208,135,63,.32); }
+
+/* ============================================================
    BLOCK MENU (change type / insert / delete) — FLAT hairline card
    ============================================================ */
 .wp-blockmenu {
@@ -2256,6 +2364,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-page[data-chfocus] .wp-rail,
 .wp-page[data-chfocus] .wp-outline,
 .wp-page[data-chfocus] .wp-control { display: none; }
+.wp-page[data-chfocus] .wp-role { display: none; }
 .wp-page[data-chfocus] .wp-mode { top: 52px; }
 .wp-page[data-chfocus] .wp-editor .wp-focus-out { display: none; }
 

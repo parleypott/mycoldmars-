@@ -47,6 +47,7 @@ export const BURMA = {
     CTRL: 'wp01.controls.v1',
     WORKSHOP: 'wp01_burma_workshop_v1',
     WS_WIDTH: 'wp01_burma_workshop_width_v1',
+    ROLES: 'wp01_burma_roles_v1',
     WRITE_TOKEN: 'wp01_burma_write_token_v1',
     DISMISSED: 'wp01.recovery.dismissed.v1',
   },

@@ -22,6 +22,7 @@ import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSn
 import { idbDeleteDoc } from './recovery-store.js';
 import { restoreSnapshot, restoreDoc } from './restore.js';
 import { getEpisode } from './episode-config.js';
+import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole } from './roles.js';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 
@@ -40,6 +41,7 @@ const DOC_TITLE = EPISODE.title;
 // persists to localStorage and re-skins the whole instrument instantly. The unit
 // collapses into a small TE knob icon and re-expands with a smooth ~200ms ease.
 const LS_CTRL = EPISODE.storage.CTRL;
+const LS_ROLES = EPISODE.storage.ROLES;
 
 // 9 classic reading / word-processing faces — serif + sans. System faces need no
 // load; Newsreader / Source Serif / Literata / IBM Plex / Inter come from @import.
@@ -274,6 +276,105 @@ function ControlUnit({ outlineOpen }) {
             </label>
           </div>
         </div>
+      </div>
+    </aside>
+  );
+}
+
+// ── ROLE FOCUS HUB — the crew lens. Sticky-left like the READING unit, collapsible.
+// A teammate checks their craft (animator / 3D / archive / fact-check / b-roll) and the
+// whole page fades back EXCEPT rows that carry their work — and, because a VO always shares
+// its row with the direction spoken over it, the voiceover said during their shot stays lit
+// too (see the [data-roles] lens in styles.css; the row is the co-occurrence unit).
+//
+// This is a PURE VIEW FILTER: it sets ONE attribute on .wp-page and writes ONE localStorage
+// key. It registers no ProseMirror plugin and dispatches no transaction, so it is structurally
+// outside the collab loop law — it cannot echo-loop, cannot clobber, cannot lose a word. It
+// renders in ?read shares deliberately (a teammate isolating their craft on a shared link is
+// the whole point) and touches nothing a read-only guard would need to gate.
+function loadRoles() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_ROLES) || '{}');
+    return { roles: parseRoles(serializeRoles(raw.roles || [])), collapsed: !!raw.collapsed };
+  } catch { return { roles: [], collapsed: false }; }
+}
+
+function RoleHub({ outlineOpen }) {
+  const [s, setS] = useState(loadRoles);
+
+  // Apply the active craft set to .wp-page as `data-roles` (the ONLY application path) + persist.
+  useEffect(() => {
+    const page = document.querySelector('.wp-page');
+    if (!page) return;
+    const active = serializeRoles(s.roles);
+    if (active) page.setAttribute('data-roles', active);
+    else page.removeAttribute('data-roles');
+    try { localStorage.setItem(LS_ROLES, JSON.stringify({ roles: parseRoles(active), collapsed: s.collapsed })); } catch {}
+  }, [s.roles, s.collapsed]);
+
+  // On unmount, clear the attribute so a torn-down hub can't leave the page stuck in a lens.
+  useEffect(() => () => { try { document.querySelector('.wp-page')?.removeAttribute('data-roles'); } catch {} }, []);
+
+  const set = (patch) => setS((prev) => ({ ...prev, ...patch }));
+  const active = new Set(s.roles);
+
+  return (
+    <aside
+      class={`wp-role${s.collapsed ? ' is-collapsed' : ''}${outlineOpen ? ' outline-open' : ''}`}
+      aria-label="Role focus hub"
+    >
+      {/* collapsed pill — an eye icon. Click re-expands. */}
+      <button
+        class="wp-role-knobicon"
+        title="Role focus"
+        aria-label="Open role focus"
+        onClick={() => set({ collapsed: false })}
+        tabindex={s.collapsed ? 0 : -1}
+      >
+        <span class="wp-role-eye" aria-hidden="true">◉</span>
+        <span class="wp-role-iconlab">ROLE</span>
+        {active.size > 0 && <span class="wp-role-dot" aria-hidden="true" />}
+      </button>
+
+      {/* expanded unit */}
+      <div class="wp-role-body" aria-hidden={s.collapsed} inert={s.collapsed ? '' : undefined}>
+        <div class="wp-role-head">
+          <span class="wp-role-ttl">MY ROLE</span>
+          <button
+            class="wp-role-collapse"
+            title="Collapse"
+            aria-label="Collapse role hub"
+            tabindex={s.collapsed ? -1 : 0}
+            onClick={() => set({ collapsed: true })}
+          >–</button>
+        </div>
+
+        <p class="wp-role-hint">Check your craft — everything else fades, but the voiceover said over your shots stays.</p>
+
+        <div class="wp-role-list">
+          {ROLE_DEFS.map((r) => {
+            const on = active.has(r.id);
+            return (
+              <button
+                key={r.id}
+                class={`wp-role-item${on ? ' is-active' : ''}`}
+                aria-pressed={on}
+                title={on ? `${r.label} — isolated` : `Isolate ${r.label}`}
+                onClick={() => set({ roles: toggleRole(s.roles, r.id) })}
+              >
+                <span class="wp-role-swatch" style={{ background: r.tint }} />
+                <span class="wp-role-name">{r.label}</span>
+                <span class="wp-role-check" aria-hidden="true">{on ? '✓' : ''}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          class="wp-role-reset"
+          disabled={!s.roles.length}
+          onClick={() => set({ roles: [] })}
+        >show everything</button>
       </div>
     </aside>
   );
@@ -1347,6 +1448,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
           touch nothing but CSS variables. Edit-only chrome below is what we strip. */}
       <ControlUnit outlineOpen={outlineOpen} />
+      <RoleHub outlineOpen={outlineOpen} />
 
       <div class={`wp-device${outlineOpen ? ' outline-open' : ''}`}>
         {/* registration screws */}
