@@ -92,14 +92,15 @@ function editArchivePath(editor, getPos) {
   editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...cur.attrs, filePath }));
 }
 
-// ── CHECKBOX MARK PLUGIN (archive + oncam) ──────────────────────────────────────────────────
-// For each contiguous run of directionMark whose kind is a CHECKBOX_MARK_KIND ('archive' or
-// 'oncam'), render a small clickable checkbox widget (☐/☑) at the start of the run. Clicking
-// toggles the status of the entire run between 'needed' (red) and 'found' (green). The run
-// carries its own kind so the toggle rebuilds the mark as the SAME kind it started as — archive
-// stays archive, oncam stays oncam.
+// ── CHECKBOX MARK PLUGIN (archive) ──────────────────────────────────────────────────────────
+// For each contiguous run of directionMark whose kind is a CHECKBOX_MARK_KIND (just 'archive'
+// since the 2026-07-09 oncam re-scope), render a small clickable checkbox widget (☐/☑) at the
+// start of the run. Clicking toggles the status of the entire run between 'needed' (red) and
+// 'found' (green). The run carries its own kind so the toggle rebuilds the mark as the SAME kind
+// it started as. (The same-kind merge guard below is kept general so re-adding a second checkbox
+// kind later can't accidentally fuse two adjacent runs of different kinds into one checkbox.)
 
-function findCheckboxMarkRuns(doc, markType) {
+export function findCheckboxMarkRuns(doc, markType) {
   const runs = [];
   doc.descendants((node, pos) => {
     if (!node.isText) return;
@@ -111,8 +112,8 @@ function findCheckboxMarkRuns(doc, markType) {
     const to = pos + node.nodeSize;
     const kind = mark.attrs.kind;
     const status = mark.attrs.status;
-    // Merge with the previous run only if it is immediately adjacent AND the same kind, so an
-    // archive run and an oncam run that touch never fuse into one checkbox.
+    // Merge with the previous run only if it is immediately adjacent AND the same kind, so two
+    // checkbox runs of different kinds that touch could never fuse into one checkbox.
     const last = runs.length > 0 ? runs[runs.length - 1] : null;
     if (last && last.to === from && last.kind === kind) {
       last.to = to;
@@ -213,7 +214,7 @@ function createArchiveCheckboxPlugin() {
 // The moment a /command + Enter fires, setMark on the empty cursor stores a directionMark but
 // there's no text yet — so nothing shows and Johnny stares at a bare caret. This plugin paints the
 // BEGINNINGS of the chip: an empty little box (styled exactly like .wp-dhl[data-kind=K]) at the
-// cursor, plus a leading ☐ for the archive/oncam checkbox kinds. It's a pure cursor decoration — it
+// cursor, plus a leading ☐ for a CHECKBOX_MARK_KIND (archive). It's a pure cursor decoration — it
 // reads state.storedMarks, renders only while the selection is empty and that stored mark is live,
 // and vanishes on the first keystroke (the typed char takes the mark, storedMarks clears, and the
 // real chip renders in its place). Nothing is inserted into the doc, so saved output is untouched.
@@ -240,7 +241,7 @@ function buildPlaceholderDecorations(state) {
       const wrap = document.createElement('span');
       wrap.setAttribute('contenteditable', 'false');
       wrap.className = 'wp-dhl-placeholder-wrap';
-      // archive/oncam lead with the ☐ checkbox exactly like a real run does.
+      // a CHECKBOX_MARK_KIND (archive) leads with the ☐ checkbox exactly like a real run does.
       if (CHECKBOX_MARK_KINDS.includes(kind)) {
         const cb = document.createElement('span');
         cb.className = 'wp-dhl-cb';
