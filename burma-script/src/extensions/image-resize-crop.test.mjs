@@ -71,10 +71,56 @@ ok('isValidCrop accepts a real rect, rejects garbage / out-of-frame / full-frame
   assert.equal(isValidCrop({ x: 0.1, y: 0.1, w: '0.5', h: 0.5 }), false, 'non-number');
 });
 
-// ── 3: lockstep with document-builder's inline guard ──────────────────────────────────────
-ok('document-builder ships imageCropShapeOk (lockstep with blocks.isValidCrop)', () => {
+// ── 3: TWIN-LOCK — document-builder's inline guard MUST behave identically to blocks.isValidCrop ──
+// The two copies are hand-kept in sync (document-builder inlines its own because it must pull in NO
+// TipTap deps). They gate the SAME crop object on BOTH sides of Johnny's live save round-trip: the
+// editor persists a crop iff isValidCrop passes; the document-builder blocks<->node conversion keeps
+// it iff imageCropShapeOk passes. If one copy is tightened/loosened and the other isn't, a crop the
+// editor accepts could be silently dropped on rebuild (or a rejected one resurrected) — an image's
+// crop vanishing on save with no error. The old test only checked the function NAME existed, so a
+// body drift would sail through. This slices imageCropShapeOk VERBATIM from source, reconstructs it
+// as a pure fn, and asserts byte-for-byte agreement with isValidCrop across a boundary-heavy battery.
+// Mutation-proof: change either copy's threshold (e.g. 1.0001 -> 1.5) and the agreement asserts go RED.
+function extractDocBuilderCropGuard() {
   const src = readFileSync(new URL('../document-builder.js', import.meta.url), 'utf8');
-  assert.ok(/function imageCropShapeOk/.test(src), 'document-builder ships imageCropShapeOk');
+  const m = src.match(/function imageCropShapeOk\(c\)\s*\{[\s\S]*?\n\}/);
+  assert.ok(m, 'document-builder ships imageCropShapeOk');
+  // Reconstruct the (dep-free) declaration in an isolated scope and hand back the fn.
+  return new Function(m[0] + '\nreturn imageCropShapeOk;')();
+}
+
+ok('document-builder imageCropShapeOk == blocks.isValidCrop on a boundary-heavy battery', () => {
+  const imageCropShapeOk = extractDocBuilderCropGuard();
+  const CASES = [
+    // normal
+    { x: 0.1, y: 0.2, w: 0.5, h: 0.4 },
+    { x: 0, y: 0, w: 0.6, h: 0.6 },
+    // rejects
+    null, undefined, 0, '', 'nope', [], { x: 0.1 },
+    { x: 0, y: 0, w: 1, h: 1 },                              // full-frame no-op
+    { x: 0.00005, y: 0.00005, w: 0.99995, h: 0.99995 },     // within the no-op tolerance
+    { x: 0.5, y: 0, w: 0.6, h: 0.5 },                       // x+w out of frame
+    { x: 0, y: 0.5, w: 0.5, h: 0.6 },                       // y+h out of frame
+    { x: 0.1, y: 0.1, w: 0, h: 0.5 },                       // zero width
+    { x: 0.1, y: 0.1, w: 0.5, h: -0.2 },                    // negative height
+    { x: -0.1, y: 0, w: 0.5, h: 0.5 },                      // negative x
+    { x: 0.1, y: 0.1, w: '0.5', h: 0.5 },                   // non-number
+    { x: NaN, y: 0.1, w: 0.5, h: 0.5 },                     // NaN
+    { x: Infinity, y: 0, w: 0.5, h: 0.5 },                  // Infinity
+    // frame-edge tolerance boundaries (the load-bearing 1.0001 / 0.9999 / 0.0001 constants)
+    { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },                     // exactly at frame edge → keep
+    { x: 0.5, y: 0.5, w: 0.5001, h: 0.5 },                  // just over the 1.0001 slack → reject
+    { x: 0.0001, y: 0.0001, w: 0.9999, h: 0.9999 },         // right on the no-op corner → reject
+  ];
+  for (const c of CASES) {
+    const a = isValidCrop(c);
+    const b = imageCropShapeOk(c);
+    assert.equal(b, a, `crop guards disagree on ${JSON.stringify(c)}: blocks=${a} docbuilder=${b}`);
+  }
+  // Pin the actual contract too (not merely "they agree" — two identically-broken copies would agree).
+  assert.equal(isValidCrop({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 }), true, 'a real rect is valid');
+  assert.equal(isValidCrop({ x: 0, y: 0, w: 1, h: 1 }), false, 'full-frame reads as no crop');
+  assert.equal(imageCropShapeOk({ x: 0.5, y: 0, w: 0.6, h: 0.5 }), false, 'out-of-frame dropped');
 });
 
 const IMG = {
