@@ -60,6 +60,20 @@ const formatDurationInput = (() => {
   return new Function(`${m[0]}\nreturn formatDurationInput;`)();
 })();
 
+// The NLE marker-export default. Every card's span is `markerDurationSecs(c.duration)`,
+// and `cumulativeSeconds += durSecs` walks the Premiere/Resolve timeline — so this
+// value IS each downstream marker's position. It closes a truthy-zero trap: the old
+// `parseDuration(c.duration) || 10` clobbered a deliberate 0-length beat to 10 s,
+// drifting every later marker +10 s and disagreeing with the runtime label + frame
+// sums (both read the same field bare -> 0). It carries a regex literal (`\d`) plus
+// a call to parseDuration, so extract BOTH into the sandbox.
+const markerDurationSecs = (() => {
+  const pd = html.match(/function parseDuration\(str\)\{[\s\S]*?return secs;\s*\}/);
+  const m = html.match(/function markerDurationSecs\(rawDuration\)\{[\s\S]*?\}/);
+  assert.ok(m, 'could not find markerDurationSecs() in index.html');
+  return new Function(`${pd[0]}\n${m[0]}\nreturn markerDurationSecs;`)();
+})();
+
 /* ───────────────────────── parseDuration ───────────────────────── */
 
 // Empty / garbage -> 0 (never NaN; the runtime total sums these).
@@ -162,6 +176,24 @@ assert.equal(formatDurationInput('123456'), '12:34:56');
 assert.equal(formatDurationInput('1234567'), '23:45:67');
 // Non-digits stripped.
 assert.equal(formatDurationInput('a5b'), '00:05');
+
+/* ───────────────────────── markerDurationSecs (NLE export default) ───────────────────────── */
+// No numeric content -> the nominal 10 s default (unset card still gets a legible
+// span on the timeline). Byte-identical to the OLD `... || 10` for these cases.
+assert.equal(markerDurationSecs(''), 10);
+assert.equal(markerDurationSecs(null), 10);
+assert.equal(markerDurationSecs(undefined), 10);
+assert.equal(markerDurationSecs('   '), 10);
+assert.equal(markerDurationSecs('abc'), 10);          // garbage -> 10, same as before
+// LOAD-BEARING: an EXPLICIT zero-length beat must stay 0, not inflate to 10. Mutation:
+// revert to `parseDuration(rawDuration) || 10` and these two go RED.
+assert.equal(markerDurationSecs('0'), 0);
+assert.equal(markerDurationSecs('00:00'), 0);
+// Real values pass straight through (whole seconds, base-60 colon form).
+assert.equal(markerDurationSecs('10'), 10);
+assert.equal(markerDurationSecs('90'), 90);
+assert.equal(markerDurationSecs('01:30'), 90);
+assert.equal(markerDurationSecs('01:00:00'), 3600);
 
 /* ─────────────────── mask → parseDuration ROUND-TRIP (the pipeline contract) ─────────────────── */
 // What the mask STORES must be what parseDuration reads back in whole seconds — this

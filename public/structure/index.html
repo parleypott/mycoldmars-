@@ -1275,6 +1275,15 @@ function parseDuration(str){
   if(parts.length === 0) return 0;
   let secs = 0; for(const p of parts) secs = secs * 60 + p; return secs;
 }
+/* NLE-marker duration: honor an EXPLICIT value (including a deliberate 0-length
+   beat) and fall back to a nominal 10 s ONLY when the field has no numeric content
+   (unset / garbage). A bare `parseDuration(c.duration) || 10` is a truthy-zero
+   trap: an explicit "0"/"00:00" parses to 0, gets clobbered to 10, and every
+   downstream marker's In/Out drifts +10 s — disagreeing with the runtime label and
+   frame sums, which read the same field as 0. */
+function markerDurationSecs(rawDuration){
+  return /\d/.test(String(rawDuration ?? '')) ? parseDuration(rawDuration) : 10;
+}
 function formatDuration(secs){
   secs = Math.max(0, Math.round(secs || 0));
   const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
@@ -3059,7 +3068,7 @@ document.getElementById('outline-export-markers-btn').addEventListener('click', 
 
    blocks.forEach(block => {
      block.cards.forEach(c => {
-        const durSecs = parseDuration(c.duration) || 10; 
+        const durSecs = markerDurationSecs(c.duration);
         const startTC = secondsToTimecode(cumulativeSeconds);
         const endTC = secondsToTimecode(cumulativeSeconds + durSecs);
         const durTC = secondsToTimecode(durSecs);
