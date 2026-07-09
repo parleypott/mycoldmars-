@@ -26,6 +26,7 @@ export const VIZ_KINDS = [
   { label: 'Animation',  kind: 'animation' },
   { label: '3d',         kind: '3d' },
   { label: 'B-roll',     kind: 'broll' },
+  { label: 'Map data',   kind: 'mapdata' },
   { label: 'Archive',    kind: 'archive' },
   { label: 'On cam',     kind: 'oncam' },
   { label: 'Fact-check', kind: 'factcheck' },

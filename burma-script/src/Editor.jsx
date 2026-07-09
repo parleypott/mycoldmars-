@@ -30,6 +30,7 @@ import { FindReplace } from './extensions/find-replace.js';
 import { ImageDrop } from './extensions/image-drop.js';
 import { LinkKeymap } from './extensions/link-kbd.js';
 import { ListShortcuts } from './extensions/list-shortcuts.js';
+import { VizPasteAdopt } from './extensions/viz-paste-adopt.js';
 import { ChapterFocus } from './extensions/chapter-focus.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
@@ -498,6 +499,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // Cmd+K hyperlinks — the link MARK ships with StarterKit v3 (already in the schema +
       // MARKS_ALLOWLIST); this only adds the gesture (prompt/edit/remove) + Cmd-click-to-open.
       LinkKeymap,
+      // PASTE ADOPTS THE ACTIVE VIZ TAG — after slashing a viz tag, Cmd+V blankets the whole
+      // paste (across paragraph breaks) in that directionMark. Registered after PasteSanitize so
+      // the sanitized slice reaches it; keymap/handlePaste only, COLLAB LOOP LAW safe.
+      VizPasteAdopt,
       // GUARANTEED LIST SHORTCUTS — Cmd/Ctrl+Shift+8 (bullet) / +7 (ordered) at priority 1001
       // (above Collaboration's 1000) so the keymap can never be shadowed or dropped, regardless of
       // how StarterKit's own list keymap fares under this configure() + the Yjs binding. Keymap

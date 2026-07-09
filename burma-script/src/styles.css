@@ -369,6 +369,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-convert-dot[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; }
 .wp-convert-dot[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; }
 .wp-convert-dot[data-kind="broll"]{ background:rgba(208,135,63,.28); border-color:#d0873f; }
+.wp-convert-dot[data-kind="mapdata"]{ background:rgba(156,90,60,.28); border-color:#9c5a3c; }
 .wp-convert-dot[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; }
 .wp-save-pill.is-cloud-conflict .wp-save-pill-mark { background: var(--ink); animation: wp-save-pulse 1.6s var(--ease) infinite; }
 /* SYNCING TO CLOUD… — the honest pending state. The LOCAL save already landed (work is safe on this
@@ -2295,6 +2296,10 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-image .wp-image-box .wp-image-img,
 .wp-image .wp-image-box img,
 .wp-image .wp-image-box video { display: block; }
+/* HUG BY DEFAULT: media at natural size (capped) so the fit-content box wraps the image, not the
+   whole column. Only when the box is explicitly sized (resized) does the media fill it 100%. */
+.wp-image .wp-image-box .wp-image-img { width: auto; max-width: min(100%, 640px); }
+.wp-image .wp-image-box--sized .wp-image-img { width: 100%; max-width: none; }
 /* In edit mode the cursor is a move/select affordance, not zoom (zoom is the read-mode click). */
 .ProseMirror[contenteditable="true"] .wp-image .wp-image-img { cursor: default; }
 .wp-image.wp-image-resizing { user-select: none; }
@@ -2321,7 +2326,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-image-handles { display: block; }
 .wp-image .wp-image-box { outline: none; }
 .ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-image-box {
-  outline: 1.5px solid rgba(255,91,31,.9); outline-offset: 0;
+  outline: 1.5px solid rgba(255,91,31,.9); outline-offset: 2px; border-radius: 12px;
 }
 .wp-image .wp-image-handle {
   position: absolute; width: 12px; height: 12px; background: var(--face);

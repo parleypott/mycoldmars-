@@ -20,11 +20,11 @@ function ok(label, fn) { fn(); pass++; }
 ok('VIZ_KINDS is Make VO + the seven viz kinds in order', () => {
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.kind),
-    ['__vo', 'animation', '3d', 'broll', 'archive', 'oncam', 'factcheck', 'direction'],
+    ['__vo', 'animation', '3d', 'broll', 'mapdata', 'archive', 'oncam', 'factcheck', 'direction'],
   );
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.label),
-    ['Make VO', 'Animation', '3d', 'B-roll', 'Archive', 'On cam', 'Fact-check', 'Direction'],
+    ['Make VO', 'Animation', '3d', 'B-roll', 'Map data', 'Archive', 'On cam', 'Fact-check', 'Direction'],
   );
 });
 
@@ -34,6 +34,7 @@ ok('each VIZ_KIND maps to a valid default directionMark status', () => {
   const expected = {
     animation: 'static',
     '3d': 'static',
+    mapdata: 'static',
     broll: 'unchecked',
     archive: 'needed',
     oncam: 'needed',

@@ -1354,7 +1354,13 @@ export const ImageBlock = Node.create({
         media.style.top = (-c.y * fullH) + 'px';
       };
 
-      const applyWidth = (a) => { boxEl.style.width = Number.isFinite(a.width) ? a.width + 'px' : ''; };
+      // --sized marks "the box has a controlled width, so the media fills it (width:100%)". Absent,
+      // the box is fit-content and the media renders at natural size, so the frame HUGS the image
+      // instead of spanning the whole column (Johnny 2026-07-09: "big weird bounding box frame").
+      const applyWidth = (a) => {
+        if (Number.isFinite(a.width)) { boxEl.style.width = a.width + 'px'; boxEl.classList.add('wp-image-box--sized'); }
+        else { boxEl.style.width = ''; boxEl.classList.remove('wp-image-box--sized'); }
+      };
 
       const paint = (a) => {
         if (isVideoSrc(a.src) !== (media.tagName === 'VIDEO')) {
@@ -1431,6 +1437,8 @@ export const ImageBlock = Node.create({
         const maxW = maxBoxWidth();
         dragging = true;
         boxEl.classList.add('wp-image-resizing');
+        boxEl.classList.add('wp-image-box--sized');   // media fills the box while dragging
+
         const onMove = (ev) => {
           const dx = ev.clientX - startX;
           boxEl.style.width = clampImageWidth(startW + (west ? -dx : dx), maxW) + 'px';
