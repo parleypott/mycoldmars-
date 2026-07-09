@@ -1490,11 +1490,15 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
    The dimming itself is the [data-roles] lens further down.
    ============================================================ */
 .wp-role {
-  position: fixed; left: 16px; top: 372px; z-index: 139;
+  position: fixed; left: 16px; top: 500px; z-index: 139;
   width: 188px;
   font-family: var(--mono);
-  transition: transform .2s var(--ease), left .2s var(--ease);
+  transition: transform .2s var(--ease), left .2s var(--ease), top .2s var(--ease);
 }
+/* the READING unit (rendered as the immediately-preceding sibling) is ~388px tall expanded,
+   so the role hub sits at 500px to clear it. When READING collapses to its knob icon, slide
+   the role hub up to fill the freed gutter — pure CSS off the sibling's is-collapsed class. */
+.wp-control.is-collapsed ~ .wp-role { top: 156px; }
 .wp-role-body {
   background: var(--frame); border: 1.5px solid var(--ink); border-radius: 12px;
   padding: 12px 13px 13px;
