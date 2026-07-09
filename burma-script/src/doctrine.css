@@ -49,6 +49,7 @@
   --ep-copied:               #1f8a72;              /* the one green "copied" pulse */
   --ep-kind-label:           var(--label-2);       /* quiet block-type labels */
   --ep-display-serif:        'Newsreader', Georgia, serif;
+  --ep-title-serif:          'Spectral', 'Newsreader', Georgia, serif;
 }
 
 /* WARM PALAU NORTH-STAR — the light "book" schemes. These exact values reproduce
@@ -289,44 +290,59 @@
   background: transparent;
   border: 0;
 }
-.wp-chframe-first .wp-chapter .wp-cart-body { padding: 22px 10px 24px 4px; }
+/* REGAL centered title-page composition (Edwardian UK title page — Macmillan / Chatto & Windus). */
+.wp-chframe-first .wp-chapter .wp-cart-body {
+  padding: 44px 18px 26px;   /* symmetric; top room clears the absolute centered genre eyebrow */
+  text-align: center;
+}
 .wp-chframe-first .wp-chapter .wp-ch-head { border-bottom: 0; }
 
-/* EYEBROW DASH (masthead ceremony, 2026-07-08) — a short thick stroke above the title, the
-   classic editorial "a chapter opens here" mark. On the NodeView wrapper (never the editable
-   paragraph) so the caret and PM content are untouched. */
-.wp-chframe-first .wp-chapter .wp-cart-body::before {
+/* Old left eyebrow dash retired for the centered composition — the centered genre eyebrow
+   (.wp-ch-tag) and the single hairline under the title now carry the ceremony. */
+.wp-chframe-first .wp-chapter .wp-cart-body::before { content: none; }
+
+/* The chapter TITLE — a REGAL Edwardian book title page. Centered, spaced SMALL CAPS in the
+   Baskerville-class serif (Spectral — closest loaded face to the Caslon/Baskerville the brief
+   names). font-variant-caps keeps the leading capital tall and drops the rest to small caps: the
+   classic English title-page look. Weight 500 (letterpress restraint; the loaded serifs ship only
+   400/500, so no synthetic bold). */
+.wp-chframe-first .wp-chapter .wp-body > p:first-child {
+  font-family: var(--ep-title-serif);
+  font-size: 33px;
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: 0.055em;          /* generous tracking on a short title */
+  font-variant-caps: small-caps;
+  color: var(--ep-chapter-ink);
+  margin: 0 auto;
+  max-width: 24ch;                  /* narrow, composed title column */
+  text-transform: none;
+  /* !important beats the global TextAlign extension's inline text-align:left default — the
+     masthead is a fixed centered composition, never a user-aligned paragraph. */
+  text-align: center !important;
+}
+/* The single ORNAMENT — one centered hairline rule under the title. */
+.wp-chframe-first .wp-chapter .wp-body > p:first-child::after {
   content: '';
   display: block;
-  width: 46px;
-  height: 3.5px;
-  background: var(--ep-frame-band);
-  margin: 0 0 14px;
-}
-
-/* The chapter TITLE — big, elegant, book-chapter serif. */
-.wp-chframe-first .wp-chapter .wp-body > p:first-child {
-  font-family: var(--ep-display-serif);
-  font-size: 36px;
-  font-weight: 600;
-  line-height: 1.06;
-  letter-spacing: -0.015em;
-  color: var(--ep-chapter-ink);
-  margin: 0 0 10px;
-  text-transform: none;
+  width: 58px;
+  height: 1px;
+  margin: 18px auto 16px;
+  background: var(--ep-frame-rule);
 }
 /* Everything after the title = the SUBTITLE DECK (the director's note) — a touch larger and
    roomier than before so it reads as deliberate subtitle language, not an afterthought. */
 .wp-chframe-first .wp-chapter .wp-body > p:not(:first-child) {
-  font-family: var(--ep-display-serif);
+  font-family: var(--ep-display-serif);   /* Newsreader italic (synthesized — italic axis not loaded) */
   font-size: 16px;
   font-weight: 400;
   font-style: italic;
   line-height: 1.5;
   letter-spacing: 0;
   color: var(--ep-chapter-subtext);
-  margin: 0 0 4px;
-  max-width: 62ch;
+  margin: 0 auto 4px;
+  max-width: 52ch;
+  text-align: center !important;   /* beat TextAlign's inline left default (see title rule) */
 }
 /* SUBTITLE INVITE — a title-only chapter (one paragraph) shows a quiet ghost line teaching
    the mechanic: Enter at the end of the title opens the subtitle slot. Pseudo-element only
@@ -340,13 +356,20 @@
   color: var(--ep-chapter-subtext);
   opacity: .45;
   margin-top: 2px;
+  text-align: center;
 }
-/* Genre tag (MAP / EXPLAINER / COLD OPEN) — a small quiet uppercase mono eyebrow. */
+/* GENRE eyebrow (HISTORY / GROUND) — the publisher's kicker: a centered, spaced serif line ABOVE
+   the title. Re-pins the base absolute chip (styles.css .wp-ch-tag) to a centered top strip. */
 .wp-chframe-first .wp-chapter .wp-ch-tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .2em;
+  left: 0;
+  right: 0;
+  top: 20px;
+  text-align: center;
+  font-family: var(--ep-title-serif);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .34em;
+  text-indent: .34em;              /* optical: balances the trailing tracked space, keeps it centered */
   color: var(--ep-chapter-subtext);
 }
 

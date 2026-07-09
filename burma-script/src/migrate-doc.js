@@ -33,6 +33,7 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { DirectionMark } from './extensions/direction-chip.js';
+import TextAlign from '@tiptap/extension-text-align';
 import { ensureTableDoc, docToBlocks, demoteServiceNodes, buildEditorDocument, hasUserAddedRow, hasBookmarkedRow } from './document-builder.js';
 // Re-export the CANONICAL pairu_ predicate (defined once in document-builder.js) so callers that
 // already depend on migrate-doc's surface — the pristine-source rebuild guard below and the
@@ -506,6 +507,9 @@ function buildSchema() {
     ...BURMA_NODES,
     ...BURMA_MARKS,
     DirectionMark,
+    // LOCKSTEP with Editor.jsx — paragraph gains the textAlign attr; the mirror schema must declare
+    // it or a re-validated aligned doc would lose alignment on the fromJSON gate. No plugin added.
+    TextAlign.configure({ types: ['paragraph'], alignments: ['left', 'center', 'right'], defaultAlignment: 'left' }),
   ]);
 }
 

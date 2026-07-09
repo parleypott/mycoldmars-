@@ -21,11 +21,11 @@ import { SLASH_ITEMS } from './extensions/slash-menu.js';
 let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
-// --- 1. Command set is structure (4) + the eight director marks, structure first -------
-ok('SLASH_ITEMS is the fourteen commands in order (structure above the tags)', () => {
+// --- 1. Command set is structure (4) + the director marks + list toggles, structure first ---
+ok('SLASH_ITEMS is the seventeen commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'direction', 'break'],
+    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'map-data', 'direction', 'break', 'bullet', 'number'],
   );
 });
 

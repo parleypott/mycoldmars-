@@ -23,6 +23,34 @@ export function normalizeHref(raw) {
   return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : 'https://' + url;
 }
 
+// Recognizes "the clipboard is a single URL" for the paste-to-link gesture: an explicit scheme
+// (https://, mailto:, tel:, …) with no embedded whitespace, or a bare host typed by hand
+// (example.com, www.nytimes.com/2024/07/09/world/story.html). Whitespace anywhere fails — that's
+// what stops the check from firing on ordinary prose that merely CONTAINS a URL.
+const BARE_HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d+)?(?:[/?#]\S*)?$/i;
+export function isSingleUrl(raw) {
+  const t = String(raw == null ? '' : raw).trim();
+  if (!t || /\s/.test(t)) return false;
+  if (/^[a-z][a-z0-9+.-]*:\S+$/i.test(t)) return true; // explicit scheme incl. mailto:/tel:
+  return BARE_HOST_RE.test(t);
+}
+
+// Pure core of the paste-to-link gesture, factored out of handlePaste for the headless suite
+// (no DOM/clipboardData dependency) — same reason normalizeHref is a pure export above. Wraps the
+// CURRENT selection in a link mark; never touches the text. Returns null (no-op) when the
+// selection is empty, the clipboard text isn't a single URL, or there's no link mark in the
+// schema — the caller returns false so the default paste proceeds normally.
+export function linkPasteTransaction(state, text) {
+  const { from, to, empty } = state.selection;
+  if (empty) return null;
+  if (!isSingleUrl(text)) return null;
+  const href = normalizeHref(text);
+  if (!href) return null;
+  const linkType = state.schema.marks.link;
+  if (!linkType) return null;
+  return state.tr.addMark(from, to, linkType.create({ href }));
+}
+
 export const LinkKeymap = Extension.create({
   name: 'linkKeymap',
 
@@ -38,14 +66,9 @@ export const LinkKeymap = Extension.create({
           }));
           return true;
         }
-        const raw = window.prompt('Link URL', current || 'https://');
-        if (raw == null) return true; // cancelled — nothing changes
-        const href = normalizeHref(raw);
-        if (!href) {
-          editor.chain().focus().extendMarkRange('link').unsetMark('link').run();
-          return true;
-        }
-        editor.chain().focus().extendMarkRange('link').setMark('link', { href }).run();
+        // Open the inline popover (LinkPopover.jsx) instead of window.prompt — it reads the live
+        // selection off editor.state itself, so no state has to cross this boundary.
+        window.dispatchEvent(new CustomEvent('wp-link-open'));
         return true;
       },
     };
@@ -61,6 +84,21 @@ export const LinkKeymap = Extension.create({
             const a = event.target && event.target.closest ? event.target.closest('a[href]') : null;
             if (!a) return false;
             try { window.open(a.href, '_blank', 'noopener'); } catch {}
+            return true;
+          },
+          // PASTE-TO-LINK: registered AFTER PasteSanitize in Editor.jsx's extensions array —
+          // ProseMirror's someProp('handlePaste', …) runs plugins in that order and stops at the
+          // first `true`. PasteSanitize's handlePaste only returns true for the Cmd+Shift+V
+          // "paste without formatting" gesture (plainArmed); on a normal paste it returns false
+          // and falls through to us. So plain-paste always wins over link-wrapping, no coupling.
+          handlePaste(view, event) {
+            if (!view.editable || isReadOnly()) return false;
+            const text = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+            if (!text) return false;
+            const tr = linkPasteTransaction(view.state, text);
+            if (!tr) return false;
+            view.dispatch(tr.scrollIntoView());
+            if (event.preventDefault) event.preventDefault();
             return true;
           },
         },

@@ -4,7 +4,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { isReadOnly } from '../read-mode.js';
 import { episodeFlag } from '../episode-config.js';
 
-export const DIRECTION_CHIP_KINDS = ['archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'direction'];
+export const DIRECTION_CHIP_KINDS = ['archive', 'oncam', 'factcheck', 'animation', '3d', 'broll', 'mapdata', 'direction'];
 
 // The two "checkbox" direction kinds — a red run + a ☐/☑ that cycles needed↔found.
 // Archive is the original; oncam ("on cam to film") behaves identically but reads a
@@ -34,6 +34,7 @@ export function defaultDirectionMarkAttrs(kind) {
     case 'factcheck': return { kind, status: 'todo' };
     case 'animation': return { kind, status: 'static' };
     case '3d':        return { kind, status: 'static' };
+    case 'mapdata':   return { kind, status: 'static' };
     case 'broll':     return { kind, status: 'unchecked' };
     case 'direction':
     default:          return { kind: 'direction', status: 'default' };

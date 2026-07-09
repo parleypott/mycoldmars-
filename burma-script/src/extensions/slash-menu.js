@@ -255,6 +255,21 @@ export function doConvertBlockToVo(state, dispatch, range) {
   return true;
 }
 
+// /bullet + /number — delete the slash trigger then toggle the host block into a list. These are
+// the discoverable, un-hijackable backups for Cmd/Ctrl+Shift+8 / +7 (a chord the OS steals can't
+// be fixed in JS). One chain = one undo. toggleBulletList / toggleOrderedList are StarterKit
+// RawCommands, always chainable. Read-mode gated (the slash plugin never mounts read-only, but
+// keep the write path honest).
+function toggleSlashList(editor, range, kind) {
+  if (isReadOnly()) return false;
+  const view = editor.view;
+  if (!view || !view.editable) return false;
+  const chain = editor.chain().focus().deleteRange(range);
+  const done = kind === 'ordered' ? chain.toggleOrderedList().run() : chain.toggleBulletList().run();
+  if (done) view.focus();
+  return done;
+}
+
 function convertBlockToVo(editor, range) {
   if (isReadOnly()) return false;
   const { state, view } = editor;
@@ -313,8 +328,12 @@ export const SLASH_ITEMS = [
   makeItem('animation', ['anim'],         (editor, range) => setDirectionMark(editor, range, 'animation')),
   makeItem('3d',        ['3d animation', 'threed'], (editor, range) => setDirectionMark(editor, range, '3d', '3D ')),
   makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),
+  makeItem('map-data',  ['map', 'mapdata', 'cartography', 'carto'], (editor, range) => setDirectionMark(editor, range, 'mapdata')),
   makeItem('direction', [],               (editor, range) => setDirectionMark(editor, range, 'direction')),
   makeItem('break',     [],               (editor, range) => editor.chain().focus().deleteRange(range).insertContent({ type: 'directionBreak' }).run()),
+  // LIST TOGGLES — discoverable backups for Cmd/Ctrl+Shift+8 / +7.
+  makeItem('bullet',    ['bullets', 'ul', 'list', 'unordered'], (editor, range) => toggleSlashList(editor, range, 'bullet'),  { hint: '•' }),
+  makeItem('number',    ['numbered', 'ol', 'ordered', 'nums'],  (editor, range) => toggleSlashList(editor, range, 'ordered'), { hint: '1.' }),
 ];
 
 function createSlashRenderer() {

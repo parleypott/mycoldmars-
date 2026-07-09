@@ -733,6 +733,50 @@ export function wrapBareTopLevelNodes(state) {
   return tr;
 }
 
+// Walk up from the selection to the owning tableRow; return the pos just before it (what
+// doc.nodeAt expects) or null. Module-level twin of addCommands' rowPosFromSelection so the
+// Option+X keymap can resolve the current row without going through the command layer.
+export function resolveRowPos(state) {
+  const $from = state.selection.$from;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name === 'tableRow') return $from.before(d);
+  }
+  const node = state.doc.nodeAt($from.pos);
+  return node && node.type.name === 'tableRow' ? $from.pos : null;
+}
+
+// One key to toggle the current row: SPLIT a full-width row into said|shown, or MERGE a
+// two-column row back to full width. `cols` is the source of truth (2 = already split).
+// Mirrors exactly what the row split/merge buttons do — no new mutation path.
+export function toggleRowSplit(state, dispatch) {
+  const pos = resolveRowPos(state);
+  if (pos == null) return false;
+  const row = state.doc.nodeAt(pos);
+  if (!row || row.type.name !== 'tableRow') return false;
+  const cols = row.attrs?.cols || row.childCount || 1;
+  return cols >= 2 ? doMergeRow(state, dispatch, pos) : doSplitRow(state, dispatch, pos);
+}
+
+// Option+X (Alt+X) — split/merge the current column without reaching for the button.
+// Bound on event.code === 'KeyX' (the PHYSICAL key), NOT the produced character, because on a
+// Mac Option+X emits '≈': a key-value binding would both miss the shortcut AND leak the '≈'
+// into the doc. We match the physical X + Alt (and reject Ctrl/Cmd so Emacs/other combos pass
+// through), ALWAYS preventDefault so no '≈' is ever inserted, then toggle. Gated on
+// view.editable so a read-only share swallows the key but never mutates (editable ≠ write gate).
+export function optionSplitKeyPlugin() {
+  return new Plugin({
+    key: new PluginKey('wpOptionSplit'),
+    props: {
+      handleKeyDown(view, event) {
+        if (!event.altKey || event.ctrlKey || event.metaKey || event.code !== 'KeyX') return false;
+        event.preventDefault();
+        if (!view.editable || isReadOnly()) return true;   // swallow the ≈, but never write
+        return toggleRowSplit(view.state, view.dispatch);
+      },
+    },
+  });
+}
+
 // Exported for spine-guard-trailing.test.mjs — the P0 freeze lock (real plugin + real
 // TrailingNode through PM's applyTransaction protocol, no re-implementations).
 export function tableSpineGuardPlugin() {
@@ -1084,7 +1128,7 @@ export const TableRow = Node.create({
     };
   },
   addProseMirrorPlugins() {
-    const plugins = [];
+    const plugins = [optionSplitKeyPlugin()];
     if (spineGuardSafeHere()) plugins.push(tableSpineGuardPlugin());
     if (rowDragEnabled()) plugins.push(rowDragPlugin());
     return plugins;

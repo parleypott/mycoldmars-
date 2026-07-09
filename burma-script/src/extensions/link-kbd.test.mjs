@@ -16,10 +16,11 @@
 import assert from 'node:assert/strict';
 import { getSchema } from '@tiptap/core';
 import { Node as PMNode } from '@tiptap/pm/model';
+import { EditorState, TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { normalizeHref } from './link-kbd.js';
+import { normalizeHref, isSingleUrl, linkPasteTransaction } from './link-kbd.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
@@ -101,6 +102,61 @@ ok('normalizeHref: bare domain → https://, schemes kept, empty/prefill → rem
   assert.equal(normalizeHref('   '), '');
   assert.equal(normalizeHref('https://'), '', 'the untouched prompt prefill means remove');
   assert.equal(normalizeHref(null), '');
+});
+
+// ── 4: isSingleUrl — the paste-to-link gate ─────────────────────────────────────────────────
+ok('isSingleUrl: schemed/bare-domain URLs pass, prose and blank text fail', () => {
+  assert.equal(isSingleUrl('https://example.org/report'), true);
+  assert.equal(isSingleUrl('www.nytimes.com/2024/07/09/world/story.html'), true);
+  assert.equal(isSingleUrl('example.com'), true);
+  assert.equal(isSingleUrl('mailto:x@y.z'), true);
+  assert.equal(isSingleUrl('see https://example.org/report for the numbers'), false, 'prose containing a URL is not itself a URL');
+  assert.equal(isSingleUrl('  '), false);
+  assert.equal(isSingleUrl(''), false);
+  assert.equal(isSingleUrl(null), false);
+  assert.equal(isSingleUrl('not a url at all'), false);
+});
+
+// ── 5: linkPasteTransaction — wraps the selection, never replaces the text ──────────────────
+ok('linkPasteTransaction wraps a non-empty selection in a link mark without touching the text', () => {
+  const doc = docFrom({
+    type: 'doc',
+    content: [{
+      type: 'tableRow', attrs: { cols: 1, pairId: null },
+      content: [{
+        type: 'tableCell', attrs: { role: 'full' },
+        content: [{
+          type: 'voBlock', attrs: { blockId: 'blk_p1', status: 'todo' },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'see the report for the numbers.' }] }],
+        }],
+      }],
+    }],
+  });
+  let from = -1;
+  doc.descendants((node, p) => { if (node.isText && node.text.includes('the report')) from = p + node.text.indexOf('the report'); });
+  assert.ok(from >= 0, 'found "the report" in the doc');
+  const to = from + 'the report'.length;
+  const state = EditorState.create({ doc, selection: TextSelection.create(doc, from, to) });
+  const tr = linkPasteTransaction(state, 'https://example.org/report');
+  assert.ok(tr, 'a qualifying paste returns a transaction');
+  const next = tr.doc;
+  assert.equal(next.textBetween(0, next.content.size, ' '), doc.textBetween(0, doc.content.size, ' '), 'text is byte-identical — only a mark was added');
+  let linked = null;
+  next.descendants((n) => { if (n.isText && n.text === 'the report') linked = n; });
+  assert.ok(linked, 'the selected run is intact');
+  assert.equal(linked.marks.find((m) => m.type.name === 'link')?.attrs.href, 'https://example.org/report');
+});
+
+ok('linkPasteTransaction is a no-op for empty selection or non-URL clipboard text', () => {
+  const doc = docFrom(linkedDoc);
+  let caret = -1;
+  doc.descendants((node, p) => { if (caret < 0 && node.isText) caret = p + 1; });
+  const collapsed = EditorState.create({ doc, selection: TextSelection.create(doc, caret, caret) });
+  assert.equal(linkPasteTransaction(collapsed, 'https://example.org'), null, 'empty selection never intercepts paste');
+  let from = -1;
+  doc.descendants((node, p) => { if (node.isText && node.text.includes('numbers')) from = p + node.text.indexOf('numbers'); });
+  const nonEmpty = EditorState.create({ doc, selection: TextSelection.create(doc, from, from + 7) });
+  assert.equal(linkPasteTransaction(nonEmpty, 'just some prose, not a url'), null, 'non-URL clipboard text is a no-op');
 });
 
 console.log(`link-kbd.test.mjs: ${pass} assertions passed`);

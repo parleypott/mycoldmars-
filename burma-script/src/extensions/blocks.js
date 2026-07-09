@@ -1112,6 +1112,33 @@ export function mediaDownloadExt(src, mimeType) {
   return DOWNLOAD_MIME_EXT[mime] || 'bin';
 }
 
+// ── IMAGE RESIZE + CROP — pure decisions (locked by image-resize-crop.test.mjs) ──────────
+// Johnny drags a corner to shrink an image; the persisted `width` is a CSS-px integer on the
+// image BOX. null = natural (the CSS max-width default). Only SMALLER is offered, so the max
+// clamp is the live column/lane width measured at drag time.
+export const IMAGE_MIN_WIDTH = 96;
+export function clampImageWidth(px, maxPx) {
+  const n = Math.round(Number(px));
+  if (!Number.isFinite(n)) return null;
+  const max = Number.isFinite(maxPx) && maxPx > 0 ? Math.round(maxPx) : 640;
+  return Math.max(IMAGE_MIN_WIDTH, Math.min(n, max));
+}
+
+// A crop is a NORMALIZED rect {x,y,w,h} in 0..1 of the NATURAL image — resolution-independent,
+// applied as pure CSS metadata on the node (NO server-side pixel processing). Valid = numbers,
+// positive w/h, inside the frame, and NOT a full-frame no-op (a full-frame crop reads as "no crop"
+// so an accidental select-all clears rather than persisting a meaningless rect).
+export function isValidCrop(c) {
+  if (!c || typeof c !== 'object') return false;
+  const { x, y, w, h } = c;
+  const num = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (![x, y, w, h].every(num)) return false;
+  if (w <= 0 || h <= 0 || x < 0 || y < 0) return false;
+  if (x + w > 1.0001 || y + h > 1.0001) return false;
+  return !(x <= 0.0001 && y <= 0.0001 && w >= 0.9999 && h >= 0.9999);
+}
+export const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+
 // The <video> attribute set that makes an mp4 behave exactly like a GIF: autoplays
 // muted, loops forever, never fullscreens on iOS, and costs only its moov box until
 // it nears the viewport.
@@ -1238,6 +1265,13 @@ export const ImageBlock = Node.create({
       src: { default: '' },
       alt: { default: '' },
       kind: { default: 'shot' },
+      // Rendered BOX width in CSS px (drag a corner to shrink). null = natural. A plain number
+      // survives PM-JSON toJSON/fromJSON automatically; default null keeps every existing doc
+      // byte-identical (additive).
+      width: { default: null },
+      // Normalized crop rect {x,y,w,h} 0..1 (double-click to crop). null = uncropped. Object
+      // survives PM-JSON; also emitted as data-crop in renderHTML for HTML export fidelity.
+      crop: { default: null },
     };
   },
   parseHTML() { return [{ tag: 'figure[data-image]' }]; },
@@ -1251,10 +1285,13 @@ export const ImageBlock = Node.create({
     if (a.alt) children.push(['figcaption', { class: 'wp-image-caption' }, a.alt]);
     // NOT a .wp-cart: an image is a quiet figure (no spine, no counter, no flex-row chrome) —
     // calm doctrine styling lives on .wp-image in styles.css.
-    return ['figure', mergeAttributes(sharedRenderAttrs(node, {
+    const figAttrs = {
       'data-image': '', 'data-kind': a.kind || 'shot',
       'data-block-id': a.blockId || '', class: 'wp-image',
-    })), ...children];
+    };
+    if (Number.isFinite(a.width)) figAttrs.style = `width:${a.width}px`;
+    if (isValidCrop(a.crop)) figAttrs['data-crop'] = JSON.stringify(a.crop);
+    return ['figure', mergeAttributes(sharedRenderAttrs(node, figAttrs)), ...children];
   },
   // Captions are reference metadata, not script words — contribute nothing to text exports.
   renderText() { return ''; },
@@ -1266,57 +1303,282 @@ export const ImageBlock = Node.create({
       dom.setAttribute('data-kind', attrs.kind || 'shot');
       syncSharedDomAttrs(dom, attrs);
 
-      // decoding:async keeps a heavyweight animated GIF's frame decode off the main thread's
-      // scroll path; loading:lazy means a 20MB reference GIF below the fold costs nothing
-      // until it approaches the viewport. The browser loops GIFs natively — no player chrome.
-      // An .mp4 src (the gif→mp4 optimization) renders as a muted autoplaying looping <video>
-      // instead — same silent-loop behavior, decoded on the media pipeline.
+      // BOX — the width-controlled frame. Everything visual (crop wrap, tools, handles, crop UI)
+      // lives inside it; the caption/badge sit OUTSIDE it under the figure.
+      const boxEl = el('div', 'wp-image-box');
+      const cropWrap = el('div', 'wp-image-cropwrap');
+      boxEl.appendChild(cropWrap);
+      dom.appendChild(boxEl);
+
       const makeMediaEl = (a) => {
         if (isVideoSrc(a.src)) {
           const v = el('video', 'wp-image-img', { ...VIDEO_LOOP_ATTRS });
-          // Attributes alone don't set the live properties on a script-created element,
-          // and Chrome's autoplay policy checks the muted PROPERTY — set both.
           v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
           return v;
         }
         return el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
       };
       let media = makeMediaEl(attrs);
+      cropWrap.appendChild(media);
+
+      // Natural aspect (natW/natH) once the media has dimensions; null until loaded.
+      const naturalRatio = (m) => {
+        const w = m.tagName === 'VIDEO' ? m.videoWidth : m.naturalWidth;
+        const h = m.tagName === 'VIDEO' ? m.videoHeight : m.naturalHeight;
+        return w > 0 && h > 0 ? w / h : null;
+      };
+
+      // CROP RENDER — pure CSS, pixel-exact. Reads live wrap width so it tracks responsive lanes.
+      const applyCropStyles = (a) => {
+        const c = isValidCrop(a.crop) ? a.crop : null;
+        if (!c) {
+          cropWrap.style.overflow = ''; cropWrap.style.position = ''; cropWrap.style.height = '';
+          media.style.position = ''; media.style.width = ''; media.style.height = '';
+          media.style.left = ''; media.style.top = ''; media.style.maxWidth = '';
+          return;
+        }
+        const ratio = naturalRatio(media);           // wait for load if unknown
+        if (!ratio) return;
+        const W = cropWrap.getBoundingClientRect().width || boxEl.getBoundingClientRect().width;
+        if (!W) return;
+        const fullW = W / c.w;
+        const fullH = fullW / ratio;
+        cropWrap.style.overflow = 'hidden';
+        cropWrap.style.position = 'relative';
+        cropWrap.style.height = (c.h * fullH) + 'px';
+        media.style.position = 'absolute';
+        media.style.maxWidth = 'none';
+        media.style.width = fullW + 'px';
+        media.style.height = fullH + 'px';
+        media.style.left = (-c.x * fullW) + 'px';
+        media.style.top = (-c.y * fullH) + 'px';
+      };
+
+      const applyWidth = (a) => { boxEl.style.width = Number.isFinite(a.width) ? a.width + 'px' : ''; };
+
       const paint = (a) => {
-        // The src can flip img↔video across updates (a collab peer replaces a gif with
-        // its optimized mp4) — swap the element in place; caption UI below is untouched.
         if (isVideoSrc(a.src) !== (media.tagName === 'VIDEO')) {
           const next = makeMediaEl(a);
-          media.replaceWith(next);
+          media.replaceWith(next);   // stays inside cropWrap
           media = next;
+          media.addEventListener('load', onMediaReady);
+          media.addEventListener('loadedmetadata', onMediaReady);
         }
         media.src = a.src || '';
         if (media.tagName === 'IMG') media.alt = a.alt || '';
         else media.setAttribute('aria-label', a.alt || '');
         dom.setAttribute('data-kind', a.kind || 'shot');
+        applyWidth(a);
+        applyCropStyles(a);
       };
-      dom.appendChild(media);
+      const onMediaReady = () => applyCropStyles(attrs);
+      media.addEventListener('load', onMediaReady);
+      media.addEventListener('loadedmetadata', onMediaReady);
 
-      // CLICK → LIGHTBOX (script-column width). Delegated on the figure so the handler
-      // survives paint()'s img↔video element swap. mousedown still reaches ProseMirror
-      // first, so the atom gets its NodeSelection as before — Backspace-to-delete intact.
+      // The gate: editor editable AND not a read-only share. EVERY write path checks this.
+      const canEdit = () => { try { return editor.isEditable && !isReadOnly(); } catch { return false; } };
+
+      // INLINE TOOLS — small FULLSCREEN + DOWNLOAD, always available (viewing/downloading is a
+      // READ op, allowed in read-only). Fullscreen opens the existing script-column lightbox
+      // (which carries the BIG download button).
+      const toolsEl = el('div', 'wp-image-tools', { contenteditable: 'false' });
+      const fsBtn = el('button', 'wp-image-tool wp-image-tool-fs', { type: 'button', title: 'Open fullscreen', 'aria-label': 'open fullscreen' });
+      fsBtn.textContent = '⤢';
+      const dlBtn = el('button', 'wp-image-tool wp-image-tool-dl', { type: 'button', title: 'Download' });
+      dlBtn.textContent = '⇩';
+      toolsEl.appendChild(fsBtn); toolsEl.appendChild(dlBtn);
+      boxEl.appendChild(toolsEl);
+      fsBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); openMediaLightbox(attrs); });
+      dlBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); downloadMediaFromLightbox(attrs.src, attrs.alt, dlBtn); });
+
+      // RESIZE HANDLES — visible only when the node is selected AND the editor is editable
+      // (CSS keyed on the .ProseMirror[contenteditable="true"] ancestor + .ProseMirror-selectednode,
+      // so it tracks setEditable with NO repaint). Drag mutates ONLY box.style.width (pure DOM,
+      // ignoreMutation swallows it, NO transaction). ONE setNodeMarkup fires on pointerup.
+      const handlesEl = el('div', 'wp-image-handles', { contenteditable: 'false' });
+      for (const h of ['nw', 'ne', 'sw', 'se', 'e', 'w']) {
+        handlesEl.appendChild(el('span', 'wp-image-handle wp-image-handle-' + h, { 'data-h': h }));
+      }
+      boxEl.appendChild(handlesEl);
+
+      const maxBoxWidth = () => {
+        try {
+          const host = dom.parentElement;
+          const hw = host ? host.getBoundingClientRect().width : 640;
+          return Math.max(IMAGE_MIN_WIDTH, Math.round(hw));
+        } catch { return 640; }
+      };
+
+      let dragging = false;
+      const commitWidth = (w) => {
+        if (!canEdit()) { paint(attrs); return; }               // read-only defense in depth
+        if ((attrs.width ?? null) === (w ?? null)) { paint(attrs); return; }
+        try {
+          const pos = getPos();
+          if (typeof pos !== 'number') { paint(attrs); return; }
+          const live = editor.state.doc.nodeAt(pos);
+          if (!live || live.type.name !== 'imageBlock') { paint(attrs); return; }
+          editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, null, { ...live.attrs, width: w }));
+        } catch { paint(attrs); }
+      };
+
+      const beginResize = (e) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
+        const west = String(e.currentTarget.dataset.h || '').includes('w');
+        const startX = e.clientX;
+        const startW = boxEl.getBoundingClientRect().width;
+        const maxW = maxBoxWidth();
+        dragging = true;
+        boxEl.classList.add('wp-image-resizing');
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          boxEl.style.width = clampImageWidth(startW + (west ? -dx : dx), maxW) + 'px';
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove, true);
+          window.removeEventListener('pointerup', onUp, true);
+          dragging = false;
+          boxEl.classList.remove('wp-image-resizing');
+          commitWidth(clampImageWidth(boxEl.getBoundingClientRect().width, maxW));
+        };
+        window.addEventListener('pointermove', onMove, true);
+        window.addEventListener('pointerup', onUp, true);
+      };
+      handlesEl.querySelectorAll('.wp-image-handle').forEach((h) => h.addEventListener('pointerdown', beginResize));
+
+      // CROP EDITOR (double-click). Shows the FULL image (crop cleared visually), overlays a
+      // draggable/resizable rect; Apply normalizes to 0..1 and commits ONE transaction; Esc/Cancel
+      // restores. Absolute to the natural image, so re-cropping replaces from scratch.
+      const cropUi = el('div', 'wp-image-cropui', { contenteditable: 'false', hidden: '' });
+      const cropRect = el('div', 'wp-image-croprect');
+      for (const h of ['nw', 'ne', 'sw', 'se']) cropRect.appendChild(el('span', 'wp-image-crophandle wp-image-crophandle-' + h, { 'data-h': h }));
+      const cropBar = el('div', 'wp-image-cropbar');
+      const cropApply = el('button', 'wp-image-cropbtn wp-image-cropbtn-apply', { type: 'button' }); cropApply.textContent = 'CROP';
+      const cropCancel = el('button', 'wp-image-cropbtn wp-image-cropbtn-cancel', { type: 'button' }); cropCancel.textContent = 'CANCEL';
+      cropBar.appendChild(cropApply); cropBar.appendChild(cropCancel);
+      cropUi.appendChild(cropRect); cropUi.appendChild(cropBar);
+      boxEl.appendChild(cropUi);
+
+      let cropping = false;
+      let rectPx = { l: 0, t: 0, w: 0, h: 0 };   // px within the shown-full media box
+      const mediaBox = () => media.getBoundingClientRect();
+
+      const paintCropRect = () => {
+        cropRect.style.left = rectPx.l + 'px';
+        cropRect.style.top = rectPx.t + 'px';
+        cropRect.style.width = rectPx.w + 'px';
+        cropRect.style.height = rectPx.h + 'px';
+      };
+      const enterCropMode = () => {
+        if (!canEdit() || cropping) return;
+        cropping = true;
+        // Show full image while cropping.
+        cropWrap.style.overflow = ''; cropWrap.style.position = 'relative'; cropWrap.style.height = '';
+        media.style.position = ''; media.style.width = ''; media.style.height = '';
+        media.style.left = ''; media.style.top = ''; media.style.maxWidth = '';
+        const mb = mediaBox();
+        const wrapRect = cropWrap.getBoundingClientRect();
+        const ox = mb.left - wrapRect.left, oy = mb.top - wrapRect.top;
+        const c = isValidCrop(attrs.crop) ? attrs.crop : { x: 0.1, y: 0.1, w: 0.8, h: 0.8 };
+        rectPx = { l: ox + c.x * mb.width, t: oy + c.y * mb.height, w: c.w * mb.width, h: c.h * mb.height };
+        cropUi.hidden = false;
+        boxEl.classList.add('wp-image-cropping');
+        paintCropRect();
+        document.addEventListener('keydown', onCropKey, true);
+      };
+      const exitCropMode = () => {
+        cropping = false;
+        cropUi.hidden = true;
+        boxEl.classList.remove('wp-image-cropping');
+        document.removeEventListener('keydown', onCropKey, true);
+        applyCropStyles(attrs);   // restore whatever crop is persisted
+      };
+      const onCropKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); exitCropMode(); }
+        if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitCrop(); }
+      };
+
+      // rect drag (body move) + corner resize — pure DOM, no transaction until Apply.
+      const dragRect = (e, mode) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
+        const sx = e.clientX, sy = e.clientY;
+        const start = { ...rectPx };
+        const mb = mediaBox(); const wrapRect = cropWrap.getBoundingClientRect();
+        const minX = mb.left - wrapRect.left, minY = mb.top - wrapRect.top;
+        const maxX = minX + mb.width, maxY = minY + mb.height;
+        const onMove = (ev) => {
+          const dx = ev.clientX - sx, dy = ev.clientY - sy;
+          let { l, t, w, h } = start;
+          if (mode === 'move') {
+            l = Math.max(minX, Math.min(start.l + dx, maxX - w));
+            t = Math.max(minY, Math.min(start.t + dy, maxY - h));
+          } else {
+            const east = mode.includes('e'), south = mode.includes('s');
+            if (east) w = Math.max(24, Math.min(start.w + dx, maxX - start.l));
+            else { const nl = Math.max(minX, Math.min(start.l + dx, start.l + start.w - 24)); w = start.w + (start.l - nl); l = nl; }
+            if (south) h = Math.max(24, Math.min(start.h + dy, maxY - start.t));
+            else { const nt = Math.max(minY, Math.min(start.t + dy, start.t + start.h - 24)); h = start.h + (start.t - nt); t = nt; }
+          }
+          rectPx = { l, t, w, h };
+          paintCropRect();
+        };
+        const onUp = () => { window.removeEventListener('pointermove', onMove, true); window.removeEventListener('pointerup', onUp, true); };
+        window.addEventListener('pointermove', onMove, true);
+        window.addEventListener('pointerup', onUp, true);
+      };
+      cropRect.addEventListener('pointerdown', (e) => { if (e.target === cropRect) dragRect(e, 'move'); });
+      cropRect.querySelectorAll('.wp-image-crophandle').forEach((h) =>
+        h.addEventListener('pointerdown', (e) => dragRect(e, e.currentTarget.dataset.h)));
+
+      const commitCrop = () => {
+        if (!canEdit()) { exitCropMode(); return; }
+        const mb = mediaBox(); const wrapRect = cropWrap.getBoundingClientRect();
+        const ox = mb.left - wrapRect.left, oy = mb.top - wrapRect.top;
+        const nx = clamp01((rectPx.l - ox) / mb.width);
+        const ny = clamp01((rectPx.t - oy) / mb.height);
+        const nw = clamp01(rectPx.w / mb.width);
+        const nh = clamp01(rectPx.h / mb.height);
+        const next = isValidCrop({ x: nx, y: ny, w: nw, h: nh }) ? { x: nx, y: ny, w: nw, h: nh } : null;
+        try {
+          const pos = getPos();
+          if (typeof pos === 'number') {
+            const live = editor.state.doc.nodeAt(pos);
+            if (live && live.type.name === 'imageBlock') {
+              editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, null, { ...live.attrs, crop: next }));
+            }
+          }
+        } catch {}
+        exitCropMode();
+      };
+      cropApply.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); commitCrop(); });
+      cropCancel.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); exitCropMode(); });
+
+      // CLICK → fullscreen ONLY in read/non-edit mode (readers keep click-to-zoom). In edit mode a
+      // click just selects the atom → the resize box appears. DOUBLE-CLICK → crop (edit only).
       dom.addEventListener('click', (e) => {
         if (e.target !== media) return;
-        e.preventDefault();
-        e.stopPropagation();
+        if (canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
         openMediaLightbox(attrs);
       });
+      media.addEventListener('dblclick', (e) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
+        enterCropMode();
+      });
+
+      // Recompute px-exact crop when the column/lane resizes (responsive). Pure DOM.
+      let ro = null;
+      try { ro = new ResizeObserver(() => { if (!cropping && !dragging) applyCropStyles(attrs); }); ro.observe(boxEl); } catch {}
 
       // INSPO badge — only for kind:'inspo' (mood reference, not a real frame from footage).
       const badge = el('span', 'wp-image-badge', { contenteditable: 'false' });
       badge.textContent = 'INSPO';
       dom.appendChild(badge);
 
-      // CAPTION — hidden until typed (Johnny: no visible caption by default; click just below
-      // the image to add one). Three faces, one at a time:
-      //   cap      — the typed caption (click it to edit)
-      //   capStrip — the quiet click-target under a captionless image ("+ caption", hover-only)
-      //   capInput — the editor, committing to attrs.alt via a real PM transaction
+      // CAPTION — hidden until typed. Three faces, one at a time (verbatim from the shipped impl).
       const cap = el('figcaption', 'wp-image-caption', { contenteditable: 'false', title: 'click to edit the caption' });
       const capStrip = el('button', 'wp-image-cap-strip', { type: 'button', contenteditable: 'false', title: 'add a caption' });
       capStrip.textContent = '+ caption';
@@ -1326,11 +1588,11 @@ export const ImageBlock = Node.create({
       dom.appendChild(capInput);
 
       let editing = false;
-      const canEdit = () => { try { return editor.isEditable; } catch { return false; } };
 
       const paintAll = (a) => {
         attrs = a;
-        paint(a);
+        if (!cropping && !dragging) paint(a);   // don't stomp a live drag/crop with a peer echo
+        dom.classList.toggle('wp-image--editable', canEdit());
         badge.hidden = (a.kind || 'shot') !== 'inspo';
         cap.textContent = a.alt || '';
         cap.hidden = editing || !a.alt;
@@ -1379,14 +1641,23 @@ export const ImageBlock = Node.create({
       return {
         dom,
         ignoreMutation: () => true,
-        // The caption editor is a real form control inside an atom node view — PM must not
-        // swallow its focus/typing/selection events.
-        stopEvent: (event) => event.target === capInput || capInput.contains(event.target),
+        stopEvent: (event) => {
+          const t = event.target;
+          if (t === capInput || capInput.contains(t)) return true;
+          if (handlesEl.contains(t)) return true;
+          if (toolsEl.contains(t)) return true;
+          if (cropUi.contains(t)) return true;
+          return false;
+        },
         update(updated) {
           if (updated.type.name !== 'imageBlock') return false;
           paintAll(updated.attrs);
           syncSharedDomAttrs(dom, updated.attrs);
           return true;
+        },
+        destroy() {
+          try { if (ro) ro.disconnect(); } catch {}
+          document.removeEventListener('keydown', onCropKey, true);
         },
       };
     };

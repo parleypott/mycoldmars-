@@ -14,6 +14,7 @@
 // selections also surface the bar, and reposition on the scroll parent, not just resize.
 
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { isReadOnly } from './read-mode.js';
 
 export function BurmaBubbleMenu({ editor }) {
   const [visible, setVisible] = useState(false);
@@ -89,6 +90,13 @@ export function BurmaBubbleMenu({ editor }) {
   const fcActive = editor.isActive('factCheckSpan');
   const visActive = editor.isActive('visualSpan');
 
+  // WRITE GATE — TipTap commands dispatch PAST editable:false (see marks.js), and a selection can
+  // exist in READ mode, so alignment writes must be closed here. `?read` share is structurally
+  // frozen; the sticky READ/EDIT latch flips editor.isEditable. Gate on BOTH.
+  const canWrite = () => editor.isEditable && !isReadOnly();
+  const setAlign = (dir) => { if (canWrite()) editor.chain().focus().setTextAlign(dir).run(); };
+  const alignActive = (dir) => editor.isActive({ textAlign: dir });
+
   // Is the selection's row already a split (2+ columns)? Walk the selection up to its
   // tableRow ancestor — drives whether the bubble offers SPLIT (⊟) or MERGE (⊞).
   const rowIsSplit = (() => {
@@ -108,6 +116,10 @@ export function BurmaBubbleMenu({ editor }) {
     >
       <button class="wp-bbtn" title="Bold" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}><b>B</b></button>
       <button class="wp-bbtn" title="Italic" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}><i>I</i></button>
+      <span class="wp-bsep" />
+      <button class={`wp-bbtn wp-bbtn-align ${alignActive('left') ? 'active' : ''}`} title="Align left" aria-label="Align left" onMouseDown={(e) => { e.preventDefault(); setAlign('left'); }}>⇤</button>
+      <button class={`wp-bbtn wp-bbtn-align ${alignActive('center') ? 'active' : ''}`} title="Align center" aria-label="Align center" onMouseDown={(e) => { e.preventDefault(); setAlign('center'); }}>⇔</button>
+      <button class={`wp-bbtn wp-bbtn-align ${alignActive('right') ? 'active' : ''}`} title="Align right" aria-label="Align right" onMouseDown={(e) => { e.preventDefault(); setAlign('right'); }}>⇥</button>
       <span class="wp-bsep" />
       <button class={`wp-bbtn wp-bbtn-tk ${tkActive ? 'active' : ''}`} title="Mark as {TK} writing helper" onMouseDown={(e) => { e.preventDefault(); tkActive ? clearSpan('tkSpan') : applySpan('tkSpan'); }}>TK</button>
       <button class={`wp-bbtn wp-bbtn-fc ${fcActive ? 'active' : ''}`} title="Mark as {fc} fact-check" onMouseDown={(e) => { e.preventDefault(); fcActive ? clearSpan('factCheckSpan') : applySpan('factCheckSpan'); }}>FC</button>

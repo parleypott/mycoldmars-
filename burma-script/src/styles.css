@@ -315,6 +315,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* Redundant "DAY N" folded before its timecode chip (day-fold plugin) — hidden, not deleted. */
 .wp-day-hidden{ display:none; }
 .wp-dhl[data-kind="broll"]{ background:rgba(208,135,63,.16); border-color:#d0873f; color:#9a5410; }
+.wp-dhl[data-kind="mapdata"]{ background:rgba(156,90,60,.16); border-color:#9c5a3c; color:#6e3d24; }  /* /map-data — cartography, brownish-red (burnt sienna) */
 .wp-dhl[data-kind="direction"]{ background:#ece6d8; border-color:#cabfa8; color:#4a463d; }
 
 /* Archive checkbox widget ☐/☑ — BIG + BOLD, before each archive run. */
@@ -1646,6 +1647,7 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 .wp-page[data-roles~="archive"]   .wp-editor [data-trow]:has(.wp-dhl[data-kind="archive"]) { opacity: 1; filter: none; }
 .wp-page[data-roles~="factcheck"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="factcheck"], [data-fc]) { opacity: 1; filter: none; }
 .wp-page[data-roles~="broll"]     .wp-editor [data-trow]:has(.wp-dhl[data-kind="broll"], [data-broll]) { opacity: 1; filter: none; }
+.wp-page[data-roles~="cartography"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="mapdata"]) { opacity: 1; filter: none; }
 
 /* BOOST — inside a lit row, make YOUR craft's chip pop with a highlighter underlay */
 .wp-page[data-roles~="animation"] .wp-dhl[data-kind="animation"] { box-shadow: inset 0 -.55em 0 rgba(122,106,181,.35); }
@@ -1653,6 +1655,7 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 .wp-page[data-roles~="archive"]   .wp-dhl[data-kind="archive"] { box-shadow: inset 0 -.55em 0 rgba(181,107,107,.35); }
 .wp-page[data-roles~="factcheck"] :is(.wp-dhl[data-kind="factcheck"], [data-fc]) { box-shadow: inset 0 -.55em 0 rgba(192,57,43,.30); }
 .wp-page[data-roles~="broll"]     :is(.wp-dhl[data-kind="broll"], [data-broll]) { box-shadow: inset 0 -.55em 0 rgba(208,135,63,.32); }
+.wp-page[data-roles~="cartography"] .wp-dhl[data-kind="mapdata"] { box-shadow: inset 0 -.55em 0 rgba(156,90,60,.32); }
 
 /* ============================================================
    BLOCK MENU (change type / insert / delete) — FLAT hairline card
@@ -1690,6 +1693,10 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 .wp-bbtn:hover { background: rgba(255,255,255,.14); }
 .wp-bbtn.active { background: #fff; color: var(--ink); }
 .wp-bbtn-tk.active { background: var(--orange); color: #fff; }
+/* Bubble-menu alignment glyph buttons — share .wp-bbtn/.active styling; the arrow glyphs read
+   better a touch larger and tighter. TextAlign emits inline style on the <p>, so rendering needs
+   no CSS; this is button polish only. */
+.wp-bbtn-align { font-size: 13px; line-height: 1; }
 .wp-bbtn-tk { color: #f3a878; }
 .wp-bbtn-fc { color: #e6b54a; }
 .wp-bbtn-fc.active { background: var(--arm); color: #fff; }
@@ -1779,25 +1786,37 @@ a[href*="liveblocks.io"] { display: none !important; }
 /* ---- HYPERLINKS (Cmd+K) — quiet editorial links: body ink, hairline underline that warms
    to the accent on hover. Cmd/Ctrl+click opens while editing; plain click just places the
    caret. FLAT: no button chrome, links are typography. */
+/* STANDARD hyperlink treatment (Johnny 2026-07-09: kill the emoji, plain blue + underline).
+   Reuses --blue, the app's one existing blue token, so no new color enters the system. */
 .wp-body a, .wp-tcell-content a {
-  color: inherit;
-  text-decoration: underline dotted 1.5px;
+  color: var(--blue, #2f6fb0);
+  text-decoration: underline solid 1px;
   text-decoration-color: currentColor;
   text-underline-offset: 3px;
-}
-/* the little 🔗 (Johnny, Image-10: "hyperlink should have a link emoji") — small and quiet,
-   reads inside viz chips too since it inherits the chip's ink. Non-editable feel: it's pure
-   CSS chrome, so it never enters the doc or the export. */
-.wp-body a::before, .wp-tcell-content a::before {
-  content: '🔗';
-  font-size: .68em;
-  margin-right: 3px;
-  opacity: .8;
 }
 .wp-body a:hover, .wp-tcell-content a:hover {
   color: var(--orange, #ff5b1f);
   text-decoration-style: solid;
 }
+
+/* LINK POPOVER — the Cmd+K inline URL editor (LinkPopover.jsx), anchored above the selection
+   like the bubble menu. Small, mono, Swiss — a Notion/Docs mini link bar, not a browser prompt. */
+.wp-link-pop {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--panel, #fff); color: var(--ink, #111);
+  border: 1.5px solid var(--ink, #111); border-radius: 7px;
+  padding: 4px 4px 4px 8px;
+}
+.wp-link-pop-input {
+  font-family: var(--mono); font-size: 12px; width: 220px; max-width: 60vw;
+  background: transparent; border: 0; outline: none; color: var(--ink, #111);
+}
+.wp-link-pop-input::placeholder { color: var(--label-2, #999); }
+.wp-link-pop-remove {
+  border: 0; background: none; cursor: pointer; font-size: 12px; line-height: 1;
+  color: var(--label-2, #999); padding: 2px 6px; border-radius: 4px;
+}
+.wp-link-pop-remove:hover { color: #d23b2c; background: var(--face, #f2f2f2); }
 
 /* ---- FACT-CHECK FOOTNOTE — the green ✓ receipt + its fly-out comment card ----
    The icon is an inline atom pinned right after a verified fact. FLAT law: solid fills,
@@ -2267,6 +2286,79 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-image.ProseMirror-selectednode video { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
 /* Rack media invites the click (lightbox below). */
 .wp-image .wp-image-img { cursor: zoom-in; }
+
+/* ═══ IMAGE RESIZE + CROP + INLINE TOOLS (blocks.js NodeView) ═════════════════════════════ */
+/* BOX — width-controlled frame; media fills it. Crop wrap clips when a crop is set (inline
+   styles from the nodeview do the pixel-exact math). */
+.wp-image .wp-image-box { position: relative; display: block; width: fit-content; max-width: 100%; }
+.wp-image .wp-image-cropwrap { position: relative; display: block; line-height: 0; }
+.wp-image .wp-image-box .wp-image-img,
+.wp-image .wp-image-box img,
+.wp-image .wp-image-box video { display: block; }
+/* In edit mode the cursor is a move/select affordance, not zoom (zoom is the read-mode click). */
+.ProseMirror[contenteditable="true"] .wp-image .wp-image-img { cursor: default; }
+.wp-image.wp-image-resizing { user-select: none; }
+
+/* INLINE TOOLS — small fullscreen + download, top-right, reveal on hover/selection. */
+.wp-image .wp-image-tools {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  display: flex; gap: 6px; opacity: 0; transition: opacity .14s var(--ease, ease); pointer-events: none;
+}
+.wp-image:hover .wp-image-tools,
+.wp-image.ProseMirror-selectednode .wp-image-tools { opacity: 1; pointer-events: auto; }
+.wp-image .wp-image-tool {
+  width: 26px; height: 26px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--ink); border-radius: 999px;
+  background: var(--face); color: var(--ink);
+  font-size: 13px; line-height: 1; cursor: pointer;
+}
+.wp-image .wp-image-tool:hover { background: var(--ink); color: var(--face); }
+
+/* RESIZE HANDLES — only when SELECTED and the editor is EDITABLE (ancestor contenteditable),
+   so read-only shares + read-mode never show them and setEditable needs no repaint. */
+.wp-image .wp-image-handles { position: absolute; inset: 0; z-index: 2; display: none; pointer-events: none; }
+.ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-image-handles { display: block; }
+.wp-image .wp-image-box { outline: none; }
+.ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-image-box {
+  outline: 1.5px solid rgba(255,91,31,.9); outline-offset: 0;
+}
+.wp-image .wp-image-handle {
+  position: absolute; width: 12px; height: 12px; background: var(--face);
+  border: 1.5px solid rgba(255,91,31,1); border-radius: 2px; pointer-events: auto;
+}
+.wp-image .wp-image-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.wp-image .wp-image-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.wp-image .wp-image-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.wp-image .wp-image-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.wp-image .wp-image-handle-e  { top: 50%; right: -6px; margin-top: -6px; cursor: ew-resize; }
+.wp-image .wp-image-handle-w  { top: 50%; left: -6px; margin-top: -6px; cursor: ew-resize; }
+
+/* CROP EDITOR — dim outside the rect, draggable rect with corner handles + apply/cancel bar. */
+.wp-image .wp-image-cropui { position: absolute; inset: 0; z-index: 5; }
+.wp-image .wp-image-cropui[hidden] { display: none; }
+.wp-image.wp-image-cropping .wp-image-cropwrap::after {
+  content: ""; position: absolute; inset: 0; background: rgba(31,29,24,.45); pointer-events: none;
+}
+.wp-image .wp-image-croprect {
+  position: absolute; box-sizing: border-box;
+  border: 1.5px solid var(--face); outline: 1px solid var(--ink);
+  box-shadow: 0 0 0 2000px rgba(31,29,24,.45); cursor: move;
+}
+.wp-image .wp-image-crophandle { position: absolute; width: 12px; height: 12px; background: var(--face); border: 1.5px solid var(--ink); }
+.wp-image .wp-image-crophandle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.wp-image .wp-image-crophandle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.wp-image .wp-image-crophandle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.wp-image .wp-image-crophandle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.wp-image .wp-image-cropbar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 6; }
+.wp-image .wp-image-cropbtn {
+  padding: 5px 11px; border: 1.5px solid var(--ink); border-radius: 999px;
+  background: var(--face); color: var(--ink);
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; cursor: pointer;
+}
+.wp-image .wp-image-cropbtn-apply { background: var(--ink); color: var(--face); }
+.wp-image .wp-image-cropbtn:hover { filter: brightness(1.08); }
 /* MEDIA LIGHTBOX — click a rack still/video → same media at full script-column width
    (blocks.js openMediaLightbox). NOT fullscreen: an in-tool viewing surface. Scrim dims
    the page; the frame keeps the doctrine border; Esc / click-away / × close. */
@@ -2455,6 +2547,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 /* The bubble menu applies marks straight through dispatch (editable doesn't gate commands) —
    in READ mode it must not exist as a click target. */
 .wp-page[data-mode="read"] .wp-bubble { display: none; }
+.wp-page[data-mode="read"] .wp-link-pop { display: none; }
 
 /* CHAPTER FOCUS × LIBRARY SHELL — the library's floating "back to library" pill (#sl-backbar,
    z-index 9999) sits exactly over the focus bar's BACK TO SCRIPT button and swallowed its

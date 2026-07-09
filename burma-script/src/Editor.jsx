@@ -13,6 +13,7 @@ import { getMarkRange } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
+import TextAlign from '@tiptap/extension-text-align';
 import { memo } from 'preact/compat';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { BURMA_NODES } from './extensions/blocks.js';
@@ -28,9 +29,11 @@ import { PasteSanitize } from './extensions/paste-sanitize.js';
 import { FindReplace } from './extensions/find-replace.js';
 import { ImageDrop } from './extensions/image-drop.js';
 import { LinkKeymap } from './extensions/link-kbd.js';
+import { ListShortcuts } from './extensions/list-shortcuts.js';
 import { ChapterFocus } from './extensions/chapter-focus.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
+import { LinkPopover } from './LinkPopover.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
 import { Workshop } from './Workshop.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, primeVersionFloor, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
@@ -463,6 +466,13 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       }),
       Dropcursor.configure({ color: '#d23b2c', width: 2 }),
       Gapcursor,
+      // PARAGRAPH ALIGNMENT — global `textAlign` attr on paragraph only (all script prose lives in
+      // paragraphs, incl. inside voBlock/oncam/sot/none/broll bodies and table cells, so this one
+      // registration reaches every writable text run). COLLAB-SAFE: TextAlign adds attrs + the
+      // setTextAlign/unsetTextAlign commands and NO ProseMirror plugin — nothing auto-dispatches, so
+      // it can't echo-loop under y-sync. Persists via getJSON; survives save/load. Keep this config
+      // byte-identical to migrate-doc.js buildSchema() (lockstep contract).
+      TextAlign.configure({ types: ['paragraph'], alignments: ['left', 'center', 'right'], defaultAlignment: 'left' }),
       ...BURMA_TABLE_NODES,
       ...BURMA_NODES,
       ...BURMA_MARKS,
@@ -488,6 +498,11 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // Cmd+K hyperlinks — the link MARK ships with StarterKit v3 (already in the schema +
       // MARKS_ALLOWLIST); this only adds the gesture (prompt/edit/remove) + Cmd-click-to-open.
       LinkKeymap,
+      // GUARANTEED LIST SHORTCUTS — Cmd/Ctrl+Shift+8 (bullet) / +7 (ordered) at priority 1001
+      // (above Collaboration's 1000) so the keymap can never be shadowed or dropped, regardless of
+      // how StarterKit's own list keymap fares under this configure() + the Yjs binding. Keymap
+      // only → COLLAB LOOP LAW safe. See list-shortcuts.js for the regression story.
+      ListShortcuts,
       // COLLAB — Collaboration (binds the Y.Doc; the Yjs binding carries every PM transaction,
       // including the NodeViews' — spike-proven lossless) + CollaborationCaret (teammates' colored
       // cursors/selections via the Liveblocks awareness provider). Empty when the flag is off.
@@ -883,6 +898,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       {/* READ-ONLY SHARE: the BubbleMenu (TK/visual/bold marks) and Workshop dock are edit-only
           chrome — omit them entirely so a reader gets a calm, clean reading surface. */}
       {!readOnly && <BurmaBubbleMenu editor={editor} />}
+      {!readOnly && <LinkPopover editor={editor} />}
       {/* Find & Replace panel — Cmd/Ctrl+F opens it. Edit-only chrome, like the bubble menu. */}
       {!readOnly && <FindReplacePanel editor={editor} />}
       {!readOnly && <Workshop />}

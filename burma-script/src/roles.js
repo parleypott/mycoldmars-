@@ -18,7 +18,8 @@ export const ROLE_DEFS = [
   { id: '3d',        label: '3D animator',   tint: '#b8a72e', sel: '.wp-dhl[data-kind="3d"]' },
   { id: 'archive',   label: 'Archive team',  tint: '#b56b6b', sel: '.wp-dhl[data-kind="archive"]' },
   { id: 'factcheck', label: 'Fact-check',    tint: '#c0392b', sel: '.wp-dhl[data-kind="factcheck"], [data-fc]' },
-  { id: 'broll',     label: 'B-roll editor', tint: '#d0873f', sel: '.wp-dhl[data-kind="broll"], [data-broll]' },
+  { id: 'broll',       label: 'B-roll editor', tint: '#d0873f', sel: '.wp-dhl[data-kind="broll"], [data-broll]' },
+  { id: 'cartography', label: 'Cartography',   tint: '#9c5a3c', sel: '.wp-dhl[data-kind="mapdata"]' },
 ];
 
 // The set of legal role ids — the gate for anything read back out of localStorage or a URL.

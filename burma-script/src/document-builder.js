@@ -18,6 +18,18 @@
 // The ONLY transforms allowed now: unescape markdown backslashes + collapse runs of
 // whitespace. Nothing is deleted. The text is the source of truth — every word the
 // parser handed us must reach the page (and round-trip back out).
+// Crop shape guard for the blocks<->node conversion. Kept in lockstep with blocks.js isValidCrop
+// (asserted by image-resize-crop.test.mjs) but inlined so document-builder pulls in no TipTap deps.
+function imageCropShapeOk(c) {
+  if (!c || typeof c !== 'object') return false;
+  const { x, y, w, h } = c;
+  const num = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (![x, y, w, h].every(num)) return false;
+  if (w <= 0 || h <= 0 || x < 0 || y < 0) return false;
+  if (x + w > 1.0001 || y + h > 1.0001) return false;
+  return !(x <= 0.0001 && y <= 0.0001 && w >= 0.9999 && h >= 0.9999);
+}
+
 function clean(text) {
   if (!text) return '';
   return String(text)
@@ -656,6 +668,10 @@ function blockToNode(b, opts) {
           src: b.imageSrc || '',
           alt: b.imageAlt || '',
           kind: b.imageKind === 'inspo' ? 'inspo' : 'shot',
+          // width (px int) + crop ({x,y,w,h} 0..1) — additive; absent → null (byte-identical for
+          // every existing image block). Crop shape guard mirrors blocks.js isValidCrop's contract.
+          width: Number.isFinite(b.imageWidth) ? b.imageWidth : null,
+          crop: imageCropShapeOk(b.imageCrop) ? b.imageCrop : null,
           flavor: b.flavor ?? null,
         },
       };
@@ -1190,6 +1206,9 @@ function nodeToBlock(node, i) {
     block.imageSrc = a.src || '';
     block.imageAlt = a.alt || '';
     block.imageKind = a.kind === 'inspo' ? 'inspo' : 'shot';
+    // Emit width/crop ONLY when set → an untouched image block serializes byte-identical.
+    if (Number.isFinite(a.width)) block.imageWidth = a.width;
+    if (imageCropShapeOk(a.crop)) block.imageCrop = a.crop;
   }
   else { block.text = text; }
   return block;
