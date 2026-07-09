@@ -2243,5 +2243,51 @@ function fullOldMd(md) {
   ok(/<em>word<\/em>/.test(mdToHtml('a _word_ b')), 'single-line _italic_ unchanged');
 }
 
+// ── Blockquote LAZY CONTINUATION (CommonMark 5.1) ──────────────────────────────
+// A soft-wrapped quote whose continuation line drops the `>` marker still belongs
+// to the quote. LLMs wrap long blockquotes without re-prefixing every line, so the
+// tail used to leak OUT of the <blockquote> as an orphan paragraph. The fix folds
+// non-blank following lines into the quote while REFUSING to swallow a real
+// following block (list/heading/rule/code/table) or cross a blank line.
+{
+  // FIX: the wrapped tail is absorbed INTO the blockquote (joined with <br>).
+  const soft = mdToHtml('> This is a long quoted sentence that the model\nwrapped onto a second line without the marker.');
+  ok(/<blockquote>This is a long quoted sentence that the model<br>wrapped onto a second line without the marker\.<\/blockquote>/.test(soft),
+     'FIX: a soft-wrapped quote folds its unmarked tail into the <blockquote>');
+  // RED PROOF (mutation): the OLD marked-only pass left the tail OUTSIDE the quote
+  // as bare/`<p>`-wrapped prose. Revert md.js to `/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm`
+  // and this assertion goes RED (the tail escapes the blockquote).
+  ok(!/<\/blockquote>\s*(?:<p>)?wrapped onto/.test(soft),
+     'RED PROOF: the wrapped tail is not left as an orphan after </blockquote>');
+
+  // GUARD: a real following BLOCK must stay OUT of the quote (no lazy swallow).
+  const qList = mdToHtml('> quoted\n- real list item');
+  ok(/<blockquote>quoted<\/blockquote>\s*<ul><li>real list item<\/li><\/ul>/.test(qList),
+     'GUARD: a following list is a clean sibling, not swallowed into the quote');
+  const qHead = mdToHtml('> quoted\n# Real Heading');
+  ok(/<blockquote>quoted<\/blockquote>\s*<h1>Real Heading<\/h1>/.test(qHead),
+     'GUARD: a following heading is not swallowed into the quote');
+  const qFence = mdToHtml('> quoted\n```js\ncode();\n```');
+  ok(/<blockquote>quoted<\/blockquote>\s*<pre><code>code\(\);<\/code><\/pre>/.test(qFence),
+     'GUARD: a following fenced code block is not swallowed into the quote');
+  const qTable = mdToHtml('> quoted\n| a | b |\n| - | - |\n| 1 | 2 |');
+  ok(/<blockquote>quoted<\/blockquote>\s*<table>/.test(qTable),
+     'GUARD: a following GFM table is not swallowed into the quote');
+
+  // NO-REGRESSION: a blank line still ends the quote; the paragraph after is its
+  // own <p>, NOT part of the blockquote.
+  const blanked = mdToHtml('> quoted line\n\nplain paragraph after.');
+  ok(/<blockquote>quoted line<\/blockquote>\s*<p>plain paragraph after\.<\/p>/.test(blanked),
+     'NO-REGRESSION: a blank line ends the quote (following prose is its own <p>)');
+  // NO-REGRESSION: two fully-marked lines and a nested quote are byte-identical.
+  ok(/<blockquote>line one<br>line two<\/blockquote>/.test(mdToHtml('> line one\n> line two')),
+     'NO-REGRESSION: two marked quote lines join with <br> as before');
+  ok(/<blockquote>inner nested<\/blockquote>/.test(mdToHtml('>> inner nested')),
+     'NO-REGRESSION: a nested `>>` quote is unchanged');
+  // NO-REGRESSION: a soft-wrapped NON-quote paragraph is untouched (no phantom quote).
+  ok(/<p>just a normal paragraph<br>with a soft wrap\.<\/p>/.test(mdToHtml('just a normal paragraph\nwith a soft wrap.')),
+     'NO-REGRESSION: a plain soft-wrapped paragraph stays a <p>, not a blockquote');
+}
+
 console.log(`\nresearch/md.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) { for (const f of fails) console.log('  ✗', f); process.exit(1); }

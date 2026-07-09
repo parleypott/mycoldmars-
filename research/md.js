@@ -903,10 +903,29 @@ export function mdToHtml(md) {
   // consecutive markers with their optional single space; content that merely
   // starts with a lone `>` after the marker ("> -> arrow" -> `&gt; -&gt; arrow`)
   // is safe — the second `&gt;` isn't at line-start-after-a-marker.
-  html = html.replace(/^&gt;[^\n]*(?:\n&gt;[^\n]*)*/gm, (m) => {
-    const inner = renderQuoteInner(m.replace(/^(?:&gt;[ \t]?)+/gm, ''));
-    return `<blockquote>${inner}</blockquote>`;
-  });
+  // LAZY CONTINUATION (CommonMark 5.1): a soft-wrapped quote paragraph whose
+  // continuation line drops the `>` marker still belongs to the quote — `> long
+  // line\nwrapped tail` is ONE quoted paragraph, not a quote + bare prose. LLMs
+  // wrap long blockquotes without re-prefixing every line constantly, so without
+  // this the tail leaked OUT of the <blockquote> as an orphan paragraph. After
+  // the marked run, also absorb following lazy lines: non-blank lines that do NOT
+  // begin a new block. By this pass, lists/headings/rules are ALREADY converted
+  // to `<ul>`/`<h*>`/`<hr>` and fenced code is a `…` stub, so a line whose
+  // first non-space char is `<` or the stash sentinel is a real following block
+  // (a list/heading/quote/code) and must stay OUT — CommonMark forbids continuing
+  // across a block start. A line containing `|` is skipped too: GFM tables are
+  // converted AFTER this pass (still raw pipes here), so this keeps a table that
+  // trails a quote from being swallowed. A blank line ends the quote (the `$`
+  // lookahead). Marked and lazy lines may interleave (`> a\nb\n> c`). Strip only
+  // the `&gt;` markers per line, so a lazy line falls through to renderQuoteInner
+  // as prose and joins the paragraph with <br>, exactly like a marked prose line.
+  html = html.replace(
+    /^&gt;[^\n]*(?:\n(?:&gt;[^\n]*|(?![ \t]*(?:&gt;|<|\uE000|$))(?![^\n]*\|)[ \t]*\S[^\n]*))*/gm,
+    (m) => {
+      const inner = renderQuoteInner(m.replace(/^(?:&gt;[ \t]?)+/gm, ''));
+      return `<blockquote>${inner}</blockquote>`;
+    }
+  );
   // GFM tables: a single-newline block (no blank lines between rows) that the
   // paragraph split would otherwise fuse into one <p> of literal pipes.
   html = renderTables(html);
