@@ -25,6 +25,7 @@ import { getEpisode } from './episode-config.js';
 import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStorageKey } from './roles.js';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
+import { ShareToggle } from './ShareToggle.jsx';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
 // palau-script/main.jsx) which calls setEpisode(...) BEFORE dynamically importing this
@@ -1288,6 +1289,13 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     if (icon && EPISODE.favicon) icon.setAttribute('href', EPISODE.favicon);
   }, []);
 
+  // Mark the whole document read-only so CSS can hide owner/library affordances from a viewer
+  // (the static Library pill in index.html, etc.). index.html already sets this class inline from the
+  // URL before first paint (no flash); this keeps it in lockstep if readOnly ever changes at runtime.
+  useEffect(() => {
+    try { document.documentElement.classList.toggle('read-only', !!readOnly); } catch {}
+  }, [readOnly]);
+
   // Keep the switch UI in lockstep with the module (the module also gets set programmatically —
   // e.g. entering chapter focus arms EDIT).
   useEffect(() => {
@@ -1469,6 +1477,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             <span class="wp-masthead-tag">{readOnly ? 'SCRIPT · SHARED' : 'SCRIPT · DRAFT'}</span>
             {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader. */}
             {!readOnly && <TipsToggle />}
+            {!readOnly && <ShareToggle project="burma" />}
             <ShortcutsOverlay />{/* ⌘/ help card — read-only chrome, works on ?read shares too */}
           </div>
         </div>
@@ -1614,6 +1623,23 @@ function mountCloudLoadingPlaceholder(el) {
     '</div></div>';
 }
 
+// Shown when a share link is opened but the owner has turned sharing OFF (doc GET → 403 SHARING_OFF).
+// A revoked link must land HERE, never on a stale bundled/local fallback — no old content leaks past a
+// revoke. Plain, calm, no branding noise; the reader simply learns the link is no longer live.
+function mountSharingOff(el) {
+  if (!el) return;
+  try { document.documentElement.classList.add('read-only'); } catch {}
+  el.innerHTML =
+    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
+    'background:#e7e1d3;color:#1f1d18;' +
+    "font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;\">" +
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:14px;max-width:420px;text-align:center;">' +
+    '<span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;opacity:0.55;">Newpress · Script</span>' +
+    '<span style="font-size:20px;font-weight:700;letter-spacing:0.01em;">This script is no longer shared</span>' +
+    '<span style="font-size:13px;line-height:1.55;opacity:0.72;">The owner turned off link sharing for this script. If you need access, ask them to share it again.</span>' +
+    '</div></div>';
+}
+
 // ── STARTUP ORCHESTRATION — deterministic, no flash of source on a fresh device ───────────────────
 async function startup() {
   const el = document.getElementById('app');
@@ -1635,11 +1661,20 @@ async function startup() {
   if (isReadOnly()) {
     mountCloudLoadingPlaceholder(el);
     let cloudDoc = null;
+    let sharingOff = false;
     try {
       const r = await fetchCloudDocReadOnly({});
       if (r?.ok && r.doc) cloudDoc = r.doc;
+      else if (r?.status === 403) sharingOff = true; // owner revoked link sharing
     } catch (e) {
       console.warn('[burma] read-only cloud fetch skipped:', e);
+    }
+    if (sharingOff) {
+      // A revoked link: show the clear "no longer shared" screen and STOP — never fall back to a
+      // bundled/local copy, which would leak stale content past the owner's revoke.
+      console.info('[burma] read-only: link sharing is OFF for this script — showing revoked screen');
+      mountSharingOff(el);
+      return;
     }
     if (!cloudDoc) {
       // Cloud unreachable/empty — fall back to a local doc if one happens to exist on this device,

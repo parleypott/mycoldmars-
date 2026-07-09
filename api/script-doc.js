@@ -81,6 +81,15 @@ export default withSentry(async function handler(req) {
       }
       if (wantsList) return await listRevisions(pid);
       if (revisionId) return await getRevision(pid, revisionId);
+      // LINK-SHARE STATUS — the plain doc read is open ONLY while the owner keeps sharing ON. When the
+      // Share toggle is OFF (is_public=false), a logged-out ?read viewer is refused (403 SHARING_OFF);
+      // but the owner/teammates still load (gate.js's fetch interceptor injects x-access-code, so
+      // checkAccess passes), so turning sharing off NEVER locks Johnny out of his own doc. Fail-open on
+      // any lookup hiccup so a blip can only over-serve, never wrongly block a legit share.
+      if (!(await projectIsPublic(pid))) {
+        const denied = await checkAccess(req);
+        if (denied) return err(403, 'SHARING_OFF', 'This script is not currently shared by its owner.');
+      }
       return await getDoc(pid);
     }
 
@@ -124,6 +133,17 @@ async function resolveProjectId(ref) {
   if (!r.ok) return null;
   const rows = await r.json().catch(() => []);
   return rows.length ? rows[0].id : null;
+}
+
+// Link-share status for a project. Fail-OPEN (treat as public) on ANY query hiccup or a missing
+// column — a read must never be blocked by an infra blip; only an explicit is_public=false gates.
+async function projectIsPublic(pid) {
+  try {
+    const r = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(pid)}&select=is_public&limit=1`);
+    if (!r.ok) return true;
+    const rows = await r.json().catch(() => []);
+    return rows[0]?.is_public !== false;
+  } catch { return true; }
 }
 
 /* ------------------------------------------------------------------- read */

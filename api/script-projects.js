@@ -70,7 +70,7 @@ const RESERVED_SLUGS = new Set(['library', 'trash', 'new', 'home']);
 // The LIST select additionally drops config (see the endpoint doc above): the list is world-readable,
 // config is not the world's business, and no list consumer reads it.
 const SELECT_COLS = 'id,slug,title,episode,config,created_at,updated_at,trashed_at,deleted_at';
-const LIST_COLS = 'id,slug,title,episode,created_at,updated_at,trashed_at,deleted_at';
+const LIST_COLS = 'id,slug,title,episode,created_at,updated_at,trashed_at,deleted_at,is_public';
 
 // config jsonb write clamp — a free-form object bag still needs a ceiling so one bad client (or a
 // prober) can't park megabytes in every row. 64KB is ~400× the biggest real config we store.
@@ -266,6 +266,7 @@ function projectView(row) {
     updated_at: row.updated_at ?? null,
     trashed_at: row.trashed_at ?? null,
     deleted_at: row.deleted_at ?? null,
+    is_public: row.is_public !== false, // NOT NULL default true; only an explicit false is "off"
   };
 }
 
@@ -340,8 +341,14 @@ export function buildPatch(body) {
     }
     fields.config = body.config;
   }
+  if ('is_public' in body) {
+    // Link-share status. Only a boolean is accepted; the doc GET reads this to allow/deny logged-out
+    // ?read viewers. This PATCH is checkAccess-gated (above), so ONLY a signed-in owner can flip it.
+    if (typeof body.is_public !== 'boolean') return { ok: false, code: 'BAD_PUBLIC', message: 'is_public must be a boolean' };
+    fields.is_public = body.is_public;
+  }
   if (Object.keys(fields).length === 0) {
-    return { ok: false, code: 'NO_FIELDS', message: 'patch must set title, trashed_at, deleted_at (null), or config' };
+    return { ok: false, code: 'NO_FIELDS', message: 'patch must set title, trashed_at, deleted_at (null), config, or is_public' };
   }
   return { ok: true, fields };
 }

@@ -103,6 +103,21 @@ ok('empty patch refused', () => {
   assert.equal(buildPatch({}).code, 'NO_FIELDS');
   assert.equal(buildPatch({ id: 'x', created_by: 'y' }).code, 'NO_FIELDS'); // non-whitelisted only
 });
+ok('is_public accepts a boolean (link-share toggle)', () => {
+  assert.equal(buildPatch({ is_public: false }).fields.is_public, false);
+  assert.equal(buildPatch({ is_public: true }).fields.is_public, true);
+});
+ok('is_public rejects non-booleans (never a stray value into the flag)', () => {
+  assert.equal(buildPatch({ is_public: 'yes' }).code, 'BAD_PUBLIC');
+  assert.equal(buildPatch({ is_public: 1 }).code, 'BAD_PUBLIC');
+  assert.equal(buildPatch({ is_public: null }).code, 'BAD_PUBLIC');
+});
+ok('projectView surfaces is_public (only explicit false is off)', () => {
+  assert.equal(projectView({ id: 'a', is_public: false }).is_public, false);
+  assert.equal(projectView({ id: 'a', is_public: true }).is_public, true);
+  assert.equal(projectView({ id: 'a' }).is_public, true); // missing/NULL → public (matches column default)
+});
+
 ok('non-object patch body refused', () => {
   assert.equal(buildPatch(null).code, 'BAD_BODY');
 });

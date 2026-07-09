@@ -899,7 +899,10 @@ export async function fetchCloudDocReadOnly(deps = {}) {
   if (cloud && cloud.ok && cloud.doc != null) {
     return { ok: true, doc: cloud.doc, version: toInt(cloud.version) };
   }
-  return { ok: false };
+  // Propagate the HTTP status so the read-only boot can tell "sharing turned off" (403) apart from a
+  // plain network miss — a REVOKED link must show a clear "no longer shared" screen, never fall back
+  // to a stale bundled/local copy (which would leak old content past a revoke).
+  return { ok: false, status: cloud?.status };
 }
 
 // Compact decision diagnostics so behaviour is confirmable in the browser console without a debugger.

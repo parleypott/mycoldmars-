@@ -491,20 +491,35 @@ export function buildBookmarkUrl(bookmarkId, loc) {
   return origin + pathname + search + hash;
 }
 
-// Copy a bookmark's link to the clipboard + confirm with the shared toast. Clipboard access
-// can be denied (permissions / non-secure context) — then say so honestly, never a false green.
-function copyBookmarkLink(bookmarkId) {
-  const url = buildBookmarkUrl(bookmarkId);
-  const done = () => {
-    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: 'BOOKMARK LINK' } })); } catch {}
-  };
-  const fail = () => {
-    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'could not copy — your browser blocked the clipboard' } })); } catch {}
-  };
+// Build the canonical READ-ONLY SHARE link for this script. Unlike buildBookmarkUrl (which
+// preserves whatever access mode you copied from — so an edit-mode copy stays editable), this
+// ALWAYS forces the standalone read door: origin + /burma-script/?read, optionally deep-linking
+// to a bookmark with &bm=. Anyone who opens it views the script read-only and has NO path to the
+// library. The link IS the capability (exactly like the ?read shares already work) — no backend,
+// no per-recipient state. Pure(loc) for the suite.
+export function buildShareUrl({ bm } = {}, loc) {
+  const l = loc || (typeof window !== 'undefined' ? window.location : {});
+  const origin = l.origin || '';
+  return origin + '/burma-script/?read' + (bm ? '&bm=' + encodeURIComponent(bm) : '');
+}
+
+// Copy any URL to the clipboard + confirm with the shared toast (the label shows in the pill).
+// Clipboard access can be denied (permissions / non-secure context) — then say so honestly,
+// never a false green.
+export function copyShareLink(url, label) {
+  const done = () => { try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: label } })); } catch {} };
+  const fail = () => { try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'could not copy — your browser blocked the clipboard' } })); } catch {} };
   try {
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done, fail);
     else fail();
   } catch { fail(); }
+}
+
+// Copy a bookmark's link. Johnny's rule: sharing applies to bookmarks too — so this hands out a
+// READ-ONLY SHARE link (buildShareUrl), not the mode-preserving buildBookmarkUrl. Opening it drops
+// the recipient into the read-only view scrolled straight to this bookmark, with no library access.
+function copyBookmarkLink(bookmarkId) {
+  copyShareLink(buildShareUrl({ bm: bookmarkId }), 'BOOKMARK LINK');
 }
 
 // ── INLINE BOOKMARK (Johnny 2026-07-08) ─────────────────────────────────────────────────────

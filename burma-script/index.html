@@ -14,13 +14,17 @@
   <!-- Shared design doctrine (light book chapters, cream chips, table grid) — loaded AFTER
        styles.css so it wins the cascade. One design language across every script. -->
   <link rel="stylesheet" href="./src/doctrine.css" />
+  <!-- Mark a read-only share (?read/?view) BEFORE first paint so a viewer never even flashes the
+       Library pill — the one affordance that points at the login-gated library. main.jsx keeps this
+       class in lockstep at runtime; here it just wins the very first frame. -->
+  <script>try{var s=(location.search||'')+(location.hash||'');if(/[?&](read|view)\b/.test(s))document.documentElement.classList.add('read-only');}catch(e){}</script>
 </head>
 <body>
   <div id="app"></div>
-  <!-- Connect this standalone door to the master Script Library (same doc,
-       one home). A small pill top-right — not a hard redirect, so a live
-       bookmark keeps working. -->
-  <a href="/scripts-library/#burma"
+  <!-- Connect this standalone door to the master Script Library (same doc, one home). A small pill
+       top-right — not a hard redirect, so a live bookmark keeps working. HIDDEN for read-only share
+       viewers (html.read-only, see styles.css) so a recipient has no path to the library. -->
+  <a id="library-pill" href="/scripts-library/#burma"
      style="position:fixed;top:12px;right:14px;z-index:9000;display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;text-decoration:none;color:#1f1d18;background:#f7f3e8;border:1.5px solid #1f1d18;border-radius:999px;padding:6px 12px;box-shadow:0 2px 8px rgba(31,29,24,0.1);"
      title="Open the Script Library — one home for all scripts">↳ Library</a>
   <script type="module" src="./src/boot.jsx"></script>
