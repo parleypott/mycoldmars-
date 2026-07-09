@@ -1477,7 +1477,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             <span class="wp-masthead-tag">{readOnly ? 'SCRIPT · SHARED' : 'SCRIPT · DRAFT'}</span>
             {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader. */}
             {!readOnly && <TipsToggle />}
-            {!readOnly && <ShareToggle project="burma" />}
+            {!readOnly && <ShareToggle project={EPISODE.id} />}
             <ShortcutsOverlay />{/* ⌘/ help card — read-only chrome, works on ?read shares too */}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { buildShareUrl, copyShareLink } from './extensions/table.js';
+import { findProjectRow } from './share-project-match.js';
 
 // SHARE — a small masthead popover (edit-mode only) that owns the script's LINK-SHARE STATUS.
 //
@@ -12,6 +13,10 @@ import { buildShareUrl, copyShareLink } from './extensions/table.js';
 // The copy buttons hand out the CANONICAL read-only link (buildShareUrl forces the standalone
 // /burma-script/?read door, never the login-gated library). Bookmarks share the same way — the ⚑
 // on each row copies a read-only deep link. No per-recipient state: the link IS the capability.
+//
+// `project` is the CURRENT episode id (main.jsx passes EPISODE.id) — burma / palau / palau2 for legacy
+// configs, or a cloud UUID for a library project. It is NOT hardcoded: this same engine boots every
+// episode, so a fixed slug would flip the WRONG script's sharing when a non-burma episode is open.
 export function ShareToggle({ project = 'burma' }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState({ loading: true, id: null, isPublic: true, err: null });
@@ -25,7 +30,7 @@ export function ShareToggle({ project = 'burma' }) {
       try {
         const res = await fetch('/api/script-projects', { headers: { Accept: 'application/json' } });
         const body = await res.json().catch(() => null);
-        const row = (body && Array.isArray(body.projects) ? body.projects : []).find((p) => p.slug === project);
+        const row = findProjectRow(body && body.projects, project);
         if (!alive) return;
         if (row) setState({ loading: false, id: row.id, isPublic: row.is_public !== false, err: null });
         else setState({ loading: false, id: null, isPublic: true, err: 'not-found' });
