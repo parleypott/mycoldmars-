@@ -136,8 +136,22 @@
   background: var(--ep-cap);
   color: var(--ep-cap-text);
   user-select: none;
-  pointer-events: none;
+  /* CLICKABLE (Johnny 2026-07-09: "i cant click the VO tag to make it turn a different colour").
+     It was pointer-events:none, so every real click passed THROUGH the tag into the editor behind
+     it and the recorded-toggle handler (blocks.js) never fired. It's a button — clicks must land. */
+  pointer-events: auto;
+  cursor: pointer;
 }
+/* RECORDED — clicking flips the tag to an unmistakable GREEN box (Johnny wants the colour change to
+   actually READ). Lives here, AFTER the base cap rule and with 2-class specificity, so it wins the
+   cascade for sure — styles.css's earlier .is-recorded lost to doctrine's later cap-ink colour, so
+   the tag toggled state but never changed colour. Literal colours, no var() that could resolve empty. */
+.wp-vo-tag.is-recorded {
+  background: #1f8a72;
+  color: #fff;
+  border-color: #1f8a72;
+}
+.wp-page[data-mode="read"] .wp-vo-tag { cursor: default; }
 
 /* ───────────────────────── SOT CORNER TAG ─────────────────────────
    A quiet "SOT" mono tag pinned top-right of a sound-on-tape direction, plus a

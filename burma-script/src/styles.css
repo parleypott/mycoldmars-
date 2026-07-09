@@ -1808,6 +1808,19 @@ a[href*="liveblocks.io"] { display: none !important; }
   color: var(--orange, #ff5b1f);
   text-decoration-style: solid;
 }
+/* A link stays BLUE even when it rides inside a coloured viz chip (Johnny 2026-07-09: a link
+   dropped in a purple /animation chip was inheriting the chip's YELLOW text, so it didn't read
+   as a link). The directionMark chip renders INSIDE the link mark, so its .wp-dhl[data-kind]
+   colour (specificity 0,2,0) was swallowing the link — these descendant selectors (0,2,1) beat
+   it with no !important, in both mark nestings (chip-in-link and link-in-chip). */
+.wp-body a .wp-dhl, .wp-tcell-content a .wp-dhl,
+.wp-body .wp-dhl a, .wp-tcell-content .wp-dhl a {
+  color: var(--blue, #2f6fb0);
+}
+.wp-body a:hover .wp-dhl, .wp-tcell-content a:hover .wp-dhl,
+.wp-body .wp-dhl a:hover, .wp-tcell-content .wp-dhl a:hover {
+  color: var(--orange, #ff5b1f);
+}
 
 /* LINK POPOVER — the Cmd+K inline URL editor (LinkPopover.jsx), anchored above the selection
    like the bubble menu. Small, mono, Swiss — a Notion/Docs mini link bar, not a browser prompt. */
