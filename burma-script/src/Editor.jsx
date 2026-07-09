@@ -474,7 +474,13 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // setTextAlign/unsetTextAlign commands and NO ProseMirror plugin — nothing auto-dispatches, so
       // it can't echo-loop under y-sync. Persists via getJSON; survives save/load. Keep this config
       // byte-identical to migrate-doc.js buildSchema() (lockstep contract).
-      TextAlign.configure({ types: ['paragraph'], alignments: ['left', 'center', 'right'], defaultAlignment: 'left' }),
+      //
+      // STRIP TextAlign's built-in keymap (Johnny 2026-07-09): it binds Mod-Shift-l/e/r/j to
+      // left/center/right/justify — and Mod-Shift-R hijacked Chrome's HARD RELOAD, right-aligning
+      // the script instead of reloading. Alignment lives on the bubble-menu buttons (BubbleMenu.jsx),
+      // so these OS-colliding chords aren't needed; drop them all and give Cmd+Shift+R back to Chrome.
+      TextAlign.extend({ addKeyboardShortcuts: () => ({}) })
+        .configure({ types: ['paragraph'], alignments: ['left', 'center', 'right'], defaultAlignment: 'left' }),
       ...BURMA_TABLE_NODES,
       ...BURMA_NODES,
       ...BURMA_MARKS,
