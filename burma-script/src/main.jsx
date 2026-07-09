@@ -22,7 +22,7 @@ import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSn
 import { idbDeleteDoc } from './recovery-store.js';
 import { restoreSnapshot, restoreDoc } from './restore.js';
 import { getEpisode } from './episode-config.js';
-import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole } from './roles.js';
+import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStorageKey } from './roles.js';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 
@@ -41,7 +41,7 @@ const DOC_TITLE = EPISODE.title;
 // persists to localStorage and re-skins the whole instrument instantly. The unit
 // collapses into a small TE knob icon and re-expands with a smooth ~200ms ease.
 const LS_CTRL = EPISODE.storage.CTRL;
-const LS_ROLES = EPISODE.storage.ROLES;
+const LS_ROLES = rolesStorageKey(EPISODE.storage);
 
 // 9 classic reading / word-processing faces — serif + sans. System faces need no
 // load; Newsreader / Source Serif / Literata / IBM Plex / Inter come from @import.
@@ -294,8 +294,13 @@ function ControlUnit({ outlineOpen }) {
 // the whole point) and touches nothing a read-only guard would need to gate.
 function loadRoles() {
   try {
-    const raw = JSON.parse(localStorage.getItem(LS_ROLES) || '{}');
-    return { roles: parseRoles(serializeRoles(raw.roles || [])), collapsed: !!raw.collapsed };
+    const stored = localStorage.getItem(LS_ROLES);
+    const parsed = stored ? JSON.parse(stored) : {};
+    // Guard the WRONG-TYPE case, not just missing: a hand-edited / legacy LS value could be a
+    // JSON array, number, or string, and `[].roles` / `(5).roles` would misread. Only a plain
+    // object carries {roles, collapsed}; anything else degrades to the empty lens.
+    const o = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    return { roles: parseRoles(serializeRoles(o.roles || [])), collapsed: !!o.collapsed };
   } catch { return { roles: [], collapsed: false }; }
 }
 

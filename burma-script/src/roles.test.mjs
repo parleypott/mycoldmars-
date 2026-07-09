@@ -11,7 +11,7 @@
  *   3. toggleRole — multi-hat add/remove, normalization, and unknown-id safety.
  */
 import assert from 'node:assert/strict';
-import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole } from './roles.js';
+import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStorageKey } from './roles.js';
 
 let pass = 0, fail = 0;
 const ok = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.error('  ✗', name, '—', e.message); } };
@@ -66,6 +66,35 @@ ok('toggleRole adds, removes, normalizes, and rejects unknown ids', () => {
   assert.deepEqual(toggleRole(['archive', 'broll'], 'archive'), ['broll']); // remove
   assert.deepEqual(toggleRole(['archive', 'archive'], 'broll'), ['archive', 'broll']); // normalizes dupes
   assert.deepEqual(toggleRole(['archive'], 'bogus'), ['archive']);   // unknown id is a no-op
+});
+
+// rolesStorageKey — resolves the per-project LS key. The load-bearing case: a config that
+// PREDATES the ROLES key (palau/palau2, every scripts-library project) must NOT fall through to
+// the literal "undefined" localStorage key (which localStorage coerces an undefined key into),
+// which would silently share one lens across every such project. It must instead derive that
+// project's OWN namespaced key off its WORKSHOP key.
+ok('rolesStorageKey prefers an explicit storage.ROLES', () => {
+  assert.equal(rolesStorageKey({ ROLES: 'wp01_burma_roles_v1', WORKSHOP: 'wp01_burma_workshop_v1' }), 'wp01_burma_roles_v1');
+});
+
+ok('rolesStorageKey DERIVES a namespaced key when ROLES is missing (the palau/library gap)', () => {
+  // These are the real keyless configs — palau, palau2, and a scripts-library `${ns}` project.
+  assert.equal(rolesStorageKey({ WORKSHOP: 'script_palau_workshop_v1' }), 'script_palau_roles_v1');
+  assert.equal(rolesStorageKey({ WORKSHOP: 'script_palau2_workshop_v1' }), 'script_palau2_roles_v1');
+  assert.equal(rolesStorageKey({ WORKSHOP: 'script_local_aaa_workshop_v1' }), 'script_local_aaa_roles_v1');
+  // Never the literal "undefined", and always project-distinct (no cross-project bleed).
+  const palau = rolesStorageKey({ WORKSHOP: 'script_palau_workshop_v1' });
+  const palau2 = rolesStorageKey({ WORKSHOP: 'script_palau2_workshop_v1' });
+  assert.notEqual(palau, 'undefined');
+  assert.notEqual(palau, palau2);
+});
+
+ok('rolesStorageKey never returns "undefined" for a degenerate/absent storage', () => {
+  // No ROLES and no usable WORKSHOP → the burma default, never the string "undefined".
+  for (const s of [undefined, null, {}, { WORKSHOP: '' }, { WORKSHOP: 42 }, { ROLES: '' }]) {
+    const k = rolesStorageKey(s);
+    assert.ok(typeof k === 'string' && k && k !== 'undefined', `must be a real key, got ${JSON.stringify(k)}`);
+  }
 });
 
 console.log(`\nroles: ${pass} passed, ${fail} failed`);

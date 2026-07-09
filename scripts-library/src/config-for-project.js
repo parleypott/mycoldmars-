@@ -110,6 +110,7 @@ export function configForProject(row) {
       CTRL: `${ns}_controls_v1`,
       WORKSHOP: `${ns}_workshop_v1`,
       WS_WIDTH: `${ns}_workshop_width_v1`,
+      ROLES: `${ns}_roles_v1`,
       WRITE_TOKEN: `${ns}_write_token_v1`,
       DISMISSED: `${ns}_recovery_dismissed_v1`,
     },

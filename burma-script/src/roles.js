@@ -49,6 +49,21 @@ export function serializeRoles(roles) {
   return out.join(' ');
 }
 
+// Resolve the per-project localStorage key the role lens persists under. Prefer an explicit
+// `storage.ROLES`; if a config predates the ROLES key (palau/palau2 and every scripts-library
+// project were minted before the hub shipped), DERIVE a namespaced key off the WORKSHOP key —
+// every episode/library config defines one (`wp01_burma_workshop_v1`, `script_palau_workshop_v1`,
+// `${ns}_workshop_v1`), so the swap yields exactly that project's OWN `…_roles_…` key. Without
+// this, a keyless config makes the hub read/write the LITERAL key "undefined" (localStorage
+// coerces an undefined key to the string), silently sharing one lens across every such project.
+// Last resort — a config with neither key — falls back to the burma default rather than "undefined".
+export function rolesStorageKey(storage) {
+  if (storage && typeof storage.ROLES === 'string' && storage.ROLES) return storage.ROLES;
+  const ws = storage && storage.WORKSHOP;
+  if (typeof ws === 'string' && /workshop/i.test(ws)) return ws.replace(/workshop/i, 'roles');
+  return 'wp01_burma_roles_v1';
+}
+
 // Toggle one craft in/out of the active set (multi-hat: crews double up). Returns a new array.
 export function toggleRole(roles, id) {
   if (!ROLE_IDS.has(id)) return Array.isArray(roles) ? roles.slice() : [];

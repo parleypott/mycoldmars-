@@ -59,6 +59,7 @@ export const PALAU = {
     CTRL: 'script_palau_controls_v1',
     WORKSHOP: 'script_palau_workshop_v1',
     WS_WIDTH: 'script_palau_workshop_width_v1',
+    ROLES: 'script_palau_roles_v1',
     WRITE_TOKEN: 'script_palau_write_token_v1',
     DISMISSED: 'script_palau_recovery_dismissed_v1',
   },

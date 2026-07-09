@@ -76,10 +76,14 @@ const SHARED_FAVICON = '../burma-script/favicon.svg';
   eq(a.storage.DOC, 'script_local_aaa_doc_v1', 'new: DOC namespaced off row id');
   eq(a.localOnly, true, 'new (offline local_ id): localOnly (calm saved pill, no conflict UI)');
   eq(a.recoverPrefix, 'alpha-recovered', 'new: recoverPrefix slugged from title');
-  // All nine storage slots must live under the id namespace — no bare/global key.
+  // All ten storage slots must live under the id namespace — no bare/global key.
   const keys = storageKeysForConfig(a);
-  eq(keys.length, 9, 'new: nine namespaced storage keys');
+  eq(keys.length, 10, 'new: ten namespaced storage keys');
   ok(keys.every((k) => k.startsWith('script_local_aaa_')), 'new: every storage key under the id namespace');
+  // ROLES must be present + id-namespaced. Without it the shared engine's Role Focus Hub reads/writes
+  // the literal localStorage key "undefined" (an undefined key coerces to the string), sharing one
+  // lens across every library project. Its absence is exactly the bug this asserts against.
+  eq(a.storage.ROLES, 'script_local_aaa_roles_v1', 'new: ROLES lens key namespaced off the id');
 
   // The heart of the contract: two DISTINCT new projects share ZERO doc keys.
   const c = configForProject({ id: 'local_bbb', title: 'Alpha' }); // same title, different id
