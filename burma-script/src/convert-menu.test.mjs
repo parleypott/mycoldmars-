@@ -37,7 +37,7 @@ ok('each VIZ_KIND maps to a valid default directionMark status', () => {
     mapdata: 'static',
     broll: 'unchecked',
     archive: 'needed',
-    oncam: 'needed',
+    oncam: 'static',
     factcheck: 'todo',
     direction: 'default',
   };

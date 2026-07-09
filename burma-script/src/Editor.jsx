@@ -31,6 +31,7 @@ import { ImageDrop } from './extensions/image-drop.js';
 import { LinkKeymap } from './extensions/link-kbd.js';
 import { ListShortcuts } from './extensions/list-shortcuts.js';
 import { VizPasteAdopt } from './extensions/viz-paste-adopt.js';
+import { FootnoteDeleteGuard } from './extensions/footnote-delete-guard.js';
 import { ChapterFocus } from './extensions/chapter-focus.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
@@ -508,6 +509,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // how StarterKit's own list keymap fares under this configure() + the Yjs binding. Keymap
       // only → COLLAB LOOP LAW safe. See list-shortcuts.js for the regression story.
       ListShortcuts,
+      // FOOTNOTES RESIST DELETE — priority 1001 so the first Backspace/Delete next to a fact-check
+      // footnote SELECTS the atom instead of nuking it; a second press deletes it. Pure selection
+      // change on the resist step → COLLAB LOOP LAW safe, read-safe (bows out when not editable).
+      FootnoteDeleteGuard,
       // COLLAB — Collaboration (binds the Y.Doc; the Yjs binding carries every PM transaction,
       // including the NodeViews' — spike-proven lossless) + CollaborationCaret (teammates' colored
       // cursors/selections via the Liveblocks awareness provider). Empty when the flag is off.

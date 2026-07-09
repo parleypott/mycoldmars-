@@ -9,7 +9,9 @@ export const DIRECTION_CHIP_KINDS = ['archive', 'oncam', 'factcheck', 'animation
 // The two "checkbox" direction kinds — a red run + a ☐/☑ that cycles needed↔found.
 // Archive is the original; oncam ("on cam to film") behaves identically but reads a
 // distinctly warmer/deeper red so the two never blur together at a glance.
-export const CHECKBOX_MARK_KINDS = ['archive', 'oncam'];
+// oncam is NO LONGER a checkbox: Johnny 2026-07-09 re-scoped /oncam from a "film this" checkbox
+// chip to ON-CAMERA SPEECH (bold-italic text, no box), so only archive keeps the ☐/☑ widget.
+export const CHECKBOX_MARK_KINDS = ['archive'];
 
 export function defaultDirectionChipAttrs(kind) {
   switch (kind) {
@@ -30,7 +32,7 @@ export function defaultDirectionChipAttrs(kind) {
 export function defaultDirectionMarkAttrs(kind) {
   switch (kind) {
     case 'archive':   return { kind, status: 'needed' };
-    case 'oncam':     return { kind, status: 'needed' };
+    case 'oncam':     return { kind, status: 'static' };
     case 'factcheck': return { kind, status: 'todo' };
     case 'animation': return { kind, status: 'static' };
     case '3d':        return { kind, status: 'static' };

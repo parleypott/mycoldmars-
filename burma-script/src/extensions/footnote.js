@@ -451,19 +451,36 @@ function createFootnotePanel(editor, getPos, iconDom) {
   document.body.appendChild(panel);
 
   // Fly out beside the icon — right of it when there's room (margin-comment feel), else left.
-  const r = iconDom.getBoundingClientRect();
+  // place() is reused on every scroll/resize so the card TRACKS its anchor as the page moves,
+  // instead of vanishing the instant Johnny scrolls (2026-07-09: "it should stay active until I
+  // scroll out of frame then it can disappear").
   panel.style.position = 'fixed';
-  const bw = panel.getBoundingClientRect().width || 320;
-  let left = r.right + 10;
-  if (left + bw > window.innerWidth - 8) left = Math.max(8, r.left - bw - 10);
-  panel.style.left = `${left}px`;
-  panel.style.top = `${Math.max(8, Math.min(r.top - 8, window.innerHeight - panel.getBoundingClientRect().height - 8))}px`;
+  const place = () => {
+    const r = iconDom.getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    const bw = pr.width || 320;
+    const bh = pr.height || 0;
+    let left = r.right + 10;
+    if (left + bw > window.innerWidth - 8) left = Math.max(8, r.left - bw - 10);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${Math.max(8, Math.min(r.top - 8, window.innerHeight - bh - 8))}px`;
+  };
+  // The icon has left the viewport → the fact it annotates is off-screen, so the card can go.
+  const iconInView = () => {
+    const r = iconDom.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+  };
+  place();
 
   onKey = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); close(); openPanel = null; editor.view.focus(); }
   };
   onDocDown = (e) => { if (!panel.contains(e.target) && e.target !== iconDom && !iconDom.contains(e.target)) { close(); openPanel = null; } };
-  onScroll = (e) => { if (panel.contains(e.target)) return; close(); openPanel = null; };
+  onScroll = (e) => {
+    if (panel.contains(e.target)) return;                       // scrolling inside the card — ignore
+    if (!iconInView()) { close(); openPanel = null; return; }   // anchor left the frame → dismiss
+    place();                                                     // else follow the anchor as we scroll
+  };
   document.addEventListener('keydown', onKey, true);
   setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
   window.addEventListener('scroll', onScroll, true);

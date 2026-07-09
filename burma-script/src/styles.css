@@ -304,11 +304,20 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   /* NO strike-through (Johnny: "don't cross it out at all — just turn it green"). Checked
      lines must stay fully readable — green IS the done signal (viability law). */
 }
-/* /oncam ("on cam to film") — checkbox chip like archive, but a WARMER, DEEPER red (terracotta)
-   with a clearly different border so it never reads as archive's pinkish red at a glance. */
-.wp-dhl[data-kind="oncam"][data-status="needed"]{ background:#f4c2b0; border-color:#d97a52; color:#8a3316; }
+/* /oncam — NOT a chip anymore (Johnny 2026-07-09): it's ON-CAMERA SPEECH. No highlight box, no
+   checkbox — bold italic ink so it reads as someone talking to camera, clearly distinct from VO
+   narration (plain) and from every viz chip. Strip the base .wp-dhl box entirely; regardless of
+   its stored status attr it renders the same spoken-line treatment. */
+.wp-dhl[data-kind="oncam"],
+.wp-dhl[data-kind="oncam"][data-status="needed"],
 .wp-dhl[data-kind="oncam"][data-status="found"]{
-  background:#d9e8d0; border-color:#9cbf8c; color:#3f6b34; /* green only — never struck */
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-weight: 700;
+  font-style: italic;   /* speech: someone is talking on camera */
+  color: #7a3d1e;        /* warm on-camera ink — not a warning red */
 }
 .wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#1a1a18; }   /* /animation — purple chip, BLACK text */
 .wp-dhl[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }           /* /3d — purple chip, bright YELLOW text */
