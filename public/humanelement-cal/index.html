@@ -468,7 +468,18 @@ function monthBarCols(rowStartDay, dim, rowSMs, rowEMs, wsMs, weMs) {
 }
 const tPrem = daysUntil(PREMIERE, TODAY);
 document.getElementById('t-premiere').textContent = tPrem > 0 ? `Oct 26 · T-${tPrem} days` : (tPrem > -6 ? 'PREMIERE WEEK' : 'Premiered Oct 26');
-const nextCut = EPISODES.map(e=>({lbl:`${e.place} · ${e.pubCut.lbl}`, d:D(e.pubCut.d)})).filter(x=>x.d>=TODAY).sort((a,b)=>a.d-b.d)[0];
+/* Resilient to an episode added without a pubCut date (a placeholder / Season-2
+   stub): skip it instead of throwing. This whole <script> is ONE block, so an
+   unguarded throw here would blank the ENTIRE calendar — buildGantt/buildMonths/
+   buildCards all run below. Extracted as pickNextCut() for the mutation-lock test. */
+function pickNextCut(episodes, today, mkDate){
+  return episodes
+    .filter(e => e && e.pubCut && e.pubCut.d)
+    .map(e => ({ lbl: `${e.place} · ${e.pubCut.lbl}`, d: mkDate(e.pubCut.d) }))
+    .filter(x => x.d >= today)
+    .sort((a,b) => a.d - b.d)[0];
+}
+const nextCut = pickNextCut(EPISODES, TODAY, D);
 document.getElementById('t-next').textContent = nextCut ? nextCut.lbl : '—';
 
 const nowWeek = WEEKS.find(w => D(w.s) <= TODAY && TODAY <= D(w.e));
@@ -503,7 +514,8 @@ document.getElementById('legend-gantt').innerHTML =
   EPISODES.forEach(ep => {
     const dated = ep.phases.filter(p=>!p.pre);
     const spanS = Math.min(...dated.map(p=>D(p.s).getTime()));
-    const spanE = Math.max(D(ep.pubCut.d).getTime(), ...dated.map(p=>D(p.e).getTime()));
+    const pubMs = ep.pubCut && ep.pubCut.d ? D(ep.pubCut.d).getTime() : -Infinity;
+    const spanE = Math.max(pubMs, ...dated.map(p=>D(p.e).getTime()));
     html += `<div class="g-lane"><div class="g-label"><span class="num">${ep.n}</span><span class="place">${ep.place}</span><span class="who">${ep.editors}</span></div><div class="g-track">`;
     html += `<div class="g-span" style="left:${pct(spanS)}%;width:${pct(spanE)-pct(spanS)}%;background:${ep.raw}"></div>`;
     dated.forEach(p => {
@@ -511,9 +523,9 @@ document.getElementById('legend-gantt').innerHTML =
       const done = D(p.e) < TODAY ? ' past-done' : '';
       html += `<div class="g-seg ${p.k}${done}" style="left:${pct(s)}%;width:${Math.max(pct(e)-pct(s),0.7)}%;background:${ep.raw}" title="${ep.place} — ${p.lbl} (${p.dl})"></div>`;
     });
-    html += `<span class="g-mark prepub" style="left:${pct(D(ep.prePub.d))}%" title="${ep.place} pre-pub ${ep.prePub.lbl}">◇</span>`;
-    html += `<span class="g-mark pubcut" style="left:${pct(D(ep.pubCut.d))}%" title="${ep.place} pub cut ${ep.pubCut.lbl}">◆</span>`;
-    html += `<span class="g-mark live" style="left:${pct(D(ep.live.d))}%" title="${ep.place} goes live ${ep.live.lbl}">▲<span class="mlbl">LIVE</span></span>`;
+    if (ep.prePub && ep.prePub.d) html += `<span class="g-mark prepub" style="left:${pct(D(ep.prePub.d))}%" title="${ep.place} pre-pub ${ep.prePub.lbl}">◇</span>`;
+    if (ep.pubCut && ep.pubCut.d) html += `<span class="g-mark pubcut" style="left:${pct(D(ep.pubCut.d))}%" title="${ep.place} pub cut ${ep.pubCut.lbl}">◆</span>`;
+    if (ep.live && ep.live.d) html += `<span class="g-mark live" style="left:${pct(D(ep.live.d))}%" title="${ep.place} goes live ${ep.live.lbl}">▲<span class="mlbl">LIVE</span></span>`;
     html += '</div></div>';
   });
 
@@ -568,7 +580,7 @@ document.getElementById('legend-months').innerHTML = document.getElementById('le
 function shortLabel(w){
   if (w.prep) return 'SEASON 2 PREP';
   if (!w.act) return '';
-  const place = w.ep ? epById(w.ep).place.toUpperCase() : '';
+  const place = w.ep ? (epById(w.ep)?.place || '').toUpperCase() : '';
   const a = w.act.toLowerCase();
   const kind = a.includes('field') ? 'SHOOT' : a.includes('2nd') ? '2ND EDIT' : a.includes('final') ? 'FINAL EDIT' : a.includes('inquiry') ? 'INQUIRY' : 'EDIT';
   return place ? `${place} ${kind}` : w.act.toUpperCase();
@@ -654,9 +666,9 @@ function buildCards(){
       <div class="cplace">${ep.place}</div>
       <div class="cmeta"><b>Editors</b>&nbsp; ${ep.editors}<br><b>Timing</b>&nbsp; ${ep.timing}</div>
       <div class="cdates">
-        <div class="cdate"><span class="dk">Pre-pub</span><span class="dv">${ep.prePub.lbl}</span></div>
-        <div class="cdate"><span class="dk">Pub cut</span><span class="dv">${ep.pubCut.lbl}</span></div>
-        <div class="cdate livecell"><span class="dk">Live</span><span class="dv">${ep.live.lbl}</span></div>
+        <div class="cdate"><span class="dk">Pre-pub</span><span class="dv">${ep.prePub?.lbl || '—'}</span></div>
+        <div class="cdate"><span class="dk">Pub cut</span><span class="dv">${ep.pubCut?.lbl || '—'}</span></div>
+        <div class="cdate livecell"><span class="dk">Live</span><span class="dv">${ep.live?.lbl || '—'}</span></div>
       </div>
       <div class="phases">${rows}</div>
       <div class="pbar"><span class="fill" style="width:${pctDone}%"></span></div>
