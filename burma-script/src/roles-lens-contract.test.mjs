@@ -91,5 +91,49 @@ ok('factcheck + broll lenses also re-light on their legacy surface', () => {
   assert.ok(br.sel.includes('[data-broll]') && css.includes(':has(.wp-dhl[data-kind="broll"], [data-broll])'));
 });
 
+// (3) roles.js .tint  ⇄  styles.css BOOST underlay.  Inside a lit row, the boost rule paints
+// YOUR craft's chip with a highlighter underlay: `.wp-page[data-roles~="id"] …data-kind="kind"
+// { box-shadow: inset 0 -.55em 0 rgba(R,G,B,A) }`. The module header promises "the hub's checkbox
+// list, the legend swatch tints, and the CSS selectors must never drift apart — one list, one
+// truth." The lens selectors are locked above; the tint↔boost color binding was NOT. If a craft's
+// tint is recolored (or the boost rgba is) without the other, the hub's legend swatch would LIE
+// about the highlight a crew member actually sees on their chip in the doc. Bind them.
+const hexToRgb = (hex) => {
+  const m = hex.replace('#', '');
+  return [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16));
+};
+// The boost line is the ONE line gated on [data-roles~="id"] that carries the highlighter shadow
+// (lens rules on the same id use opacity/filter, never a box-shadow) — so this match is unique.
+const boostRgbFor = (id) => {
+  const line = css.split('\n').find(
+    (l) => l.includes(`[data-roles~="${id}"]`) && l.includes('box-shadow: inset 0 -.55em 0 rgba('),
+  );
+  if (!line) return null;
+  const m = line.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+};
+
+ok('every craft has a BOOST underlay rule (the "your chip pops" affordance)', () => {
+  for (const r of ROLE_DEFS) {
+    assert.ok(
+      boostRgbFor(r.id),
+      `styles.css must carry a boost box-shadow gated on [data-roles~="${r.id}"] for craft "${r.id}" — ` +
+      `without it, checking your craft lights the row but your own chip never highlights`,
+    );
+  }
+});
+
+ok('every craft.tint EQUALS the rgb() inside its boost underlay (legend ⇄ doc-highlight)', () => {
+  for (const r of ROLE_DEFS) {
+    const want = hexToRgb(r.tint);
+    const got = boostRgbFor(r.id);
+    assert.deepEqual(
+      got, want,
+      `craft "${r.id}" tint ${r.tint} (rgb ${want}) must match its boost underlay rgb ${got} — ` +
+      `the hub's legend swatch and the in-document chip highlight have DRIFTED to different colors`,
+    );
+  }
+});
+
 console.log(`\nroles-lens-contract: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
