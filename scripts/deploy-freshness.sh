@@ -208,11 +208,49 @@ discover_chunks() {
 discover_chunks live
 discover_chunks local
 
-# Full count of local bundles actually compared (entry + preloaded + lazy chunks).
-COMPARED=$(ls "$TMP"/local-*.js 2>/dev/null | wc -l | tr -d ' ')
+# ── Vendor-chunk exclusion: @sentry SDK ────────────────────────────────────
+# The @sentry SDK chunks build NON-DETERMINISTICALLY between a local `bunx vite
+# build` and Vercel's build: Sentry bakes a release/env string into its bundle, and
+# the env injection shifts BOTH identifier renaming AND code-splitting. Two symptoms,
+# same root cause, both false-STALE this tool on a deploy that IS live:
+#  (1) LITERALS — the renamed-identifier CODE FRAGMENTS the literal-regex captures
+#      across string boundaries ("?e.recordAfter:", "SpotlightBrowser", the Spotlight
+#      sidecar URL "http://localhost:8969/stream", "ai.operationId", …) diverge and
+#      read as phantom "un-deployed" markers (masked iter #18's verify: 15 phantom
+#      misses, EVERY one sentry-internal).
+#  (2) API COUNTS — Vercel splits an extra sub-chunk (browserTracingIntegration) that
+#      the local build folds elsewhere, so the un-renameable built-in call COUNTS
+#      (Object.keys, isNaN, …) drift by exactly that chunk's contribution.
+# This is VENDORED code: whether @sentry's minified bytes byte-match tells us NOTHING
+# about whether OUR source deployed. A real SDK bump changes our lockfile + own bundle;
+# an identical redeploy is already caught by Stage 1's hash match. So EXCLUDE sentry
+# chunks from both the literal set and the API count, on BOTH sides.
+#
+# Detection is CONTENT-based, not filename-based: filename `*sentry*` misses the
+# Vercel-only `browserTracingIntegration` chunk (a @sentry sub-module), which is the
+# very asymmetry that inflates the count drift. A sentry vendor chunk is DENSELY
+# sentry (sentry-client=108, browserTracingIntegration=206 'sentry' tokens); every one
+# of our app chunks has 0-1 (main=0, burmaScript=1). A threshold cleanly separates
+# them with an enormous margin, and works whichever side the chunk appears on. The
+# `*sentry*` filename is kept as a belt-and-suspenders OR (covers our tiny sentry-boot
+# wrapper, which is below the density threshold).
+SENTRY_TOKEN_MIN="${FRESHNESS_SENTRY_TOKEN_MIN:-20}"
+is_sentry_chunk() {
+  local f="$1" n
+  case "$(basename "$f")" in *sentry*) return 0 ;; esac
+  n=$( { grep -oiE 'sentry' "$f" 2>/dev/null || true; } | wc -l | tr -d ' ')
+  [[ "$n" -ge "$SENTRY_TOKEN_MIN" ]]
+}
+# Partition discovered chunks into app (compared) vs sentry-vendor (excluded).
+LIVE_APP=(); LOCAL_APP=(); SENTRY_DROP_N=0
+for f in "$TMP"/live-*.js;  do [[ -f "$f" ]] || continue; if is_sentry_chunk "$f"; then SENTRY_DROP_N=$((SENTRY_DROP_N+1)); else LIVE_APP+=("$f"); fi; done
+for f in "$TMP"/local-*.js; do [[ -f "$f" ]] || continue; if is_sentry_chunk "$f"; then SENTRY_DROP_N=$((SENTRY_DROP_N+1)); else LOCAL_APP+=("$f"); fi; done
 
-clean_literals "$TMP"/live-*.js  > "$TMP/live.lit"
-clean_literals "$TMP"/local-*.js > "$TMP/local.lit"
+# Full count of local app bundles actually compared (entry + preloaded + lazy, sans sentry).
+COMPARED=${#LOCAL_APP[@]}
+
+clean_literals "${LIVE_APP[@]}"  > "$TMP/live.lit"
+clean_literals "${LOCAL_APP[@]}" > "$TMP/local.lit"
 
 # Clean literals present locally (HEAD) but ABSENT from live = un-deployed source.
 MISSING="$(comm -13 "$TMP/live.lit" "$TMP/local.lit" || true)"
@@ -241,8 +279,14 @@ if [[ "$MISS_N" -le "$TOLERANCE" ]]; then
     'parseInt('         'parseFloat('        'encodeURIComponent('
     'isFinite('         'isNaN('
   )
-  cat "$TMP"/live-*.js  > "$TMP/live.all"  2>/dev/null || true
-  cat "$TMP"/local-*.js > "$TMP/local.all" 2>/dev/null || true
+  # Count over the APP chunks only (sentry-vendor excluded, per the partition above):
+  # the SDK's un-renameable built-in call COUNTS (Object.keys, isNaN, …) also drift
+  # between Vercel and local because Vercel splits an extra sentry sub-chunk. A
+  # logic-only change to OUR code still lands in a non-sentry chunk and is caught;
+  # only a change confined to our tiny sentry wrappers is invisible — the same narrow,
+  # acceptable blindspot the literal exclusion accepts.
+  cat "${LIVE_APP[@]}"  > "$TMP/live.all"  2>/dev/null || true
+  cat "${LOCAL_APP[@]}" > "$TMP/local.all" 2>/dev/null || true
   API_DRIFT=""
   API_DRIFT_N=0
   for tok in "${API_TOKENS[@]}"; do
@@ -268,11 +312,13 @@ if [[ "$MISS_N" -le "$TOLERANCE" ]]; then
   if [[ "$MISS_N" -gt 0 ]]; then
     echo "  tolerated misses (build-env artifacts):"; printf '%s\n' "$MISSING" | sed 's/^/    /'
   fi
+  [[ "$SENTRY_DROP_N" -gt 0 ]] && echo "  excluded ${SENTRY_DROP_N} @sentry vendor chunk(s) — env-nondeterministic build, not our source"
   exit 0
 else
   echo "STALE  ${HOST}${PAGE_PATH} is missing ${MISS_N} HEAD source literal(s) — deploy has not propagated the latest code"
   echo "  un-deployed source markers (in local HEAD build, absent from live):"
   printf '%s\n' "$MISSING" | head -25 | sed 's/^/    /'
   [[ "$MISS_N" -gt 25 ]] && echo "    … and $((MISS_N-25)) more"
+  [[ "$SENTRY_DROP_N" -gt 0 ]] && echo "  (${SENTRY_DROP_N} @sentry vendor chunk(s) already excluded — these misses are OUR source)"
   exit 1
 fi
