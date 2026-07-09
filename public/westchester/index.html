@@ -4635,7 +4635,15 @@ const moneyState = {
     if (!raw) return;
     const snap = JSON.parse(raw);
     Object.keys(moneyState).forEach(k => {
-      if (snap[k] != null && typeof snap[k] === typeof moneyState[k]) moneyState[k] = snap[k];
+      // Type must match AND, for the numeric fields (every moneyState value is a number),
+      // the incoming value must be FINITE. JSON.parse turns an out-of-range literal like
+      // `1e999` into Infinity (and there is no NaN-safe way for a tampered/legacy store to
+      // sneak one in either) — Infinity is `typeof 'number'`, so the old check waved it
+      // through, poisoning the whole money panel: rate=Infinity → mortgagePayment → NaN on
+      // every derived line, and the rate field renders "Infinity%". Reject non-finite so a
+      // corrupt value falls back to the sane default. Byte-identical for every real number.
+      if (snap[k] != null && typeof snap[k] === typeof moneyState[k] &&
+          (typeof snap[k] !== 'number' || Number.isFinite(snap[k]))) moneyState[k] = snap[k];
     });
     if (snap._taxOverride != null) window._pendingTaxOverride = snap._taxOverride;
     if (snap._activePinId != null) window._pendingActivePinId = snap._activePinId;
