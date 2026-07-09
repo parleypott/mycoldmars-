@@ -1,0 +1,10 @@
+# negative-modulo-triage.tsv — verdicts for find-negative-modulo.mjs
+#
+# One row per judged `( … - … ) % <collection-size>` site:
+#   FILE <TAB> SNIPPET-KEY <TAB> STATUS <TAB> REASON
+# STATUS = SAFE (judged a non-bug — say WHY: index proven ≥ subtrahend, sign can't
+#          reach arr[-1], etc.) | BUG (a real unguarded backward wrap — fix it).
+#
+# The repo is currently CLEAN: the scanner finds ZERO sites, so this ledger is
+# empty and `--check` is green. The first `(i - 1) % len`-shaped backward wrap
+# that ships trips the gate as NEW; judge it and add a row here.

@@ -50,3 +50,4 @@ scripts/backup-offsite-weekly.ts	[...newSet(names.map(stampOfWeekly).filter((s):
 scripts/backup-offsite-weekly.ts	readdirSync(WEEKLIES_DIR).filter((n)=>n.startsWith(`${weeklyArchiveName(stamp)}.part-`))	SAFE	ISO-date/fixed-width strings; lexical is the intended order
 scripts/backup-offsite-weekly.ts	readdirSync(WEEKLIES_DIR).filter((n)=>stampOfWeekly(n)!==null)	SAFE	ISO-date/fixed-width strings; lexical is the intended order
 scripts/backup-script-data.ts	names.filter((n)=>/^\d{4}-\d{2}-\d{2}$/.test(n)&&n<today)	SAFE	ISO-date/fixed-width strings; lexical is the intended order
+scripts/find-negative-modulo.mjs	out	SAFE	sourceFiles() returns sorted file-path STRINGS; lexical is the intended order

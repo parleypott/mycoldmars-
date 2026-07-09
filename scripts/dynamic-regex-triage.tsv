@@ -61,3 +61,4 @@ burma-script/src/document-builder.js	constDAY_LOCAL_G=newRegExp(${DAY_CLASS_SOUR
 burma-script/src/document-builder.js	constDAY_TRAILING=newRegExp(${DAY_CLASS_SOURCE},)	SAFE	episode-config constant (digit class), build-controlled not user input — same class as DAY_BLOCK
 scripts/find-stateful-global-regex.mjs	constuseRe=newRegExp(+name.replace(,)+,)	SAFE	name is a captured JS identifier, escaped inline via the standard metachar char-class replace before interpolation.
 scripts/find-attr-unsafe-escaper.mjs	constre=newRegExp(+rx(name)+,)	SAFE	name is a local escaper identifier, escaped via rx() (standard metachar char-class replace) before interpolation — same class as find-stateful-global-regex.
+scripts/find-negative-modulo.mjs	constre=newRegExp(${m}${m})	SAFE	m is escapeRe(modTok) — the modulus token regex-escaped before interpolation; controlled source, not user input
