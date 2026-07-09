@@ -192,7 +192,27 @@ export function stripMarkdown(md) {
     // aloud character-by-character ("h t t p s colon slash slash…"), so a source
     // URL pasted into essay prose gets spoken. Drop the URL but KEEP any trailing
     // sentence punctuation, so "…reported at https://reuters.com." still stops.
-    .replace(/\b(?:https?:\/\/|www\.)[^\s<>()]+/gi, (m) => (m.match(/[.,;:!?]+$/) || [''])[0])
+    // The URL body may contain BALANCED parens — Wikipedia disambiguation links
+    // ("…/Foo_(bar)", "…/Mercury_(element)") are ubiquitous in research prose. The
+    // old `[^\s<>()]+` tail stopped DEAD at the first "(", so the "(bar)" leaked
+    // into the spoken feed as a nonsense fragment ("See bar page"). Match greedily
+    // (parens allowed) then peel — mirroring the reader's autolink pass in
+    // research/md.js — only trailing sentence punctuation and UNBALANCED closing
+    // parens back off (those belong to the surrounding prose: "(see https://x.org)."),
+    // returning that tail as spoken text so the sentence still stops; drop the URL body.
+    .replace(/\b(?:https?:\/\/|www\.)[^\s<>]+/gi, (m) => {
+      let url = m;
+      for (;;) {
+        const last = url[url.length - 1];
+        if (last && '.,;:!?\'"'.includes(last)) { url = url.slice(0, -1); continue; }
+        if (last === ')' && (url.split(')').length - 1) > (url.split('(').length - 1)) {
+          url = url.slice(0, -1);
+          continue;
+        }
+        break;
+      }
+      return m.slice(url.length);
+    })
     // Table separator rows (|---|:--:|) — strip BEFORE the row→comma pass below,
     // else the dashes read as "dash dash dash" or leak in as a bogus cell.
     .replace(/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/gm, '')

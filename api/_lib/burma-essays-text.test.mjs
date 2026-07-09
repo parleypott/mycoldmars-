@@ -229,6 +229,26 @@ eq(stripMarkdown('the file report_2021.pdf is attached'),
 eq(stripMarkdown('[BBC](https://www.bbc.com/news) covered it.'),
    'BBC covered it.', 'inline-linked URL still -> text, not stripped twice');
 
+// ---- RED PROOF + FIX: a bare URL whose body contains BALANCED parens (Wikipedia
+// disambiguation links — "…/Foo_(bar)", "…/Mercury_(element)" — are ubiquitous in
+// research prose). The old `[^\s<>()]+` tail stopped DEAD at the first "(", so the
+// URL's "(bar)" tail leaked into the spoken feed as a nonsense fragment. `bareUrlOLD`
+// replicates the exact pre-fix rule to prove the leak; the live fn now drops the whole
+// URL, mirroring the reader's autolink peel in research/md.js.
+const bareUrlOLD = (s) => s.replace(/\b(?:https?:\/\/|www\.)[^\s<>()]+/gi, (m) => (m.match(/[.,;:!?]+$/) || [''])[0]);
+eq(bareUrlOLD('See https://en.wikipedia.org/wiki/Foo_(bar) page.'),
+   'See (bar) page.', 'RED: old bare-URL rule leaked the URL\'s (bar) tail into speech');
+eq(stripMarkdown('See https://en.wikipedia.org/wiki/Foo_(bar) page.'),
+   'See  page.', 'FIX: balanced-paren (Wikipedia disambiguation) URL fully dropped');
+eq(stripMarkdown('Read https://en.wikipedia.org/wiki/Mercury_(element) here.'),
+   'Read  here.', 'FIX: Mercury_(element) URL fully dropped (no leaked tail)');
+// No regression: an UNBALANCED closing paren belongs to the prose, not the URL, so it
+// (and any trailing punctuation) survives as spoken text.
+eq(stripMarkdown('(see https://x.org/a_(b)).'),
+   '(see ).', 'FIX: prose ")." after a balanced-paren URL kept; URL body dropped');
+eq(stripMarkdown('Visit (https://example.com) for details.'),
+   'Visit () for details.', 'no regression: prose-wrapped plain URL still drops, parens stay');
+
 // ---- firstLine
 eq(firstLine('\n\n  Hello there  \nsecond'), 'Hello there', 'firstLine trims + finds first non-empty');
 eq(firstLine(''), undefined, 'firstLine empty -> undefined');
