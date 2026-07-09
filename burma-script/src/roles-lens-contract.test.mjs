@@ -120,38 +120,47 @@ const hexToRgb = (hex) => {
   const m = hex.replace('#', '');
   return [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16));
 };
-// The boost line is a line gated on [data-roles~="id"] that carries a highlighter shadow (lens
+// A boost line is one gated on [data-roles~="id"] that carries a highlighter shadow (lens
 // rules on the same id use opacity/filter, never a box-shadow) — so matching box-shadow+rgba is
-// unique. Chip crafts underlay the chip (`inset 0 -.55em 0`); VO (a block) spines the cart body
-// (`inset 3px 0 0`) — both carry the craft's tint rgb, which is all this contract pins.
-const boostRgbFor = (id) => {
-  const line = css.split('\n').find(
-    (l) => l.includes(`[data-roles~="${id}"]`) && l.includes('box-shadow') && l.includes('rgba('),
-  );
-  if (!line) return null;
-  const m = line.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+// unique. Chip crafts underlay the chip (`inset 0 -.55em 0`) with ONE such rule; VO (a block)
+// carries TWO — a cart-body spine (`inset 3px 0 0`) AND the vo-tag ring (`0 0 0 2px`) — and BOTH
+// paint the craft's tint. Return EVERY boost line's rgb (not just the first): a block craft with a
+// multi-surface boost must have ALL of them agree with the legend swatch, else a recolor that
+// touches one rule but not the other silently drifts the second surface off the tint — exactly the
+// legend⇄doc-highlight drift this contract exists to kill (the first-line-only check missed it).
+const boostRgbsFor = (id) => {
+  const out = [];
+  for (const l of css.split('\n')) {
+    if (!(l.includes(`[data-roles~="${id}"]`) && l.includes('box-shadow') && l.includes('rgba('))) continue;
+    const m = l.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
+    if (m) out.push([Number(m[1]), Number(m[2]), Number(m[3])]);
+  }
+  return out;
 };
 
 ok('every craft has a BOOST underlay rule (the "your chip pops" affordance)', () => {
   for (const r of ROLE_DEFS) {
     assert.ok(
-      boostRgbFor(r.id),
+      boostRgbsFor(r.id).length > 0,
       `styles.css must carry a boost box-shadow gated on [data-roles~="${r.id}"] for craft "${r.id}" — ` +
       `without it, checking your craft lights the row but your own chip never highlights`,
     );
   }
 });
 
-ok('every craft.tint EQUALS the rgb() inside its boost underlay (legend ⇄ doc-highlight)', () => {
+ok('EVERY boost surface for a craft equals craft.tint (legend ⇄ doc-highlight, all rules)', () => {
   for (const r of ROLE_DEFS) {
     const want = hexToRgb(r.tint);
-    const got = boostRgbFor(r.id);
-    assert.deepEqual(
-      got, want,
-      `craft "${r.id}" tint ${r.tint} (rgb ${want}) must match its boost underlay rgb ${got} — ` +
-      `the hub's legend swatch and the in-document chip highlight have DRIFTED to different colors`,
-    );
+    const got = boostRgbsFor(r.id);
+    // A block craft (VO) paints more than one surface — assert each one, so a recolor of the
+    // vo-tag ring alone (leaving the cart-body spine on the old tint, or vice-versa) is caught.
+    for (const rgb of got) {
+      assert.deepEqual(
+        rgb, want,
+        `craft "${r.id}" tint ${r.tint} (rgb ${want}) must match its boost underlay rgb ${rgb} — ` +
+        `the hub's legend swatch and an in-document boost surface have DRIFTED to different colors`,
+      );
+    }
   }
 });
 
