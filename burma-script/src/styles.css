@@ -1652,6 +1652,7 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
    doc lit and nothing faded. The masthead is the -first row only. */
 .wp-page[data-roles] .wp-editor [data-trow].wp-chframe-first { opacity: 1; filter: none; }
 
+.wp-page[data-roles~="vo"]        .wp-editor [data-trow]:has([data-vo]) { opacity: 1; filter: none; }
 .wp-page[data-roles~="animation"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="animation"]) { opacity: 1; filter: none; }
 .wp-page[data-roles~="3d"]        .wp-editor [data-trow]:has(.wp-dhl[data-kind="3d"]) { opacity: 1; filter: none; }
 .wp-page[data-roles~="archive"]   .wp-editor [data-trow]:has(.wp-dhl[data-kind="archive"]) { opacity: 1; filter: none; }
@@ -1660,6 +1661,10 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 .wp-page[data-roles~="cartography"] .wp-editor [data-trow]:has(.wp-dhl[data-kind="mapdata"]) { opacity: 1; filter: none; }
 
 /* BOOST — inside a lit row, make YOUR craft's chip pop with a highlighter underlay */
+/* VO has no inline chip — its identity is the whole voBlock, so boost the block: a blue spine down
+   the cart body + a blue ring on the VO tag, so the narration rows read as emphasized at a glance. */
+.wp-page[data-roles~="vo"] [data-vo] .wp-cart-body { box-shadow: inset 3px 0 0 rgba(47,111,176,.6); }
+.wp-page[data-roles~="vo"] .wp-vo-tag { box-shadow: 0 0 0 2px rgba(47,111,176,.45); }
 .wp-page[data-roles~="animation"] .wp-dhl[data-kind="animation"] { box-shadow: inset 0 -.55em 0 rgba(122,106,181,.35); }
 .wp-page[data-roles~="3d"]        .wp-dhl[data-kind="3d"] { box-shadow: inset 0 -.55em 0 rgba(184,167,46,.38); }
 .wp-page[data-roles~="archive"]   .wp-dhl[data-kind="archive"] { box-shadow: inset 0 -.55em 0 rgba(181,107,107,.35); }

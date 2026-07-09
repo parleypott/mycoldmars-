@@ -14,6 +14,9 @@
 // Each craft's directionMark kind(s). `oncam` and `direction` are deliberately ownerless
 // (a director's film-this cue and an unowned catch-all) — they fade like any other viz.
 export const ROLE_DEFS = [
+  // VO is the narration spine — a BLOCK (voBlock → `[data-vo]`), not a directionMark chip. The
+  // lens keeps only rows that carry a VO block lit; every other row ghosts (Johnny 2026-07-09).
+  { id: 'vo',        label: 'Voiceover',     tint: '#2f6fb0', sel: '[data-vo]' },
   { id: 'animation', label: 'Animator',      tint: '#7a6ab5', sel: '.wp-dhl[data-kind="animation"]' },
   { id: '3d',        label: '3D animator',   tint: '#b8a72e', sel: '.wp-dhl[data-kind="3d"]' },
   { id: 'archive',   label: 'Archive team',  tint: '#b56b6b', sel: '.wp-dhl[data-kind="archive"]' },

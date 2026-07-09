@@ -33,10 +33,15 @@ const ok = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.err
 
 // The craft's kind is the token inside its data-kind="…" — the atom shared by all three files.
 const kindOf = (sel) => (sel.match(/data-kind="([^"]+)"/) || [])[1];
+// Two craft archetypes: CHIP crafts key on an inline directionMark (`.wp-dhl[data-kind="…"]`);
+// BLOCK crafts key on a whole block's data-attr (VO → `[data-vo]` → voBlock). The block attr atom.
+const isChip = (sel) => /data-kind="/.test(sel);
+const blockAttrOf = (sel) => (sel.match(/\[data-([a-z-]+)\]/) || [])[1];
 
-ok('every craft declares a data-kind that the extraction can read', () => {
+ok('every craft declares a readable selector (chip data-kind OR block data-attr)', () => {
   for (const r of ROLE_DEFS) {
-    assert.ok(kindOf(r.sel), `ROLE_DEF "${r.id}" has a data-kind in its sel: ${r.sel}`);
+    if (isChip(r.sel)) assert.ok(kindOf(r.sel), `chip craft "${r.id}" has a data-kind: ${r.sel}`);
+    else assert.ok(blockAttrOf(r.sel), `block craft "${r.id}" targets a data-attr: ${r.sel}`);
   }
 });
 
@@ -66,16 +71,29 @@ ok('every craft id is the token the CSS lens is gated on ([data-roles~="id"])', 
 // (2) roles.js .sel  ⇄  the editor's producible kinds.  A chip can only carry a kind the editor
 // offers via the convert menu (VIZ_KINDS) or the slash menu. If a craft points at a kind the
 // editor can't produce, no chip will EVER match — a dead lens by construction.
-ok('every craft kind is a kind the editor can actually produce (convert ∪ slash menu)', () => {
+ok('every craft kind/block is something the editor can actually produce (convert ∪ slash menu)', () => {
   for (const r of ROLE_DEFS) {
-    const kind = kindOf(r.sel);
-    const inConvert = convertMenu.includes(`kind: '${kind}'`);
-    const inSlash = slashMenu.includes(`makeItem('${kind}'`) || slashMenu.includes(`, '${kind}'`);
-    assert.ok(
-      inConvert || inSlash,
-      `craft "${r.id}" kind "${kind}" is not offered by the convert menu OR the slash menu — ` +
-      `the editor can never produce a chip the "${r.id}" lens matches`,
-    );
+    if (isChip(r.sel)) {
+      const kind = kindOf(r.sel);
+      const inConvert = convertMenu.includes(`kind: '${kind}'`);
+      const inSlash = slashMenu.includes(`makeItem('${kind}'`) || slashMenu.includes(`, '${kind}'`);
+      assert.ok(
+        inConvert || inSlash,
+        `craft "${r.id}" kind "${kind}" is not offered by the convert menu OR the slash menu — ` +
+        `the editor can never produce a chip the "${r.id}" lens matches`,
+      );
+    } else {
+      // BLOCK craft (VO → [data-vo] → voBlock): the block must be a real slash/convert target,
+      // else the lens keys on a block the editor can never make. VO: /vo makeItem + "Make VO" __vo.
+      const attr = blockAttrOf(r.sel);
+      const inSlash = slashMenu.includes(`makeItem('${attr}'`);
+      const inConvert = convertMenu.includes(`__${attr}`);
+      assert.ok(
+        inSlash || inConvert,
+        `block craft "${r.id}" ([data-${attr}]) is not producible via slash (makeItem('${attr}')) ` +
+        `or convert (__${attr}) — the "${r.id}" lens keys on a block the editor can never make`,
+      );
+    }
   }
 });
 
@@ -102,11 +120,13 @@ const hexToRgb = (hex) => {
   const m = hex.replace('#', '');
   return [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16));
 };
-// The boost line is the ONE line gated on [data-roles~="id"] that carries the highlighter shadow
-// (lens rules on the same id use opacity/filter, never a box-shadow) — so this match is unique.
+// The boost line is a line gated on [data-roles~="id"] that carries a highlighter shadow (lens
+// rules on the same id use opacity/filter, never a box-shadow) — so matching box-shadow+rgba is
+// unique. Chip crafts underlay the chip (`inset 0 -.55em 0`); VO (a block) spines the cart body
+// (`inset 3px 0 0`) — both carry the craft's tint rgb, which is all this contract pins.
 const boostRgbFor = (id) => {
   const line = css.split('\n').find(
-    (l) => l.includes(`[data-roles~="${id}"]`) && l.includes('box-shadow: inset 0 -.55em 0 rgba('),
+    (l) => l.includes(`[data-roles~="${id}"]`) && l.includes('box-shadow') && l.includes('rgba('),
   );
   if (!line) return null;
   const m = line.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
