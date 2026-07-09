@@ -253,6 +253,34 @@ ok(!/<a /.test(mdToHtml('[bad](<javascript:alert(1)>)')),
      'RED PROOF: old renderer split the fence across the blank line');
 }
 {
+  // an UNCLOSED code fence — a report truncated at the token cap mid-code-block,
+  // or an LLM that opens ``` / ~~~ and never closes it — must still render as a
+  // code block to end-of-document (CommonMark), not leak the raw fence marker and
+  // run the code through the prose transforms.
+  const u = mdToHtml('```js\ncode here\nmore');
+  ok(u === '<pre><code>code here\nmore</code></pre>', 'FIX: unclosed ```js runs to EOF as a clean code block (lang hint stripped)');
+  ok(!u.includes('```') && !/<br>/.test(u) && !/<p>/.test(u), 'FIX: no raw ```, no <br>-mangled prose, no stray <p>');
+  const ui = mdToHtml('intro\n\n```\nx = 1\ny = 2');
+  ok(/<p>intro<\/p>/.test(ui) && /<pre><code>x = 1\ny = 2<\/code><\/pre>/.test(ui), 'FIX: prose before an unclosed fence stays a <p>, the rest is code');
+  const ut = mdToHtml('~~~\nplain\ntext');
+  ok(ut === '<pre><code>plain\ntext</code></pre>', 'FIX: an unclosed ~~~ tilde fence also runs to EOF as code');
+  const uq = mdToHtml('> ```\n> code\n> more');
+  ok(/<blockquote><pre><code>code\nmore<\/code><\/pre><\/blockquote>/.test(uq), 'FIX: an unclosed fence inside a blockquote stays quoted, markers stripped');
+  // REGRESSION: a properly-closed fence and a mid-line stray triple-tick are UNTOUCHED
+  ok(mdToHtml('```js\ncode\n```') === '<pre><code>code</code></pre>', 'closed fence still byte-identical (fallback did not fire)');
+  ok(mdToHtml('use ``` to fence code') === '<p>use ``` to fence code</p>', 'a mid-line inline ``` in prose is NOT swallowed (line-anchored fallback)');
+  // RED PROOF: the old two closed-fence passes alone leave an unclosed opener raw —
+  // its content never became a <pre>, so ``` leaked and the code ran as prose.
+  const oldTwoPass = (md) => {
+    let h = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    h = h.replace(/((?:&gt;[ \t]?)+)?~~~+([\s\S]*?)~~~+/g, 'TILDE_STUB');
+    h = h.replace(/((?:&gt;[ \t]?)+)?```([\s\S]*?)```/g, 'BACKTICK_STUB');
+    return h;
+  };
+  ok(oldTwoPass('```js\ncode here\nmore').includes('```'), 'RED PROOF: old two-pass leaves the unclosed ``` marker raw');
+  ok(oldTwoPass('~~~\nplain\ntext').includes('~~~'), 'RED PROOF: old two-pass leaves the unclosed ~~~ marker raw');
+}
+{
   // a fenced block's language INFO STRING (```json / ```bash / ```c++) is metadata,
   // never code — it must NOT render as a stray first line inside the <pre>.
   const j = mdToHtml('Here:\n\n```json\n{ "a": 1 }\n```');

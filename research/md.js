@@ -237,6 +237,21 @@ export function mdToHtml(md) {
     (pfx || '') + stub(`<pre><code>${fenceCode(pfx ? c.replace(/^(?:&gt;[ \t]?)+/gm, '') : c)}</code></pre>`);
   html = html.replace(/((?:&gt;[ \t]?)+)?~~~+([\s\S]*?)~~~+/g, (_, pfx, c) => stashFence(pfx, c));
   html = html.replace(/((?:&gt;[ \t]?)+)?```([\s\S]*?)```/g, (_, pfx, c) => stashFence(pfx, c));
+  // UNCLOSED fence fallback. The two passes above require a CLOSING fence, so a
+  // report truncated at the token cap mid-code-block — or an LLM that opens a
+  // ``` / ~~~ fence and never closes it — leaked the raw fence marker and ran the
+  // code lines through every prose transform below (rendered as a <p> with <br>s,
+  // the language hint dangling as a text line). CommonMark: when the end of the
+  // document is reached with no closing fence, the code block contains every line
+  // after the opener. After the two passes above, every balanced fence is already
+  // an inert stub carrying no backtick/tilde, so any ``` or ~~~ still sitting at a
+  // line start is necessarily an unclosed opener — capture from it to EOF as code.
+  // Non-global (there is at most one leftover opener per fence char, and the first
+  // one owns the rest of the document) and line-anchored via (^|\n) so a stray
+  // inline triple-tick inside prose is left untouched. Same blockquote-prefix +
+  // fenceCode() info-string handling as the closed passes, so a truncated ```json
+  // block still drops its language hint and renders clean code.
+  html = html.replace(/(^|\n)((?:&gt;[ \t]?)+)?(?:```|~~~+)([\s\S]*)$/, (_, lead, pfx, c) => lead + stashFence(pfx, c));
   // MULTI-backtick inline code spans (CommonMark). A run of N>=2 backticks opens
   // a span that closes at the next run of EXACTLY N backticks, so the content can
   // carry SHORTER backtick runs verbatim — this is the canonical way to show a
