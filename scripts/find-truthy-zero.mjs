@@ -113,6 +113,14 @@ const OR_NUM = /\|\|\s*(-?\d+(?:\.\d+)?)/g;
 // the `+` sits in unary position (immediately after `= , ( [ : ?`, optional
 // spaces), so binary `a + b`, `++`, and `+=` never trip it.
 const COERCE = /(parseFloat\s*\(|parseInt\s*\(|Number\s*\(|\.value\b|(?<=[=,(\[:?]\s*)\+(?=[a-zA-Z_$]))/g;
+// A CALL to a function whose NAME signals numeric intent — `parseDuration(...)`,
+// `getSeconds(...)`, `frameCount(...)`, `toSec(...)`. This is the shape that let
+// the STRUCTURE marker-export bug (`parseDuration(c.duration) || 10`, iter #16)
+// slip past the coercion matcher above. Same design posture as the rest of the
+// gate: match only UNAMBIGUOUSLY-numeric intent (by name vocabulary) to keep the
+// ledger high-signal. `[\w$]*?` is non-greedy from a word boundary so the match —
+// and thus the snippet — starts at the identifier's first char.
+const NUM_CALL = /\b[\w$]*?(?:parse|duration|seconds?|secs|frames?|timecode|offset|millis|msec|tosec)[\w$]*\s*\(/gi;
 const WINDOW = 90; // chars to look back from `||` for a coercion keyword
 
 function lineOf(src, index) {
@@ -123,11 +131,15 @@ function lineOf(src, index) {
 
 import { stripComments } from './lib/strip-comments.mjs';
 
-// Last index of any coercion keyword within `window`, or -1.
+// Last index of any coercion keyword (or numeric-named call) within `window`, or
+// -1. Takes the NEAREST coercion to `||` across BOTH matchers so the snippet
+// starts at the token directly governing the defaulted value.
 function lastCoerce(window) {
-  COERCE.lastIndex = 0;
   let pos = -1, m;
-  while ((m = COERCE.exec(window)) !== null) pos = m.index;
+  COERCE.lastIndex = 0;
+  while ((m = COERCE.exec(window)) !== null) pos = Math.max(pos, m.index);
+  NUM_CALL.lastIndex = 0;
+  while ((m = NUM_CALL.exec(window)) !== null) pos = Math.max(pos, m.index);
   return pos;
 }
 
@@ -216,6 +228,16 @@ function selfTest() {
   expectSites('parseInt default', 'const n = parseInt(el.value, 10) || 12;', ['.value, 10) || 12']);
   expectSites('Number coerce', 'const s = Number(seg.start) || 1;', ['Number(seg.start) || 1']);
   expectSites('.value form', 'const fps = $("#seq-fps").value || 23.976;', ['.value || 23.976']);
+  // Numeric-named CALL form (the STRUCTURE `parseDuration(c.duration) || 10`
+  // shape, iter #16 — the class this matcher was widened to catch).
+  expectSites('named parse call', 'const d = parseDuration(c.duration) || 10;', ['parseDuration(c.duration) || 10']);
+  expectSites('named getSeconds call', 'const s = getSeconds(row) || 30;', ['getSeconds(row) || 30']);
+  expectSites('named frames call', 'const f = clipFrames(x) || 12;', ['clipFrames(x) || 12']);
+  expectSites('named toSec call', 'const t = toSec(hdr) || 5;', ['toSec(hdr) || 5']);
+  // A non-numeric-named call is NOT flagged (would be too noisy — a bare call
+  // default is only high-signal when the NAME says numeric).
+  expectSites('generic call not flagged', 'const x = getThing(y) || 5;', []);
+  expectSites('named call || 0 harmless', 'const d = parseDuration(c.d) || 0;', []);
   // Unary-plus coercion form (the walden-3d `+el.wFt || 8` shape).
   expectSites('unary-plus coerce', 'const w = +el.wFt || 8;', ['+el.wFt || 8']);
   expectSites('unary-plus after comma', 'const w=+el.wFt||8,l=+el.lFt||8;', ['+el.wFt||8', '+el.lFt||8']);

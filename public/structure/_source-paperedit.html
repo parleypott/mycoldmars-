@@ -2332,7 +2332,7 @@ document.getElementById('outline-export-markers-btn').addEventListener('click', 
 
    blocks.forEach(block => {
      block.cards.forEach(c => {
-        const durSecs = parseDuration(c.duration) || 10; 
+        const durSecs = /\d/.test(String(c.duration ?? '')) ? parseDuration(c.duration) : 10; // honor explicit 0-duration; fall back to nominal 10s only when unset/garbage (truthy-zero)
         const startTC = secondsToTimecode(cumulativeSeconds);
         const endTC = secondsToTimecode(cumulativeSeconds + durSecs);
         const durTC = secondsToTimecode(durSecs);
