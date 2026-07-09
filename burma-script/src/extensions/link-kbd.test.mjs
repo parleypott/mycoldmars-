@@ -20,7 +20,7 @@ import { EditorState, TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { normalizeHref, isSingleUrl, linkPasteTransaction } from './link-kbd.js';
+import { normalizeHref, isSingleUrl, linkPasteTransaction, isDangerousUrl } from './link-kbd.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
@@ -102,6 +102,65 @@ ok('normalizeHref: bare domain → https://, schemes kept, empty/prefill → rem
   assert.equal(normalizeHref('   '), '');
   assert.equal(normalizeHref('https://'), '', 'the untouched prompt prefill means remove');
   assert.equal(normalizeHref(null), '');
+});
+
+// ── 3b: dangerous-scheme rejection — the XSS input gate ─────────────────────────────────────
+// normalizeHref persists the href into the doc JSON; TipTap's render-time isAllowedUri blanks
+// javascript:/data:/vbscript: TODAY, but the doc must never STORE an executable href (any
+// consumer outside that one sanitizer — a worklist/HTML export, a "copy link", a renderer swap —
+// would make it live). Reject at the input gate so the stored href is always safe.
+ok('isDangerousUrl flags javascript:/data:/vbscript: incl. case + whitespace obfuscation', () => {
+  assert.equal(isDangerousUrl('javascript:alert(1)'), true);
+  assert.equal(isDangerousUrl('JavaScript:alert(document.cookie)'), true, 'case-insensitive');
+  assert.equal(isDangerousUrl('  javascript:alert(1)'), true, 'leading whitespace ignored');
+  assert.equal(isDangerousUrl('java\tscript:alert(1)'), true, 'embedded tab stripped like a browser');
+  assert.equal(isDangerousUrl('java\nscript:alert(1)'), true, 'embedded newline stripped');
+  assert.equal(isDangerousUrl('data:text/html,<script>alert(1)</script>'), true);
+  assert.equal(isDangerousUrl('vbscript:msgbox(1)'), true);
+  // Legit schemes and bare hosts are NEVER flagged (byte-identical downstream).
+  assert.equal(isDangerousUrl('https://example.org/x'), false);
+  assert.equal(isDangerousUrl('mailto:a@b.c'), false);
+  assert.equal(isDangerousUrl('tel:+15551234'), false);
+  assert.equal(isDangerousUrl('example.com/data:thing'), false, 'data: mid-path on a real host is not a scheme');
+  assert.equal(isDangerousUrl(''), false);
+  assert.equal(isDangerousUrl(null), false);
+});
+
+ok('normalizeHref REJECTS dangerous schemes to "" (remove) while every legit href is unchanged', () => {
+  // The load-bearing assertions: without the isDangerousUrl gate these return the raw payload.
+  assert.equal(normalizeHref('javascript:alert(document.cookie)'), '', 'javascript: never persisted');
+  assert.equal(normalizeHref('JavaScript:alert(1)'), '', 'case-obfuscated javascript: never persisted');
+  assert.equal(normalizeHref('  javascript:alert(1)  '), '', 'whitespace-wrapped javascript: never persisted');
+  assert.equal(normalizeHref('data:text/html,<script>1</script>'), '', 'data: never persisted');
+  assert.equal(normalizeHref('vbscript:x'), '', 'vbscript: never persisted');
+  // Regression guard: legitimate hrefs are byte-identical to the pre-gate behavior.
+  assert.equal(normalizeHref('https://a.b/c'), 'https://a.b/c');
+  assert.equal(normalizeHref('mailto:x@y.z'), 'mailto:x@y.z');
+  assert.equal(normalizeHref('example.com/story'), 'https://example.com/story');
+});
+
+ok('isSingleUrl refuses a dangerous scheme so paste-to-link never wraps it', () => {
+  assert.equal(isSingleUrl('javascript:alert(1)'), false, 'was true before the gate — paste would have wrapped it');
+  assert.equal(isSingleUrl('data:text/html,x'), false);
+  assert.equal(isSingleUrl('vbscript:x'), false);
+  // A qualifying paste of a dangerous URL is now a no-op transaction (default paste proceeds).
+  const doc = docFrom({
+    type: 'doc',
+    content: [{
+      type: 'tableRow', attrs: { cols: 1, pairId: null },
+      content: [{
+        type: 'tableCell', attrs: { role: 'full' },
+        content: [{
+          type: 'voBlock', attrs: { blockId: 'blk_x1', status: 'todo' },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'see the report here.' }] }],
+        }],
+      }],
+    }],
+  });
+  let from = -1;
+  doc.descendants((node, p) => { if (node.isText && node.text.includes('the report')) from = p + node.text.indexOf('the report'); });
+  const state = EditorState.create({ doc, selection: TextSelection.create(doc, from, from + 'the report'.length) });
+  assert.equal(linkPasteTransaction(state, 'javascript:alert(1)'), null, 'no link mark created from a javascript: paste');
 });
 
 // ── 4: isSingleUrl — the paste-to-link gate ─────────────────────────────────────────────────

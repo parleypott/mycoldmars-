@@ -15,11 +15,28 @@ import { Extension } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 
-// Pure href normalizer, exported for the headless suite: trim; empty stays empty; keep any
-// explicit scheme (https:, mailto:, …); everything else gets https://.
+// Schemes that execute script / smuggle markup when a stored href is later rendered as a raw
+// <a href> — javascript:, data:, vbscript:. TipTap's render-time isAllowedUri blanks these
+// TODAY (edit view AND the read-only share), but the doc should never PERSIST an executable
+// href in the first place: the moment ANY consumer reads the stored href outside that one
+// sanitizer (a worklist/HTML export, a future "copy link", a renderer swap) it becomes live.
+// Block them at the input gate. Mirrors the browser URL parse — tab/newline/CR are stripped
+// anywhere and leading whitespace is ignored before the scheme is read, so `java\tscript:`,
+// ` javascript:`, and `JavaScript:` are all caught, not just the clean lowercase form.
+const DANGEROUS_SCHEME_RE = /^(?:javascript|data|vbscript)$/i;
+export function isDangerousUrl(raw) {
+  const s = String(raw == null ? '' : raw).replace(/[\t\n\r]/g, '');
+  const m = /^\s*([a-z][a-z0-9+.-]*):/i.exec(s);
+  return !!m && DANGEROUS_SCHEME_RE.test(m[1]);
+}
+
+// Pure href normalizer, exported for the headless suite: trim; empty stays empty; a dangerous
+// scheme (javascript:/data:/vbscript:) is REJECTED to '' (→ remove the link, never persist it);
+// keep any other explicit scheme (https:, mailto:, tel:, …); everything else gets https://.
 export function normalizeHref(raw) {
   const url = String(raw == null ? '' : raw).trim();
   if (!url || url === 'https://') return '';
+  if (isDangerousUrl(url)) return '';
   return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : 'https://' + url;
 }
 
@@ -31,6 +48,7 @@ const BARE_HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?:
 export function isSingleUrl(raw) {
   const t = String(raw == null ? '' : raw).trim();
   if (!t || /\s/.test(t)) return false;
+  if (isDangerousUrl(t)) return false; // never wrap a selection in a javascript:/data:/vbscript: link
   if (/^[a-z][a-z0-9+.-]*:\S+$/i.test(t)) return true; // explicit scheme incl. mailto:/tel:
   return BARE_HOST_RE.test(t);
 }
