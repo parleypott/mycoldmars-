@@ -121,6 +121,18 @@ eq(stripMarkdown('My Title\n===\n\nBody text here.'), 'My Title\n\nBody text her
 eq(stripMarkdown('A Section\n---\n\nBody.'), 'A Section\n\nBody.', 'FIX: setext H2 underline removed, title kept');
 eq(stripMarkdown('| City | Pop |\n|------|-----|\n| Yangon | 5M |'), 'City, Pop\n\nYangon, 5M', 'FIX: table cells spoken, bars/dashes dropped');
 eq(stripMarkdown('| One |\n|---|\n| Two |'), 'One\n\nTwo', 'FIX: single-column table');
+// BORDERLESS GFM tables (no leading/trailing pipe) — valid GFM that LLM deep-research
+// prose (shared research-tts core) routinely emits. The old code's bordered-row rule
+// only fired on rows that BOTH start and end with "|", so these leaked their inner "|"
+// into the audio as "vertical bar". Detected via the matching-column delimiter row.
+eq(stripMarkdownOLD('City | Pop\n--- | ---\nYangon | 5M'), 'City | Pop\n--- | ---\nYangon | 5M', 'RED: old code leaves borderless table pipes');
+eq(stripMarkdown('City | Pop\n--- | ---\nYangon | 5M'), 'City, Pop\n\nYangon, 5M', 'FIX: borderless table cells spoken, bars dropped');
+eq(stripMarkdown('Name | Score\n:--- | ---:\nAda | 10'), 'Name, Score\n\nAda, 10', 'FIX: borderless table with colon-aligned delimiter');
+eq(stripMarkdown('City | State | Pop\n---|---|---\nYangon | Yangon | 5M\nBago | Bago | 1M'), 'City, State, Pop\n\nYangon, Yangon, 5M\nBago, Bago, 1M', 'FIX: multi-row borderless table');
+eq(stripMarkdown('| City | Pop\n|---|---\n| Yangon | 5M'), 'City, Pop\n\nYangon, 5M', 'FIX: ragged leading-pipe-only table rows');
+// No-regression guard: a pipe-bearing line above a BARE "---" (a thematic break, not a
+// matching delimiter) is prose, NOT a table — its "|" and the break are handled apart.
+eq(stripMarkdown('Cost | Benefit\n\n---\n\nNext.'), 'Cost | Benefit\n\nNext.', 'no-regression: pipe prose over a thematic break is not a borderless table');
 // No regression: prose with an incidental mid-line pipe or a hyphenated phrase stays untouched.
 eq(stripMarkdown('He paused | then spoke.'), 'He paused | then spoke.', 'mid-line pipe in prose preserved (not a table row)');
 eq(stripMarkdown('a well-worn path'), 'a well-worn path', 'hyphenated word preserved');

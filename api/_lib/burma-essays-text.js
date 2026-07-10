@@ -44,6 +44,52 @@ export function decodeEntities(s) {
   });
 }
 
+// A GFM table delimiter row (|---|:--:|), with the outer pipes OPTIONAL — so it
+// matches both a bordered "|---|---|" and a borderless "--- | ---". Shared by the
+// separator-strip in the chain and the borderless-table detector below.
+const TABLE_DELIM_RE = /^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
+
+// Column count of a table row, ignoring the optional outer pipes — mirrors the
+// reader twin's splitTableRow().length (research/md.js) so the two agree on what
+// is/ isn't a table.
+function tableColCount(line) {
+  return line.replace(/^[ \t]*\|/, '').replace(/\|[ \t]*$/, '').split('|').length;
+}
+
+// GFM allows a table with NO leading/trailing pipes ("City | Pop" over "--- | ---").
+// The bordered-row rule in stripMarkdown only fires on rows that BOTH start and end
+// with "|", so a borderless table's header + body rows slipped through and every
+// inner "|" leaked into the TTS audio, read aloud as "vertical bar" — the exact
+// read-it-aloud failure this module exists to kill, and reachable because the shared
+// research-tts core (api/research-tts.js) feeds it LLM deep-research prose, which
+// routinely emits borderless GFM tables. The delimiter row is already dropped by the
+// separator rule (its pipes are optional), so ONLY the header + body rows leak.
+// Detected the same way the reader twin (research/md.js renderTables) does — a line
+// containing "|" followed by a delimiter row with a MATCHING column count (so a prose
+// line with a stray "|" above a bare "---" thematic break is NOT a table) — then the
+// header + contiguous pipe body-rows are "borderized" (wrapped in | … |) so the
+// existing bordered-row rule speaks their cells. Already-bordered tables are skipped
+// untouched (byte-identical to before), so this is a strict superset of the old
+// behavior that only adds the missing borderless case.
+function borderizeBorderlessTables(text) {
+  const lines = text.split('\n');
+  const bordered = (l) => /^[ \t]*\|.*\|[ \t]*$/.test(l);
+  for (let i = 0; i < lines.length - 1; i++) {
+    const header = lines[i];
+    if (!header.includes('|') || TABLE_DELIM_RE.test(header) || bordered(header)) continue;
+    if (!TABLE_DELIM_RE.test(lines[i + 1])) continue;
+    if (tableColCount(header) < 2 || tableColCount(header) !== tableColCount(lines[i + 1])) continue;
+    lines[i] = `| ${header.trim()} |`;                       // borderize the header
+    let j = i + 2;                                            // skip the delimiter row
+    while (j < lines.length && lines[j].trim() !== '' && lines[j].includes('|')) {
+      if (!bordered(lines[j])) lines[j] = `| ${lines[j].trim()} |`;
+      j++;
+    }
+    i = j - 1;
+  }
+  return lines.join('\n');
+}
+
 export function stripMarkdown(md) {
   // CommonMark backslash escapes (\* \_ \$ \# \. \[ …) make a punctuation char
   // LITERAL — inert to every markdown rule. The old code only dropped the backslash
@@ -213,6 +259,10 @@ export function stripMarkdown(md) {
       }
       return m.slice(url.length);
     })
+    // Borderless GFM tables → borderize their rows FIRST (see borderizeBorderlessTables
+    // above), so the bordered-row rule below speaks the cells instead of leaking "|".
+    // Runs on the whole string once (line-stateful); no-op for text with no table.
+    .replace(/^[\s\S]*$/, borderizeBorderlessTables)
     // Table separator rows (|---|:--:|) — strip BEFORE the row→comma pass below,
     // else the dashes read as "dash dash dash" or leak in as a bogus cell.
     .replace(/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/gm, '')
