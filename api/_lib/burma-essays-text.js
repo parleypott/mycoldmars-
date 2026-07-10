@@ -363,6 +363,24 @@ export function stripMarkdown(md) {
   } while (s !== prev);
 
   return s
+    // Approximation / range tildes. A "~" used as an APPROXIMATION marker before a
+    // number ("~5,000 fled", "near ~30°C") or as a RANGE between two numbers ("5~10
+    // killed", CJK-style "5〜10") is NOT markdown — it survives every rule above and
+    // leaks into the audio, read ALOUD by ElevenLabs as "tilde" ("tilde 5 thousand",
+    // "5 tilde 10"), the exact read-it-aloud failure this module exists to kill.
+    // Reachable everywhere in Johnny's geopolitical essays and in LLM deep-research
+    // prose (casualty/crowd/temperature estimates). The reader twin (research/md.js)
+    // keeps the "~" VISIBLE — correct on the page — but the narrator must SPEAK it, a
+    // legitimate reader/narrator divergence (same as the URL-drop pass). A range tilde
+    // between digits becomes " to " (dropping it would GLUE "5~10" into "510", read as
+    // a wrong single number); a leading approximation tilde becomes "around". Scoped to
+    // DIGITS so a home-dir "~/path" or a standalone "~" in prose is untouched, and runs
+    // AFTER the strike loop so it never interferes with ~~strike~~ detection. An
+    // author-escaped "\~" is still a PUA sentinel here (restored below), so an
+    // explicitly-literal tilde is preserved — same contract as escaped "\*". Fullwidth
+    // ～ (U+FF5E) / 〜 (U+301C) included for CJK (Taiwan/Burma/Japan) source prose.
+    .replace(/(\d)\s*[~～〜]\s*(?=\d)/g, '$1 to ')       // range: 5~10 -> "5 to 10"
+    .replace(/[~～〜]\s*(?=\d)/g, 'around ')             // approx: ~5,000 -> "around 5,000"
     // Restore the backslash-escaped punctuation protected at the TOP: each sentinel
     // (U+E000<idx>U+E001) becomes the literal char it stood for, dropping the backslash.
     // Runs LAST, after every structural + emphasis rule has already declined to touch

@@ -42,12 +42,16 @@ eq(stripMarkdown('~~old plan~~ then ~~newer~~'), 'old plan then newer', 'two str
 // opener). A struck approximate figure keeps its `~` as content — the old class
 // `[^~]+` excluded ALL tildes, so the span never matched and the tildes were read
 // ALOUD ("tilde tilde around tilde 5 killed tilde tilde"). MUTATION: the old rule leaks.
-eq('He was ~~around ~5 killed~~ later.'.replace(/~~([^~]+)~~/g, '$1'),
-   'He was ~~around ~5 killed~~ later.', 'RED: old `[^~]+` strike class leaks tildes on an inner-tilde span');
-eq(stripMarkdown('He was ~~around ~5 killed~~ later.'), 'He was around ~5 killed later.',
-   'FIX: struck span with a lone inner ~ drops its markers, keeps the ~5');
-eq(stripMarkdown('approx ~5 to ~10 people'), 'approx ~5 to ~10 people',
-   'GUARD: unpaired single ~ (approximations) untouched — not mistaken for strike');
+eq('He was hit at ~~about ~5pm~~ sharp.'.replace(/~~([^~]+)~~/g, '$1'),
+   'He was hit at ~~about ~5pm~~ sharp.', 'RED: old `[^~]+` strike class leaks tildes on an inner-tilde span');
+// The strike markers drop (this test's purpose); the surviving inner lone "~5" is then
+// spoken as an approximation ("around 5pm") by the tilde pass below — NOT read as "tilde".
+eq(stripMarkdown('He was hit at ~~about ~5pm~~ sharp.'), 'He was hit at about around 5pm sharp.',
+   'FIX: struck span with a lone inner ~ drops its markers; the inner ~5 is then spoken');
+// Unpaired approximation tildes are NOT mistaken for strike AND are now spoken (see the
+// dedicated approximation/range block below) — "~5"→"around 5", "~10"→"around 10".
+eq(stripMarkdown('approx ~5 to ~10 people'), 'approx around 5 to around 10 people',
+   'GUARD: unpaired single ~ not mistaken for strike; spoken as an approximation');
 
 // ---- No regression: the formatting that already worked must still work identically.
 eq(stripMarkdown('**bold** text'), 'bold text', '** bold still stripped');
@@ -807,6 +811,33 @@ eq(stripMarkdown('the `fps` field'), 'the fps field',
    'GUARD: single-backtick inline code unchanged by the multi-tick rule');
 eq(stripMarkdown('no ticks at all here'), 'no ticks at all here',
    'GUARD: tick-free prose untouched');
+
+// ---- Approximation / range tildes (else the TTS reads "tilde"). A "~" before a number
+// (approximation: "~5,000") or between two numbers (range: "5~10") is NOT markdown; it
+// survived every rule above and leaked into the audio ("tilde 5 thousand", "5 tilde 10").
+// The reader twin (research/md.js) keeps it VISIBLE — correct on the page — but the
+// narrator must SPEAK it. These positive/anti-leak assertions are the mutation lock:
+// removing either tilde pass turns them RED (range -> "5 to 10", approx -> "around N",
+// and no surviving "~"); broadening the regex to eat "~/" turns the home-dir guard RED.
+// FIX: approximation tilde -> "around"
+eq(stripMarkdown('roughly ~5,000 people fled'), 'roughly around 5,000 people fled', 'approx ~N -> "around N"');
+eq(stripMarkdown('the crowd swelled to ~1 million'), 'the crowd swelled to around 1 million', 'approx ~1 million');
+eq(stripMarkdown('~200 killed in the crackdown'), 'around 200 killed in the crackdown', 'leading approx tilde -> around');
+eq(stripMarkdown('near ~ 30 degrees').includes('~'), false, 'approx tilde with a trailing space is still killed');
+// FIX: range tilde between digits -> " to " (dropping it would GLUE "5~10" -> "510").
+eq(stripMarkdown('the range was 5~10 killed'), 'the range was 5 to 10 killed', 'range 5~10 -> "5 to 10"');
+eq(stripMarkdown('5 ~ 10 dead'), '5 to 10 dead', 'spaced range 5 ~ 10 -> "5 to 10"');
+eq(stripMarkdown('estimates of 5~10 thousand').includes('~'), false, 'range tilde killed, never glued into one number');
+// Fullwidth ～ (U+FF5E) / 〜 (U+301C) — CJK source prose (Taiwan/Burma/Japan) — handled too.
+eq(stripMarkdown('CJK range 5〜10 people'), 'CJK range 5 to 10 people', 'fullwidth 〜 range -> "5 to 10"');
+eq(stripMarkdown('fullwidth ～30 percent'), 'fullwidth around 30 percent', 'fullwidth ～ approximation -> around');
+// GUARD over-reach: a home-dir "~/path" and a standalone "~" in prose stay untouched.
+eq(stripMarkdown('see ~/Documents/notes for the path'), 'see ~/Documents/notes for the path', 'home-dir ~/ untouched (no digit after)');
+eq(stripMarkdown('the ~ symbol on its own'), 'the ~ symbol on its own', 'standalone prose ~ untouched');
+// ~~strike~~ detection still works (the fix runs AFTER the strike loop).
+eq(stripMarkdown('she said ~~no~~ definitely'), 'she said no definitely', 'strike still stripped after the tilde fix');
+// An author-ESCAPED "\~" stays a literal "~" (restored last), NOT converted to "around".
+eq(stripMarkdown('a literal \\~5 tilde'), 'a literal ~5 tilde', 'escaped \\~ stays literal, not "around"');
 
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
