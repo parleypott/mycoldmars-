@@ -1571,7 +1571,7 @@ function renderChips() {
   for (const { theme, count } of topThemes) {
     const chip = document.createElement("button");
     chip.className = "chip" + (activeThemes.has(theme) ? " on" : "");
-    chip.innerHTML = `${theme}<span class="ct">${count}</span>`;
+    chip.innerHTML = `${escapeHtml(theme)}<span class="ct">${count}</span>`;
     chip.onclick = () => {
       activeThemes.has(theme) ? activeThemes.delete(theme) : activeThemes.add(theme);
       renderChips(); render(); updateFilterCount();
@@ -1619,7 +1619,7 @@ function render() {
     const sent = (a.sentiment || "").replace("_", " ");
     card.innerHTML = `
       <img src="${asset(c.local_path)}" alt="" loading="lazy" />
-      <div class="tag-corner"><span class="accent">●</span> ${sent}</div>
+      <div class="tag-corner"><span class="accent">●</span> ${escapeHtml(sent)}</div>
       <div class="card-actions">
         <button class="select-btn" data-role="select">${selected.has(c.id) ? "✓" : "Select"}</button>
         <button data-role="stylize">✦ Stylize</button>
@@ -1797,7 +1797,7 @@ function renderBrowse() {
       <div class="browse-item-meta">
         <span class="num">№ ${num}</span>
         <span class="sep">·</span>
-        <span class="sentiment">${sent}</span>
+        <span class="sentiment">${escapeHtml(sent)}</span>
         <span class="sep">·</span>
         <span>${dateStr}</span>
         <span class="spacer"></span>
