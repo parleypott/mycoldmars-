@@ -379,8 +379,24 @@ export function stripMarkdown(md) {
     // author-escaped "\~" is still a PUA sentinel here (restored below), so an
     // explicitly-literal tilde is preserved — same contract as escaped "\*". Fullwidth
     // ～ (U+FF5E) / 〜 (U+301C) included for CJK (Taiwan/Burma/Japan) source prose.
+    // Pandoc sub/superscript around numbers — chemical formulas & units are common in
+    // Johnny's climate/geoscience prose ("CO~2~", "H~2~O", "km^2^", "20^th^ century").
+    // Left raw these leak "tilde"/"caret" into the audio, AND (regression since iter #11)
+    // the approx-tilde pass below misread a subscript "H~2~O" as "Haround 2~O". Fold the
+    // digits in so ElevenLabs speaks them naturally ("CO2", "km2", "20th"). Subscript
+    // requires a LETTER before (chemical/unit notation — never a bare range like "5~10");
+    // superscript after a letter unit, or as an ordinal, so a "10^6^" exponent isn't
+    // misspoken "106". Runs BEFORE the range/approx passes so those never see a subscript.
+    .replace(/([\p{L}])~(\d+)~/gu, '$1$2')              // subscript: CO~2~ -> CO2, H~2~O -> H2O
+    .replace(/([\p{L}])\^(\d+)\^/gu, '$1$2')            // superscript unit: km^2^ -> km2
+    .replace(/\^(st|nd|rd|th)\^/gi, '$1')               // superscript ordinal: 20^th^ -> 20th
+    // Approximation / range tildes (see block above). The range tilde becomes " to "; a
+    // leading approximation tilde becomes "around". The approx pass carries a LEFT
+    // word-boundary lookbehind so it can NEVER fire mid-word again (the iter-#11 regression
+    // where "H~2~O" -> "Haround 2~O") — a real "~" approximation is always preceded by
+    // start-of-string, whitespace, or opening punctuation, never a letter/number.
     .replace(/(\d)\s*[~～〜]\s*(?=\d)/g, '$1 to ')       // range: 5~10 -> "5 to 10"
-    .replace(/[~～〜]\s*(?=\d)/g, 'around ')             // approx: ~5,000 -> "around 5,000"
+    .replace(/(?<![\p{L}\p{N}])[~～〜]\s*(?=\d)/gu, 'around ') // approx: ~5,000 -> "around 5,000"
     // Restore the backslash-escaped punctuation protected at the TOP: each sentinel
     // (U+E000<idx>U+E001) becomes the literal char it stood for, dropping the backslash.
     // Runs LAST, after every structural + emphasis rule has already declined to touch

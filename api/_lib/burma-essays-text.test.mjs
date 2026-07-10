@@ -839,5 +839,30 @@ eq(stripMarkdown('she said ~~no~~ definitely'), 'she said no definitely', 'strik
 // An author-ESCAPED "\~" stays a literal "~" (restored last), NOT converted to "around".
 eq(stripMarkdown('a literal \\~5 tilde'), 'a literal ~5 tilde', 'escaped \\~ stays literal, not "around"');
 
+// ---- Pandoc sub/superscript around numbers (chemical formulas, area units, ordinals —
+// common in Johnny's climate/geoscience prose). Left raw these leaked "tilde"/"caret",
+// AND (regression introduced iter #11) the approx-tilde pass MANGLED a subscript
+// "H~2~O" into "Haround 2~O" — the exact read-it-aloud failure this module kills. FIX:
+// fold the digits in BEFORE the range/approx passes ("CO~2~"->"CO2", "km^2^"->"km2",
+// "20^th^"->"20th") AND guard the approx pass with a left word-boundary so it can never
+// fire mid-word again. These assertions are the mutation lock: dropping the subscript
+// pass turns the CO2/H2O cases RED ("COaround 2~"/"Haround 2~O"); dropping the
+// superscript passes turns the km2/ordinal cases RED; loosening the approx lookbehind
+// re-mangles a subscript.
+eq(stripMarkdown('CO~2~ emissions rose sharply'), 'CO2 emissions rose sharply', 'subscript CO~2~ -> CO2');
+eq(stripMarkdown('water is H~2~O today'), 'water is H2O today', 'subscript H~2~O -> H2O');
+eq(stripMarkdown('high SO~2~ levels').includes('around'), false, 'subscript NOT misread as approximation "around"');
+eq(stripMarkdown('high SO~2~ levels').includes('~'), false, 'subscript tildes fully folded, none leak');
+eq(stripMarkdown('the area is 44,000 km^2^ wide'), 'the area is 44,000 km2 wide', 'superscript unit km^2^ -> km2');
+eq(stripMarkdown('it holds 5 m^3^ of water'), 'it holds 5 m3 of water', 'superscript unit m^3^ -> m3');
+eq(stripMarkdown('in the 20^th^ century everything changed'), 'in the 20th century everything changed', 'superscript ordinal 20^th^ -> 20th');
+eq(stripMarkdown('the 1^st^ and 2^nd^ waves').includes('^'), false, 'superscript ordinals fully folded, no caret leaks');
+// A real approximation still fires when the "~" sits at a word boundary (start/space/paren) —
+// the fix must NOT over-correct and kill legitimate "around N".
+eq(stripMarkdown('(~2,000) marched'), '(around 2,000) marched', 'approx after "(" still fires');
+eq(stripMarkdown('reached near ~30 degrees'), 'reached near around 30 degrees', 'approx after a space still fires');
+// A digit^digit exponent ("10^6^") is deliberately left alone rather than misspoken "106".
+eq(stripMarkdown('roughly 10^6^ people').includes('106'), false, 'digit^digit exponent NOT misfolded into "106"');
+
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
