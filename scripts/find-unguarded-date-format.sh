@@ -47,7 +47,12 @@
 #   Deliberately OUT OF SCOPE (skipped, not flagged):
 #     • new Date()            — argless, the current clock, ALWAYS valid.
 #     • new Date(Date.now())  — a call expression; always valid.
-#     • everything under public/ and built bundles (dist/, assets/index-).
+#     • Vite BUILD OUTPUT only — dist/, hashed assets/index-*, *.min.* vendor drops.
+#       Hand-authored pages under public/ (burgundy, structure, lauterbrunnen, …) are
+#       Vite static assets served verbatim, so they ARE live source and ARE scanned
+#       (see is_vendor_path — the blanket public/ exclusion was a blindspot, closed
+#       2026-07-12: it hid every hand-authored public page, the exact class this gate
+#       exists to catch).
 #   The two-step form (`const d = new Date(x); … d.toLocaleDateString()`) needs
 #   variable tracking and is FP-prone; not modelled here (documented gap).
 #
@@ -137,15 +142,33 @@ classify_file() {
     }' "$1"
 }
 
+# Build-output / vendor paths that are NOT hand-authored source. NOTE: hand-authored
+# pages under public/ (public/burgundy, public/structure, public/lauterbrunnen,
+# public/westchester, public/humanelement-cal, …) are Vite STATIC ASSETS served
+# verbatim — they ARE live source and MUST be scanned. This gate's whole reason to
+# exist is catching a NEW hand-authored page's raw `new Date(field).toLocale…()`, and
+# most of Johnny's new pages ship under public/. So we do NOT blanket-exclude public/;
+# we exclude only Vite's built bundles (dist/, hashed assets/index-*) + minified vendor
+# drops. (Earlier this over-excluded ALL of public/, blinding the gate to every
+# hand-authored public page — closed 2026-07-12.)
+is_vendor_path() {
+  case "$1" in
+    */node_modules/*|node_modules/*) return 0 ;;
+    */dist/*|dist/*)                  return 0 ;;
+    *assets/index-*)                  return 0 ;;   # Vite hashed build output
+    *.min.js|*.min.mjs)               return 0 ;;   # minified vendor
+    *) return 1 ;;
+  esac
+}
+
 # Repo scan: every non-test, non-vendor source file with an inline toLocale date call.
 scan_repo() {
-  local files
+  local files f
   files=$(grep -rlE 'new[[:space:]]+Date\([^()]*\)\.toLocale' \
             --include='*.js' --include='*.ts' --include='*.mjs' --include='*.jsx' --include='*.html' . 2>/dev/null \
-          | grep -v node_modules | grep -vE '/dist/|public/|assets/index-' \
           | grep -vE '\.(test|spec)\.' || true)
-  local f
   for f in $files; do
+    is_vendor_path "$f" && continue
     classify_file "$f"
   done
 }
@@ -251,6 +274,17 @@ JS
 
   out=$(classify_file "$tmp/ignored.js")
   assert "$out" "GUARDED	$tmp/ignored.js:2" "inspected ignore-marker site reads GUARDED" || rc=1
+
+  # Scope predicate: hand-authored public/ pages MUST be scanned; only Vite build
+  # output + minified vendor are excluded. (Regression guard for the 2026-07-12 fix —
+  # reverting is_vendor_path to blanket-exclude public/ turns the first line RED.)
+  scope() { is_vendor_path "$1" && echo VENDOR || echo SOURCE; }
+  assert "$(scope public/burgundy/index.html)"    "SOURCE" "hand-authored public/ page is IN scope" || rc=1
+  assert "$(scope public/westchester/index.html)" "SOURCE" "another hand-authored public/ page is IN scope" || rc=1
+  assert "$(scope dist/assets/app.js)"            "VENDOR" "dist/ build output excluded" || rc=1
+  assert "$(scope public/assets/index-a1b2c3.js)" "VENDOR" "hashed Vite bundle excluded" || rc=1
+  assert "$(scope vendor/mapbox-gl.min.js)"       "VENDOR" "minified vendor drop excluded" || rc=1
+  assert "$(scope node_modules/foo/bar.js)"       "VENDOR" "node_modules excluded" || rc=1
 
   # Load-bearing: the LIVE repo must currently be clean (0 NAIVE). If this fails, a
   # real un-guarded inline date formatter shipped — the whole reason the tool exists.

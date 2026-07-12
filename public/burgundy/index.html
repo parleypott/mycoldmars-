@@ -246,7 +246,7 @@ function render() {
       <div class="tp-title">${esc(BOOK.title || 'BERGUNDY')}</div>
       ${BOOK.subtitle ? `<div class="tp-sub">${esc(BOOK.subtitle)}</div>` : ''}
       <div class="tp-rule"></div>
-      <div class="tp-note">published ${new Date(BOOK.published_at || Date.now()).toLocaleDateString()} · tap the page to wake the controls · select any passage to leave a note</div>
+      <div class="tp-note">published ${pubDate(BOOK.published_at)} · tap the page to wake the controls · select any passage to leave a note</div>
     </div>`;
   chapters.forEach((ch, ci) => {
     html += `<section class="chapter" data-ch="${ci}">
@@ -587,6 +587,9 @@ $('btn-chapters').addEventListener('click', () => {
 });
 
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+/* a present-but-unparseable published_at (legacy/hand-edited book.json) must never
+   render the literal "Invalid Date" on the title page — fall back to today. */
+function pubDate(v) { const d = new Date(v || Date.now()); return isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString(); }
 boot();
 </script>
 </body>
