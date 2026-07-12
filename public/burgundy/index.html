@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#E5DECC">
+<title>BERGUNDY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ── the reading instrument: Kindle typography on Burma warm paper ── */
+  :root{
+    --paper:#E5DECC; --paper-deep:#DED7C3; --ink:#16140F;
+    --ink-soft:rgba(22,20,15,.75); --ink-faint:rgba(22,20,15,.45);
+    --line:rgba(22,20,15,.16); --orange:#E84B22; --green:#2D7A4F;
+    --hl-amber:rgba(212,149,31,.28); --hl-green:rgba(45,122,79,.22);
+    --hl-blue:rgba(52,98,145,.20); --hl-rose:rgba(163,57,42,.18);
+    --serif:'Crimson Pro','Iowan Old Style',Georgia,serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --display:'Archivo Black',sans-serif;
+    --size:21px; --lead:1.72;
+  }
+  html[data-theme="dark"]{
+    --paper:#191712; --paper-deep:#211E17; --ink:#E9E2D0;
+    --ink-soft:rgba(233,226,208,.75); --ink-faint:rgba(233,226,208,.45);
+    --line:rgba(233,226,208,.16);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
+  body{font-family:var(--serif);font-size:var(--size);line-height:var(--lead);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    transition:background .3s, color .3s}
+
+  /* ── chrome: appears on tap, sleeps while reading ── */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:40;
+    padding:calc(env(safe-area-inset-top) + 10px) 20px 12px;
+    display:flex;align-items:baseline;gap:14px;
+    background:color-mix(in srgb, var(--paper) 92%, transparent);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+    transform:translateY(0);transition:transform .28s cubic-bezier(.22,1,.36,1);
+  }
+  body.zen .topbar{transform:translateY(-110%)}
+  .brand{font-family:var(--display);font-size:15px;letter-spacing:.02em}
+  .chap-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);
+    flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bottombar{
+    position:fixed;bottom:0;left:0;right:0;z-index:40;
+    padding:10px 20px calc(env(safe-area-inset-bottom) + 10px);
+    display:flex;align-items:center;gap:16px;
+    background:color-mix(in srgb, var(--paper) 92%, transparent);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);
+    transform:translateY(0);transition:transform .28s cubic-bezier(.22,1,.36,1);
+  }
+  body.zen .bottombar{transform:translateY(110%)}
+  .bb-btn{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-soft);background:transparent;border:1.5px solid var(--line);border-radius:4px;
+    padding:8px 13px;cursor:pointer}
+  .bb-btn:active{border-color:var(--orange);color:var(--orange)}
+  .progress{flex:1;display:flex;flex-direction:column;gap:5px}
+  .p-track{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+  .p-fill{height:100%;width:0%;background:var(--orange);border-radius:2px;transition:width .2s}
+  .p-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);text-align:center}
+
+  /* ── the page ── */
+  .book{max-width:640px;margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 84px) max(24px, env(safe-area-inset-left)) 40vh max(24px, env(safe-area-inset-right))}
+  .titlepage{min-height:70vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .tp-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:22px}
+  .tp-title{font-family:var(--display);font-size:clamp(44px,11vw,84px);line-height:.98;letter-spacing:-.01em}
+  .tp-sub{font-style:italic;font-size:19px;color:var(--ink-soft);margin-top:20px}
+  .tp-rule{width:58px;height:1px;background:var(--ink);margin:34px auto 0;opacity:.5}
+  .tp-note{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);margin-top:34px}
+
+  .chapter{padding-top:9vh}
+  .ch-head{margin-bottom:7vh;text-align:center}
+  .ch-num{font-family:var(--mono);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink-faint)}
+  .ch-title{font-family:var(--display);font-size:clamp(24px,6vw,36px);line-height:1.08;margin-top:14px}
+  .ch-rule{width:44px;height:1px;background:var(--ink);opacity:.4;margin:26px auto 0}
+  .chapter p{margin:0 0 1.15em;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  .chapter p:first-of-type::first-letter{
+    font-family:var(--display);font-size:3.1em;line-height:.85;float:left;
+    padding:.06em .12em 0 0;color:var(--ink)}
+  .the-end{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.34em;
+    text-transform:uppercase;color:var(--ink-faint);padding:14vh 0 4vh}
+
+  /* highlights */
+  mark{background:var(--hl-amber);color:inherit;border-radius:2px;padding:.05em 0;cursor:pointer;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone}
+  mark.c-green{background:var(--hl-green)} mark.c-blue{background:var(--hl-blue)} mark.c-rose{background:var(--hl-rose)}
+  mark.has-note{border-bottom:2px solid var(--orange)}
+
+  /* ── selection pill ── */
+  .pill{
+    position:fixed;z-index:60;display:none;gap:0;align-items:stretch;
+    background:var(--ink);border-radius:8px;overflow:hidden;
+    box-shadow:0 6px 24px rgba(0,0,0,.22)}
+  .pill.on{display:flex}
+  .pill button{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--paper);background:transparent;border:none;padding:13px 18px;cursor:pointer}
+  .pill button:active{background:rgba(255,255,255,.14)}
+  .pill .sep{width:1px;background:rgba(255,255,255,.2)}
+
+  /* ── note sheet (bottom drawer, iPad-native feel) ── */
+  .sheet-scrim{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .25s}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:71;
+    background:var(--paper-deep);border-top:1.5px solid var(--line);
+    border-radius:18px 18px 0 0;
+    padding:14px 22px calc(env(safe-area-inset-bottom) + 18px);
+    transform:translateY(105%);transition:transform .3s cubic-bezier(.22,1,.36,1);
+    max-width:720px;margin:0 auto}
+  body.sheet-on .sheet{transform:translateY(0)}
+  body.sheet-on .sheet-scrim{opacity:1;pointer-events:auto}
+  .sheet-grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+  .sheet-quote{font-style:italic;font-size:16px;color:var(--ink-soft);border-left:3px solid var(--orange);
+    padding:2px 0 2px 14px;margin-bottom:14px;max-height:5.2em;overflow:hidden;text-overflow:ellipsis}
+  .sheet textarea{
+    width:100%;min-height:96px;resize:none;border:1.5px solid var(--line);border-radius:8px;
+    background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.5;
+    padding:12px 14px;outline:none}
+  .sheet textarea:focus{border-color:var(--orange)}
+  .sheet-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+  .swatches{display:flex;gap:8px;margin-right:auto}
+  .sw{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+  .sw.amber{background:rgba(212,149,31,.55)} .sw.green{background:rgba(45,122,79,.5)}
+  .sw.blue{background:rgba(52,98,145,.5)} .sw.rose{background:rgba(163,57,42,.5)}
+  .sw.sel{border-color:var(--ink)}
+  .sheet-btn{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+    border:1.5px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:6px;padding:11px 18px;cursor:pointer}
+  .sheet-btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .sheet-btn.danger{color:#a3392a;border-color:rgba(163,57,42,.4)}
+  .saved-flash{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+
+  .loading{min-height:90vh;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint);
+    animation:lo 1.3s ease-in-out infinite}
+  @keyframes lo{0%,100%{opacity:.4}50%{opacity:1}}
+  ::selection{background:rgba(232,75,34,.28)}
+</style>
+</head>
+<body class="zen">
+
+<header class="topbar">
+  <span class="brand">BERGUNDY</span>
+  <span class="chap-label" id="chap-label">— </span>
+</header>
+
+<main class="book" id="book">
+  <div class="loading">opening the book…</div>
+</main>
+
+<footer class="bottombar">
+  <button class="bb-btn" id="btn-smaller">A−</button>
+  <button class="bb-btn" id="btn-bigger">A+</button>
+  <div class="progress">
+    <div class="p-track"><div class="p-fill" id="p-fill"></div></div>
+    <div class="p-label" id="p-label">—</div>
+  </div>
+  <button class="bb-btn" id="btn-theme">◐</button>
+  <button class="bb-btn" id="btn-chapters">ch</button>
+</footer>
+
+<div class="pill" id="pill">
+  <button id="pill-hl">highlight</button>
+  <span class="sep"></span>
+  <button id="pill-note">＋ note</button>
+</div>
+
+<div class="sheet-scrim" id="sheet-scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-grab"></div>
+  <div class="sheet-quote" id="sheet-quote"></div>
+  <textarea id="sheet-text" placeholder="leave a note for the author…"></textarea>
+  <div class="sheet-row">
+    <div class="swatches" id="swatches">
+      <div class="sw amber sel" data-c="amber"></div><div class="sw green" data-c="green"></div>
+      <div class="sw blue" data-c="blue"></div><div class="sw rose" data-c="rose"></div>
+    </div>
+    <span class="saved-flash" id="saved-flash" hidden>✓ saved</span>
+    <button class="sheet-btn danger" id="sheet-delete" hidden>remove</button>
+    <button class="sheet-btn" id="sheet-cancel">close</button>
+    <button class="sheet-btn primary" id="sheet-save">save</button>
+  </div>
+</div>
+
+<script>
+/* ═══ BERGUNDY reader — Kindle-like, iPad-first, read-only + margin notes ═══ */
+const API = '/api/burgundy-notes';
+const $ = id => document.getElementById(id);
+let BOOK = null, NOTES = [], sel = null, editingNote = null, color = 'amber';
+
+/* ── load the book + notes ── */
+async function boot() {
+  try {
+    const r = await fetch('book.json?t=' + Math.floor(Date.now() / 60000));
+    if (!r.ok) throw new Error('no book');
+    BOOK = await r.json();
+  } catch {
+    $('book').innerHTML = '<div class="loading">the book has not been published yet</div>';
+    return;
+  }
+  try { NOTES = (await (await fetch(API)).json()).notes || []; } catch { NOTES = []; }
+  render();
+  restorePlace();
+}
+
+function render() {
+  const el = $('book');
+  const chapters = BOOK.chapters || [];
+  let html = `
+    <div class="titlepage">
+      <div class="tp-eyebrow">a novel in progress</div>
+      <div class="tp-title">${esc(BOOK.title || 'BERGUNDY')}</div>
+      ${BOOK.subtitle ? `<div class="tp-sub">${esc(BOOK.subtitle)}</div>` : ''}
+      <div class="tp-rule"></div>
+      <div class="tp-note">published ${new Date(BOOK.published_at || Date.now()).toLocaleDateString()} · tap the page to wake the controls · select any passage to leave a note</div>
+    </div>`;
+  chapters.forEach((ch, ci) => {
+    html += `<section class="chapter" data-ch="${ci}">
+      <div class="ch-head">
+        <div class="ch-num">chapter ${ci + 1}</div>
+        <div class="ch-title">${esc(ch.title || '')}</div>
+        <div class="ch-rule"></div>
+      </div>
+      ${ch.paragraphs.map((p, pi) => `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
+    </section>`;
+  });
+  html += `<div class="the-end">· to be continued ·</div>`;
+  el.innerHTML = html;
+  paintNotes();
+  observeChapters();
+}
+
+/* ── notes: paint highlights into paragraphs by anchored text search ── */
+function paintNotes() {
+  for (const n of NOTES) paintNote(n);
+}
+function paintNote(n) {
+  const p = document.querySelector(`p[data-key="${CSS.escape(n.para_key)}"]`) || findByQuote(n);
+  if (!p) return;
+  const idx = locate(p.textContent, n.quote, n.prefix);
+  if (idx < 0) return;
+  wrapRange(p, idx, n.quote.length, n);
+}
+function findByQuote(n) {
+  // paragraph moved (republish) — re-anchor by searching every paragraph
+  for (const p of document.querySelectorAll('.chapter p')) {
+    if (p.textContent.includes(n.quote)) return p;
+  }
+  return null;
+}
+function locate(text, quote, prefix) {
+  if (!quote) return -1;
+  let idx = -1, from = 0;
+  while ((idx = text.indexOf(quote, from)) !== -1) {
+    if (!prefix) return idx;
+    const before = text.slice(Math.max(0, idx - prefix.length), idx);
+    if (before === prefix || prefix.endsWith(before) || before.endsWith(prefix.slice(-12))) return idx;
+    from = idx + 1;
+  }
+  return text.indexOf(quote);   // prefix mismatch → first occurrence beats nothing
+}
+function wrapRange(p, start, len, n) {
+  // walk text nodes, split at boundaries, wrap in <mark>
+  const range = document.createRange();
+  let seen = 0, startNode = null, startOff = 0, endNode = null, endOff = 0;
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const t = walker.currentNode, l = t.textContent.length;
+    if (!startNode && seen + l > start) { startNode = t; startOff = start - seen; }
+    if (startNode && seen + l >= start + len) { endNode = t; endOff = start + len - seen; break; }
+    seen += l;
+  }
+  if (!startNode || !endNode) return;
+  try {
+    range.setStart(startNode, startOff); range.setEnd(endNode, endOff);
+    const mark = document.createElement('mark');
+    mark.className = 'c-' + (n.color || 'amber') + (n.note ? ' has-note' : '');
+    mark.dataset.noteId = n.id;
+    range.surroundContents(mark);
+  } catch { /* selection crosses an existing mark — skip repaint */ }
+}
+
+/* ── selection → pill ── */
+document.addEventListener('selectionchange', () => {
+  const s = document.getSelection();
+  if (!s || s.isCollapsed || !s.rangeCount) { hidePill(); return; }
+  const range = s.getRangeAt(0);
+  const p = range.startContainer.parentElement?.closest('p[data-key]');
+  if (!p || !p.closest('.chapter')) { hidePill(); return; }
+  const quote = s.toString().trim();
+  if (quote.length < 3 || quote.length > 1200) { hidePill(); return; }
+  const full = p.textContent;
+  const anchorIdx = full.indexOf(quote);
+  sel = {
+    para_key: p.dataset.key,
+    chapter_idx: +(p.closest('.chapter')?.dataset.ch || 0),
+    quote,
+    prefix: anchorIdx > 0 ? full.slice(Math.max(0, anchorIdx - 24), anchorIdx) : '',
+  };
+  const rect = range.getBoundingClientRect();
+  showPill(rect);
+});
+function showPill(rect) {
+  const pill = $('pill');
+  pill.classList.add('on');
+  const pw = pill.offsetWidth || 210, ph = pill.offsetHeight || 46;
+  let x = rect.left + rect.width / 2 - pw / 2;
+  x = Math.max(10, Math.min(innerWidth - pw - 10, x));
+  let y = rect.top - ph - 12;
+  if (y < 70) y = rect.bottom + 12;
+  pill.style.left = x + 'px'; pill.style.top = y + 'px';
+}
+function hidePill() { $('pill').classList.remove('on'); }
+
+$('pill-hl').addEventListener('click', async () => {
+  if (!sel) return;
+  await saveNote({ ...sel, note: '', color });
+  clearSelection();
+});
+$('pill-note').addEventListener('click', () => {
+  if (!sel) return;
+  openSheet({ quote: sel.quote, note: '', color, _new: { ...sel } });
+});
+
+function clearSelection() { document.getSelection()?.removeAllRanges(); hidePill(); }
+
+/* ── the note sheet ── */
+function openSheet(n) {
+  editingNote = n;
+  $('sheet-quote').textContent = '“' + n.quote.slice(0, 220) + (n.quote.length > 220 ? '…' : '') + '”';
+  $('sheet-text').value = n.note || '';
+  $('sheet-delete').hidden = !n.id;
+  $('saved-flash').hidden = true;
+  color = n.color || 'amber';
+  document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.c === color));
+  document.body.classList.add('sheet-on');
+  hidePill();
+  setTimeout(() => $('sheet-text').focus(), 320);
+}
+function closeSheet() { document.body.classList.remove('sheet-on'); editingNote = null; }
+$('sheet-cancel').addEventListener('click', closeSheet);
+$('sheet-scrim').addEventListener('click', closeSheet);
+$('swatches').addEventListener('click', e => {
+  const sw = e.target.closest('.sw'); if (!sw) return;
+  color = sw.dataset.c;
+  document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s === sw));
+});
+$('sheet-save').addEventListener('click', async () => {
+  if (!editingNote) return;
+  const note = $('sheet-text').value.trim();
+  if (editingNote._new) {
+    await saveNote({ ...editingNote._new, note, color });
+  } else if (editingNote.id) {
+    // edit = delete + re-add (tiny API, no PATCH needed)
+    await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+    NOTES = NOTES.filter(x => x.id !== editingNote.id);
+    await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
+  }
+  $('saved-flash').hidden = false;
+  setTimeout(closeSheet, 550);
+  clearSelection();
+});
+$('sheet-delete').addEventListener('click', async () => {
+  if (!editingNote?.id) return;
+  await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+  NOTES = NOTES.filter(x => x.id !== editingNote.id);
+  rerenderMarks();
+  closeSheet();
+});
+
+async function saveNote(n) {
+  try {
+    const r = await fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...n, book_version: BOOK?.version || '' }),
+    });
+    const d = await r.json();
+    if (d.note) { NOTES.unshift(d.note); paintNote(d.note); }
+  } catch { alert('could not save — check the connection'); }
+}
+function rerenderMarks() {
+  document.querySelectorAll('mark').forEach(m => {
+    const parent = m.parentNode;
+    while (m.firstChild) parent.insertBefore(m.firstChild, m);
+    m.remove(); parent.normalize();
+  });
+  paintNotes();
+}
+
+/* tap an existing highlight → open its note */
+document.addEventListener('click', e => {
+  const m = e.target.closest('mark');
+  if (m) {
+    const n = NOTES.find(x => x.id === m.dataset.noteId);
+    if (n) { openSheet(n); return; }
+  }
+  // tap on open page (not selection, not chrome) toggles zen
+  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet') && document.getSelection()?.isCollapsed) {
+    document.body.classList.toggle('zen');
+  }
+});
+
+/* ── reading chrome: progress, place memory, font size, theme ── */
+function observeChapters() {
+  const chapters = [...document.querySelectorAll('.chapter')];
+  const io = new IntersectionObserver(es => {
+    for (const en of es) if (en.isIntersecting) {
+      const ci = +en.target.dataset.ch;
+      $('chap-label').textContent = `ch ${ci + 1} · ${(BOOK.chapters[ci]?.title || '')}`;
+    }
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  chapters.forEach(c => io.observe(c));
+}
+addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const pct = Math.min(100, Math.round(h.scrollTop / (h.scrollHeight - h.clientHeight) * 100)) || 0;
+  $('p-fill').style.width = pct + '%';
+  $('p-label').textContent = pct + '%';
+  clearTimeout(window._plc); window._plc = setTimeout(() => localStorage.setItem('bg-place', h.scrollTop), 300);
+}, { passive: true });
+function restorePlace() {
+  const y = +localStorage.getItem('bg-place') || 0;
+  if (y > 100) requestAnimationFrame(() => scrollTo(0, y));
+}
+$('btn-bigger').addEventListener('click', () => setSize(+1));
+$('btn-smaller').addEventListener('click', () => setSize(-1));
+function setSize(d) {
+  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 21;
+  const next = Math.max(16, Math.min(28, cur + d));
+  document.documentElement.style.setProperty('--size', next + 'px');
+  localStorage.setItem('bg-size', next);
+}
+if (localStorage.getItem('bg-size')) document.documentElement.style.setProperty('--size', localStorage.getItem('bg-size') + 'px');
+$('btn-theme').addEventListener('click', () => {
+  const t = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('bg-theme', t);
+});
+if (localStorage.getItem('bg-theme')) document.documentElement.dataset.theme = localStorage.getItem('bg-theme');
+$('btn-chapters').addEventListener('click', () => {
+  // simple chapter jump: cycle a native prompt-free list — scroll to next chapter start
+  const chapters = [...document.querySelectorAll('.chapter')];
+  const y = scrollY + 100;
+  const next = chapters.find(c => c.offsetTop > y) || chapters[0];
+  next?.scrollIntoView({ behavior: 'smooth' });
+});
+
+function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+boot();
+</script>
+</body>
+</html>
