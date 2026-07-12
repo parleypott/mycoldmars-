@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#E5DECC">
 <title>BERGUNDY</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📕</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -214,7 +215,9 @@ const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 /* ── load the book + notes ── */
 async function boot() {
   try {
-    const r = await fetch('book.json?t=' + Math.floor(Date.now() / 60000));
+    // absolute path: /burgundy (no trailing slash) serves this page too, and a
+    // relative fetch from there resolves book.json against the site root and 404s
+    const r = await fetch('/burgundy/book.json?t=' + Math.floor(Date.now() / 60000));
     if (!r.ok) throw new Error('no book');
     BOOK = await r.json();
   } catch {
