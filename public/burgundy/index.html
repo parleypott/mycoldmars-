@@ -26,6 +26,8 @@
     --paper:#191712; --paper-deep:#211E17; --ink:#E9E2D0;
     --ink-soft:rgba(233,226,208,.75); --ink-faint:rgba(233,226,208,.45);
     --line:rgba(233,226,208,.16);
+    --hl-amber:rgba(226,168,60,.34); --hl-green:rgba(88,170,120,.30);
+    --hl-blue:rgba(110,155,205,.30); --hl-rose:rgba(210,110,95,.28);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
@@ -140,6 +142,12 @@
     font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint);
     animation:lo 1.3s ease-in-out infinite}
   @keyframes lo{0%,100%{opacity:.4}50%{opacity:1}}
+  .orphans{max-width:640px;margin:0 auto;padding:0 24px 8vh}
+  .orphans h4{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint);
+    border-top:1px solid var(--line);padding-top:26px;margin:0 0 14px}
+  .orphan{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+  .orphan .oq{font-style:italic;font-size:15px;color:var(--ink-soft)}
+  .orphan .on{font-size:15px;margin-top:6px}
   ::selection{background:rgba(232,75,34,.28)}
 </style>
 </head>
@@ -189,17 +197,19 @@
 </div>
 
 <script>
-/* ═══ BERGUNDY reader — Kindle-like, iPad-first, read-only + margin notes ═══ */
+/* ═══ BERGUNDY reader — Kindle-like, iPad-first, read-only + margin notes.
+   Hardened per adversarial audit: true-offset anchoring, re-anchor on locate
+   failure, POST-first edits, honest save feedback, keyboard-aware sheet,
+   per-node mark wrapping, orphan-note strip, paragraph-based place memory. ═══ */
 const API = '/api/burgundy-notes';
 const $ = id => document.getElementById(id);
 let BOOK = null, NOTES = [], sel = null, editingNote = null, color = 'amber';
+let lastSelCollapse = 0, hadSelection = false;
 
-/* storage-blocked browsers (iOS Safari "Block All Cookies", in-app webviews,
-   private mode) throw a SecurityError on the mere touch of localStorage — wrap
-   every access so a blocked store degrades to a default instead of white-
-   screening the reader at boot. */
-function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { /* blocked store — ignore */ } }
+/* storage-blocked browsers (iOS 'Block All Cookies', in-app webviews, private
+   mode) throw on the mere touch of localStorage — guard READS and writes. */
+const safeGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 /* ── load the book + notes ── */
 async function boot() {
@@ -211,7 +221,18 @@ async function boot() {
     $('book').innerHTML = '<div class="loading">the book has not been published yet</div>';
     return;
   }
-  try { NOTES = (await (await fetch(API)).json()).notes || []; } catch { NOTES = []; }
+  try {
+    // page through notes (500/page) so old highlights never fall off
+    let all = [], page = 0;
+    while (page < 6) {
+      const r = await fetch(API + '?page=' + page);
+      const d = await r.json();
+      all = all.concat(d.notes || []);
+      if (!d.notes || d.notes.length < 500) break;
+      page++;
+    }
+    NOTES = all;
+  } catch { NOTES = []; }
   render();
   restorePlace();
 }
@@ -237,109 +258,175 @@ function render() {
       ${ch.paragraphs.map((p, pi) => `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
     </section>`;
   });
-  html += `<div class="the-end">· to be continued ·</div>`;
+  html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
   el.innerHTML = html;
   paintNotes();
   observeChapters();
 }
 
-/* ── notes: paint highlights into paragraphs by anchored text search ── */
+/* ── notes: paint highlights; unplaceable ones surface in an orphan strip ── */
 function paintNotes() {
-  for (const n of NOTES) paintNote(n);
+  const orphans = [];
+  for (const n of NOTES) { if (!paintNote(n)) orphans.push(n); }
+  renderOrphans(orphans);
 }
 function paintNote(n) {
-  const p = document.querySelector(`p[data-key="${CSS.escape(n.para_key)}"]`) || findByQuote(n);
-  if (!p) return;
-  const idx = locate(p.textContent, n.quote, n.prefix);
-  if (idx < 0) return;
-  wrapRange(p, idx, n.quote.length, n);
+  // 1) fast path: the stored paragraph key
+  let p = document.querySelector(`p[data-key="${CSS.escape(n.para_key)}"]`);
+  let idx = p ? locate(p.textContent, n.quote, n.prefix) : -1;
+  // 2) RE-ANCHOR: indices shift on republish — locate failure (not just a
+  //    missing key) triggers the whole-book search
+  if (idx < 0) {
+    p = findByQuote(n);
+    idx = p ? locate(p.textContent, n.quote, n.prefix) : -1;
+  }
+  if (!p || idx < 0) return false;
+  return wrapRange(p, idx, n.quote.length, n);
 }
 function findByQuote(n) {
-  // paragraph moved (republish) — re-anchor by searching every paragraph
+  let fallback = null;
   for (const p of document.querySelectorAll('.chapter p')) {
-    if (p.textContent.includes(n.quote)) return p;
+    const t = p.textContent;
+    if (!t.includes(n.quote)) continue;
+    if (!fallback) fallback = p;
+    // prefer a paragraph where the prefix ALSO matches (repeated phrases)
+    if (!n.prefix) return p;
+    const i = t.indexOf(n.quote);
+    const before = t.slice(Math.max(0, i - (n.prefix || '').length), i);
+    if (before.endsWith((n.prefix || '').slice(-12))) return p;
   }
-  return null;
+  return fallback;
 }
 function locate(text, quote, prefix) {
   if (!quote) return -1;
-  let idx = -1, from = 0;
+  let idx = -1, from = 0, first = -1;
   while ((idx = text.indexOf(quote, from)) !== -1) {
+    if (first < 0) first = idx;
     if (!prefix) return idx;
     const before = text.slice(Math.max(0, idx - prefix.length), idx);
-    // `before` must be non-empty: else prefix.endsWith('') is always true and a
-    // quote at index 0 short-circuits the prefix check, mis-anchoring to offset 0.
-    if (before && (before === prefix || prefix.endsWith(before) || before.endsWith(prefix.slice(-12)))) return idx;
+    if (before === prefix || before.endsWith(prefix.slice(-12))) return idx;
     from = idx + 1;
   }
-  return text.indexOf(quote);   // prefix mismatch → first occurrence beats nothing
+  return first;   // prefix mismatch → first occurrence beats nothing
 }
 function wrapRange(p, start, len, n) {
-  // walk text nodes, split at boundaries, wrap in <mark>
-  const range = document.createRange();
-  let seen = 0, startNode = null, startOff = 0, endNode = null, endOff = 0;
+  // wrap PER TEXT NODE — a single surroundContents throws when the range
+  // partially overlaps an existing mark, silently losing the paint
+  const nodes = [];
+  let seen = 0;
   const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const t = walker.currentNode, l = t.textContent.length;
-    if (!startNode && seen + l > start) { startNode = t; startOff = start - seen; }
-    if (startNode && seen + l >= start + len) { endNode = t; endOff = start + len - seen; break; }
+    const a = Math.max(start, seen), b = Math.min(start + len, seen + l);
+    if (a < b) nodes.push({ node: t, from: a - seen, to: b - seen });
     seen += l;
+    if (seen >= start + len) break;
   }
-  if (!startNode || !endNode) return;
-  try {
-    range.setStart(startNode, startOff); range.setEnd(endNode, endOff);
-    const mark = document.createElement('mark');
-    mark.className = 'c-' + (n.color || 'amber') + (n.note ? ' has-note' : '');
-    mark.dataset.noteId = n.id;
-    range.surroundContents(mark);
-  } catch { /* selection crosses an existing mark — skip repaint */ }
+  if (!nodes.length) return false;
+  for (const { node, from, to } of nodes) {
+    try {
+      const r = document.createRange();
+      r.setStart(node, from); r.setEnd(node, to);
+      const mark = document.createElement('mark');
+      mark.className = 'c-' + (n.color || 'amber') + (n.note ? ' has-note' : '');
+      mark.dataset.noteId = n.id;
+      r.surroundContents(mark);
+    } catch { /* node already fully inside a mark — visual overlap, fine */ }
+  }
+  return true;
+}
+function renderOrphans(list) {
+  const host = $('orphans');
+  if (!host) return;
+  host.innerHTML = list.length ? `<h4>notes whose passage has changed (${list.length})</h4>` + list.map(n => `
+    <div class="orphan" data-id="${n.id}">
+      <div class="oq">“${esc((n.quote || '').slice(0, 140))}”</div>
+      ${n.note ? `<div class="on">${esc(n.note)}</div>` : ''}
+    </div>`).join('') : '';
+  host.querySelectorAll('.orphan').forEach(el => el.addEventListener('click', () => {
+    const n = NOTES.find(x => x.id === el.dataset.id);
+    if (n) openSheet(n);
+  }));
 }
 
-/* ── selection → pill ── */
+/* ── selection → pill (true offsets — repeated phrases anchor correctly) ── */
+function paraOfNode(node) {
+  const el = node?.nodeType === 1 ? node : node?.parentElement;
+  return el?.closest?.('p[data-key]') || null;
+}
+function offsetInPara(p, node, nodeOffset) {
+  let seen = 0;
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const t = walker.currentNode;
+    if (t === node) return seen + nodeOffset;
+    seen += t.textContent.length;
+  }
+  return -1;
+}
 document.addEventListener('selectionchange', () => {
   const s = document.getSelection();
-  if (!s || s.isCollapsed || !s.rangeCount) { hidePill(); return; }
+  if (!s || s.isCollapsed || !s.rangeCount) {
+    if (hadSelection) lastSelCollapse = Date.now();
+    hadSelection = false;
+    hidePill(); return;
+  }
   const range = s.getRangeAt(0);
-  const p = range.startContainer.parentElement?.closest('p[data-key]');
+  const p = paraOfNode(range.startContainer);
   if (!p || !p.closest('.chapter')) { hidePill(); return; }
-  const quote = s.toString().trim();
-  if (quote.length < 3 || quote.length > 1200) { hidePill(); return; }
+  hadSelection = true;
   const full = p.textContent;
-  const anchorIdx = full.indexOf(quote);
+  let startOff = offsetInPara(p, range.startContainer, range.startOffset);
+  if (startOff < 0) { hidePill(); return; }
+  // clamp to the START paragraph — cross-paragraph phantoms can never paint
+  const pEnd = paraOfNode(range.endContainer);
+  let quote;
+  if (pEnd === p) {
+    const endOff = offsetInPara(p, range.endContainer, range.endOffset);
+    quote = full.slice(startOff, endOff > startOff ? endOff : undefined).trim();
+  } else {
+    quote = full.slice(startOff).trim();
+  }
+  if (!quote || quote.length < 3 || quote.length > 1200) { hidePill(); return; }
   sel = {
     para_key: p.dataset.key,
     chapter_idx: +(p.closest('.chapter')?.dataset.ch || 0),
     quote,
-    prefix: anchorIdx > 0 ? full.slice(Math.max(0, anchorIdx - 24), anchorIdx) : '',
+    prefix: startOff > 0 ? full.slice(Math.max(0, startOff - 24), startOff) : '',
   };
-  const rect = range.getBoundingClientRect();
-  showPill(rect);
+  showPill(range.getBoundingClientRect());
 });
 function showPill(rect) {
   const pill = $('pill');
   pill.classList.add('on');
+  const vv = window.visualViewport;
   const pw = pill.offsetWidth || 210, ph = pill.offsetHeight || 46;
   let x = rect.left + rect.width / 2 - pw / 2;
-  x = Math.max(10, Math.min(innerWidth - pw - 10, x));
+  const minX = (vv ? vv.offsetLeft : 0) + 10;
+  const maxX = (vv ? vv.offsetLeft + vv.width : innerWidth) - pw - 10;
+  x = Math.max(minX, Math.min(maxX, x));
   let y = rect.top - ph - 12;
-  if (y < 70) y = rect.bottom + 12;
+  if (y < ((vv ? vv.offsetTop : 0) + 70)) y = rect.bottom + 12;
   pill.style.left = x + 'px'; pill.style.top = y + 'px';
 }
 function hidePill() { $('pill').classList.remove('on'); }
 
-$('pill-hl').addEventListener('click', async () => {
-  if (!sel) return;
-  await saveNote({ ...sel, note: '', color });
-  clearSelection();
-});
-$('pill-note').addEventListener('click', () => {
-  if (!sel) return;
-  openSheet({ quote: sel.quote, note: '', color, _new: { ...sel } });
+// pointerdown beats iOS selection-collapse: act BEFORE the tap clears the selection
+$('pill').addEventListener('pointerdown', async (e) => {
+  e.preventDefault(); e.stopPropagation();
+  const id = e.target.closest('button')?.id;
+  if (id === 'pill-hl' && sel) {
+    const ok = await saveNote({ ...sel, note: '', color });
+    if (!ok) return;                    // pill stays up — retry visible
+    clearSelection();
+  } else if (id === 'pill-note' && sel) {
+    openSheet({ quote: sel.quote, note: '', color, _new: { ...sel } });
+  }
 });
 
 function clearSelection() { document.getSelection()?.removeAllRanges(); hidePill(); }
 
-/* ── the note sheet ── */
+/* ── the note sheet — keyboard-aware ── */
 function openSheet(n) {
   editingNote = n;
   $('sheet-quote').textContent = '“' + n.quote.slice(0, 220) + (n.quote.length > 220 ? '…' : '') + '”';
@@ -350,9 +437,23 @@ function openSheet(n) {
   document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.c === color));
   document.body.classList.add('sheet-on');
   hidePill();
-  setTimeout(() => $('sheet-text').focus(), 320);
+  $('sheet-text').focus({ preventScroll: true });   // sync focus — iOS keyboard permission
 }
-function closeSheet() { document.body.classList.remove('sheet-on'); editingNote = null; }
+function closeSheet() {
+  document.body.classList.remove('sheet-on');
+  $('sheet').style.transform = ''; editingNote = null;
+}
+// ride the sheet above the iOS keyboard
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const fit = () => {
+    if (!document.body.classList.contains('sheet-on')) return;
+    const covered = innerHeight - vv.height - vv.offsetTop;
+    $('sheet').style.transform = covered > 0 ? `translateY(-${covered}px)` : '';
+  };
+  vv.addEventListener('resize', fit);
+  vv.addEventListener('scroll', fit);
+}
 $('sheet-cancel').addEventListener('click', closeSheet);
 $('sheet-scrim').addEventListener('click', closeSheet);
 $('swatches').addEventListener('click', e => {
@@ -361,20 +462,31 @@ $('swatches').addEventListener('click', e => {
   document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s === sw));
 });
 $('sheet-save').addEventListener('click', async () => {
-  if (!editingNote) return;
-  const note = $('sheet-text').value.trim();
-  if (editingNote._new) {
-    await saveNote({ ...editingNote._new, note, color });
-  } else if (editingNote.id) {
-    // edit = delete + re-add (tiny API, no PATCH needed)
-    await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
-    NOTES = NOTES.filter(x => x.id !== editingNote.id);
-    await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
-    rerenderMarks();   // strip the stale old <mark> + repaint cleanly (mirror the delete path)
+  if (!editingNote || $('sheet-save').disabled) return;
+  $('sheet-save').disabled = true; $('sheet-delete').disabled = true;
+  try {
+    const note = $('sheet-text').value.trim();
+    let ok = false;
+    if (editingNote._new) {
+      ok = await saveNote({ ...editingNote._new, note, color });
+    } else if (editingNote.id) {
+      // POST-FIRST, delete after — a failed save can never destroy the original
+      ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
+      if (ok) {
+        await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+        NOTES = NOTES.filter(x => x.id !== editingNote.id);
+        rerenderMarks();
+      }
+    }
+    if (ok) {
+      $('saved-flash').hidden = false;
+      setTimeout(closeSheet, 550);
+      clearSelection();
+    }
+    // !ok → sheet stays open, text preserved; saveNote already alerted
+  } finally {
+    $('sheet-save').disabled = false; $('sheet-delete').disabled = false;
   }
-  $('saved-flash').hidden = false;
-  setTimeout(closeSheet, 550);
-  clearSelection();
 });
 $('sheet-delete').addEventListener('click', async () => {
   if (!editingNote?.id) return;
@@ -390,9 +502,14 @@ async function saveNote(n) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...n, book_version: BOOK?.version || '' }),
     });
-    const d = await r.json();
-    if (d.note) { NOTES.unshift(d.note); paintNote(d.note); }
-  } catch { alert('could not save — check the connection'); }
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.note) throw new Error(d.error || 'save failed');
+    NOTES.unshift(d.note); paintNote(d.note);
+    return true;
+  } catch (e) {
+    alert('could not save the note — please try again (' + (e.message || 'connection') + ')');
+    return false;
+  }
 }
 function rerenderMarks() {
   document.querySelectorAll('mark').forEach(m => {
@@ -403,20 +520,20 @@ function rerenderMarks() {
   paintNotes();
 }
 
-/* tap an existing highlight → open its note */
+/* tap an existing highlight → its note; tap open page → zen (not right after a selection) */
 document.addEventListener('click', e => {
   const m = e.target.closest('mark');
   if (m) {
     const n = NOTES.find(x => x.id === m.dataset.noteId);
     if (n) { openSheet(n); return; }
   }
-  // tap on open page (not selection, not chrome) toggles zen
-  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet') && document.getSelection()?.isCollapsed) {
+  if (Date.now() - lastSelCollapse < 400) return;   // dismissing a selection ≠ zen toggle
+  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet,.orphan') && document.getSelection()?.isCollapsed) {
     document.body.classList.toggle('zen');
   }
 });
 
-/* ── reading chrome: progress, place memory, font size, theme ── */
+/* ── reading chrome ── */
 function observeChapters() {
   const chapters = [...document.querySelectorAll('.chapter')];
   const io = new IntersectionObserver(es => {
@@ -432,11 +549,19 @@ addEventListener('scroll', () => {
   const pct = Math.min(100, Math.round(h.scrollTop / (h.scrollHeight - h.clientHeight) * 100)) || 0;
   $('p-fill').style.width = pct + '%';
   $('p-label').textContent = pct + '%';
-  clearTimeout(window._plc); window._plc = setTimeout(() => lsSet('bg-place', h.scrollTop), 300);
+  if ($('pill').classList.contains('on')) hidePill();   // scrolled — the pill's anchor moved
+  clearTimeout(window._plc);
+  window._plc = setTimeout(() => {
+    // paragraph-anchored place memory — survives font-size changes + republish
+    const top = [...document.querySelectorAll('p[data-key]')].find(p => p.getBoundingClientRect().bottom > 90);
+    if (top) safeSet('bg-place2', top.dataset.key);
+  }, 300);
 }, { passive: true });
 function restorePlace() {
-  const y = +lsGet('bg-place') || 0;
-  if (y > 100) requestAnimationFrame(() => scrollTo(0, y));
+  const key = safeGet('bg-place2');
+  if (!key) return;
+  const p = document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+  if (p) requestAnimationFrame(() => p.scrollIntoView({ block: 'start' }));
 }
 $('btn-bigger').addEventListener('click', () => setSize(+1));
 $('btn-smaller').addEventListener('click', () => setSize(-1));
@@ -444,24 +569,24 @@ function setSize(d) {
   const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 21;
   const next = Math.max(16, Math.min(28, cur + d));
   document.documentElement.style.setProperty('--size', next + 'px');
-  lsSet('bg-size', next);
+  safeSet('bg-size', next);
 }
-{ const s = lsGet('bg-size'); if (s) document.documentElement.style.setProperty('--size', s + 'px'); }
+{ const s = safeGet('bg-size'); if (s) document.documentElement.style.setProperty('--size', s + 'px'); }
 $('btn-theme').addEventListener('click', () => {
   const t = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
   document.documentElement.dataset.theme = t;
-  lsSet('bg-theme', t);
+  safeSet('bg-theme', t);
 });
-{ const t = lsGet('bg-theme'); if (t) document.documentElement.dataset.theme = t; }
+{ const t = safeGet('bg-theme'); if (t) document.documentElement.dataset.theme = t; }
 $('btn-chapters').addEventListener('click', () => {
-  // simple chapter jump: cycle a native prompt-free list — scroll to next chapter start
   const chapters = [...document.querySelectorAll('.chapter')];
   const y = scrollY + 100;
-  const next = chapters.find(c => c.offsetTop > y) || chapters[0];
-  next?.scrollIntoView({ behavior: 'smooth' });
+  const next = chapters.find(c => c.offsetTop > y);
+  if (next) next.scrollIntoView({ behavior: 'smooth' });
+  else document.querySelector('.the-end')?.scrollIntoView({ behavior: 'smooth' });   // last chapter → end, never teleport to ch1
 });
 
-function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 boot();
 </script>
 </body>

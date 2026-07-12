@@ -43,7 +43,8 @@ export default async function handler(req) {
 
   try {
     if (req.method === 'GET') {
-      const r = await sb('burgundy_notes?select=*&order=created_at.desc&limit=500');
+      const page = Math.max(0, Math.min(20, +(new URL(req.url).searchParams.get('page') || 0)));
+      const r = await sb(`burgundy_notes?select=*&order=created_at.desc&limit=500&offset=${page * 500}`);
       if (!r.ok) return json(502, { error: 'db read failed' });
       return json(200, { notes: await r.json() });
     }
