@@ -1,3 +1,5 @@
+import { sanitizeNoteRow, isValidNoteId } from './_lib/burgundy-note-validate.js';
+
 export const config = { runtime: 'edge', maxDuration: 15 };
 
 /**
@@ -51,18 +53,8 @@ export default async function handler(req) {
 
     if (req.method === 'POST') {
       const body = await req.json().catch(() => null);
-      if (!body || typeof body.para_key !== 'string' || typeof body.quote !== 'string' || !body.quote.trim())
-        return json(400, { error: 'para_key and quote required' });
-      const row = {
-        para_key: String(body.para_key).slice(0, 40),
-        quote: String(body.quote).slice(0, 2000),
-        prefix: String(body.prefix || '').slice(0, 64),
-        note: String(body.note || '').slice(0, 4000),
-        color: ['amber', 'green', 'blue', 'rose'].includes(body.color) ? body.color : 'amber',
-        reader: String(body.reader || 'reader').slice(0, 40),
-        chapter_idx: Number.isFinite(+body.chapter_idx) ? Math.max(0, Math.min(999, +body.chapter_idx)) : 0,
-        book_version: String(body.book_version || '').slice(0, 40),
-      };
+      const row = sanitizeNoteRow(body);
+      if (!row) return json(400, { error: 'para_key and quote required' });
       const r = await sb('burgundy_notes', { method: 'POST', body: JSON.stringify(row) });
       if (!r.ok) return json(502, { error: 'db write failed' });
       const [saved] = await r.json();
@@ -71,7 +63,7 @@ export default async function handler(req) {
 
     if (req.method === 'DELETE') {
       const id = new URL(req.url).searchParams.get('id') || '';
-      if (!/^[0-9a-f-]{36}$/i.test(id)) return json(400, { error: 'bad id' });
+      if (!isValidNoteId(id)) return json(400, { error: 'bad id' });
       const r = await sb(`burgundy_notes?id=eq.${id}`, { method: 'DELETE' });
       if (!r.ok) return json(502, { error: 'db delete failed' });
       return json(200, { ok: true });
