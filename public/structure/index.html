@@ -1101,12 +1101,18 @@ const TOAST_ICONS = {
   error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="1"/><path d="M12 8v8" stroke-linecap="round"/><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>'
 };
+// Proper HTML-text escaper for any value that reaches an innerHTML sink.
+// Covers all five metacharacters (& < > " ') so a sink stays safe even if the
+// value later moves into attribute context (e.g. a hover title). Byte-identical
+// to raw output for plain text — only metacharacter-bearing strings change.
+function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 function showToast(message, type = 'info', duration = 3200){
   const container = document.getElementById('toast-container');
   if(!container) return;
   const el = document.createElement('div');
   el.className = 'toast ' + type;
-  el.innerHTML = `<span class="toast-icon">${TOAST_ICONS[type] || TOAST_ICONS.info}</span><span class="toast-msg">${message}</span><button class="toast-close" aria-label="Dismiss">✕</button>`;
+  el.innerHTML = `<span class="toast-icon">${TOAST_ICONS[type] || TOAST_ICONS.info}</span><span class="toast-msg">${escHtml(message)}</span><button class="toast-close" aria-label="Dismiss">✕</button>`;
   container.appendChild(el);
   requestAnimationFrame(() => el.classList.add('visible'));
   const remove = () => { el.classList.remove('visible'); setTimeout(() => el.remove(), 200); };
@@ -1802,13 +1808,13 @@ function updateCardMeta(card){
   const badge = el.querySelector('.card-type-badge'), meta = el.querySelector('.card-meta');
   const ft = getFootageType(card.footageType);
   if(badge){
-    if(ft.id){ badge.innerHTML = `<span class="dot" style="background:${ft.color}"></span>${ft.label}`; badge.classList.add('visible'); }
+    if(ft.id){ badge.innerHTML = `<span class="dot" style="background:${ft.color}"></span>${escHtml(ft.label)}`; badge.classList.add('visible'); }
     else { badge.innerHTML = ''; badge.classList.remove('visible'); }
   }
   if(meta){
     const parts = [];
-    if(card.labelTag) parts.push(`<span class="meta-label-tag" title="Label / Tag">${card.labelTag.replace(/</g,'&lt;')}</span>`);
-    if(card.source) parts.push(`<span class="meta-src-tc" title="Source Timecode">${card.source.replace(/</g,'&lt;')}</span>`);
+    if(card.labelTag) parts.push(`<span class="meta-label-tag" title="Label / Tag">${escHtml(card.labelTag)}</span>`);
+    if(card.source) parts.push(`<span class="meta-src-tc" title="Source Timecode">${escHtml(card.source)}</span>`);
     if(card.duration) parts.push(`<span class="meta-dur" title="Estimated Duration">${formatDuration(parseDuration(card.duration))}</span>`);
     if(parts.length){ meta.innerHTML = parts.join(''); meta.classList.add('visible'); }
     else { meta.innerHTML = ''; meta.classList.remove('visible'); }
