@@ -194,6 +194,13 @@ const API = '/api/burgundy-notes';
 const $ = id => document.getElementById(id);
 let BOOK = null, NOTES = [], sel = null, editingNote = null, color = 'amber';
 
+/* storage-blocked browsers (iOS Safari "Block All Cookies", in-app webviews,
+   private mode) throw a SecurityError on the mere touch of localStorage — wrap
+   every access so a blocked store degrades to a default instead of white-
+   screening the reader at boot. */
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { /* blocked store — ignore */ } }
+
 /* ── load the book + notes ── */
 async function boot() {
   try {
@@ -260,7 +267,9 @@ function locate(text, quote, prefix) {
   while ((idx = text.indexOf(quote, from)) !== -1) {
     if (!prefix) return idx;
     const before = text.slice(Math.max(0, idx - prefix.length), idx);
-    if (before === prefix || prefix.endsWith(before) || before.endsWith(prefix.slice(-12))) return idx;
+    // `before` must be non-empty: else prefix.endsWith('') is always true and a
+    // quote at index 0 short-circuits the prefix check, mis-anchoring to offset 0.
+    if (before && (before === prefix || prefix.endsWith(before) || before.endsWith(prefix.slice(-12)))) return idx;
     from = idx + 1;
   }
   return text.indexOf(quote);   // prefix mismatch → first occurrence beats nothing
@@ -361,6 +370,7 @@ $('sheet-save').addEventListener('click', async () => {
     await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
     NOTES = NOTES.filter(x => x.id !== editingNote.id);
     await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
+    rerenderMarks();   // strip the stale old <mark> + repaint cleanly (mirror the delete path)
   }
   $('saved-flash').hidden = false;
   setTimeout(closeSheet, 550);
@@ -422,10 +432,10 @@ addEventListener('scroll', () => {
   const pct = Math.min(100, Math.round(h.scrollTop / (h.scrollHeight - h.clientHeight) * 100)) || 0;
   $('p-fill').style.width = pct + '%';
   $('p-label').textContent = pct + '%';
-  clearTimeout(window._plc); window._plc = setTimeout(() => localStorage.setItem('bg-place', h.scrollTop), 300);
+  clearTimeout(window._plc); window._plc = setTimeout(() => lsSet('bg-place', h.scrollTop), 300);
 }, { passive: true });
 function restorePlace() {
-  const y = +localStorage.getItem('bg-place') || 0;
+  const y = +lsGet('bg-place') || 0;
   if (y > 100) requestAnimationFrame(() => scrollTo(0, y));
 }
 $('btn-bigger').addEventListener('click', () => setSize(+1));
@@ -434,15 +444,15 @@ function setSize(d) {
   const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 21;
   const next = Math.max(16, Math.min(28, cur + d));
   document.documentElement.style.setProperty('--size', next + 'px');
-  localStorage.setItem('bg-size', next);
+  lsSet('bg-size', next);
 }
-if (localStorage.getItem('bg-size')) document.documentElement.style.setProperty('--size', localStorage.getItem('bg-size') + 'px');
+{ const s = lsGet('bg-size'); if (s) document.documentElement.style.setProperty('--size', s + 'px'); }
 $('btn-theme').addEventListener('click', () => {
   const t = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
   document.documentElement.dataset.theme = t;
-  localStorage.setItem('bg-theme', t);
+  lsSet('bg-theme', t);
 });
-if (localStorage.getItem('bg-theme')) document.documentElement.dataset.theme = localStorage.getItem('bg-theme');
+{ const t = lsGet('bg-theme'); if (t) document.documentElement.dataset.theme = t; }
 $('btn-chapters').addEventListener('click', () => {
   // simple chapter jump: cycle a native prompt-free list — scroll to next chapter start
   const chapters = [...document.querySelectorAll('.chapter')];
