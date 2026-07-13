@@ -8,5 +8,6 @@ Disallow: /translation/
 Disallow: /burma-script/
 Disallow: /westchester/
 Disallow: /pinglobe-feedback/
+Disallow: /burgundy/
 
 Sitemap: https://mycoldmars.com/sitemap.xml
