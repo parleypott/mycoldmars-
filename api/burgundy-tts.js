@@ -1,3 +1,5 @@
+import { validateTtsRequest } from './_lib/burgundy-tts-validate.js';
+
 export const config = { runtime: 'edge', maxDuration: 60 };
 
 /**
@@ -18,8 +20,6 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SE
 const ELEVEN_KEY = process.env.ELEVENLABS_API_KEY;
 
 const BUCKET = 'burgundy-audio';
-const VOICE_DEFAULT = 'XrExE9yKIg1WjnnlVkGX';   // Matilda — the tool's default narrator
-const MAX_CHARS = 2600;                          // a long paragraph, not a chapter
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -43,11 +43,10 @@ export default async function handler(req) {
 
   let body;
   try { body = await req.json(); } catch { return json(400, { error: 'bad json' }); }
-  const text = String(body?.text ?? '').trim();
-  if (!text) return json(400, { error: 'text required' });
-  if (text.length > MAX_CHARS) return json(413, { error: `text too long (max ${MAX_CHARS})` });
+  const v = validateTtsRequest(body);
+  if (v.error) return json(v.status, { error: v.error });
+  const { text, voice } = v;
 
-  const voice = /^[A-Za-z0-9]{8,40}$/.test(body?.voice_id || '') ? body.voice_id : VOICE_DEFAULT;
   const hash = await sha256hex(`${voice}::${text}`);
   const path = `${voice}/${hash}.mp3`;
   const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
