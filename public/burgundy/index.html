@@ -265,13 +265,17 @@ function render() {
    progress") may carry a title but no paragraphs array yet — guard it so a
    half-written or malformed chapter renders its heading with no body instead of
    throwing a TypeError that bricks render() and strands the whole reader on the
-   loading spinner. Byte-identical output for any well-formed chapter. */
+   loading spinner. The chapter ENTRY itself can also be null/non-object (a
+   malformed publish leaving a hole in the chapters array) — coerce it so
+   `ch.paragraphs`/`ch.title` never throw and the rest of the book still renders.
+   Byte-identical output for any well-formed chapter. */
 function chapterHTML(ch, ci, esc) {
-  const paras = Array.isArray(ch.paragraphs) ? ch.paragraphs : [];
+  const c = ch && typeof ch === 'object' ? ch : {};
+  const paras = Array.isArray(c.paragraphs) ? c.paragraphs : [];
   return `<section class="chapter" data-ch="${ci}">
       <div class="ch-head">
         <div class="ch-num">chapter ${ci + 1}</div>
-        <div class="ch-title">${esc(ch.title || '')}</div>
+        <div class="ch-title">${esc(c.title || '')}</div>
         <div class="ch-rule"></div>
       </div>
       ${paras.map((p, pi) => `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}

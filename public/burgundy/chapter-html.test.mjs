@@ -77,6 +77,23 @@ for (const bad of [null, 'a whole chapter as one string', { 0: 'x' }, 42]) {
   ok(!out.includes('<p data-key'), `paragraphs=${JSON.stringify(bad)} yields no paragraph nodes`);
 }
 
+// 4b. THE ENTRY ITSELF is null/non-object — a malformed publish leaving a hole
+//     in the chapters array. render() does chapters.forEach(ch => chapterHTML(ch,…)),
+//     with NO try/catch, so a single null entry (ch.paragraphs → TypeError) bricked
+//     the WHOLE reader. The `ch && typeof ch === 'object' ? ch : {}` coercion renders
+//     an empty chapter shell instead, so the rest of the book still renders.
+for (const badCh of [null, undefined, 42, 'a bare string chapter', true]) {
+  let out;
+  assert.doesNotThrow(() => { out = chapterHTML(badCh, 3, esc); },
+    `FIXED: chapter entry = ${JSON.stringify(badCh)} does not crash render()`); pass++;
+  ok(out.includes('chapter 4'), `null-entry ${JSON.stringify(badCh)} still renders its 1-based number`);
+  ok(!out.includes('<p data-key'), `null-entry ${JSON.stringify(badCh)} yields no paragraph nodes`);
+  ok(out.includes('<div class="ch-title"></div>'), `null-entry ${JSON.stringify(badCh)} renders empty title, not "undefined"`);
+}
+// MUTATION PROOF: the pre-fix form (bare ch.paragraphs / ch.title) threw on a null entry.
+assert.throws(() => buggyChapterHTML(null, 3, esc), TypeError,
+  'MUTATION PROOF: pre-fix form threw TypeError on a null chapter entry'); pass++;
+
 // 5. Paragraph text is HTML-escaped (author content is untrusted-shaped).
 {
   const out = chapterHTML({ title: 'X', paragraphs: ['<script>alert(1)</script>'] }, 0, esc);
