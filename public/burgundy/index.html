@@ -730,7 +730,8 @@ function skipForward(seq, i) {
   if (player.errors > 3) { updatePlayerChrome('error'); return; }
   if (i + 1 < player.flat.length) startAt(i + 1); else closePlayer();
 }
-tts.addEventListener('ended', () => { if (player.on) startAt(player.idx + 1); });
+// the SILENT unlock clip also fires 'ended' — only a real paragraph may advance the queue
+tts.addEventListener('ended', () => { if (player.on && tts.src && !tts.src.startsWith('data:')) startAt(player.idx + 1); });
 tts.addEventListener('error', () => { if (player.on && tts.src && !tts.src.startsWith('data:')) skipForward(playSeq, player.idx); });
 tts.addEventListener('pause', () => updatePlayerChrome());
 tts.addEventListener('play', () => updatePlayerChrome());
