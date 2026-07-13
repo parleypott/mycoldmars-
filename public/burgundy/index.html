@@ -438,9 +438,18 @@ $('pill').addEventListener('pointerdown', async (e) => {
 function clearSelection() { document.getSelection()?.removeAllRanges(); hidePill(); }
 
 /* ── the note sheet — keyboard-aware ── */
+/* the sheet-header quote label — truncate at 220 with an ellipsis. Orphan notes
+   are opened straight from raw DB rows (openSheet is called on an orphan tap), so
+   a legacy/partial row with a null or non-string quote must not throw here and
+   leave the note un-openable — guard it like paintNote/renderOrphans already do.
+   Byte-identical for any real string quote. */
+function sheetQuoteLabel(quote) {
+  const q = String(quote ?? '');
+  return '“' + q.slice(0, 220) + (q.length > 220 ? '…' : '') + '”';
+}
 function openSheet(n) {
   editingNote = n;
-  $('sheet-quote').textContent = '“' + n.quote.slice(0, 220) + (n.quote.length > 220 ? '…' : '') + '”';
+  $('sheet-quote').textContent = sheetQuoteLabel(n.quote);
   $('sheet-text').value = n.note || '';
   $('sheet-delete').hidden = !n.id;
   $('saved-flash').hidden = true;
