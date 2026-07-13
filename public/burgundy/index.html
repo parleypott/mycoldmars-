@@ -243,16 +243,25 @@ async function boot() {
   restorePlace();
 }
 
+/* the ROOT book object. A malformed publish (the WIP-novel tool writing a
+   literal `null`, a bare array, or a primitive to book.json) yields a non-object
+   BOOK, and render() runs OUTSIDE any try/catch — a bare `BOOK.chapters` on a
+   null BOOK throws a TypeError that strands the whole reader on the "opening the
+   book…" spinner. Coerce to a usable object so render never dereferences null,
+   completing the chapter/paragraph-level guards one level up at the root.
+   Byte-identical for any real (object) book. */
+function safeBook(b) { return b && typeof b === 'object' ? b : {}; }
 function render() {
   const el = $('book');
-  const chapters = BOOK.chapters || [];
+  const book = safeBook(BOOK);
+  const chapters = book.chapters || [];
   let html = `
     <div class="titlepage">
       <div class="tp-eyebrow">a novel in progress</div>
-      <div class="tp-title">${esc(BOOK.title || 'BERGUNDY')}</div>
-      ${BOOK.subtitle ? `<div class="tp-sub">${esc(BOOK.subtitle)}</div>` : ''}
+      <div class="tp-title">${esc(book.title || 'BERGUNDY')}</div>
+      ${book.subtitle ? `<div class="tp-sub">${esc(book.subtitle)}</div>` : ''}
       <div class="tp-rule"></div>
-      <div class="tp-note">published ${pubDate(BOOK.published_at)} · tap the page to wake the controls · select any passage to leave a note</div>
+      <div class="tp-note">published ${pubDate(book.published_at)} · tap the page to wake the controls · select any passage to leave a note</div>
     </div>`;
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
