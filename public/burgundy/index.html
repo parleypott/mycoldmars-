@@ -738,8 +738,16 @@ tts.addEventListener('play', () => updatePlayerChrome());
 function openPlayer() {
   player.on = true; player.flat = flatParas(); player.errors = 0;
   document.body.classList.add('player-on');
-  // unlock audio INSIDE the tap gesture — iOS requires the first play be user-driven
-  tts.src = SILENT; tts.play().catch(() => {});
+  // unlock audio INSIDE the tap gesture — iOS requires the first play be user-driven.
+  // The queue begins only AFTER the silent clip fully finishes, so its late
+  // ended/error events can never race a real paragraph and bump the place.
+  tts.src = SILENT;
+  let begun = false;
+  const begin = () => { if (begun || !player.on) return; begun = true; startAt(savedAudioIdx(player.flat)); };
+  tts.addEventListener('ended', begin, { once: true });
+  tts.addEventListener('error', begin, { once: true });
+  setTimeout(begin, 700);   // safety net if the silent clip never reports
+  tts.play().catch(() => {});
   if ('mediaSession' in navigator) {
     try {
       navigator.mediaSession.setActionHandler('play', () => { tts.play().catch(() => {}); });
@@ -748,7 +756,6 @@ function openPlayer() {
       navigator.mediaSession.setActionHandler('nexttrack', () => startAt(player.idx + 1));
     } catch {}
   }
-  startAt(savedAudioIdx(player.flat));
 }
 function closePlayer() {
   player.on = false; playSeq++;
