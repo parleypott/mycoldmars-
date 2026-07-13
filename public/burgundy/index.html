@@ -251,20 +251,28 @@ function render() {
       <div class="tp-rule"></div>
       <div class="tp-note">published ${pubDate(BOOK.published_at)} · tap the page to wake the controls · select any passage to leave a note</div>
     </div>`;
-  chapters.forEach((ch, ci) => {
-    html += `<section class="chapter" data-ch="${ci}">
+  chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
+  html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
+  el.innerHTML = html;
+  paintNotes();
+  observeChapters();
+}
+
+/* one chapter's HTML. A chapter still being drafted (this is "a novel in
+   progress") may carry a title but no paragraphs array yet — guard it so a
+   half-written or malformed chapter renders its heading with no body instead of
+   throwing a TypeError that bricks render() and strands the whole reader on the
+   loading spinner. Byte-identical output for any well-formed chapter. */
+function chapterHTML(ch, ci, esc) {
+  const paras = Array.isArray(ch.paragraphs) ? ch.paragraphs : [];
+  return `<section class="chapter" data-ch="${ci}">
       <div class="ch-head">
         <div class="ch-num">chapter ${ci + 1}</div>
         <div class="ch-title">${esc(ch.title || '')}</div>
         <div class="ch-rule"></div>
       </div>
-      ${ch.paragraphs.map((p, pi) => `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
+      ${paras.map((p, pi) => `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
     </section>`;
-  });
-  html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
-  el.innerHTML = html;
-  paintNotes();
-  observeChapters();
 }
 
 /* ── notes: paint highlights; unplaceable ones surface in an orphan strip ── */
