@@ -1,0 +1,10 @@
+{
+  "name": "BERGUNDY",
+  "short_name": "BERGUNDY",
+  "start_url": "/burgundy/",
+  "scope": "/burgundy/",
+  "display": "standalone",
+  "background_color": "#E5DECC",
+  "theme_color": "#E5DECC",
+  "icons": [{ "src": "/burgundy/icon-512.png", "sizes": "512x512", "type": "image/png" }]
+}

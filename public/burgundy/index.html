@@ -10,6 +10,8 @@
 <!-- private novel-in-progress — keep it out of search indexes (belt-and-suspenders with robots.txt Disallow: /burgundy/) -->
 <meta name="robots" content="noindex, nofollow">
 <meta name="googlebot" content="noindex, nofollow">
+<link rel="manifest" href="/burgundy/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/burgundy/icon-180.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📕</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -87,6 +89,20 @@
   .p-track{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
   .p-fill{height:100%;width:0%;background:var(--orange);border-radius:2px;transition:width .2s}
   .p-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);text-align:center}
+
+  /* ── the gate ── */
+  .gate{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:24px}
+  .gate-card{max-width:340px;width:100%;text-align:center}
+  .gate-title{font-family:var(--display);font-size:56px;line-height:1;margin:14px 0 28px}
+  .gate-input{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:16px;letter-spacing:.12em;text-align:center;
+    padding:13px;border:1.5px solid var(--line);border-radius:4px;background:transparent;color:var(--ink);outline:none}
+  .gate-input:focus{border-color:var(--orange)}
+  .gate-btn{margin-top:12px;width:100%;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    padding:13px;border:1.5px solid var(--ink);border-radius:4px;background:var(--ink);color:var(--paper);cursor:pointer}
+  .gate-hint{margin-top:12px;font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-faint);min-height:1.4em}
+  .offline-chip{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;transform:translateX(-50%);z-index:80;
+    font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);
+    background:var(--paper-deep);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
 
   /* ── the page ── */
   .book{max-width:640px;margin:0 auto;
@@ -177,6 +193,17 @@
   <span class="brand">BERGUNDY</span>
   <span class="chap-label" id="chap-label">— </span>
 </header>
+
+<div class="gate" id="gate" hidden>
+  <div class="gate-card">
+    <div class="tp-eyebrow">a novel in progress · invited readers</div>
+    <div class="gate-title">BERGUNDY</div>
+    <input class="gate-input" id="gate-input" type="password" placeholder="the word" autocomplete="off" autocapitalize="none">
+    <button class="gate-btn" id="gate-btn">open the book</button>
+    <div class="gate-hint" id="gate-hint"></div>
+  </div>
+</div>
+<div class="offline-chip" id="offline-chip" hidden>offline — reading from this device</div>
 
 <main class="book" id="book">
   <div class="loading">opening the book…</div>
@@ -553,18 +580,23 @@ $('sheet-delete').addEventListener('click', async () => {
 });
 
 async function saveNote(n) {
+  const row = { ...n, book_version: BOOK?.version || '' };
   try {
+    if (!navigator.onLine) throw new Error('offline');
     const r = await fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...n, book_version: BOOK?.version || '' }),
+      body: JSON.stringify(row),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.note) throw new Error(d.error || 'save failed');
     NOTES.unshift(d.note); paintNote(d.note);
     return true;
   } catch (e) {
-    alert('could not save the note — please try again (' + (e.message || 'connection') + ')');
-    return false;
+    // no signal: keep the highlight ON DEVICE and sync when the network returns
+    queueNote(row);
+    const local = { ...row, id: 'local-' + Math.random().toString(36).slice(2), _local: true };
+    NOTES.unshift(local); paintNote(local);
+    return true;
   }
 }
 function rerenderMarks() {
@@ -785,7 +817,46 @@ function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&
 /* a present-but-unparseable published_at (legacy/hand-edited book.json) must never
    render the literal "Invalid Date" on the title page — fall back to today. */
 function pubDate(v) { const d = new Date(v || Date.now()); return isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString(); }
-boot();
+/* ── the gate: one little word, remembered forever on this device ── */
+function gateOpen() { return (safeGet('bg-key') || '') === 'mycoldmars'; }
+function showGate() {
+  const g = $('gate'); g.hidden = false;
+  const go = () => {
+    const v = ($('gate-input').value || '').trim().toLowerCase();
+    if (v === 'mycoldmars') { safeSet('bg-key', v); g.hidden = true; boot(); }
+    else { $('gate-hint').textContent = 'not that word — ask the author.'; $('gate-input').select(); }
+  };
+  $('gate-btn').addEventListener('click', go);
+  $('gate-input').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  setTimeout(() => $('gate-input').focus(), 200);
+}
+
+/* ── offline: the book reads from device, notes queue until signal returns ── */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/burgundy/sw.js', { scope: '/burgundy/' }).catch(() => {});
+}
+function refreshOfflineChip() { $('offline-chip').hidden = navigator.onLine; }
+addEventListener('online', () => { refreshOfflineChip(); flushNoteQueue(); });
+addEventListener('offline', refreshOfflineChip);
+function queuedNotes() { try { return JSON.parse(safeGet('bg-note-queue') || '[]'); } catch { return []; } }
+function queueNote(row) { const q = queuedNotes(); q.push(row); safeSet('bg-note-queue', JSON.stringify(q)); }
+async function flushNoteQueue() {
+  const q = queuedNotes();
+  if (!q.length || !navigator.onLine) return;
+  const still = [];
+  for (const row of q) {
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) });
+      if (!r.ok) still.push(row);
+    } catch { still.push(row); }
+  }
+  safeSet('bg-note-queue', JSON.stringify(still));
+  if (q.length !== still.length) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = d.notes || NOTES; paintNotes(); } catch {} }
+}
+
+refreshOfflineChip();
+if (gateOpen()) boot(); else showGate();
+flushNoteQueue();
 </script>
 </body>
 </html>
