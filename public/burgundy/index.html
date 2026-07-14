@@ -967,7 +967,16 @@ $('btn-listen').addEventListener('click', () => {
   updatePlayerChrome();
 });
 $('btn-lx').addEventListener('click', closePlayer);
-const dl = { busy: false };
+const dl = { busy: false, expected: 0 };
+// the audiobook is only truly "downloaded" when EVERY paragraph both resolved to
+// a URL and fetched clean. reportedTotal is the SW's view (the resolved-URL count);
+// expected is the true paragraph count. a silently-skipped resolution (a transient
+// TTS failure in the click loop) makes reportedTotal < expected, so we must NOT
+// persist the green "done" state — else one dropped paragraph = a silent offline
+// gap under a button that promises a full week of listening.
+function audiobookFullyDownloaded(reportedTotal, expected, failed) {
+  return !failed && expected > 0 && reportedTotal >= expected;
+}
 function dlChrome(done, total, failed) {
   const b = $('btn-dl'); if (!b) return;
   if (dl.busy) { b.classList.add('busy'); b.classList.remove('done'); b.textContent = `${Math.round(done / Math.max(1, total) * 100)}%`; return; }
@@ -983,7 +992,7 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
   dlChrome(m.done, m.total, m.failed);
   if (m.done >= m.total) {
     dl.busy = false;
-    if (!m.failed) safeSet('bg-audiobook-done', safeBook(BOOK).version || 'v');
+    if (audiobookFullyDownloaded(m.total, dl.expected, m.failed)) safeSet('bg-audiobook-done', safeBook(BOOK).version || 'v');
     dlChrome();
   }
 });
@@ -993,6 +1002,7 @@ $('btn-dl').addEventListener('click', async () => {
   if (!reg?.active) { alert('one moment — the offline engine is still waking up. try again in a few seconds.'); return; }
   dl.busy = true;
   if (!player.flat.length) player.flat = flatParas();
+  dl.expected = player.flat.length;   // the TRUE paragraph count — a dropped resolution must not read as complete
   dlChrome(0, player.flat.length);
   // resolve every paragraph URL (the server synthesizes each AT MOST once, ever)
   const urls = [];
