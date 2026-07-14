@@ -91,8 +91,12 @@
   .p-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);text-align:center}
 
   /* ── the gate ── */
-  .gate{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:24px}
+  .gate{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;align-items:flex-start;justify-content:center;
+    padding:calc(env(safe-area-inset-top) + 14vh) 24px 24px;overflow:auto}
   .gate-card{max-width:340px;width:100%;text-align:center}
+  .gate-mark{display:flex;flex-direction:column;align-items:center;margin-bottom:26px}
+  .gm-b{font-family:var(--display);font-size:84px;line-height:1;color:var(--ink)}
+  .gm-rule{width:64px;height:7px;background:var(--orange);margin-top:10px}
   .gate-title{font-family:var(--display);font-size:56px;line-height:1;margin:14px 0 28px}
   .gate-input{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:16px;letter-spacing:.12em;text-align:center;
     padding:13px;border:1.5px solid var(--line);border-radius:4px;background:transparent;color:var(--ink);outline:none}
@@ -196,10 +200,14 @@
 
 <div class="gate" id="gate" hidden>
   <div class="gate-card">
+    <div class="gate-mark"><span class="gm-b">B</span><span class="gm-rule"></span></div>
     <div class="tp-eyebrow">a novel in progress · invited readers</div>
     <div class="gate-title">BERGUNDY</div>
-    <input class="gate-input" id="gate-input" type="password" placeholder="the word" autocomplete="off" autocapitalize="none">
-    <button class="gate-btn" id="gate-btn">open the book</button>
+    <form id="gate-form" autocomplete="off">
+      <input class="gate-input" id="gate-input" type="text" placeholder="the word"
+        autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text">
+      <button class="gate-btn" id="gate-btn" type="submit">open the book</button>
+    </form>
     <div class="gate-hint" id="gate-hint"></div>
   </div>
 </div>
@@ -822,12 +830,13 @@ function gateOpen() { return (safeGet('bg-key') || '') === 'mycoldmars'; }
 function showGate() {
   const g = $('gate'); g.hidden = false;
   const go = () => {
-    const v = ($('gate-input').value || '').trim().toLowerCase();
-    if (v === 'mycoldmars') { safeSet('bg-key', v); g.hidden = true; boot(); }
+    // letters only, any case: forgives iOS autocapitalize, the double-space
+    // period, stray spaces — "My cold mars." opens the book
+    const v = ($('gate-input').value || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (v === 'mycoldmars') { safeSet('bg-key', 'mycoldmars'); g.hidden = true; boot(); }
     else { $('gate-hint').textContent = 'not that word — ask the author.'; $('gate-input').select(); }
   };
-  $('gate-btn').addEventListener('click', go);
-  $('gate-input').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $('gate-form').addEventListener('submit', e => { e.preventDefault(); go(); });
   setTimeout(() => $('gate-input').focus(), 200);
 }
 
