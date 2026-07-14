@@ -847,8 +847,8 @@ function pageOfEl(el) {
   const d = el.getBoundingClientRect().left - pg.getBoundingClientRect().left - paged.pad;
   return Math.max(0, Math.round(d / paged.step));
 }
-function pageOfKey(key) {
-  const p = key && document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+function pageOfKey(v) {
+  const p = v ? resolvePlace(v) : null;
   return p ? pageOfEl(p) : 0;
 }
 function layoutPages() {
@@ -883,7 +883,7 @@ function afterPageChange() {
   hidePill();
   const p = firstParaOnPage(paged.page);
   if (!p) return;   // the title page never overwrites a saved place
-  safeSet('bg-place2', p.dataset.key);
+  safeSet('bg-place2', placeValueFor(p));
   const ci = +(p.closest('.chapter')?.dataset.ch || 0);
   markTocCurrent(ci);
   const bt = bareTitle(safeBook(BOOK).chapters?.[ci]?.title || '');
@@ -904,7 +904,7 @@ function setMode(m) {
   else if (pg) {
     pg.style.transform = ''; pg.style.padding = ''; pg.style.columnWidth = ''; pg.style.columnGap = '';
     requestAnimationFrame(() => {
-      const p = key && document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+      const p = key ? resolvePlace(key) : null;
       if (p) p.scrollIntoView({ block: 'start' });
     });
   }
@@ -985,18 +985,37 @@ addEventListener('scroll', () => {
   window._plc = setTimeout(() => {
     // paragraph-anchored place memory — survives font-size changes + republish
     const top = [...document.querySelectorAll('p[data-key]')].find(p => p.getBoundingClientRect().bottom > 90);
-    if (top) safeSet('bg-place2', top.dataset.key);
+    if (top) safeSet('bg-place2', placeValueFor(top));
   }, 300);
 }, { passive: true });
+/* place memory v2: "ci:pi|first-40-chars". The key finds the paragraph fast;
+   the text fingerprint RE-FINDS it when a republish shifted the numbering —
+   the author publishes several times a day, places must not drift. Old
+   fingerprint-less values still work. */
+function placeParts(v) { const i = (v || '').indexOf('|'); return i < 0 ? { key: v || '', fp: '' } : { key: v.slice(0, i), fp: v.slice(i + 1) }; }
+function placeValueFor(p) { return p.dataset.key + '|' + p.textContent.slice(0, 40); }
+function resolvePlace(v) {
+  const { key, fp } = placeParts(v);
+  let p = key ? document.querySelector(`p[data-key="${CSS.escape(key)}"]`) : null;
+  if (fp) {
+    const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+    const want = norm(fp);
+    if (want && (!p || !norm(p.textContent).startsWith(want))) {
+      const hit = [...document.querySelectorAll('.chapter p[data-key]')].find(x => norm(x.textContent).startsWith(want));
+      if (hit) p = hit;
+    }
+  }
+  return p;
+}
 function restorePlace() {
-  const key = safeGet('bg-place2');
+  const v = safeGet('bg-place2');
   if (pagedOn()) {
     layoutPages();
-    goToPage(key ? pageOfKey(key) : 0, false);
+    goToPage(v ? pageOfKey(v) : 0, false);
     return;
   }
-  if (!key) return;
-  const p = document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+  if (!v) return;
+  const p = resolvePlace(v);
   if (p) requestAnimationFrame(() => p.scrollIntoView({ block: 'start' }));
 }
 $('btn-bigger').addEventListener('click', () => setSize(+1));
@@ -1069,7 +1088,7 @@ function savedAudioIdx(flat) {
   // the furthest point wins — read ahead silently and ▶ continues from THERE,
   // never back to where you last listened (tap any paragraph to override)
   const audio = safeGet(AUDIO_PLACE);
-  const read = safeGet('bg-place2');
+  const read = placeParts(safeGet('bg-place2')).key;
   const ai = audio ? flat.findIndex(u => u.key === audio) : -1;
   const ri = read ? flat.findIndex(u => u.key === read) : -1;
   return Math.max(ai, ri, 0);
