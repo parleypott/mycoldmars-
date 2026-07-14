@@ -14,7 +14,7 @@
  * reachable input; the URL interpolation coerces the returned voice the same way.
  */
 
-export const VOICE_DEFAULT = 'XrExE9yKIg1WjnnlVkGX';   // Matilda — the tool's default narrator
+export const VOICE_DEFAULT = 'JBFqnCBsd6RMkjVDRZzb';   // George, warm British: the book's default narrator
 export const MAX_CHARS = 2600;                          // a long paragraph, not a chapter
 
 // Strict: 8–40 chars, letters+digits ONLY. No '/', '.', '..', whitespace, or
