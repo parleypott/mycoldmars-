@@ -1030,7 +1030,7 @@ $('btn-dl').addEventListener('click', async () => {
     try { urls.push(await urlFor(i)); } catch {}
     if (i % 10 === 0) dlChrome(Math.round(i / 2), player.flat.length);   // resolving ≈ first half of the bar
   }
-  const map = (() => { try { return JSON.parse(safeGet('bg-tts-urls') || '{}'); } catch { return {}; } })();
+  const map = ttsUrlMap();   // hardened: a corrupt/legacy non-object store can't poison the audiobook manifest
   reg.active.postMessage({ type: 'download-audiobook', urls, map });
 });
 setTimeout(() => dlChrome(), 1200);
