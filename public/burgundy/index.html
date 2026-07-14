@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="/burgundy/icon-180.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📕</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   /* ── the reading instrument: Kindle typography on Burma warm paper ── */
   :root{
@@ -23,10 +23,10 @@
     --line:rgba(22,20,15,.16); --orange:#E84B22; --green:#2D7A4F;
     --hl-amber:rgba(212,149,31,.28); --hl-green:rgba(45,122,79,.22);
     --hl-blue:rgba(52,98,145,.20); --hl-rose:rgba(163,57,42,.18);
-    --serif:'Crimson Pro','Iowan Old Style',Georgia,serif;
+    --serif:'Libre Caslon Text','Iowan Old Style',Georgia,serif;
     --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
-    --display:'Archivo Black',sans-serif;
-    --size:21px; --lead:1.72;
+    --display:'Playfair Display','Libre Caslon Text',Georgia,serif;
+    --size:19px; --lead:1.78;
   }
   html[data-theme="dark"]{
     --paper:#191712; --paper-deep:#211E17; --ink:#E9E2D0;
@@ -52,7 +52,7 @@
     transform:translateY(0);transition:transform .28s cubic-bezier(.22,1,.36,1);
   }
   body.zen .topbar{transform:translateY(-110%)}
-  .brand{font-family:var(--display);font-size:15px;letter-spacing:.02em}
+  .brand{font-family:var(--serif);font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink-soft)}
   .chap-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);
     flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bottombar{
@@ -111,22 +111,31 @@
   /* ── the page ── */
   .book{max-width:640px;margin:0 auto;
     padding:calc(env(safe-area-inset-top) + 84px) max(24px, env(safe-area-inset-left)) 40vh max(24px, env(safe-area-inset-right))}
-  .titlepage{min-height:70vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
-  .tp-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:22px}
-  .tp-title{font-family:var(--display);font-size:clamp(44px,11vw,84px);line-height:.98;letter-spacing:-.01em}
-  .tp-sub{font-style:italic;font-size:19px;color:var(--ink-soft);margin-top:20px}
-  .tp-rule{width:58px;height:1px;background:var(--ink);margin:34px auto 0;opacity:.5}
-  .tp-note{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);margin-top:34px}
+  .titlepage{min-height:74vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .tp-eyebrow{font-family:var(--serif);font-size:12px;letter-spacing:.38em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:30px}
+  .tp-frame{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);padding:44px 12px 40px;position:relative}
+  .tp-frame::before,.tp-frame::after{content:'';position:absolute;left:0;right:0;height:1px;background:var(--ink);opacity:.55}
+  .tp-frame::before{top:5px} .tp-frame::after{bottom:5px}
+  .tp-title{font-family:var(--display);font-weight:700;font-size:clamp(46px,11vw,84px);line-height:1;letter-spacing:.04em}
+  .tp-sub{font-family:var(--display);font-style:italic;font-weight:500;font-size:20px;color:var(--ink-soft);margin-top:22px}
+  .tp-rule{width:58px;height:1px;background:var(--ink);margin:30px auto 0;opacity:.5;position:relative}
+  .tp-rule::after{content:'❦';position:absolute;left:50%;top:-9px;transform:translateX(-50%);background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft)}
+  .tp-note{font-family:var(--serif);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint);margin-top:36px;line-height:2}
 
-  .chapter{padding-top:9vh}
-  .ch-head{margin-bottom:7vh;text-align:center}
-  .ch-num{font-family:var(--mono);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink-faint)}
-  .ch-title{font-family:var(--display);font-size:clamp(24px,6vw,36px);line-height:1.08;margin-top:14px}
-  .ch-rule{width:44px;height:1px;background:var(--ink);opacity:.4;margin:26px auto 0}
-  .chapter p{margin:0 0 1.15em;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  .chapter{padding-top:11vh}
+  .ch-head{margin-bottom:6vh;text-align:center}
+  .ch-num{font-family:var(--serif);font-size:14px;letter-spacing:.42em;text-transform:uppercase;color:var(--ink-soft);font-variant-numeric:oldstyle-nums}
+  .ch-title{font-family:var(--display);font-weight:500;font-style:italic;font-size:clamp(26px,6vw,38px);line-height:1.15;margin-top:18px;letter-spacing:.01em}
+  .ch-rule{width:56px;height:1px;background:var(--ink);opacity:.45;margin:26px auto 0;position:relative}
+  .ch-rule::after{content:'❦';position:absolute;left:50%;top:-9px;transform:translateX(-50%);
+    background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft);transition:background .3s}
+  .chapter p{margin:0;text-indent:1.5em;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  .chapter p:first-of-type{text-indent:0}
+  .chapter p+p.speaking, .chapter p.speaking{/* keep listen highlight readable */}
+  .asterism{text-indent:0!important;text-align:center;letter-spacing:.9em;padding:1.4em 0;color:var(--ink-soft)}
   .chapter p:first-of-type::first-letter{
-    font-family:var(--display);font-size:3.1em;line-height:.85;float:left;
-    padding:.06em .12em 0 0;color:var(--ink)}
+    font-family:var(--display);font-weight:700;font-size:3.4em;line-height:.8;float:left;
+    padding:.04em .14em 0 0;color:var(--ink)}
   .the-end{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.34em;
     text-transform:uppercase;color:var(--ink-faint);padding:14vh 0 4vh}
 
@@ -313,10 +322,12 @@ function render() {
   let html = `
     <div class="titlepage">
       <div class="tp-eyebrow">a novel in progress</div>
-      <div class="tp-title">${esc(book.title || 'BERGUNDY')}</div>
-      ${book.subtitle ? `<div class="tp-sub">${esc(book.subtitle)}</div>` : ''}
+      <div class="tp-frame">
+        <div class="tp-title">${esc(book.title || 'BERGUNDY')}</div>
+        ${book.subtitle ? `<div class="tp-sub">${esc(book.subtitle)}</div>` : ''}
+      </div>
       <div class="tp-rule"></div>
-      <div class="tp-note">published ${pubDate(book.published_at)} · tap the page to wake the controls · select any passage to leave a note</div>
+      <div class="tp-note">set forth ${pubDate(book.published_at)}<br>tap the page to wake the controls · select a passage to leave a note</div>
     </div>`;
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
@@ -336,13 +347,16 @@ function render() {
 function chapterHTML(ch, ci, esc) {
   const c = ch && typeof ch === 'object' ? ch : {};
   const paras = Array.isArray(c.paragraphs) ? c.paragraphs : [];
+  const roman = (n) => { const R = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let s = ''; for (const [v, r] of R) while (n >= v) { s += r; n -= v; } return s; };
+  // the display title drops any leading "chapter N" — the numeral line carries it
+  const bare = (c.title || '').replace(/^\s*chapter\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*[:·.\-—]?\s*/i, '').trim();
   return `<section class="chapter" data-ch="${ci}">
       <div class="ch-head">
-        <div class="ch-num">chapter ${ci + 1}</div>
-        <div class="ch-title">${esc(c.title || '')}</div>
+        <div class="ch-num">Chapter ${roman(ci + 1)}</div>
+        ${bare ? `<div class="ch-title">${esc(bare)}</div>` : ''}
         <div class="ch-rule"></div>
       </div>
-      ${paras.map((p, pi) => `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
+      ${paras.map((p, pi) => /^[\s*·—-]{2,}$/.test(p.trim()) ? `<p class="asterism" data-key="${ci}:${pi}">＊ ＊ ＊</p>` : `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
     </section>`;
 }
 
