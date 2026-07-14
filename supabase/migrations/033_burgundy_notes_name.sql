@@ -1,0 +1,13 @@
+-- Reader signature for BURGUNDY notes (mycoldmars.com/burgundy).
+-- The reader signs their first note with a name (name only, skippable); it is
+-- remembered per device and attached to every note so the writing tool can
+-- show who left each one. Added live in prod alongside app commit d1f89aa
+-- ("burgundy reader: page-turn mode, ☰ contents, signed notes"), but never
+-- captured as a migration — so the repo schema drifted from production. This
+-- codifies it: without this column a rebuilt DB (fresh env, dev-isolated room,
+-- disaster recovery) would 400 every note save, because sanitizeNoteRow()
+-- (api/_lib/burgundy-note-validate.js) always writes a `name` field.
+--
+-- Idempotent + additive: a no-op against prod (column already present);
+-- backfills existing rows with '' to match the sanitizer's default.
+alter table burgundy_notes add column if not exists name text not null default '';
