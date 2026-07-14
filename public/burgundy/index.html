@@ -857,6 +857,10 @@ async function flushNoteQueue() {
 refreshOfflineChip();
 if (gateOpen()) boot(); else showGate();
 flushNoteQueue();
+// belt-and-braces: 'online' events are unreliable across webviews — also retry
+// when the app comes back to the foreground and on a slow heartbeat
+document.addEventListener('visibilitychange', () => { if (!document.hidden) flushNoteQueue(); });
+setInterval(() => { if (queuedNotes().length) flushNoteQueue(); }, 60000);
 </script>
 </body>
 </html>
