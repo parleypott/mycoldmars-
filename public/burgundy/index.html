@@ -403,8 +403,10 @@ function chapterHTML(ch, ci, esc) {
   const c = ch && typeof ch === 'object' ? ch : {};
   const paras = Array.isArray(c.paragraphs) ? c.paragraphs : [];
   const roman = (n) => { const R = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let s = ''; for (const [v, r] of R) while (n >= v) { s += r; n -= v; } return s; };
-  // the display title drops any leading "chapter N" — the numeral line carries it
-  const bare = (c.title || '').replace(/^\s*chapter\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*[:·.\-—]?\s*/i, '').trim();
+  // the display title drops any leading "chapter N" — the numeral line carries it.
+  // Coerce first: a malformed publish can leave a non-string title (number/null),
+  // and a bare `.replace` on that throws and bricks the whole reader.
+  const bare = String(c.title || '').replace(/^\s*chapter\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*[:·.\-—]?\s*/i, '').trim();
   return `<section class="chapter" data-ch="${ci}">
       <div class="ch-head">
         <div class="ch-num">Chapter ${roman(ci + 1)}</div>
@@ -414,12 +416,15 @@ function chapterHTML(ch, ci, esc) {
       ${(() => {
         let openerDone = false;
         return paras.map((p, pi) => {
-          const t = p.trim();
+          // Coerce first: a malformed/mid-edit publish can leave a non-string
+          // paragraph element; a bare p.trim() throws and bricks the whole reader.
+          const s = String(p ?? '');
+          const t = s.trim();
           if (/^[\s*·—-]{2,}$/.test(t)) return `<p class="asterism" data-key="${ci}:${pi}">＊ ＊ ＊</p>`;
           if (/^\[?work in progress\]?$/i.test(t)) return `<p class="wip-note" data-key="${ci}:${pi}">· work in progress ·</p>`;
           const cls = openerDone ? '' : ' class="opener"';
           openerDone = true;
-          return `<p${cls} data-key="${ci}:${pi}">${esc(p)}</p>`;
+          return `<p${cls} data-key="${ci}:${pi}">${esc(s)}</p>`;
         }).join('');
       })()}
     </section>`;
@@ -808,6 +813,10 @@ $('toc-scrim').addEventListener('click', () => document.body.classList.remove('t
    paragraph start, so play always resumes where it stopped. */
 const TTS_API = '/api/burgundy-tts';
 const AUDIO_PLACE = 'bg-audio-place';
+// paragraph→mp3 URL cache. A corrupt/legacy 'bg-tts-urls' store can hold a
+// valid-but-wrong-type value (a bare null, array, number); `map[key]` on a
+// null would throw. Coerce to a plain object so every reader is crash-safe.
+function ttsUrlMap() { try { const v = JSON.parse(safeGet('bg-tts-urls') || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; } }
 const SILENT = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYyLjEyLjEwMAAAAAAAAAAAAAAA//OEwAAAAAAAAAAAAEluZm8AAAAPAAAADwAABmAALS0tLS0tPDw8PDw8PEtLS0tLS1paWlpaWlppaWlpaWlpeHh4eHh4h4eHh4eHh5aWlpaWlpalpaWlpaW0tLS0tLS0w8PDw8PDw9LS0tLS0uHh4eHh4eHw8PDw8PDw////////AAAAAExhdmM2Mi4yOAAAAAAAAAAAAAAAACQDYAAAAAAAAAZga5fgdQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//NExAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExFMAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKYAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMu//NExKwAAANIAAAAADEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NExKwAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NExKwAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 const tts = new Audio();
 tts.setAttribute('playsinline', ''); tts.preload = 'auto';
@@ -837,7 +846,7 @@ function urlFor(i) {
   }).then(r => r.json()).then(d => {
     if (!d.url) throw new Error(d.error || 'tts failed');
     try {   // remember paragraph→mp3 URLs on device: cached audio then plays fully offline
-      const map = JSON.parse(safeGet('bg-tts-urls') || '{}');
+      const map = ttsUrlMap();
       map[u.key] = d.url;
       const keys = Object.keys(map);
       if (keys.length > 240) for (const k of keys.slice(0, keys.length - 240)) delete map[k];
@@ -845,7 +854,7 @@ function urlFor(i) {
     } catch {}
     return d.url;
   }).catch(err => {
-    const map = (() => { try { return JSON.parse(safeGet('bg-tts-urls') || '{}'); } catch { return {}; } })();
+    const map = ttsUrlMap();
     if (map[u.key]) return map[u.key];   // offline: the SW audio cache serves it
     throw err;
   });

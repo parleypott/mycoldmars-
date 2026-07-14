@@ -44,16 +44,23 @@ const eq = (a, b, msg) => { assert.equal(a, b, msg); pass++; };
 // 1. Well-formed chapter renders every paragraph with the right data-key.
 {
   const out = chapterHTML({ title: 'The Basement', paragraphs: ['one', 'two'] }, 0, esc);
-  ok(out.includes('<p data-key="0:0">one</p>'), 'first paragraph rendered with key 0:0');
-  ok(out.includes('<p data-key="0:1">two</p>'), 'second paragraph rendered with key 0:1');
-  ok(out.includes('chapter 1'), 'chapter number is 1-based');
+  // first real paragraph carries the drop-cap "opener" class; the rest are plain
+  ok(out.includes('data-key="0:0">one</p>') && out.includes('class="opener"'), 'first paragraph rendered with key 0:0 as opener');
+  ok(out.includes('<p data-key="0:1">two</p>'), 'second paragraph rendered plain with key 0:1');
+  ok(out.includes('Chapter I'), 'chapter number is 1-based (roman numeral, 1930s book setting)');
   ok(out.includes('The Basement'), 'chapter title rendered');
 }
 
-// 2. Byte-identical to the pre-fix form for a well-formed chapter (zero regression).
+// 2. Well-formed chapter: every paragraph present, escaped, in order (zero regression).
+//    (The old byte-identical-to-pre-fix check was retired when the ef2bb25 typography
+//    commit changed the heading format to roman numerals + a "chapter N" title scrub;
+//    buggyChapterHTML remains below purely as a THROW oracle for the crash mutations.)
 {
   const ch = { title: "Mira's wing", paragraphs: ['a', 'b', 'c'] };
-  eq(chapterHTML(ch, 2, esc), buggyChapterHTML(ch, 2, esc), 'guarded form matches old output on well-formed chapter');
+  const out = chapterHTML(ch, 2, esc);
+  ok(out.includes('Chapter III'), 'ch 3 numbered III');
+  ok(out.includes("Mira&#39;s wing") || out.includes("Mira's wing"), 'title rendered');
+  ok(out.includes('data-key="2:0">a</p>') && out.includes('<p data-key="2:2">c</p>'), 'all paragraphs in order');
 }
 
 // 3. THE BUG: a chapter drafted with a title but NO paragraphs array.
@@ -63,7 +70,9 @@ const eq = (a, b, msg) => { assert.equal(a, b, msg); pass++; };
   let out;
   assert.doesNotThrow(() => { out = chapterHTML(drafting, 4, esc); },
     'FIXED: a paragraphs-less chapter does not crash render()'); pass++;
-  ok(out.includes('Chapter 5 (drafting)'), 'drafting chapter still shows its title');
+  // the leading "Chapter 5" is scrubbed onto the numeral line — the remainder is the title
+  ok(out.includes('(drafting)'), 'drafting chapter shows its scrubbed title');
+  ok(out.includes('Chapter V'), 'drafting chapter numbered V from its index');
   ok(!out.includes('<p data-key'), 'drafting chapter renders no paragraph nodes');
   assert.throws(() => buggyChapterHTML(drafting, 4, esc), TypeError,
     'MUTATION PROOF: pre-fix form threw TypeError on the same input'); pass++;
@@ -86,9 +95,9 @@ for (const badCh of [null, undefined, 42, 'a bare string chapter', true]) {
   let out;
   assert.doesNotThrow(() => { out = chapterHTML(badCh, 3, esc); },
     `FIXED: chapter entry = ${JSON.stringify(badCh)} does not crash render()`); pass++;
-  ok(out.includes('chapter 4'), `null-entry ${JSON.stringify(badCh)} still renders its 1-based number`);
+  ok(out.includes('Chapter IV'), `null-entry ${JSON.stringify(badCh)} still renders its 1-based number`);
   ok(!out.includes('<p data-key'), `null-entry ${JSON.stringify(badCh)} yields no paragraph nodes`);
-  ok(out.includes('<div class="ch-title"></div>'), `null-entry ${JSON.stringify(badCh)} renders empty title, not "undefined"`);
+  ok(!out.includes('class="ch-title"'), `null-entry ${JSON.stringify(badCh)} renders no title node, not "undefined"`);
 }
 // MUTATION PROOF: the pre-fix form (bare ch.paragraphs / ch.title) threw on a null entry.
 assert.throws(() => buggyChapterHTML(null, 3, esc), TypeError,
@@ -101,10 +110,11 @@ assert.throws(() => buggyChapterHTML(null, 3, esc), TypeError,
   ok(!out.includes('<script>alert(1)'), 'no raw script tag leaks');
 }
 
-// 6. Missing title falls back to empty (guarded by esc(ch.title || '')).
+// 6. Missing title renders NO title node (bare ? … : '') — never "undefined".
 {
   const out = chapterHTML({ paragraphs: ['body'] }, 0, esc);
-  ok(out.includes('<div class="ch-title"></div>'), 'missing title renders empty, not "undefined"');
+  ok(!out.includes('class="ch-title"'), 'missing title renders no title node, not "undefined"');
+  ok(!out.includes('undefined'), 'no literal "undefined" leaks');
 }
 
 console.log(`chapter-html.test.mjs: ${pass} assertions passed`);
