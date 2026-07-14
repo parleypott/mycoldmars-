@@ -23,6 +23,7 @@ export function sanitizeNoteRow(body) {
     note: String(body.note || '').slice(0, 4000),
     color: NOTE_COLORS.includes(body.color) ? body.color : 'amber',
     reader: String(body.reader || 'reader').slice(0, 40),
+    name: String(body.name || '').slice(0, 60),
     chapter_idx: Number.isFinite(+body.chapter_idx)
       ? Math.max(0, Math.min(999, Math.floor(+body.chapter_idx))) : 0,
     book_version: String(body.book_version || '').slice(0, 40),

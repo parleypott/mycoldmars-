@@ -84,7 +84,7 @@
     .bottombar{gap:8px;padding-left:12px;padding-right:12px}
     .bb-btn{padding:9px 10px;font-size:10px}
     .p-label{display:none}
-    body.player-on #btn-theme,body.player-on #btn-chapters,body.player-on #btn-smaller,body.player-on #btn-bigger{display:none}
+    body.player-on #btn-theme,body.player-on #btn-chapters,body.player-on #btn-smaller,body.player-on #btn-bigger,body.player-on #btn-mode{display:none}
     body.player-on .progress{min-width:36px}
     .tp-note{padding:0 8px}
   }
@@ -237,12 +237,46 @@
   .orphan{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
   .orphan .oq{font-style:italic;font-size:15px;color:var(--ink-soft)}
   .orphan .on{font-size:15px;margin-top:6px}
+  /* ── PAGED MODE: the book turns pages like a book ── */
+  body.paged{overflow:hidden;height:100dvh}
+  body.paged .book{position:fixed;top:calc(env(safe-area-inset-top) + 52px);bottom:calc(env(safe-area-inset-bottom) + 64px);
+    left:50%;transform:translateX(-50%);width:min(692px,100vw);max-width:none;margin:0;padding:0;overflow:hidden}
+  body.paged .pages{height:100%;column-fill:auto;
+    transform:translateX(0);transition:transform .3s cubic-bezier(.22,1,.36,1);will-change:transform}
+  body.paged .titlepage{min-height:0;height:96%}
+  body.paged .chapter{break-before:column;-webkit-column-break-before:always;padding-top:2vh}
+  body.paged .ch-head{margin-bottom:4vh}
+  body.paged .the-end{padding:5vh 0}
+  body.paged .orphans{max-width:none;margin:0;padding:0}
+
+  /* ── the hamburger: contents from anywhere (the rail owns wide screens) ── */
+  .tb-burger{font-size:17px;line-height:1;background:none;border:none;color:var(--ink-soft);
+    cursor:pointer;padding:2px 8px 2px 0;align-self:center}
+  .tb-burger:active{color:var(--orange)}
+  @media (min-width:1180px){ .tb-burger{display:none} }
+
+  /* ── the signature: a name asked once, remembered on this device ── */
+  .namebox[hidden]{display:none}   /* hidden must beat any display author style */
+  .namebox-scrim{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s}
+  body.name-on .namebox-scrim{opacity:1;pointer-events:auto}
+  .namebox{position:fixed;left:50%;top:34%;transform:translate(-50%,-50%);z-index:96;width:min(340px,86vw);
+    background:var(--paper);border:1.5px solid var(--line);border-radius:12px;padding:26px 24px 18px;text-align:center;
+    box-shadow:0 18px 60px rgba(0,0,0,.25)}
+  .nb-head{font-family:var(--display);font-style:italic;font-size:24px;margin-bottom:8px}
+  .nb-sub{font-family:var(--serif);font-size:13.5px;color:var(--ink-soft);margin-bottom:18px;line-height:1.5}
+  .nb-skip{margin-top:12px;background:none;border:none;font-family:var(--mono);font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);cursor:pointer}
+  .sheet-sig{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-faint);margin-top:10px;text-align:right}
+  .sheet-sig button{background:none;border:none;color:var(--orange);font:inherit;letter-spacing:inherit;
+    text-transform:inherit;cursor:pointer;padding:0}
   ::selection{background:rgba(232,75,34,.28)}
 </style>
 </head>
 <body>
 
 <header class="topbar">
+  <button class="tb-burger" id="btn-burger" aria-label="contents" title="contents">☰</button>
   <span class="brand">BURGUNDY</span>
   <span class="chap-label" id="chap-label">— </span>
 </header>
@@ -284,6 +318,7 @@
     <div class="p-track"><div class="p-fill" id="p-fill"></div></div>
     <div class="p-label" id="p-label">—</div>
   </div>
+  <button class="bb-btn" id="btn-mode" title="switch between pages and scrolling">≡ scroll</button>
   <button class="bb-btn" id="btn-theme" title="night mode" aria-label="night mode">◐</button>
   <button class="bb-btn" id="btn-chapters" title="contents" aria-label="contents">ch</button>
 </footer>
@@ -309,6 +344,19 @@
     <button class="sheet-btn" id="sheet-cancel">close</button>
     <button class="sheet-btn primary" id="sheet-save">save</button>
   </div>
+  <div class="sheet-sig" id="sheet-sig"></div>
+</div>
+
+<div class="namebox-scrim" id="namebox-scrim"></div>
+<div class="namebox" id="namebox" hidden>
+  <div class="nb-head">Sign your notes</div>
+  <div class="nb-sub">So the author knows whose voice this is.<br>Just a name, nothing else.</div>
+  <form id="nb-form">
+    <input class="gate-input" id="nb-input" type="text" placeholder="your name" maxlength="60"
+      autocomplete="name" autocapitalize="words" autocorrect="off" spellcheck="false">
+    <button class="gate-btn" type="submit">that’s me</button>
+  </form>
+  <button class="nb-skip" id="nb-skip">skip · stay anonymous</button>
 </div>
 
 <script>
@@ -394,13 +442,14 @@ function render() {
       </div>
       <div class="tp-rule"></div>
       <div class="tp-note">set forth ${pubDate(book.published_at)}<br>
-        tap the page to wake the controls<br>
+        tap the right edge to turn the page · the left edge to turn back<br>
+        tap the middle of the page to wake the controls<br>
         press and hold a sentence to leave a note for the author<br>
-        this device remembers your place, your notes, and your downloaded audio</div>
+        this device remembers your place, your name, your notes, and your audio</div>
     </div>`;
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
-  el.innerHTML = html;
+  el.innerHTML = `<div class="pages" id="pages">${html}</div>`;
   paintNotes();
   renderToc();
   observeChapters();
@@ -627,6 +676,7 @@ function openSheet(n) {
   color = n.color || 'amber';
   document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.c === color));
   document.body.classList.add('sheet-on');
+  updateSheetSig();
   hidePill();
   $('sheet-text').focus({ preventScroll: true });   // sync focus — iOS keyboard permission
 }
@@ -690,8 +740,46 @@ $('sheet-delete').addEventListener('click', async () => {
   closeSheet();
 });
 
+/* ── the signature: ask for a name with the FIRST note, remember it forever ── */
+function readerName() { return (safeGet('bg-name') || '').trim().slice(0, 60); }
+let nameResolve = null, nameAskedThisSession = false;
+function askName() {
+  return new Promise(res => {
+    nameResolve = res;
+    $('nb-input').value = readerName();
+    $('namebox').hidden = false;
+    document.body.classList.add('name-on');
+    setTimeout(() => $('nb-input').focus(), 150);
+  });
+}
+function settleName(v) {
+  $('namebox').hidden = true;
+  document.body.classList.remove('name-on');
+  const r = nameResolve; nameResolve = null;
+  if (r) r(v);
+}
+$('nb-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('nb-input').value.trim().slice(0, 60);
+  if (!v) { $('nb-input').focus(); return; }
+  safeSet('bg-name', v);
+  updateSheetSig();
+  settleName(v);
+});
+$('nb-skip').addEventListener('click', () => settleName(''));
+$('namebox-scrim').addEventListener('click', () => settleName(''));
+function updateSheetSig() {
+  const el = $('sheet-sig'); if (!el) return;
+  const n = readerName();
+  el.innerHTML = n
+    ? `signing as ${esc(n)} · <button type="button" id="sig-change">change</button>`
+    : `<button type="button" id="sig-change">sign your notes · add your name</button>`;
+  el.querySelector('#sig-change').onclick = () => { askName(); };
+}
+
 async function saveNote(n) {
-  const row = { ...n, book_version: BOOK?.version || '', reader: readerId() };
+  if (!readerName() && !nameAskedThisSession) { nameAskedThisSession = true; await askName(); }
+  const row = { ...n, name: readerName(), book_version: BOOK?.version || '', reader: readerId() };
   try {
     if (!navigator.onLine) throw new Error('offline');
     const r = await fetch(API, {
@@ -736,10 +824,122 @@ document.addEventListener('click', e => {
       if (i >= 0) { startAt(i); return; }
     }
   }
-  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet,.orphan,.toc,.toc-scrim,.gate') && document.getSelection()?.isCollapsed) {
+  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet,.orphan,.toc,.toc-scrim,.gate,.namebox,.namebox-scrim') && document.getSelection()?.isCollapsed) {
+    // paged: the page edges turn, the middle wakes the controls
+    if (pagedOn()) {
+      const x = e.clientX / innerWidth;
+      if (x > 0.76) { turnPage(1); return; }
+      if (x < 0.24) { turnPage(-1); return; }
+    }
     document.body.classList.toggle('zen');
   }
 });
+
+/* ═══ PAGED MODE — the book turns like a book ═══
+   One CSS column per screen: column width = book width − 2·pad, gap = 2·pad,
+   so each column step is EXACTLY the book's width; turning a page is a single
+   translateX. All positions are measured as rect differences against the
+   .pages rect, which cancels the transform — the math holds mid-animation. */
+const paged = { page: 0, step: 1, count: 1, pad: 24 };
+function pagedOn() { return document.body.classList.contains('paged'); }
+function pageOfEl(el) {
+  const pg = $('pages'); if (!pg || !el) return 0;
+  const d = el.getBoundingClientRect().left - pg.getBoundingClientRect().left - paged.pad;
+  return Math.max(0, Math.round(d / paged.step));
+}
+function pageOfKey(key) {
+  const p = key && document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+  return p ? pageOfEl(p) : 0;
+}
+function layoutPages() {
+  const book = $('book'), pages = $('pages');
+  if (!pagedOn() || !pages) return;
+  const w = book.clientWidth;
+  const pad = Math.max(22, Math.min(34, Math.round(w * 0.05)));
+  paged.pad = pad; paged.step = w;
+  pages.style.padding = `6px ${pad}px 14px`;
+  pages.style.columnWidth = (w - 2 * pad) + 'px';
+  pages.style.columnGap = (2 * pad) + 'px';
+  const ends = [document.querySelector('.the-end'), $('orphans')].filter(Boolean);
+  paged.count = Math.max(1, ...ends.map(e => pageOfEl(e) + 1));
+}
+function goToPage(i, animate = true) {
+  const pg = $('pages'); if (!pg || !pagedOn()) return;
+  paged.page = Math.max(0, Math.min(paged.count - 1, i));
+  if (!animate) pg.style.transition = 'none';
+  pg.style.transform = `translateX(${-paged.page * paged.step}px)`;
+  if (!animate) requestAnimationFrame(() => { pg.style.transition = ''; });
+  afterPageChange();
+}
+function turnPage(d) { goToPage(paged.page + d); }
+function firstParaOnPage(i) {
+  for (const p of document.querySelectorAll('.chapter p[data-key]')) if (pageOfEl(p) === i) return p;
+  return null;
+}
+function afterPageChange() {
+  const pct = paged.count > 1 ? Math.round(paged.page / (paged.count - 1) * 100) : 100;
+  $('p-fill').style.width = pct + '%';
+  $('p-label').textContent = `page ${paged.page + 1} of ${paged.count}`;
+  hidePill();
+  const p = firstParaOnPage(paged.page);
+  if (!p) return;   // the title page never overwrites a saved place
+  safeSet('bg-place2', p.dataset.key);
+  const ci = +(p.closest('.chapter')?.dataset.ch || 0);
+  markTocCurrent(ci);
+  const bt = bareTitle(safeBook(BOOK).chapters?.[ci]?.title || '');
+  $('chap-label').textContent = `ch ${ci + 1}${bt ? ' · ' + bt : ''}`;
+}
+function relayoutKeepingPlace() {
+  if (!pagedOn()) return;
+  const key = safeGet('bg-place2');
+  layoutPages();
+  goToPage(key ? pageOfKey(key) : paged.page, false);
+}
+function setMode(m) {
+  safeSet('bg-mode', m);
+  const key = safeGet('bg-place2');
+  document.body.classList.toggle('paged', m === 'paged');
+  const pg = $('pages');
+  if (m === 'paged') { layoutPages(); goToPage(key ? pageOfKey(key) : 0, false); }
+  else if (pg) {
+    pg.style.transform = ''; pg.style.padding = ''; pg.style.columnWidth = ''; pg.style.columnGap = '';
+    requestAnimationFrame(() => {
+      const p = key && document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+      if (p) p.scrollIntoView({ block: 'start' });
+    });
+  }
+  const b = $('btn-mode'); if (b) b.textContent = m === 'paged' ? '≡ scroll' : '⧉ pages';
+}
+document.body.classList.toggle('paged', (safeGet('bg-mode') || 'paged') === 'paged');
+$('btn-mode').addEventListener('click', () => setMode(pagedOn() ? 'scroll' : 'paged'));
+{ const b = $('btn-mode'); if (b && !pagedOn()) b.textContent = '⧉ pages'; }
+// fonts swap AFTER first layout and reflow every column — re-measure once they land
+document.fonts?.ready?.then?.(() => relayoutKeepingPlace());
+addEventListener('resize', () => {
+  // the sheet/name keyboard fires resize too — repaginating under it would jump the page
+  if (document.body.classList.contains('sheet-on') || document.body.classList.contains('name-on')) return;
+  clearTimeout(window._rsz); window._rsz = setTimeout(relayoutKeepingPlace, 140);
+});
+addEventListener('keydown', e => {
+  if (!pagedOn() || document.body.classList.contains('sheet-on') || document.body.classList.contains('name-on')) return;
+  if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); turnPage(1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); turnPage(-1); }
+});
+// swipe anywhere on the page body — a horizontal flick turns; selections don't
+let _swipe = null;
+addEventListener('pointerdown', e => {
+  _swipe = (pagedOn() && !e.target.closest('.topbar,.bottombar,.sheet,.toc,.pill,.namebox,.gate'))
+    ? { x: e.clientX, y: e.clientY, t: Date.now() } : null;
+}, { passive: true });
+addEventListener('pointerup', e => {
+  const s0 = _swipe; _swipe = null;
+  if (!s0 || !pagedOn()) return;
+  const dx = e.clientX - s0.x, dy = e.clientY - s0.y;
+  if (Date.now() - s0.t > 600 || Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+  const s = document.getSelection(); if (s && !s.isCollapsed) return;
+  turnPage(dx < 0 ? 1 : -1);
+}, { passive: true });
 
 /* ── reading chrome ── */
 function renderToc() {
@@ -753,7 +953,9 @@ function renderToc() {
   $('toc-list').querySelectorAll('.toc-item').forEach(b => b.addEventListener('click', () => {
     const sec = document.querySelector(`.chapter[data-ch="${b.dataset.toc}"]`);
     document.body.classList.remove('toc-on');
-    if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!sec) return;
+    if (pagedOn()) goToPage(pageOfEl(sec));
+    else sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
 }
 function markTocCurrent(ci) {
@@ -762,6 +964,7 @@ function markTocCurrent(ci) {
 function observeChapters() {
   const chapters = [...document.querySelectorAll('.chapter')];
   const io = new IntersectionObserver(es => {
+    if (pagedOn()) return;   // paged mode computes the current chapter per page turn
     for (const en of es) if (en.isIntersecting) {
       const ci = +en.target.dataset.ch;
       markTocCurrent(ci);
@@ -772,6 +975,7 @@ function observeChapters() {
   chapters.forEach(c => io.observe(c));
 }
 addEventListener('scroll', () => {
+  if (pagedOn()) return;   // paged mode owns progress + place
   const h = document.documentElement;
   const pct = Math.min(100, Math.round(h.scrollTop / (h.scrollHeight - h.clientHeight) * 100)) || 0;
   $('p-fill').style.width = pct + '%';
@@ -786,6 +990,11 @@ addEventListener('scroll', () => {
 }, { passive: true });
 function restorePlace() {
   const key = safeGet('bg-place2');
+  if (pagedOn()) {
+    layoutPages();
+    goToPage(key ? pageOfKey(key) : 0, false);
+    return;
+  }
   if (!key) return;
   const p = document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
   if (p) requestAnimationFrame(() => p.scrollIntoView({ block: 'start' }));
@@ -797,6 +1006,7 @@ function setSize(d) {
   const next = Math.max(16, Math.min(28, cur + d));
   document.documentElement.style.setProperty('--size', next + 'px');
   safeSet('bg-size', next);
+  relayoutKeepingPlace();   // new type size = new pagination, same place
 }
 { const s = safeGet('bg-size'); if (s) document.documentElement.style.setProperty('--size', s + 'px'); }
 function syncThemeMeta() {
@@ -815,6 +1025,11 @@ $('btn-chapters').addEventListener('click', () => {
   if (matchMedia('(min-width:1180px)').matches) {
     // rail is always visible on wide screens — the button hops to the next chapter
     const chapters = [...document.querySelectorAll('.chapter')];
+    if (pagedOn()) {
+      const next = chapters.find(c => pageOfEl(c) > paged.page);
+      goToPage(next ? pageOfEl(next) : paged.count - 1);
+      return;
+    }
     const next = chapters.find(c => c.offsetTop > scrollY + 100);
     if (next) next.scrollIntoView({ behavior: 'smooth' });
     else document.querySelector('.the-end')?.scrollIntoView({ behavior: 'smooth' });
@@ -822,6 +1037,7 @@ $('btn-chapters').addEventListener('click', () => {
   }
   document.body.classList.toggle('toc-on');
 });
+$('btn-burger').addEventListener('click', () => document.body.classList.toggle('toc-on'));
 $('toc-scrim').addEventListener('click', () => document.body.classList.remove('toc-on'));
 
 /* ═══ THE LISTENER — paragraph-by-paragraph narration, phone-off-proof ═══
@@ -887,7 +1103,10 @@ function markSpeaking(i) {
   document.querySelectorAll('.chapter p.speaking').forEach(p => p.classList.remove('speaking'));
   const u = player.flat[i]; if (!u || !u.el.isConnected) return;
   u.el.classList.add('speaking');
-  if (!document.hidden) u.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (!document.hidden) {
+    if (pagedOn()) { const pg = pageOfEl(u.el); if (pg !== paged.page) goToPage(pg); }
+    else u.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 function mediaMeta(i) {
   if (!('mediaSession' in navigator)) return;

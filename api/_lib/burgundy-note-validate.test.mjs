@@ -61,6 +61,12 @@ eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_idx: 5000 }).chapter_idx
 eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_idx: 'nope' }).chapter_idx, 0, 'non-numeric -> 0');
 eq(sanitizeNoteRow({ para_key: 'a', quote: 'x' }).chapter_idx, 0, 'missing chapter_idx -> 0');
 
+// ── name: reader signature, capped, defaults empty ──
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x' }).name, '', 'missing name -> empty string');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', name: 'Ollie' }).name, 'Ollie', 'name passes through');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', name: 'z'.repeat(200) }).name.length, 60, 'name capped at 60');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', name: 42 }).name, '42', 'non-string name coerced');
+
 // ── isValidNoteId: canonical UUID shape only ──
 ok(isValidNoteId('0f9c1e2a-1b2c-4d5e-8f90-a1b2c3d4e5f6'), 'canonical uuid accepted');
 ok(isValidNoteId('0F9C1E2A-1B2C-4D5E-8F90-A1B2C3D4E5F6'), 'uppercase uuid accepted');
