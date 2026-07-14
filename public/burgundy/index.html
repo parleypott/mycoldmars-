@@ -838,20 +838,31 @@ if ('serviceWorker' in navigator) {
 function refreshOfflineChip() { $('offline-chip').hidden = navigator.onLine; }
 addEventListener('online', () => { refreshOfflineChip(); flushNoteQueue(); });
 addEventListener('offline', refreshOfflineChip);
-function queuedNotes() { try { return JSON.parse(safeGet('bg-note-queue') || '[]'); } catch { return []; } }
+function queuedNotes() { try { const v = JSON.parse(safeGet('bg-note-queue') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function queueNote(row) { const q = queuedNotes(); q.push(row); safeSet('bg-note-queue', JSON.stringify(q)); }
+let flushingQueue = false;
 async function flushNoteQueue() {
+  // reentrancy guard: 'online', 'visibilitychange', the 60s heartbeat and boot can all
+  // fire near-simultaneously (network-return + foreground routinely coincide on mobile).
+  // The queue is only cleared AFTER every POST resolves, so a second concurrent flush
+  // would read the same un-cleared queue and re-POST every row → permanent duplicate notes.
+  if (flushingQueue) return;
   const q = queuedNotes();
   if (!q.length || !navigator.onLine) return;
-  const still = [];
-  for (const row of q) {
-    try {
-      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) });
-      if (!r.ok) still.push(row);
-    } catch { still.push(row); }
+  flushingQueue = true;
+  try {
+    const still = [];
+    for (const row of q) {
+      try {
+        const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) });
+        if (!r.ok) still.push(row);
+      } catch { still.push(row); }
+    }
+    safeSet('bg-note-queue', JSON.stringify(still));
+    if (q.length !== still.length) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = d.notes || NOTES; paintNotes(); } catch {} }
+  } finally {
+    flushingQueue = false;
   }
-  safeSet('bg-note-queue', JSON.stringify(still));
-  if (q.length !== still.length) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = d.notes || NOTES; paintNotes(); } catch {} }
 }
 
 refreshOfflineChip();
