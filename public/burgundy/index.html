@@ -65,6 +65,8 @@
     transform:translateY(0);transition:transform .28s cubic-bezier(.22,1,.36,1);
   }
   body.zen .bottombar{transform:translateY(110%)}
+  body.player-on .topbar{transform:translateY(0)!important}
+  body.player-on .bottombar{transform:translateY(0)!important}
   .bb-btn{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
     color:var(--ink-soft);background:transparent;border:1.5px solid var(--line);border-radius:4px;
     padding:8px 13px;cursor:pointer}
@@ -98,7 +100,7 @@
   .gate-mark{display:flex;flex-direction:column;align-items:center;margin-bottom:26px}
   .gm-b{font-family:var(--display);font-size:84px;line-height:1;color:var(--ink)}
   .gm-rule{width:64px;height:7px;background:var(--orange);margin-top:10px}
-  .gate-title{font-family:var(--display);font-size:56px;line-height:1;margin:14px 0 28px}
+  .gate-title{font-family:var(--display);font-size:clamp(38px,14.5vw,56px);line-height:1;margin:14px 0 28px}
   .gate-input{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:16px;letter-spacing:.12em;text-align:center;
     padding:13px;border:1.5px solid var(--line);border-radius:4px;background:transparent;color:var(--ink);outline:none}
   .gate-input:focus{border-color:var(--orange)}
@@ -131,10 +133,14 @@
   .ch-rule::after{content:'❦';position:absolute;left:50%;top:-9px;transform:translateX(-50%);
     background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft);transition:background .3s}
   .chapter p{margin:0;text-indent:1.5em;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
-  .chapter p:first-of-type{text-indent:0}
+  .chapter p.opener{text-indent:0}
   .chapter p+p.speaking, .chapter p.speaking{/* keep listen highlight readable */}
-  .asterism{text-indent:0!important;text-align:center;letter-spacing:.9em;padding:1.4em 0;color:var(--ink-soft)}
-  .chapter p:first-of-type::first-letter{
+  .chapter p.asterism{text-indent:0!important;text-align:center!important;letter-spacing:.9em;padding:1.4em 0;color:var(--ink-soft)}
+  .chapter p.asterism + p{text-indent:0}
+  .chapter p.wip-note{text-indent:0!important;text-align:center!important;font-family:var(--mono);font-size:10px;
+    letter-spacing:.3em;text-transform:uppercase;color:var(--ink-faint);padding:2.2em 0}
+  .chapter p.wip-note::first-letter{float:none;font-size:inherit;font-family:inherit;padding:0;font-weight:inherit}
+  .chapter p.opener::first-letter{
     font-family:var(--display);font-weight:700;font-size:3.4em;line-height:.8;float:left;
     padding:.04em .14em 0 0;color:var(--ink)}
   .the-end{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.34em;
@@ -145,6 +151,7 @@
     -webkit-box-decoration-break:clone;box-decoration-break:clone}
   mark.c-green{background:var(--hl-green)} mark.c-blue{background:var(--hl-blue)} mark.c-rose{background:var(--hl-rose)}
   mark.has-note{border-bottom:2px solid var(--orange)}
+  html[data-theme="dark"] .sheet-btn.danger{color:#d26e5f;border-color:rgba(210,110,95,.5)}
 
   /* ── selection pill ── */
   .pill{
@@ -288,8 +295,12 @@ async function boot() {
     const r = await fetch('/burgundy/book.json?t=' + Math.floor(Date.now() / 60000));
     if (!r.ok) throw new Error('no book');
     BOOK = await r.json();
-  } catch {
-    $('book').innerHTML = '<div class="loading">the book has not been published yet</div>';
+  } catch (err) {
+    const offlineish = !navigator.onLine || /fetch|network|load/i.test(String(err?.message || err));
+    $('book').innerHTML = offlineish
+      ? `<div class="loading">couldn\u2019t reach the book \u2014 check your signal<br><br>
+          <button class="bb-btn" onclick="boot()" style="margin-top:8px">try again</button></div>`
+      : '<div class="loading">the book has not been published yet</div>';
     return;
   }
   try {
@@ -316,6 +327,9 @@ async function boot() {
    completing the chapter/paragraph-level guards one level up at the root.
    Byte-identical for any real (object) book. */
 function safeBook(b) { return b && typeof b === 'object' ? b : {}; }
+function bareTitle(t) {
+  return String(t || '').replace(/^\s*chapter\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*[:·.\-—]?\s*/i, '').trim();
+}
 function render() {
   const el = $('book');
   const book = safeBook(BOOK);
@@ -324,7 +338,7 @@ function render() {
     <div class="titlepage">
       <div class="tp-eyebrow">a novel in progress</div>
       <div class="tp-frame">
-        <div class="tp-title">${esc(book.title || 'BERGUNDY')}</div>
+        <div class="tp-title">${esc((book.title || 'BERGUNDY').replace(/\s+\d+$/, ''))}</div>
         ${book.subtitle ? `<div class="tp-sub">${esc(book.subtitle)}</div>` : ''}
       </div>
       <div class="tp-rule"></div>
@@ -357,7 +371,17 @@ function chapterHTML(ch, ci, esc) {
         ${bare ? `<div class="ch-title">${esc(bare)}</div>` : ''}
         <div class="ch-rule"></div>
       </div>
-      ${paras.map((p, pi) => /^[\s*·—-]{2,}$/.test(p.trim()) ? `<p class="asterism" data-key="${ci}:${pi}">＊ ＊ ＊</p>` : `<p data-key="${ci}:${pi}">${esc(p)}</p>`).join('')}
+      ${(() => {
+        let openerDone = false;
+        return paras.map((p, pi) => {
+          const t = p.trim();
+          if (/^[\s*·—-]{2,}$/.test(t)) return `<p class="asterism" data-key="${ci}:${pi}">＊ ＊ ＊</p>`;
+          if (/^\[?work in progress\]?$/i.test(t)) return `<p class="wip-note" data-key="${ci}:${pi}">· work in progress ·</p>`;
+          const cls = openerDone ? '' : ' class="opener"';
+          openerDone = true;
+          return `<p${cls} data-key="${ci}:${pi}">${esc(p)}</p>`;
+        }).join('');
+      })()}
     </section>`;
 }
 
@@ -658,7 +682,8 @@ function observeChapters() {
   const io = new IntersectionObserver(es => {
     for (const en of es) if (en.isIntersecting) {
       const ci = +en.target.dataset.ch;
-      $('chap-label').textContent = `ch ${ci + 1} · ${(BOOK.chapters[ci]?.title || '')}`;
+      const bt = bareTitle(BOOK.chapters[ci]?.title || '');
+      $('chap-label').textContent = `ch ${ci + 1}${bt ? ' · ' + bt : ''}`;
     }
   }, { rootMargin: '-40% 0px -55% 0px' });
   chapters.forEach(c => io.observe(c));
@@ -691,12 +716,18 @@ function setSize(d) {
   safeSet('bg-size', next);
 }
 { const s = safeGet('bg-size'); if (s) document.documentElement.style.setProperty('--size', s + 'px'); }
+function syncThemeMeta() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.content = dark ? '#191712' : '#E5DECC';
+}
 $('btn-theme').addEventListener('click', () => {
   const t = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
   document.documentElement.dataset.theme = t;
   safeSet('bg-theme', t);
+  syncThemeMeta();
 });
-{ const t = safeGet('bg-theme'); if (t) document.documentElement.dataset.theme = t; }
+{ const t = safeGet('bg-theme'); if (t) document.documentElement.dataset.theme = t; syncThemeMeta(); }
 $('btn-chapters').addEventListener('click', () => {
   const chapters = [...document.querySelectorAll('.chapter')];
   const y = scrollY + 100;
@@ -722,7 +753,7 @@ let playSeq = 0;
 
 const speakable = t => /[\p{L}\p{N}]/u.test(t);
 function flatParas() {
-  return [...document.querySelectorAll('.chapter p[data-key]')]
+  return [...document.querySelectorAll('.chapter p[data-key]:not(.asterism):not(.wip-note)')]
     .filter(p => speakable(p.textContent))
     .map(p => ({ el: p, key: p.dataset.key, text: p.textContent }));
 }
@@ -740,7 +771,21 @@ function urlFor(i) {
   const pr = fetch(TTS_API, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: u.text, voice_id: safeBook(BOOK).voice_id }),
-  }).then(r => r.json()).then(d => { if (!d.url) throw new Error(d.error || 'tts failed'); return d.url; });
+  }).then(r => r.json()).then(d => {
+    if (!d.url) throw new Error(d.error || 'tts failed');
+    try {   // remember paragraph→mp3 URLs on device: cached audio then plays fully offline
+      const map = JSON.parse(safeGet('bg-tts-urls') || '{}');
+      map[u.key] = d.url;
+      const keys = Object.keys(map);
+      if (keys.length > 240) for (const k of keys.slice(0, keys.length - 240)) delete map[k];
+      safeSet('bg-tts-urls', JSON.stringify(map));
+    } catch {}
+    return d.url;
+  }).catch(err => {
+    const map = (() => { try { return JSON.parse(safeGet('bg-tts-urls') || '{}'); } catch { return {}; } })();
+    if (map[u.key]) return map[u.key];   // offline: the SW audio cache serves it
+    throw err;
+  });
   player.urls.set(u.key, pr);
   pr.catch(() => player.urls.delete(u.key));   // a failed fetch must not poison the cache
   return pr;
@@ -757,7 +802,7 @@ function mediaMeta(i) {
     const book = safeBook(BOOK);
     const ci = player.flat[i] ? +player.flat[i].key.split(':')[0] : 0;
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: (book.chapters?.[ci]?.title) || `chapter ${ci + 1}`,
+      title: bareTitle(book.chapters?.[ci]?.title) || `chapter ${ci + 1}`,
       artist: book.title || 'BERGUNDY',
       album: book.subtitle || 'a novel in progress',
     });
@@ -767,15 +812,19 @@ async function startAt(i) {
   if (!player.on) return;
   if (i < 0 || i >= player.flat.length) { closePlayer(); return; }
   const seq = ++playSeq;
+  try { tts.pause(); } catch {}   // never talk over the paragraph being replaced
   player.idx = i;
+  player.loading = true;
   markSpeaking(i); mediaMeta(i);
-  safeSet(AUDIO_PLACE, player.flat[i].key);   // the place survives phone-off, tab-kill, everything
   updatePlayerChrome('loading');
   let url;
-  try { url = await urlFor(i); } catch { return skipForward(seq, i); }
-  if (seq !== playSeq || !player.on) return;   // user moved on while we fetched
+  try { url = await urlFor(i); } catch { player.loading = false; return skipForward(seq, i); }
+  if (seq !== playSeq || !player.on) { player.loading = false; return; }   // user moved on
   tts.src = url;
+  tts.dataset.seq = String(seq);
   try { await tts.play(); player.errors = 0; } catch {}
+  player.loading = false;
+  safeSet(AUDIO_PLACE, player.flat[i].key);   // saved only once playback truly starts
   updatePlayerChrome();
   urlFor(i + 1).catch(() => {});   // prefetch the next paragraph — the gap stays tiny
 }
@@ -787,11 +836,12 @@ function skipForward(seq, i) {
 }
 // the SILENT unlock clip also fires 'ended' — only a real paragraph may advance the queue
 tts.addEventListener('ended', () => { if (player.on && tts.src && !tts.src.startsWith('data:')) startAt(player.idx + 1); });
-tts.addEventListener('error', () => { if (player.on && tts.src && !tts.src.startsWith('data:')) skipForward(playSeq, player.idx); });
+tts.addEventListener('error', () => { if (player.on && tts.src && !tts.src.startsWith('data:') && +tts.dataset.seq === playSeq) skipForward(playSeq, player.idx); });
 tts.addEventListener('pause', () => updatePlayerChrome());
 tts.addEventListener('play', () => updatePlayerChrome());
 function openPlayer() {
   player.on = true; player.flat = flatParas(); player.errors = 0;
+  document.body.classList.remove('zen');   // a listener must never lose the controls
   document.body.classList.add('player-on');
   // unlock audio INSIDE the tap gesture — iOS requires the first play be user-driven.
   // The queue begins only AFTER the silent clip fully finishes, so its late
@@ -813,8 +863,14 @@ function openPlayer() {
   }
 }
 function closePlayer() {
-  player.on = false; playSeq++;
-  try { tts.pause(); } catch {}
+  player.on = false; playSeq++; player.loading = false;
+  try { tts.pause(); tts.removeAttribute('src'); tts.load(); } catch {}
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.metadata = null;
+      for (const a of ['play', 'pause', 'previoustrack', 'nexttrack']) navigator.mediaSession.setActionHandler(a, null);
+    } catch {}
+  }
   document.body.classList.remove('player-on');
   document.querySelectorAll('.chapter p.speaking').forEach(p => p.classList.remove('speaking'));
   updatePlayerChrome();
@@ -828,6 +884,9 @@ function updatePlayerChrome(state) {
 }
 $('btn-listen').addEventListener('click', () => {
   if (!player.on) { openPlayer(); return; }
+  if (player.loading) {   // pause during '· · ·' = cancel the pending load, stay put
+    playSeq++; player.loading = false; updatePlayerChrome(); return;
+  }
   if (tts.paused) { if (tts.src && !tts.src.startsWith('data:')) tts.play().catch(() => {}); else startAt(savedAudioIdx(player.flat)); }
   else tts.pause();
   updatePlayerChrome();

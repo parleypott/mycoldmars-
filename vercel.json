@@ -2,54 +2,168 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/cutter.js": { "maxDuration": 300 },
-    "api/transcribe.js": { "maxDuration": 300 }
+    "api/cutter.js": {
+      "maxDuration": 300
+    },
+    "api/transcribe.js": {
+      "maxDuration": 300
+    }
   },
   "rewrites": [
-    { "source": "/universe", "destination": "/queen-scarlet-school/universe/index.html" },
-    { "source": "/universe/", "destination": "/queen-scarlet-school/universe/index.html" },
-
-    { "source": "/universe/:world/cast", "destination": "/queen-scarlet-school/cast/index.html" },
-    { "source": "/universe/:world/cast/", "destination": "/queen-scarlet-school/cast/index.html" },
-
-    { "source": "/universe/:world/explore", "destination": "/queen-scarlet-school/explore/index.html" },
-    { "source": "/universe/:world/explore/", "destination": "/queen-scarlet-school/explore/index.html" },
-
-    { "source": "/universe/:world/style", "destination": "/queen-scarlet-school/style/index.html" },
-    { "source": "/universe/:world/style/", "destination": "/queen-scarlet-school/style/index.html" },
-
-    { "source": "/universe/:world/write", "destination": "/queen-scarlet-school/index.html" },
-    { "source": "/universe/:world/write/", "destination": "/queen-scarlet-school/index.html" },
-    { "source": "/universe/:world/write/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },
-    { "source": "/universe/:world/story/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },
-
-    { "source": "/universe/:world", "destination": "/queen-scarlet-school/library/index.html" },
-    { "source": "/universe/:world/", "destination": "/queen-scarlet-school/library/index.html" },
-
-    { "source": "/burma-script", "destination": "/burma-script/index.html" },
-    { "source": "/burma-script/", "destination": "/burma-script/index.html" },
-
-    { "source": "/structure", "destination": "/structure/index.html" },
-    { "source": "/structure/:slug", "destination": "/structure/index.html" },
-    { "source": "/structure/:slug/", "destination": "/structure/index.html" }
+    {
+      "source": "/universe",
+      "destination": "/queen-scarlet-school/universe/index.html"
+    },
+    {
+      "source": "/universe/",
+      "destination": "/queen-scarlet-school/universe/index.html"
+    },
+    {
+      "source": "/universe/:world/cast",
+      "destination": "/queen-scarlet-school/cast/index.html"
+    },
+    {
+      "source": "/universe/:world/cast/",
+      "destination": "/queen-scarlet-school/cast/index.html"
+    },
+    {
+      "source": "/universe/:world/explore",
+      "destination": "/queen-scarlet-school/explore/index.html"
+    },
+    {
+      "source": "/universe/:world/explore/",
+      "destination": "/queen-scarlet-school/explore/index.html"
+    },
+    {
+      "source": "/universe/:world/style",
+      "destination": "/queen-scarlet-school/style/index.html"
+    },
+    {
+      "source": "/universe/:world/style/",
+      "destination": "/queen-scarlet-school/style/index.html"
+    },
+    {
+      "source": "/universe/:world/write",
+      "destination": "/queen-scarlet-school/index.html"
+    },
+    {
+      "source": "/universe/:world/write/",
+      "destination": "/queen-scarlet-school/index.html"
+    },
+    {
+      "source": "/universe/:world/write/:story",
+      "destination": "/queen-scarlet-school/index.html?story=:story"
+    },
+    {
+      "source": "/universe/:world/story/:story",
+      "destination": "/queen-scarlet-school/index.html?story=:story"
+    },
+    {
+      "source": "/universe/:world",
+      "destination": "/queen-scarlet-school/library/index.html"
+    },
+    {
+      "source": "/universe/:world/",
+      "destination": "/queen-scarlet-school/library/index.html"
+    },
+    {
+      "source": "/burma-script",
+      "destination": "/burma-script/index.html"
+    },
+    {
+      "source": "/burma-script/",
+      "destination": "/burma-script/index.html"
+    },
+    {
+      "source": "/structure",
+      "destination": "/structure/index.html"
+    },
+    {
+      "source": "/structure/:slug",
+      "destination": "/structure/index.html"
+    },
+    {
+      "source": "/structure/:slug/",
+      "destination": "/structure/index.html"
+    }
   ],
   "redirects": [
-    { "source": "/", "has": [{ "type": "host", "value": "(www\\.)?newpress\\.press" }], "destination": "/deck-v2/", "permanent": false },
-
-    { "source": "/queen-scarlet-school", "destination": "/universe/queen-scarlet/write", "permanent": false },
-    { "source": "/queen-scarlet-school/", "destination": "/universe/queen-scarlet/write/", "permanent": false },
-    { "source": "/queen-scarlet-school/universe", "destination": "/universe", "permanent": false },
-    { "source": "/queen-scarlet-school/universe/", "destination": "/universe/", "permanent": false },
-    { "source": "/queen-scarlet-school/library", "destination": "/universe/queen-scarlet", "permanent": false },
-    { "source": "/queen-scarlet-school/library/", "destination": "/universe/queen-scarlet/", "permanent": false },
-    { "source": "/queen-scarlet-school/cast", "destination": "/universe/queen-scarlet/cast", "permanent": false },
-    { "source": "/queen-scarlet-school/cast/", "destination": "/universe/queen-scarlet/cast/", "permanent": false },
-
-    { "source": "/winchester", "destination": "/westchester", "permanent": false },
-    { "source": "/winchester/", "destination": "/westchester/", "permanent": false },
-    { "source": "/winchester/:path*", "destination": "/westchester/:path*", "permanent": false }
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?newpress\\.press"
+        }
+      ],
+      "destination": "/deck-v2/",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school",
+      "destination": "/universe/queen-scarlet/write",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/",
+      "destination": "/universe/queen-scarlet/write/",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/universe",
+      "destination": "/universe",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/universe/",
+      "destination": "/universe/",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/library",
+      "destination": "/universe/queen-scarlet",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/library/",
+      "destination": "/universe/queen-scarlet/",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/cast",
+      "destination": "/universe/queen-scarlet/cast",
+      "permanent": false
+    },
+    {
+      "source": "/queen-scarlet-school/cast/",
+      "destination": "/universe/queen-scarlet/cast/",
+      "permanent": false
+    },
+    {
+      "source": "/winchester",
+      "destination": "/westchester",
+      "permanent": false
+    },
+    {
+      "source": "/winchester/",
+      "destination": "/westchester/",
+      "permanent": false
+    },
+    {
+      "source": "/winchester/:path*",
+      "destination": "/westchester/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/burgundy",
+      "destination": "/burgundy/",
+      "permanent": true
+    }
   ],
   "crons": [
-    { "path": "/api/whh-daily-watch", "schedule": "0 10 * * *" }
+    {
+      "path": "/api/whh-daily-watch",
+      "schedule": "0 10 * * *"
+    }
   ]
 }

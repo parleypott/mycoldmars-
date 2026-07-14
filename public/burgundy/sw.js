@@ -8,7 +8,7 @@
    · notes API                  network only (the page queues writes itself offline)      */
 
 const SHELL = 'bg-shell-v1';
-const DATA = 'bg-data-v1';
+const DATA = 'bg-data-v2';
 const AUDIO = 'bg-audio-v1';
 const FONTS = 'bg-fonts-v1';
 const AUDIO_CAP = 80;   // most-recent paragraphs; ~1 long chapter of listening
@@ -56,7 +56,19 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;   // note POSTs etc. go straight through
 
   if (url.pathname === '/burgundy/book.json') {
-    e.respondWith(networkFirst(e.request, DATA)); return;
+    // exactly ONE slot for the book: freshest copy wins, cache can't grow
+    e.respondWith((async () => {
+      const cache = await caches.open(DATA);
+      try {
+        const res = await fetch(e.request);
+        if (res.ok) cache.put('/burgundy/book.json', res.clone());
+        return res;
+      } catch {
+        const hit = await cache.match('/burgundy/book.json');
+        if (hit) return hit;
+        throw new Error('offline, uncached');
+      }
+    })()); return;
   }
   if (url.hostname.endsWith('.supabase.co') && url.pathname.includes('/burgundy-audio/')) {
     e.respondWith(cacheFirst(e.request, AUDIO, AUDIO_CAP)); return;
