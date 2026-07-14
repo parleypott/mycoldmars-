@@ -21,12 +21,18 @@ import assert from 'node:assert/strict';
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'index.html'), 'utf8');
 const m = html.match(/function savedAudioIdx\(flat\)\s*\{[\s\S]*?\n\}/);
 assert.ok(m, 'could not extract savedAudioIdx() from index.html — did the signature change?');
+// Since commit 9b9d89c the read place is stored as "ci:pi|first-40-chars" and
+// savedAudioIdx strips the fingerprint via placeParts(...).key. Extract the real
+// placeParts and inject it so the sliced body runs with production semantics.
+const mp = html.match(/^function placeParts\(v\).*$/m);
+assert.ok(mp, 'could not extract placeParts() from index.html — did the signature change?');
+const placeParts = (0, eval)('(' + mp[0].replace(/^function placeParts/, 'function') + ')');
 
-// Build the fn with safeGet + AUDIO_PLACE injected. store: { key -> value }.
+// Build the fn with safeGet + AUDIO_PLACE + placeParts injected. store: { key -> value }.
 function build(store) {
   const safeGet = (k) => (k in store ? store[k] : null);
-  const factory = new Function('safeGet', 'AUDIO_PLACE', `return (${m[0]});`);
-  return factory(safeGet, 'bg-audio-place');
+  const factory = new Function('safeGet', 'AUDIO_PLACE', 'placeParts', `return (${m[0]});`);
+  return factory(safeGet, 'bg-audio-place', placeParts);
 }
 const AUDIO = 'bg-audio-place', READ = 'bg-place2';
 // a 30-paragraph book: keys "ci:pi" — the exact shape flatParas() emits.
@@ -64,6 +70,15 @@ ok(build({})(flat) === 0, 'no place at all → paragraph 0');
 ok(build({ [AUDIO]: '9:99', [READ]: '0:14' })(flat) === 14, 'stale audio key ignored, valid read place wins');
 ok(build({ [AUDIO]: '9:99', [READ]: '9:98' })(flat) === 0, 'both keys stale → never returns -1, floors at 0');
 ok(build({ [AUDIO]: '0:0' })(flat) === 0, 'a legit place at index 0 resolves to 0 (not treated as "not found")');
+
+// ── 7. NEW stored shape (commit 9b9d89c): the read place now carries a text
+// fingerprint ("ci:pi|first-40-chars"). savedAudioIdx must strip it to the bare
+// key via placeParts before matching against flat[].key — else findIndex never
+// hits and the read place silently vanishes from the furthest-point pick. ─────
+ok(build({ [READ]: '0:17|The dawn came grey over the harbour a' })(flat) === 17,
+  'fingerprint-carrying read place strips to its key and resolves to 17');
+ok(build({ [AUDIO]: '0:5', [READ]: '0:20|read ahead with the eyes' })(flat) === 20,
+  'read-ahead still beats last-listened when the read place carries a fingerprint');
 
 // ── MUTATION PROOF ───────────────────────────────────────────────────────────
 // Reconstruct the OLD (pre-c2f687d) picker — "the last-listened index wins
