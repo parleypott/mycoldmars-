@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#E5DECC">
-<title>BERGUNDY</title>
+<title>BURGUNDY</title>
 <!-- private novel-in-progress — keep it out of search indexes (belt-and-suspenders with robots.txt Disallow: /burgundy/) -->
 <meta name="robots" content="noindex, nofollow">
 <meta name="googlebot" content="noindex, nofollow">
@@ -150,6 +150,8 @@
   .tp-frame::before{top:5px} .tp-frame::after{bottom:5px}
   .tp-title{font-family:var(--display);font-weight:700;font-size:clamp(46px,11vw,84px);line-height:1;letter-spacing:.04em}
   .tp-sub{font-family:var(--display);font-style:italic;font-weight:500;font-size:20px;color:var(--ink-soft);margin-top:22px}
+  .tp-fleuron{font-size:15px;color:var(--ink-soft);margin-top:26px}
+  .tp-author{font-family:var(--serif);font-size:14px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink);margin-top:24px}
   .tp-rule{width:58px;height:1px;background:var(--ink);margin:30px auto 0;opacity:.5;position:relative}
   .tp-rule::after{content:'❦';position:absolute;left:50%;top:-9px;transform:translateX(-50%);background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft)}
   .tp-note{font-family:var(--serif);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint);margin-top:36px;line-height:2}
@@ -240,7 +242,7 @@
 <body class="zen">
 
 <header class="topbar">
-  <span class="brand">BERGUNDY</span>
+  <span class="brand">BURGUNDY</span>
   <span class="chap-label" id="chap-label">— </span>
 </header>
 
@@ -248,7 +250,7 @@
   <div class="gate-card">
     <div class="gate-mark"><span class="gm-b">B</span><span class="gm-rule"></span></div>
     <div class="tp-eyebrow">a novel in progress · invited readers</div>
-    <div class="gate-title">BERGUNDY</div>
+    <div class="gate-title">BURGUNDY</div>
     <form id="gate-form" autocomplete="off">
       <input class="gate-input" id="gate-input" type="text" placeholder="the word"
         autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text">
@@ -373,8 +375,10 @@ function render() {
     <div class="titlepage">
       <div class="tp-eyebrow">a novel in progress</div>
       <div class="tp-frame">
-        <div class="tp-title">${esc((book.title || 'BERGUNDY').replace(/\s+\d+$/, ''))}</div>
-        ${book.subtitle ? `<div class="tp-sub">${esc(book.subtitle)}</div>` : ''}
+        <div class="tp-title">BURGUNDY</div>
+        ${book.subtitle ? `<div class="tp-sub">${esc(book.subtitle)}</div>` : '<div class="tp-sub">A Novel</div>'}
+        <div class="tp-fleuron">❦</div>
+        <div class="tp-author">by Henry Harris</div>
       </div>
       <div class="tp-rule"></div>
       <div class="tp-note">set forth ${pubDate(book.published_at)}<br>tap the page to wake the controls · select a passage to leave a note</div>
@@ -862,7 +866,7 @@ function mediaMeta(i) {
     const ci = player.flat[i] ? +player.flat[i].key.split(':')[0] : 0;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: bareTitle(book.chapters?.[ci]?.title) || `chapter ${ci + 1}`,
-      artist: book.title || 'BERGUNDY',
+      artist: 'BURGUNDY — Henry Harris',
       album: book.subtitle || 'a novel in progress',
     });
   } catch {}
