@@ -707,7 +707,7 @@ document.addEventListener('click', e => {
       if (i >= 0) { startAt(i); return; }
     }
   }
-  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet,.orphan') && document.getSelection()?.isCollapsed) {
+  if (!e.target.closest('.topbar,.bottombar,.pill,.sheet,.orphan,.toc,.toc-scrim,.gate') && document.getSelection()?.isCollapsed) {
     document.body.classList.toggle('zen');
   }
 });
