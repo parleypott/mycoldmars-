@@ -91,6 +91,7 @@
   .p-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);text-align:center}
 
   /* ── the gate ── */
+  .gate[hidden]{display:none}   /* author display:flex would otherwise beat the hidden attribute */
   .gate{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;align-items:flex-start;justify-content:center;
     padding:calc(env(safe-area-inset-top) + 14vh) 24px 24px;overflow:auto}
   .gate-card{max-width:340px;width:100%;text-align:center}
