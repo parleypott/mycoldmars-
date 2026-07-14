@@ -78,14 +78,13 @@
   body.player-on #btn-prevp,body.player-on #btn-nextp,body.player-on #btn-lx,body.player-on #btn-dl{display:block}
   #btn-dl.done{color:#2D7A4F;border-color:rgba(45,122,79,.5)}
   #btn-dl.busy{color:var(--orange);border-color:var(--orange)}
-  .chapter p.speaking{background:var(--hl-amber);border-radius:2px;
-    -webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .3s}
+  .chapter p.speaking{background:none;box-shadow:inset 3px 0 0 0 var(--orange);padding-left:14px;margin-left:-14px;transition:box-shadow .3s}
   /* phones: the listening controls take the row; secondary chrome yields */
   @media (max-width:540px){
     .bottombar{gap:8px;padding-left:12px;padding-right:12px}
     .bb-btn{padding:9px 10px;font-size:10px}
     .p-label{display:none}
-    body.player-on #btn-theme,body.player-on #btn-chapters{display:none}
+    body.player-on #btn-theme,body.player-on #btn-chapters,body.player-on #btn-smaller,body.player-on #btn-bigger{display:none}
     body.player-on .progress{min-width:36px}
     .tp-note{padding:0 8px}
   }
@@ -124,9 +123,9 @@
   .toc-item.is-current .toc-name{color:var(--ink)}
   .toc-item:active .toc-name{color:var(--orange)}
   @media (min-width:1180px){
-    .toc{position:fixed;left:max(24px, calc(50vw - 320px - 260px));top:0;bottom:0;width:210px;
-      padding:calc(env(safe-area-inset-top) + 96px) 0 40px;overflow-y:auto;
-      border-right:1px solid var(--line);padding-right:22px;
+    .toc{position:fixed;left:max(24px, calc(50vw - 320px - 260px));top:calc(env(safe-area-inset-top) + 56px);bottom:72px;width:210px;
+      z-index:30;padding:40px 22px 96px 0;overflow-y:auto;
+      border-right:1px solid var(--line);
       transform:none;transition:opacity .28s}
     body.zen .toc{opacity:0;pointer-events:none}
     .toc-scrim{display:none}
@@ -145,7 +144,7 @@
   /* ── the page ── */
   .book{max-width:640px;margin:0 auto;
     padding:calc(env(safe-area-inset-top) + 84px) max(24px, env(safe-area-inset-left)) 40vh max(24px, env(safe-area-inset-right))}
-  .titlepage{min-height:74vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .titlepage{min-height:64vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
   .tp-eyebrow{font-family:var(--serif);font-size:12px;letter-spacing:.38em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:30px}
   .tp-frame{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);padding:44px 12px 40px;position:relative}
   .tp-frame::before,.tp-frame::after{content:'';position:absolute;left:0;right:0;height:1px;background:var(--ink);opacity:.55}
@@ -241,7 +240,7 @@
   ::selection{background:rgba(232,75,34,.28)}
 </style>
 </head>
-<body class="zen">
+<body>
 
 <header class="topbar">
   <span class="brand">BURGUNDY</span>
@@ -258,7 +257,7 @@
         autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text">
       <button class="gate-btn" id="gate-btn" type="submit">open the book</button>
     </form>
-    <div class="gate-hint" id="gate-hint"></div>
+    <div class="gate-hint" id="gate-hint">the word came with your invitation.</div>
   </div>
 </div>
 <div class="offline-chip" id="offline-chip" hidden>offline — reading from this device</div>
@@ -285,8 +284,8 @@
     <div class="p-track"><div class="p-fill" id="p-fill"></div></div>
     <div class="p-label" id="p-label">—</div>
   </div>
-  <button class="bb-btn" id="btn-theme">◐</button>
-  <button class="bb-btn" id="btn-chapters">ch</button>
+  <button class="bb-btn" id="btn-theme" title="night mode" aria-label="night mode">◐</button>
+  <button class="bb-btn" id="btn-chapters" title="contents" aria-label="contents">ch</button>
 </footer>
 
 <div class="pill" id="pill">
@@ -325,6 +324,13 @@ let lastSelCollapse = 0, hadSelection = false;
 /* storage-blocked browsers (iOS 'Block All Cookies', in-app webviews, private
    mode) throw on the mere touch of localStorage — guard READS and writes. */
 const safeGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+let READER = null;   // per-device identity: each reader sees only their own margin notes
+function readerId() {
+  if (READER) return READER;
+  READER = safeGet('bg-reader');
+  if (!READER) { READER = 'r-' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()); safeSet('bg-reader', READER); }
+  return READER;
+}
 const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 /* ── load the book + notes ── */
@@ -353,9 +359,12 @@ async function boot() {
       if (!d.notes || d.notes.length < 500) break;
       page++;
     }
-    NOTES = all;
+    NOTES = all.filter(n => n.reader === readerId());
   } catch { NOTES = []; }
+  // offline: anything still in the device queue is YOURS — show it
+  NOTES = NOTES.concat(queuedNotes().map(r => ({ ...r, id: r._lid || ('local-' + Math.random().toString(36).slice(2)), _local: true })));
   render();
+  if (safeGet('bg-place2')) document.body.classList.add('zen');   // returning reader: quiet page; first-timer sees the controls
   restorePlace();
 }
 
@@ -384,7 +393,10 @@ function render() {
         <div class="tp-author">by Henry Harris</div>
       </div>
       <div class="tp-rule"></div>
-      <div class="tp-note">set forth ${pubDate(book.published_at)}<br>tap the page to wake the controls · select a passage to leave a note</div>
+      <div class="tp-note">set forth ${pubDate(book.published_at)}<br>
+        tap the page to wake the controls<br>
+        press and hold a sentence to leave a note for the author<br>
+        this device remembers your place, your notes, and your downloaded audio</div>
     </div>`;
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
@@ -574,8 +586,9 @@ function showPill(rect) {
   const minX = (vv ? vv.offsetLeft : 0) + 10;
   const maxX = (vv ? vv.offsetLeft + vv.width : innerWidth) - pw - 10;
   x = Math.max(minX, Math.min(maxX, x));
-  let y = rect.top - ph - 12;
-  if (y < ((vv ? vv.offsetTop : 0) + 70)) y = rect.bottom + 12;
+  let y = rect.bottom + 12;   // below the selection — iOS's native callout owns the top
+  const vBottom = vv ? vv.offsetTop + vv.height : innerHeight;
+  if (y + ph > vBottom - 76) y = rect.top - ph - 12;   // keyboard/bottombar collision → flip above
   pill.style.left = x + 'px'; pill.style.top = y + 'px';
 }
 function hidePill() { $('pill').classList.remove('on'); }
@@ -651,7 +664,8 @@ $('sheet-save').addEventListener('click', async () => {
       // POST-FIRST, delete after — a failed save can never destroy the original
       ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
       if (ok) {
-        await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+        if (String(editingNote.id).startsWith('local-')) safeSet('bg-note-queue', JSON.stringify(queuedNotes().filter(r => r._lid !== editingNote.id)));
+        else await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
         NOTES = NOTES.filter(x => x.id !== editingNote.id);
         rerenderMarks();
       }
@@ -668,14 +682,16 @@ $('sheet-save').addEventListener('click', async () => {
 });
 $('sheet-delete').addEventListener('click', async () => {
   if (!editingNote?.id) return;
-  await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+  if (String(editingNote.id).startsWith('local-')) {
+    safeSet('bg-note-queue', JSON.stringify(queuedNotes().filter(r => r._lid !== editingNote.id)));
+  } else await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
   NOTES = NOTES.filter(x => x.id !== editingNote.id);
   rerenderMarks();
   closeSheet();
 });
 
 async function saveNote(n) {
-  const row = { ...n, book_version: BOOK?.version || '' };
+  const row = { ...n, book_version: BOOK?.version || '', reader: readerId() };
   try {
     if (!navigator.onLine) throw new Error('offline');
     const r = await fetch(API, {
@@ -688,8 +704,9 @@ async function saveNote(n) {
     return true;
   } catch (e) {
     // no signal: keep the highlight ON DEVICE and sync when the network returns
-    queueNote(row);
-    const local = { ...row, id: 'local-' + Math.random().toString(36).slice(2), _local: true };
+    const lid = 'local-' + Math.random().toString(36).slice(2);
+    queueNote({ ...row, _lid: lid });
+    const local = { ...row, id: lid, _local: true };
     NOTES.unshift(local); paintNote(local);
     return true;
   }
@@ -833,12 +850,13 @@ function flatParas() {
     .map(p => ({ el: p, key: p.dataset.key, text: p.textContent }));
 }
 function savedAudioIdx(flat) {
-  const key = safeGet(AUDIO_PLACE);
-  if (key) { const i = flat.findIndex(u => u.key === key); if (i >= 0) return i; }
-  // first listen starts where the eyes are — the reading place
+  // the furthest point wins — read ahead silently and ▶ continues from THERE,
+  // never back to where you last listened (tap any paragraph to override)
+  const audio = safeGet(AUDIO_PLACE);
   const read = safeGet('bg-place2');
-  if (read) { const i = flat.findIndex(u => u.key === read); if (i >= 0) return i; }
-  return 0;
+  const ai = audio ? flat.findIndex(u => u.key === audio) : -1;
+  const ri = read ? flat.findIndex(u => u.key === read) : -1;
+  return Math.max(ai, ri, 0);
 }
 function urlFor(i) {
   const u = player.flat[i]; if (!u) return Promise.reject(new Error('out of range'));
@@ -983,7 +1001,7 @@ function dlChrome(done, total, failed) {
   const complete = safeGet('bg-audiobook-done') === (safeBook(BOOK).version || 'v');
   b.classList.toggle('done', complete);
   b.classList.remove('busy');
-  b.textContent = complete ? '✓⤓' : '⤓';
+  b.textContent = complete ? '✓ kept' : '⤓ keep audio';
   b.title = complete ? 'audio downloaded — every night this week works offline' : 'download the audio to this device';
 }
 navigator.serviceWorker?.addEventListener('message', (e) => {
@@ -998,9 +1016,11 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
 });
 $('btn-dl').addEventListener('click', async () => {
   if (dl.busy) return;
-  const reg = await navigator.serviceWorker?.getRegistration('/burgundy/');
-  if (!reg?.active) { alert('one moment — the offline engine is still waking up. try again in a few seconds.'); return; }
   dl.busy = true;
+  $('btn-dl').textContent = '· · ·';
+  try { navigator.storage?.persist?.(); } catch {}   // ask iOS to keep the audiobook
+  const reg = await (navigator.serviceWorker?.ready || Promise.resolve(null));
+  if (!reg?.active) { dl.busy = false; dlChrome(); return; }
   if (!player.flat.length) player.flat = flatParas();
   dl.expected = player.flat.length;   // the TRUE paragraph count — a dropped resolution must not read as complete
   dlChrome(0, player.flat.length);
@@ -1010,7 +1030,8 @@ $('btn-dl').addEventListener('click', async () => {
     try { urls.push(await urlFor(i)); } catch {}
     if (i % 10 === 0) dlChrome(Math.round(i / 2), player.flat.length);   // resolving ≈ first half of the bar
   }
-  reg.active.postMessage({ type: 'download-audiobook', urls });
+  const map = (() => { try { return JSON.parse(safeGet('bg-tts-urls') || '{}'); } catch { return {}; } })();
+  reg.active.postMessage({ type: 'download-audiobook', urls, map });
 });
 setTimeout(() => dlChrome(), 1200);
 $('btn-prevp').addEventListener('click', () => startAt(Math.max(0, player.idx - 1)));
@@ -1022,6 +1043,7 @@ function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&
 function pubDate(v) { const d = new Date(v || Date.now()); return isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString(); }
 /* ── the gate: one little word, remembered forever on this device ── */
 function gateOpen() { return (safeGet('bg-key') || '') === 'mycoldmars'; }
+let gateMisses = 0;
 function showGate() {
   const g = $('gate'); g.hidden = false;
   const go = () => {
@@ -1029,7 +1051,13 @@ function showGate() {
     // period, stray spaces — "My cold mars." opens the book
     const v = ($('gate-input').value || '').toLowerCase().replace(/[^a-z]/g, '');
     if (v === 'mycoldmars') { safeSet('bg-key', 'mycoldmars'); g.hidden = true; boot(); }
-    else { $('gate-hint').textContent = 'not that word — ask the author.'; $('gate-input').select(); }
+    else {
+      gateMisses++;
+      $('gate-hint').textContent = gateMisses >= 2
+        ? 'one small word, letters only — check the message that brought you here.'
+        : 'not that word — ask the author.';
+      $('gate-input').select();
+    }
   };
   $('gate-form').addEventListener('submit', e => { e.preventDefault(); go(); });
   setTimeout(() => $('gate-input').focus(), 200);
@@ -1058,17 +1086,29 @@ async function flushNoteQueue() {
     const still = [];
     for (const row of q) {
       try {
-        const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row) });
+        const { _lid, ...clean } = row;
+        const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clean) });
         if (!r.ok) still.push(row);
       } catch { still.push(row); }
     }
     safeSet('bg-note-queue', JSON.stringify(still));
-    if (q.length !== still.length) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = d.notes || NOTES; paintNotes(); } catch {} }
+    if (q.length !== still.length) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = (d.notes || []).filter(n => n.reader === readerId()); rerenderMarks(); } catch {} }
   } finally {
     flushingQueue = false;
   }
 }
 
+// Safari wipes localStorage after 7 idle days but Cache Storage often survives —
+// restore the paragraph→audio map from the audiobook manifest so kept audio stays playable
+(async () => {
+  try {
+    if (!safeGet('bg-tts-urls') && 'caches' in window) {
+      const cache = await caches.open('bg-audiobook-v1');
+      const mf = await cache.match('/burgundy/audiobook-manifest');
+      if (mf) safeSet('bg-tts-urls', JSON.stringify(await mf.json()));
+    }
+  } catch {}
+})();
 refreshOfflineChip();
 if (gateOpen()) boot(); else showGate();
 flushNoteQueue();

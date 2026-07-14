@@ -71,6 +71,21 @@ self.addEventListener('fetch', (e) => {
       }
     })()); return;
   }
+  if (url.pathname === '/api/burgundy-notes') {
+    // offline, your margin notes still paint — exact-URL cache (page 0 ≠ page 1)
+    e.respondWith((async () => {
+      const cache = await caches.open(DATA);
+      try {
+        const res = await fetch(e.request);
+        if (res.ok) cache.put(e.request.url, res.clone());
+        return res;
+      } catch {
+        const hit = await cache.match(e.request.url);
+        if (hit) return hit;
+        throw new Error('offline, uncached');
+      }
+    })()); return;
+  }
   if (url.hostname.endsWith('.supabase.co') && url.pathname.includes('/burgundy-audio/')) {
     e.respondWith((async () => {
       const book = await caches.open(BOOKAUDIO);
@@ -121,6 +136,13 @@ self.addEventListener('message', (e) => {
       done++;
       if (done % 5 === 0 || done === msg.urls.length) await tell();
     }
+    // this download IS the audiobook now: prune superseded files, keep a manifest
+    const want = new Set(msg.urls);
+    for (const k of await cache.keys()) {
+      if (k.url.endsWith('/audiobook-manifest')) continue;
+      if (!want.has(k.url)) await cache.delete(k);
+    }
+    if (msg.map) await cache.put('/burgundy/audiobook-manifest', new Response(JSON.stringify(msg.map), { headers: { 'Content-Type': 'application/json' } }));
     await tell();
   })());
 });
