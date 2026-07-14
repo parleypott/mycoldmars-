@@ -74,8 +74,10 @@
   /* ── the listener ── */
   #btn-listen{border-color:var(--orange);color:var(--orange);white-space:nowrap}
   #btn-listen.live{background:var(--orange);color:#fff;border-color:var(--orange)}
-  #btn-prevp,#btn-nextp,#btn-lx{display:none}
-  body.player-on #btn-prevp,body.player-on #btn-nextp,body.player-on #btn-lx{display:block}
+  #btn-prevp,#btn-nextp,#btn-lx,#btn-dl{display:none}
+  body.player-on #btn-prevp,body.player-on #btn-nextp,body.player-on #btn-lx,body.player-on #btn-dl{display:block}
+  #btn-dl.done{color:#2D7A4F;border-color:rgba(45,122,79,.5)}
+  #btn-dl.busy{color:var(--orange);border-color:var(--orange)}
   .chapter p.speaking{background:var(--hl-amber);border-radius:2px;
     -webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background .3s}
   /* phones: the listening controls take the row; secondary chrome yields */
@@ -276,6 +278,7 @@
   <button class="bb-btn" id="btn-listen">▶ listen</button>
   <button class="bb-btn" id="btn-nextp" title="next paragraph">»</button>
   <button class="bb-btn" id="btn-lx" title="stop listening">✕</button>
+  <button class="bb-btn" id="btn-dl" title="download the audio to this device">⤓</button>
   <button class="bb-btn" id="btn-smaller">A−</button>
   <button class="bb-btn" id="btn-bigger">A+</button>
   <div class="progress">
@@ -849,7 +852,7 @@ function urlFor(i) {
       const map = ttsUrlMap();
       map[u.key] = d.url;
       const keys = Object.keys(map);
-      if (keys.length > 240) for (const k of keys.slice(0, keys.length - 240)) delete map[k];
+      if (keys.length > 1200) for (const k of keys.slice(0, keys.length - 1200)) delete map[k];
       safeSet('bg-tts-urls', JSON.stringify(map));
     } catch {}
     return d.url;
@@ -964,6 +967,42 @@ $('btn-listen').addEventListener('click', () => {
   updatePlayerChrome();
 });
 $('btn-lx').addEventListener('click', closePlayer);
+const dl = { busy: false };
+function dlChrome(done, total, failed) {
+  const b = $('btn-dl'); if (!b) return;
+  if (dl.busy) { b.classList.add('busy'); b.classList.remove('done'); b.textContent = `${Math.round(done / Math.max(1, total) * 100)}%`; return; }
+  const complete = safeGet('bg-audiobook-done') === (safeBook(BOOK).version || 'v');
+  b.classList.toggle('done', complete);
+  b.classList.remove('busy');
+  b.textContent = complete ? '✓⤓' : '⤓';
+  b.title = complete ? 'audio downloaded — every night this week works offline' : 'download the audio to this device';
+}
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  const m = e.data || {};
+  if (m.type !== 'audiobook-progress') return;
+  dlChrome(m.done, m.total, m.failed);
+  if (m.done >= m.total) {
+    dl.busy = false;
+    if (!m.failed) safeSet('bg-audiobook-done', safeBook(BOOK).version || 'v');
+    dlChrome();
+  }
+});
+$('btn-dl').addEventListener('click', async () => {
+  if (dl.busy) return;
+  const reg = await navigator.serviceWorker?.getRegistration('/burgundy/');
+  if (!reg?.active) { alert('one moment — the offline engine is still waking up. try again in a few seconds.'); return; }
+  dl.busy = true;
+  if (!player.flat.length) player.flat = flatParas();
+  dlChrome(0, player.flat.length);
+  // resolve every paragraph URL (the server synthesizes each AT MOST once, ever)
+  const urls = [];
+  for (let i = 0; i < player.flat.length; i++) {
+    try { urls.push(await urlFor(i)); } catch {}
+    if (i % 10 === 0) dlChrome(Math.round(i / 2), player.flat.length);   // resolving ≈ first half of the bar
+  }
+  reg.active.postMessage({ type: 'download-audiobook', urls });
+});
+setTimeout(() => dlChrome(), 1200);
 $('btn-prevp').addEventListener('click', () => startAt(Math.max(0, player.idx - 1)));
 $('btn-nextp').addEventListener('click', () => startAt(player.idx + 1));
 
