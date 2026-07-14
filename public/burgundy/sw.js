@@ -7,7 +7,7 @@
    · google fonts               cache-first (immutable)
    · notes API                  network only (the page queues writes itself offline)      */
 
-const SHELL = 'bg-shell-v1';
+const SHELL = 'bg-shell-v2';
 const DATA = 'bg-data-v2';
 const AUDIO = 'bg-audio-v1';
 const FONTS = 'bg-fonts-v1';
@@ -83,7 +83,19 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(cacheFirst(e.request, FONTS)); return;
   }
   if (url.pathname === '/burgundy/' || url.pathname === '/burgundy/index.html' || url.pathname === '/burgundy') {
-    e.respondWith(networkFirst(e.request, SHELL)); return;
+    // ONE slot for the shell — the freshest build always wins offline
+    e.respondWith((async () => {
+      const cache = await caches.open(SHELL);
+      try {
+        const res = await fetch(e.request);
+        if (res.ok) cache.put('/burgundy/index.html', res.clone());
+        return res;
+      } catch {
+        const hit = await cache.match('/burgundy/index.html');
+        if (hit) return hit;
+        throw new Error('offline, uncached');
+      }
+    })()); return;
   }
 });
 
