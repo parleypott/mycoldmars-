@@ -92,6 +92,18 @@
   .p-track{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
   .p-fill{height:100%;width:0%;background:var(--orange);border-radius:2px;transition:width .2s}
   .p-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);text-align:center}
+  /* FOLIO — the real page number. One page = 250 words, the trade-book
+     standard, so "page 217" means the same prose here, in the writing tool,
+     and in any future print. Caslon's old-style figures, a centered-dot
+     frame, always present, never loud. */
+  .folio{position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom) + 64px);z-index:29;pointer-events:none;
+    font-family:var(--serif);font-size:12.5px;letter-spacing:.32em;text-indent:.32em;
+    font-variant-numeric:oldstyle-nums;color:var(--ink-faint);
+    background:color-mix(in srgb, var(--paper) 88%, transparent);
+    padding:2px 12px;border-radius:999px;transition:opacity .4s, bottom .3s}
+  body.zen .folio{bottom:calc(env(safe-area-inset-bottom) + 14px)}
+  .folio.hidden{opacity:0}
 
   /* ── the gate ── */
   .gate[hidden]{display:none}   /* author display:flex would otherwise beat the hidden attribute */
@@ -306,6 +318,8 @@
   <div class="loading">opening the book…</div>
 </main>
 
+<div class="folio hidden" id="folio">· 1 ·</div>
+
 <footer class="bottombar">
   <button class="bb-btn" id="btn-prevp" title="previous paragraph">«</button>
   <button class="bb-btn" id="btn-listen">▶ listen</button>
@@ -450,9 +464,37 @@ function render() {
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
   el.innerHTML = `<div class="pages" id="pages">${html}</div>`;
+  buildFolio();
   paintNotes();
   renderToc();
   observeChapters();
+}
+
+/* ── the folio: real book pages ──────────────────────────────────
+   One page = 250 words (the estimator the trade has used forever).
+   Computed once per render from the same words every surface sees,
+   so the number agrees with the writing tool. */
+const FOLIO_WPP = 250;
+let FOLIO_TOTAL = 1;
+function buildFolio() {
+  let cum = 0;
+  for (const p of document.querySelectorAll('.chapter p[data-key]')) {
+    const t = p.textContent.trim();
+    if (t) cum += t.split(/\s+/).length;
+    p.dataset.bookpage = Math.floor(cum / FOLIO_WPP) + 1;
+  }
+  FOLIO_TOTAL = Math.max(1, Math.ceil(cum / FOLIO_WPP));
+}
+function setFolio(p) {
+  const el = $('folio'); if (!el) return;
+  if (!p || !p.dataset.bookpage) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.textContent = `· ${p.dataset.bookpage} ·`;
+  el.title = `page ${p.dataset.bookpage} of ${FOLIO_TOTAL} — a page is 250 words`;
+}
+function folioFromScroll() {
+  const top = [...document.querySelectorAll('.chapter p[data-key]')].find(p => p.getBoundingClientRect().bottom > 90);
+  setFolio(top || null);
 }
 
 /* one chapter's HTML. A chapter still being drafted (this is "a novel in
@@ -876,12 +918,22 @@ function firstParaOnPage(i) {
   for (const p of document.querySelectorAll('.chapter p[data-key]')) if (pageOfEl(p) === i) return p;
   return null;
 }
+function lastParaBeforePage(i) {
+  let best = null;
+  for (const p of document.querySelectorAll('.chapter p[data-key]')) {
+    if (pageOfEl(p) <= i) best = p; else break;
+  }
+  return best;
+}
 function afterPageChange() {
   const pct = paged.count > 1 ? Math.round(paged.page / (paged.count - 1) * 100) : 100;
   $('p-fill').style.width = pct + '%';
   $('p-label').textContent = `page ${paged.page + 1} of ${paged.count}`;
   hidePill();
   const p = firstParaOnPage(paged.page);
+  // folio: a screen where no paragraph STARTS is usually mid-paragraph flow —
+  // credit it to the paragraph flowing through; true front matter stays bare
+  setFolio(p || lastParaBeforePage(paged.page));
   if (!p) return;   // the title page never overwrites a saved place
   safeSet('bg-place2', placeValueFor(p));
   const ci = +(p.closest('.chapter')?.dataset.ch || 0);
@@ -986,7 +1038,8 @@ addEventListener('scroll', () => {
     // paragraph-anchored place memory — survives font-size changes + republish
     const top = [...document.querySelectorAll('p[data-key]')].find(p => p.getBoundingClientRect().bottom > 90);
     if (top) safeSet('bg-place2', placeValueFor(top));
-  }, 300);
+    setFolio(top || null);
+  }, 120);
 }, { passive: true });
 /* place memory v2: "ci:pi|first-40-chars". The key finds the paragraph fast;
    the text fingerprint RE-FINDS it when a republish shifted the numbering —
