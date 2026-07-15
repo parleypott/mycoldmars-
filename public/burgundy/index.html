@@ -99,8 +99,8 @@
   .folio{position:fixed;left:50%;transform:translateX(-50%);
     bottom:calc(env(safe-area-inset-bottom) + 64px);z-index:29;pointer-events:none;
     font-family:var(--serif);font-size:12.5px;letter-spacing:.32em;text-indent:.32em;
-    font-variant-numeric:oldstyle-nums;color:var(--ink-faint);
-    background:color-mix(in srgb, var(--paper) 88%, transparent);
+    font-variant-numeric:oldstyle-nums;color:var(--ink-soft);
+    background:var(--paper);border:1px solid rgba(127,112,80,.25);
     padding:2px 12px;border-radius:999px;transition:opacity .4s, bottom .3s}
   body.zen .folio{bottom:calc(env(safe-area-inset-bottom) + 14px)}
   .folio.hidden{opacity:0}
