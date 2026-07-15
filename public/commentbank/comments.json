@@ -1,5 +1,162 @@
 [
   {
+    "id": "F0BH3ETTDUP",
+    "name": "Screenshot 2026-07-15 at 8.04.17 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29759,
+    "local_path": "images/F0BH3ETTDUP.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784129243.799439",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784129243799439",
+    "posted_at": "2026-07-15T15:27:23.799Z",
+    "analysis": {
+      "comment_text": "time to sit down and watch chris!!",
+      "commenter": "Guilred",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "anticipation",
+        "viewing"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-15T16:20:16.198Z"
+  },
+  {
+    "id": "F0BHNH4RGUU",
+    "name": "Screenshot 2026-07-15 at 8.04.10 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 25838,
+    "local_path": "images/F0BHNH4RGUU.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784129243.799439",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784129243799439",
+    "posted_at": "2026-07-15T15:27:23.799Z",
+    "analysis": {
+      "comment_text": "WOOOOOOOWWWWWWW",
+      "commenter": "user-tu8wr2im2q",
+      "sentiment": "praise",
+      "themes": [
+        "reaction",
+        "excitement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-15T16:20:16.681Z"
+  },
+  {
+    "id": "F0BHLNZLLRF",
+    "name": "Screenshot 2026-07-15 at 10.27.28 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 37929,
+    "local_path": "images/F0BHLNZLLRF.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784129243.799439",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784129243799439",
+    "posted_at": "2026-07-15T15:27:23.799Z",
+    "analysis": {
+      "comment_text": "That was 22 minutes??? THIS VIDEO FLOWED SOO GOOOOOD!!!",
+      "commenter": "@DanielSempere-b1j",
+      "sentiment": "praise",
+      "themes": [
+        "pacing",
+        "editing",
+        "engagement",
+        "flow"
+      ],
+      "video_hint": "A video approximately 22 minutes long that the commenter felt passed very quickly due to strong pacing",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-15T16:20:17.858Z"
+  },
+  {
+    "id": "F0BJD5RUNBA",
+    "name": "Screenshot 2026-07-15 at 9.41.48 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 46650,
+    "local_path": "images/F0BJD5RUNBA.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784129243.799439",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784129243799439",
+    "posted_at": "2026-07-15T15:27:23.799Z",
+    "analysis": {
+      "comment_text": "I think US consumer protection laws should be federal and not state-specific. Great video, thanks for sharing!",
+      "commenter": "BenjamintheTortoise",
+      "sentiment": "insightful",
+      "themes": [
+        "consumer protection",
+        "us law",
+        "federal policy",
+        "regulation"
+      ],
+      "video_hint": "Video about US consumer protection laws or state vs federal regulation",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-15T16:20:17.916Z"
+  },
+  {
+    "id": "F0BH3ET9VST",
+    "name": "Screenshot 2026-07-15 at 9.41.20 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 22953,
+    "local_path": "images/F0BH3ET9VST.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784129243.799439",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784129243799439",
+    "posted_at": "2026-07-15T15:27:23.799Z",
+    "analysis": {
+      "comment_text": "Incredible storytelling and journalism, thank you!",
+      "commenter": "chrismp4final",
+      "sentiment": "praise",
+      "themes": [
+        "storytelling",
+        "journalism"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-15T16:20:18.803Z"
+  },
+  {
+    "id": "F0BHLNZHGJV",
+    "name": "Screenshot 2026-07-15 at 11.12.02 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 40640,
+    "local_path": "images/F0BHLNZHGJV.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784129243.799439",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784129243799439",
+    "posted_at": "2026-07-15T15:27:23.799Z",
+    "analysis": {
+      "comment_text": "Wow, I did not know that information from a shop could be this easily used to target people with Google adds or maybe on a social media platform.",
+      "commenter": "elisenieuwe4649",
+      "sentiment": "insightful",
+      "themes": [
+        "data privacy",
+        "targeted advertising",
+        "retail data",
+        "social media"
+      ],
+      "video_hint": "Video likely about data privacy, retail customer data, or how businesses use customer information for ad targeting",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-15T16:20:20.671Z"
+  },
+  {
     "id": "F0BF5D3FZCJ",
     "name": "Screenshot 2026-07-04 at 8.36.27 AM.png",
     "ext": "png",
