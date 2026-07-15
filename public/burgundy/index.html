@@ -1378,16 +1378,19 @@ async function flushNoteQueue() {
   if (!q.length || !navigator.onLine) return;
   flushingQueue = true;
   try {
-    const still = [];
+    const sentLids = new Set();
     for (const row of q) {
       try {
         const { _lid, ...clean } = row;
         const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clean) });
-        if (!r.ok) still.push(row);
-      } catch { still.push(row); }
+        if (r.ok) sentLids.add(row._lid);
+      } catch {}
     }
+    // NEVER write back the stale snapshot: a note written DURING this flush
+    // exists only in the fresh queue. Re-read, remove only what actually sent.
+    const still = queuedNotes().filter(row => !sentLids.has(row._lid));
     safeSet('bg-note-queue', JSON.stringify(still));
-    if (q.length !== still.length) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = (d.notes || []).filter(n => n.reader === readerId()); rerenderMarks(); } catch {} }
+    if (sentLids.size) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = (d.notes || []).filter(n => n.reader === readerId()); rerenderMarks(); } catch {} }
   } finally {
     flushingQueue = false;
   }
