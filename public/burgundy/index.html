@@ -203,6 +203,14 @@
     background:var(--ink);border-radius:8px;overflow:hidden;
     box-shadow:0 6px 24px rgba(0,0,0,.22)}
   .pill.on{display:flex}
+  /* touch: the iOS edit menu owns the selection — dock our pill at the bottom
+     where the callout can never land, at comfortable touch size */
+  @media (pointer: coarse){
+    .pill{left:50% !important;top:auto !important;transform:translateX(-50%);
+      bottom:calc(env(safe-area-inset-bottom) + 76px)}
+    #pill button{padding:15px 22px;font-size:13px}
+  }
+  body:has(.pill.on) .folio{opacity:0}
   .pill button{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
     color:var(--paper);background:transparent;border:none;padding:13px 18px;cursor:pointer}
   .pill button:active{background:rgba(255,255,255,.14)}
@@ -543,7 +551,7 @@ function chapterHTML(ch, ci, esc) {
 /* ── notes: paint highlights; unplaceable ones surface in an orphan strip ── */
 function paintNotes() {
   const orphans = [];
-  for (const n of NOTES) { if (!paintNote(n)) orphans.push(n); }
+  for (const n of NOTES) { try { if (!paintNote(n)) orphans.push(n); } catch (e) { console.warn('[paint]', n.id, e); orphans.push(n); } }
   renderOrphans(orphans);
 }
 function paintNote(n) {
@@ -672,8 +680,20 @@ document.addEventListener('selectionchange', () => {
   };
   showPill(range.getBoundingClientRect());
 });
+const COARSE_POINTER = matchMedia('(pointer: coarse)').matches;
+let pillTimer = 0;
 function showPill(rect) {
   const pill = $('pill');
+  if (COARSE_POINTER) {
+    // TOUCH: iPadOS's own edit menu (Copy / Look Up) hugs the selection and
+    // cannot be suppressed or predicted, so we stop fighting it for that
+    // space. The pill docks at the bottom of the screen (CSS owns position),
+    // and appears only after the selection has settled — no flicker while
+    // the handles drag, no overlap ever.
+    clearTimeout(pillTimer);
+    pillTimer = setTimeout(() => pill.classList.add('on'), 350);
+    return;
+  }
   pill.classList.add('on');
   const vv = window.visualViewport;
   const pw = pill.offsetWidth || 210, ph = pill.offsetHeight || 46;
@@ -681,12 +701,12 @@ function showPill(rect) {
   const minX = (vv ? vv.offsetLeft : 0) + 10;
   const maxX = (vv ? vv.offsetLeft + vv.width : innerWidth) - pw - 10;
   x = Math.max(minX, Math.min(maxX, x));
-  let y = rect.bottom + 12;   // below the selection — iOS's native callout owns the top
+  let y = rect.bottom + 12;   // below the selection — the callout usually owns the top
   const vBottom = vv ? vv.offsetTop + vv.height : innerHeight;
   if (y + ph > vBottom - 76) y = rect.top - ph - 12;   // keyboard/bottombar collision → flip above
   pill.style.left = x + 'px'; pill.style.top = y + 'px';
 }
-function hidePill() { $('pill').classList.remove('on'); }
+function hidePill() { clearTimeout(pillTimer); $('pill').classList.remove('on'); }
 
 // pointerdown beats iOS selection-collapse: act BEFORE the tap clears the selection
 $('pill').addEventListener('pointerdown', async (e) => {
@@ -761,7 +781,12 @@ $('sheet-save').addEventListener('click', async () => {
       ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
       if (ok) {
         if (String(editingNote.id).startsWith('local-')) safeSet('bg-note-queue', JSON.stringify(queuedNotes().filter(r => r._lid !== editingNote.id)));
-        else await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+        else {
+          try {
+            const dr = await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE', signal: (AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined) });
+            if (!dr.ok && dr.status !== 404) throw new Error('delete failed');
+          } catch { queueNote({ _delete: editingNote.id, _lid: 'local-' + Math.random().toString(36).slice(2) }); }
+        }
         NOTES = NOTES.filter(x => x.id !== editingNote.id);
         rerenderMarks();
       }
@@ -780,7 +805,12 @@ $('sheet-delete').addEventListener('click', async () => {
   if (!editingNote?.id) return;
   if (String(editingNote.id).startsWith('local-')) {
     safeSet('bg-note-queue', JSON.stringify(queuedNotes().filter(r => r._lid !== editingNote.id)));
-  } else await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE' }).catch(() => {});
+  } else {
+    try {
+      const dr = await fetch(`${API}?id=${editingNote.id}`, { method: 'DELETE', signal: (AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined) });
+      if (!dr.ok && dr.status !== 404) throw new Error('delete failed');
+    } catch { queueNote({ _delete: editingNote.id, _lid: 'local-' + Math.random().toString(36).slice(2) }); }
+  }
   NOTES = NOTES.filter(x => x.id !== editingNote.id);
   rerenderMarks();
   closeSheet();
@@ -826,22 +856,30 @@ function updateSheetSig() {
 async function saveNote(n) {
   if (!readerName() && !nameAskedThisSession) { nameAskedThisSession = true; await askName(); }
   const row = { ...n, name: readerName(), book_version: BOOK?.version || '', reader: readerId() };
+  // PAINT FIRST. The color must appear the instant the reader acts — iPad wifi
+  // routinely claims online while the radio is dead, and a hanging POST used to
+  // mean no mark, no feedback, for minutes. The network is bookkeeping.
+  const lid = 'local-' + Math.random().toString(36).slice(2);
+  const local = { ...row, id: lid, _local: true };
+  NOTES.unshift(local);
+  if (!paintNote(local)) paintNotes();   // re-anchor miss → at least the orphan strip, never silence
   try {
     if (!navigator.onLine) throw new Error('offline');
     const r = await fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(row),
+      signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(6000) : undefined,
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.note) throw new Error(d.error || 'save failed');
-    NOTES.unshift(d.note); paintNote(d.note);
+    // sent — re-key the painted marks and the row to the server id
+    document.querySelectorAll(`mark[data-note-id="${lid}"]`).forEach(m => { m.dataset.noteId = d.note.id; });
+    const i = NOTES.findIndex(x => x.id === lid);
+    if (i >= 0) NOTES[i] = d.note;
     return true;
   } catch (e) {
-    // no signal: keep the highlight ON DEVICE and sync when the network returns
-    const lid = 'local-' + Math.random().toString(36).slice(2);
+    // slow or dead network: the mark is already on screen — queue the send
     queueNote({ ...row, _lid: lid });
-    const local = { ...row, id: lid, _local: true };
-    NOTES.unshift(local); paintNote(local);
     return true;
   }
 }
@@ -1366,7 +1404,16 @@ function refreshOfflineChip() { $('offline-chip').hidden = navigator.onLine; }
 addEventListener('online', () => { refreshOfflineChip(); flushNoteQueue(); });
 addEventListener('offline', refreshOfflineChip);
 function queuedNotes() { try { const v = JSON.parse(safeGet('bg-note-queue') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
-function queueNote(row) { const q = queuedNotes(); q.push(row); safeSet('bg-note-queue', JSON.stringify(q)); }
+function queueNote(row) {
+  const q = queuedNotes(); q.push(row);
+  safeSet('bg-note-queue', JSON.stringify(q));
+  if (queuedNotes().length !== q.length) {
+    // shared 5MB origin quota is full — evict the biggest cache and retry once
+    try { localStorage.removeItem('bg-tts-urls'); } catch {}
+    safeSet('bg-note-queue', JSON.stringify(q));
+    if (queuedNotes().length !== q.length) console.warn('[notes] storage full — note may not sync until space frees');
+  }
+}
 let flushingQueue = false;
 async function flushNoteQueue() {
   // reentrancy guard: 'online', 'visibilitychange', the 60s heartbeat and boot can all
@@ -1381,6 +1428,11 @@ async function flushNoteQueue() {
     const sentLids = new Set();
     for (const row of q) {
       try {
+        if (row._delete) {   // a queued delete (edit/remove that failed while flaky)
+          const r = await fetch(`${API}?id=${row._delete}`, { method: 'DELETE' });
+          if (r.ok || r.status === 404) sentLids.add(row._lid);
+          continue;
+        }
         const { _lid, ...clean } = row;
         const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clean) });
         if (r.ok) sentLids.add(row._lid);
@@ -1390,7 +1442,9 @@ async function flushNoteQueue() {
     // exists only in the fresh queue. Re-read, remove only what actually sent.
     const still = queuedNotes().filter(row => !sentLids.has(row._lid));
     safeSet('bg-note-queue', JSON.stringify(still));
-    if (sentLids.size) { try { const d = await (await fetch(API + '?page=0')).json(); NOTES = (d.notes || []).filter(n => n.reader === readerId()); rerenderMarks(); } catch {} }
+    // NO refetch here. The painted local copies stay on screen; boot does the
+    // real reconciliation. A stale service-worker page-0 snapshot must never
+    // overwrite live NOTES and strip fresh marks (the iPad vanishing-highlight bug).
   } finally {
     flushingQueue = false;
   }
