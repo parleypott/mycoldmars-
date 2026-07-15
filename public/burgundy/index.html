@@ -481,7 +481,11 @@ function buildFolio() {
   for (const p of document.querySelectorAll('.chapter p[data-key]')) {
     const t = p.textContent.trim();
     if (t) cum += t.split(/\s+/).length;
-    p.dataset.bookpage = Math.floor(cum / FOLIO_WPP) + 1;
+    // page of the word this paragraph ENDS on. Use the SAME ceil formula as
+    // FOLIO_TOTAL so the two never disagree: a paragraph ending exactly on a
+    // page boundary (cum a multiple of 250) stays on the page it just filled
+    // instead of jumping ahead — otherwise you get "page N+1 of N".
+    p.dataset.bookpage = Math.max(1, Math.ceil(cum / FOLIO_WPP));
   }
   FOLIO_TOTAL = Math.max(1, Math.ceil(cum / FOLIO_WPP));
 }
