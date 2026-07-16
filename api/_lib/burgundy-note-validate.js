@@ -27,6 +27,9 @@ export function sanitizeNoteRow(body) {
     chapter_idx: Number.isFinite(+body.chapter_idx)
       ? Math.max(0, Math.min(999, Math.floor(+body.chapter_idx))) : 0,
     book_version: String(body.book_version || '').slice(0, 40),
+    // the authoring tool's PERMANENT chapter id (rides book.json since
+    // 2026-07-16) — survives chapter insertion/reordering forever
+    chapter_id: String(body.chapter_id || '').slice(0, 40),
   };
 }
 

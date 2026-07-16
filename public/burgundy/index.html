@@ -527,7 +527,7 @@ function chapterHTML(ch, ci, esc) {
   // Coerce first: a malformed publish can leave a non-string title (number/null),
   // and a bare `.replace` on that throws and bricks the whole reader.
   const bare = String(c.title || '').replace(/^\s*chapter\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*[:·.\-—]?\s*/i, '').trim();
-  return `<section class="chapter" data-ch="${ci}">
+  return `<section class="chapter" data-ch="${ci}" data-chid="${esc(String(c.id || ''))}">
       <div class="ch-head">
         <div class="ch-num">Chapter ${roman(ci + 1)}</div>
         ${bare ? `<div class="ch-title">${esc(bare)}</div>` : ''}
@@ -679,6 +679,8 @@ document.addEventListener('selectionchange', () => {
   sel = {
     para_key: p.dataset.key,
     chapter_idx: +(p.closest('.chapter')?.dataset.ch || 0),
+    // the tool's permanent chapter id — insertion-proof anchoring
+    chapter_id: p.closest('.chapter')?.dataset.chid || '',
     quote,
     prefix: startOff > 0 ? full.slice(Math.max(0, startOff - 24), startOff) : '',
   };
@@ -782,7 +784,7 @@ $('sheet-save').addEventListener('click', async () => {
       ok = await saveNote({ ...editingNote._new, note, color });
     } else if (editingNote.id) {
       // POST-FIRST, delete after — a failed save can never destroy the original
-      ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
+      ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, chapter_id: editingNote.chapter_id || '', quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
       if (ok) {
         if (String(editingNote.id).startsWith('local-')) safeSet('bg-note-queue', JSON.stringify(queuedNotes().filter(r => r._lid !== editingNote.id)));
         else {
