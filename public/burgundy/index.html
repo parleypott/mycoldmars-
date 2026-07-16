@@ -784,7 +784,7 @@ $('sheet-save').addEventListener('click', async () => {
       ok = await saveNote({ ...editingNote._new, note, color });
     } else if (editingNote.id) {
       // POST-FIRST, delete after — a failed save can never destroy the original
-      ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, chapter_id: editingNote.chapter_id || '', quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
+      ok = await saveNote({ para_key: editingNote.para_key, chapter_idx: editingNote.chapter_idx, chapter_id: editingNote.chapter_id || '', book_version: editingNote.book_version || '', quote: editingNote.quote, prefix: editingNote.prefix || '', note, color });
       if (ok) {
         if (String(editingNote.id).startsWith('local-')) safeSet('bg-note-queue', JSON.stringify(queuedNotes().filter(r => r._lid !== editingNote.id)));
         else {
@@ -861,7 +861,12 @@ function updateSheetSig() {
 
 async function saveNote(n) {
   if (!readerName() && !nameAskedThisSession) { nameAskedThisSession = true; await askName(); }
-  const row = { ...n, name: readerName(), book_version: BOOK?.version || '', reader: readerId() };
+  // Preserve the note's ORIGINAL publish stamp when it already carries one (the
+  // edit path re-posts an old row) — only default-stamp the current book on notes
+  // born now. Restamping an old note's anchors with today's version lies about
+  // which publish those para_key/chapter_idx came from and mis-resolves them in
+  // the authoring tool after a chapter split/insert.
+  const row = { ...n, name: readerName(), book_version: n.book_version ?? (BOOK?.version || ''), reader: readerId() };
   // PAINT FIRST. The color must appear the instant the reader acts — iPad wifi
   // routinely claims online while the radio is dead, and a hanging POST used to
   // mean no mark, no feedback, for minutes. The network is bookkeeping.
