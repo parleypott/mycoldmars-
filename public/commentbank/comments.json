@@ -1,5 +1,274 @@
 [
   {
+    "id": "F0BJMG0KW6L",
+    "name": "Screenshot 2026-07-16 at 9.12.00 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 34912,
+    "local_path": "images/F0BJMG0KW6L.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "Johnny Harris doesn't want me to log off YouTube 😭",
+      "commenter": "SAVONTHESIS",
+      "sentiment": "funny",
+      "themes": [
+        "host",
+        "engagement",
+        "binge-watching",
+        "humor"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:53.101Z"
+  },
+  {
+    "id": "F0BJMG013J4",
+    "name": "Screenshot 2026-07-16 at 8.35.20 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 39501,
+    "local_path": "images/F0BJMG013J4.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "New JH fresh off the press while I'm working? Yes thank you!",
+      "commenter": "benjaminsmith9823",
+      "sentiment": "praise",
+      "themes": [
+        "new release",
+        "excitement",
+        "creator initials",
+        "viewer habit"
+      ],
+      "video_hint": "New video by a creator with initials JH",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:53.418Z"
+  },
+  {
+    "id": "F0BHV3V7G49",
+    "name": "Screenshot 2026-07-16 at 9.08.47 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 43079,
+    "local_path": "images/F0BHV3V7G49.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "Thanks for this video! Appreciate the mention of recent protests massacre while a lot of news outlets avoided it.",
+      "commenter": "NimaCn",
+      "sentiment": "praise",
+      "themes": [
+        "protests",
+        "media coverage",
+        "censorship",
+        "current events"
+      ],
+      "video_hint": "A video covering a recent protests massacre that mainstream news outlets underreported",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:53.757Z"
+  },
+  {
+    "id": "F0BHLUG1JUT",
+    "name": "Screenshot 2026-07-16 at 9.09.19 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 80120,
+    "local_path": "images/F0BHLUG1JUT.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "THANK you for covering this, its in a digestible respectful format whilst not dimming the overall impact internally within iran. its difficult to find information on serious topics without it being plagued by bias or western ideologies. i like to understand history topics as they are, i appreciate you creating videos with proper journalism.",
+      "commenter": "@maroon.1v1",
+      "sentiment": "praise",
+      "themes": [
+        "iran",
+        "journalism",
+        "bias",
+        "history"
+      ],
+      "video_hint": "A video covering a serious topic related to Iran, likely historical or political in nature",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:54.710Z"
+  },
+  {
+    "id": "F0BHR6EASSJ",
+    "name": "Screenshot 2026-07-16 at 9.24.33 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 32965,
+    "local_path": "images/F0BHR6EASSJ.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "Thanks Johnny… very powerful",
+      "commenter": "Savingafricauncensored",
+      "sentiment": "praise",
+      "themes": [
+        "gratitude",
+        "impact",
+        "host"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:55.667Z"
+  },
+  {
+    "id": "F0BHT6ALTV0",
+    "name": "Screenshot 2026-07-16 at 8.21.55 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 33394,
+    "local_path": "images/F0BHT6ALTV0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "Thank Jonny Harris for dropping this banger",
+      "commenter": "microblogging7643",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "music",
+        "gratitude",
+        "content"
+      ],
+      "video_hint": "likely a music or high-energy video associated with Jonny Harris",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:56.236Z"
+  },
+  {
+    "id": "F0BHPT1DHBP",
+    "name": "Screenshot 2026-07-16 at 9.09.10 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 32596,
+    "local_path": "images/F0BHPT1DHBP.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "Thank you for sharing this information. It helps us to understand current situation",
+      "commenter": "teresahemingway4577",
+      "sentiment": "praise",
+      "themes": [
+        "information",
+        "current events",
+        "gratitude",
+        "education"
+      ],
+      "video_hint": "likely a news or informational video about a current situation or event",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:56.826Z"
+  },
+  {
+    "id": "F0BHT6B7KJN",
+    "name": "Screenshot 2026-07-16 at 9.24.07 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29670,
+    "local_path": "images/F0BHT6B7KJN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "I've learned soo much from this man over the years.\nTHANK YOU 🇿🇦🇿🇦🇿🇦",
+      "commenter": "ZainChitenje",
+      "sentiment": "praise",
+      "themes": [
+        "gratitude",
+        "learning",
+        "long-term viewer",
+        "host"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:08:58.153Z"
+  },
+  {
+    "id": "F0BHLUJC0DR",
+    "name": "Screenshot 2026-07-16 at 9.12.05 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28795,
+    "local_path": "images/F0BHLUJC0DR.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "Finally a new video! And a timely, interesting topic! Well done. 🍕",
+      "commenter": "Christina-vd3ow",
+      "sentiment": "praise",
+      "themes": [
+        "upload frequency",
+        "topic relevance",
+        "quality",
+        "encouragement"
+      ],
+      "video_hint": "A newly released video on a timely/current topic; specific subject unknown",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:09:01.279Z"
+  },
+  {
+    "id": "F0BJMG1C6C8",
+    "name": "Screenshot 2026-07-16 at 8.35.23 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29624,
+    "local_path": "images/F0BJMG1C6C8.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784208381.516009",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784208381516009",
+    "posted_at": "2026-07-16T13:26:21.516Z",
+    "analysis": {
+      "comment_text": "I wish the people who need to see this would watch",
+      "commenter": "ewr_plane_spotter",
+      "sentiment": "insightful",
+      "themes": [
+        "awareness",
+        "outreach",
+        "impact",
+        "audience"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-16T15:09:02.395Z"
+  },
+  {
     "id": "F0BH3ETTDUP",
     "name": "Screenshot 2026-07-15 at 8.04.17 AM.png",
     "ext": "png",
