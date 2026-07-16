@@ -37,6 +37,8 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
+  /* author's visible cuts — struck but still faintly legible */
+  .chapter s{text-decoration:line-through;text-decoration-thickness:1.5px;color:var(--ink-faint)}
   body{font-family:var(--serif);font-size:var(--size);line-height:var(--lead);
     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
     transition:background .3s, color .3s}
@@ -542,7 +544,9 @@ function chapterHTML(ch, ci, esc) {
           if (/^\[?work in progress\]?$/i.test(t)) return `<p class="wip-note" data-key="${ci}:${pi}">· work in progress ·</p>`;
           const cls = openerDone ? '' : ' class="opener"';
           openerDone = true;
-          return `<p${cls} data-key="${ci}:${pi}">${esc(s)}</p>`;
+          // ~~text~~ from the manuscript renders as a real strikethrough
+          // (safe post-esc: esc never touches tildes)
+          return `<p${cls} data-key="${ci}:${pi}">${esc(s).replace(/~~([^~]+?)~~/g, '<s>$1</s>')}</p>`;
         }).join('');
       })()}
     </section>`;
@@ -1175,9 +1179,16 @@ let playSeq = 0;
 
 const speakable = t => /[\p{L}\p{N}]/u.test(t);
 function flatParas() {
+  // struck-through prose (<s>) is a visible cut — the narrator skips it
+  const spoken = (p) => {
+    if (!p.querySelector('s')) return p.textContent;
+    const c = p.cloneNode(true);
+    c.querySelectorAll('s').forEach(x => x.remove());
+    return c.textContent;
+  };
   return [...document.querySelectorAll('.chapter p[data-key]:not(.asterism):not(.wip-note)')]
-    .filter(p => speakable(p.textContent))
-    .map(p => ({ el: p, key: p.dataset.key, text: p.textContent }));
+    .map(p => ({ el: p, key: p.dataset.key, text: spoken(p) }))
+    .filter(x => speakable(x.text));
 }
 function savedAudioIdx(flat) {
   // the furthest point wins — read ahead silently and ▶ continues from THERE,
