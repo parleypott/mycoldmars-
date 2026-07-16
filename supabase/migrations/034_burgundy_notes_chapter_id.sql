@@ -1,0 +1,15 @@
+-- Permanent chapter anchor for BURGUNDY notes (mycoldmars.com/burgundy).
+-- Each note now carries the authoring tool's PERMANENT chapter id (it rides
+-- book.json as of 2026-07-16) so a note survives chapter insertion/reordering
+-- forever — the volatile chapter_idx can shift, chapter_id can't. Added live in
+-- prod alongside app commit bd9c9cd ("burgundy reader: notes carry the tool's
+-- permanent chapter_id (insertion-proof anchoring)"), but never captured as a
+-- migration — so the repo schema drifted from production (same story as 033's
+-- `name` column). This codifies it: without this column a rebuilt DB (fresh env,
+-- dev-isolated room, disaster recovery) would 400 every note save, because
+-- sanitizeNoteRow() (api/_lib/burgundy-note-validate.js) always writes a
+-- `chapter_id` field.
+--
+-- Idempotent + additive: a no-op against prod (column already present);
+-- backfills existing rows with '' to match the sanitizer's default.
+alter table burgundy_notes add column if not exists chapter_id text not null default '';

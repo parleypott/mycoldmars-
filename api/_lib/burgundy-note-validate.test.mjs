@@ -67,6 +67,14 @@ eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', name: 'Ollie' }).name, 'Ollie', 
 eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', name: 'z'.repeat(200) }).name.length, 60, 'name capped at 60');
 eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', name: 42 }).name, '42', 'non-string name coerced');
 
+// ── chapter_id: the authoring tool's PERMANENT chapter anchor (rides book.json
+//    since 2026-07-16, app commit bd9c9cd) — capped, coerced, defaults empty.
+//    Locks the new column's sanitizer contract; migration 034 adds the column.
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x' }).chapter_id, '', 'missing chapter_id -> empty string');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_id: 'ch-7Ka9' }).chapter_id, 'ch-7Ka9', 'chapter_id passes through');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_id: 'z'.repeat(200) }).chapter_id.length, 40, 'chapter_id capped at 40');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_id: 12345 }).chapter_id, '12345', 'non-string chapter_id coerced');
+
 // ── isValidNoteId: canonical UUID shape only ──
 ok(isValidNoteId('0f9c1e2a-1b2c-4d5e-8f90-a1b2c3d4e5f6'), 'canonical uuid accepted');
 ok(isValidNoteId('0F9C1E2A-1B2C-4D5E-8F90-A1B2C3D4E5F6'), 'uppercase uuid accepted');
