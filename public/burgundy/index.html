@@ -487,10 +487,20 @@ function render() {
         press and hold a sentence to leave a note for the author<br>
         this device remembers your place, your name, your notes, and your audio</div>
     </div>`;
-  // Johnny's note to the readers — front matter, formatted like a prologue
-  // (no chapter numeral, a letter-set left rag, signed). Not annotatable (no
-  // data-key), it is not part of the manuscript readers mark up.
-  html += `
+  // Johnny's note to the readers — the editable front matter published from the
+  // tool (book.frontmatter). Formatted like an informal note (no numeral, ragged-
+  // left letter prose, signed). Not annotatable (no data-key). A book published
+  // before front matter existed falls back to the note baked in below.
+  const fm = book.frontmatter;
+  if (fm && ((Array.isArray(fm.paragraphs) && fm.paragraphs.length) || String(fm.title || '').trim())) {
+    html += `
+    <section class="chapter prologue" data-ch="pro">
+      ${String(fm.title || '').trim() ? `<div class="prologue-title">${esc(fm.title)}</div>` : ''}
+      ${(fm.paragraphs || []).map(p => `<p>${mdInline(String(p ?? ''))}</p>`).join('')}
+      ${String(fm.sign || '').trim() ? `<p class="prologue-sign">${esc(fm.sign)}</p>` : ''}
+    </section>`;
+  } else {
+    html += `
     <section class="chapter prologue" data-ch="pro">
       <div class="prologue-title">What This Is</div>
       <p>Burgundy is the product of five years of conversation, between Henry and me and others, including the weekly FaceTimes with his grandma where he first began building his world.</p>
@@ -500,6 +510,7 @@ function render() {
       <p>Have a read, and tell us what you think. What's working and what isn't. What lands and what confuses. We want to hear all of it.</p>
       <p class="prologue-sign">Johnny</p>
     </section>`;
+  }
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
   el.innerHTML = `<div class="pages" id="pages">${html}</div>`;
@@ -573,16 +584,10 @@ function chapterHTML(ch, ci, esc) {
           if (/^\[?work in progress\]?$/i.test(t)) return `<p class="wip-note" data-key="${ci}:${pi}">· work in progress ·</p>`;
           const cls = openerDone ? '' : ' class="opener"';
           openerDone = true;
-          // inline formatting from the manuscript, restored post-esc (esc never
-          // touches ~ or *): ~~strike~~, ***bold-italic***, **bold**, *italic*.
-          // textContent stays clean so note anchoring (which counts textContent)
-          // is unaffected; highlighting already spans inline elements via <s>.
-          const md = esc(s)
-            .replace(/~~([^~]+?)~~/g, '<s>$1</s>')
-            .replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-            .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*([^*]+?)\*/g, '<em>$1</em>');
-          return `<p${cls} data-key="${ci}:${pi}">${md}</p>`;
+          // inline formatting from the manuscript, restored post-esc: textContent
+          // stays clean so note anchoring (which counts textContent) is unaffected;
+          // highlighting already spans inline elements via <s>.
+          return `<p${cls} data-key="${ci}:${pi}">${mdInline(s)}</p>`;
         }).join('');
       })()}
     </section>`;
@@ -1120,10 +1125,11 @@ addEventListener('pointerup', e => {
 function renderToc() {
   const roman = (n) => { const R = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let s = ''; for (const [v, r] of R) while (n >= v) { s += r; n -= v; } return s; };
   const chapters = safeBook(BOOK).chapters || [];
+  const fmTitle = String(safeBook(BOOK).frontmatter?.title || '').trim() || 'What This Is';
   $('toc-list').innerHTML = `
     <button class="toc-item" data-toc="pro">
       <span class="toc-num">·</span>
-      <span class="toc-name">What This Is</span>
+      <span class="toc-name">${esc(fmTitle)}</span>
     </button>` + chapters.map((c, i) => `
     <button class="toc-item" data-toc="${i}">
       <span class="toc-num">${roman(i + 1)}</span>
@@ -1464,6 +1470,15 @@ $('btn-prevp').addEventListener('click', () => startAt(Math.max(0, player.idx - 
 $('btn-nextp').addEventListener('click', () => startAt(player.idx + 1));
 
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// restore manuscript inline formatting after escaping: ~~strike~~, ***bold-italic***,
+// **bold**, *italic* (shared by chapter prose and the front-matter note)
+function mdInline(s) {
+  return esc(s)
+    .replace(/~~([^~]+?)~~/g, '<s>$1</s>')
+    .replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+}
 /* a present-but-unparseable published_at (legacy/hand-edited book.json) must never
    render the literal "Invalid Date" on the title page — fall back to today. */
 function pubDate(v) { const d = new Date(v || Date.now()); return isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString(); }
