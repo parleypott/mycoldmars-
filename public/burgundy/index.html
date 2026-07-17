@@ -718,12 +718,18 @@ function hidePill() { clearTimeout(pillTimer); $('pill').classList.remove('on');
 $('pill').addEventListener('pointerdown', async (e) => {
   e.preventDefault(); e.stopPropagation();
   const id = e.target.closest('button')?.id;
-  if (id === 'pill-hl' && sel) {
-    const ok = await saveNote({ ...sel, note: '', color });
-    if (!ok) return;                    // pill stays up — retry visible
-    clearSelection();
-  } else if (id === 'pill-note' && sel) {
-    openSheet({ quote: sel.quote, note: '', color, _new: { ...sel } });
+  // GESTURE LOCK (2026-07-16): capture the selection and drop it SYNCHRONOUSLY
+  // before the await, so a second tap during the in-flight save is a no-op.
+  // saveNote paints first, so hiding the pill immediately loses nothing — and
+  // it closes the double-tap duplicate vector the per-save key cannot (two taps
+  // = two keys). This was a real source of the byte-identical note pairs.
+  const s = sel;
+  if (id === 'pill-hl' && s) {
+    sel = null; clearSelection();
+    await saveNote({ ...s, note: '', color });
+  } else if (id === 'pill-note' && s) {
+    sel = null; hidePill();
+    openSheet({ quote: s.quote, note: '', color, _new: { ...s } });
   }
 });
 
@@ -755,6 +761,8 @@ function openSheet(n) {
 function closeSheet() {
   document.body.classList.remove('sheet-on');
   $('sheet').style.transform = ''; editingNote = null;
+  // the save handler holds these disabled through the success flash — release here
+  $('sheet-save').disabled = false; $('sheet-delete').disabled = false;
 }
 // ride the sheet above the iOS keyboard
 if (window.visualViewport) {
@@ -777,9 +785,9 @@ $('swatches').addEventListener('click', e => {
 $('sheet-save').addEventListener('click', async () => {
   if (!editingNote || $('sheet-save').disabled) return;
   $('sheet-save').disabled = true; $('sheet-delete').disabled = true;
+  let ok = false;   // hoisted so `finally` can see it (block-scoped it couldn't)
   try {
     const note = $('sheet-text').value.trim();
-    let ok = false;
     if (editingNote._new) {
       ok = await saveNote({ ...editingNote._new, note, color });
     } else if (editingNote.id) {
@@ -799,12 +807,16 @@ $('sheet-save').addEventListener('click', async () => {
     }
     if (ok) {
       $('saved-flash').hidden = false;
+      editingNote = null;   // a second tap in the 550ms flash window can't re-save
       setTimeout(closeSheet, 550);
       clearSelection();
     }
     // !ok → sheet stays open, text preserved; saveNote already alerted
   } finally {
-    $('sheet-save').disabled = false; $('sheet-delete').disabled = false;
+    // KEEP the save button disabled through the closing flash on success
+    // (closeSheet re-enables it) so a second tap can't write a twin. Only
+    // re-enable now when the save failed and the sheet stays open for retry.
+    if (!ok) { $('sheet-save').disabled = false; $('sheet-delete').disabled = false; }
   }
 });
 $('sheet-delete').addEventListener('click', async () => {
@@ -1460,6 +1472,9 @@ async function flushNoteQueue() {
           continue;
         }
         const { _lid, ...clean } = row;
+        // a row queued under the OLD build carries no dedupe_key — stamp one
+        // from its stable _lid so a reflush can't insert a twin (2026-07-16)
+        if (!clean.dedupe_key && _lid) clean.dedupe_key = 'dk-q-' + _lid;
         const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clean) });
         if (r.ok) sentLids.add(row._lid);
       } catch {}
