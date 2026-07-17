@@ -1147,6 +1147,7 @@ function observeChapters() {
     if (pagedOn()) return;   // paged mode computes the current chapter per page turn
     for (const en of es) if (en.isIntersecting) {
       const ci = +en.target.dataset.ch;
+      if (!Number.isFinite(ci)) continue;   // front matter (the prologue, data-ch="pro") has no chapter number — never render "ch NaN"
       markTocCurrent(ci);
       const bt = bareTitle(BOOK.chapters[ci]?.title || '');
       $('chap-label').textContent = `ch ${ci + 1}${bt ? ' · ' + bt : ''}`;
