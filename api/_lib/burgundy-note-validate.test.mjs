@@ -75,6 +75,20 @@ eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_id: 'ch-7Ka9' }).chapter
 eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_id: 'z'.repeat(200) }).chapter_id.length, 40, 'chapter_id capped at 40');
 eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', chapter_id: 12345 }).chapter_id, '12345', 'non-string chapter_id coerced');
 
+// ── dedupe_key: client idempotency key (app commits 53a206d/1324b8d,
+//    migration 035). UNLIKE name/chapter_id it defaults to NULL, not '',
+//    because the partial unique index only constrains non-null keys — a
+//    keyless legacy insert must stay unconstrained. If an empty/whitespace
+//    key ever coerced to '' instead of null, EVERY keyless insert would
+//    collide on the '' value and the partial index would reject all but the
+//    first. Lock the null-on-empty contract hard.
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x' }).dedupe_key, null, 'missing dedupe_key -> null (legacy insert stays unconstrained)');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', dedupe_key: 'lid-9f3a' }).dedupe_key, 'lid-9f3a', 'dedupe_key passes through');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', dedupe_key: 'z'.repeat(200) }).dedupe_key.length, 60, 'dedupe_key capped at 60');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', dedupe_key: '   ' }).dedupe_key, null, 'MUTATION PROOF: whitespace-only key -> null, NOT "" (else keyless inserts all collide on the partial index)');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', dedupe_key: '' }).dedupe_key, null, 'empty string key -> null');
+eq(sanitizeNoteRow({ para_key: 'a', quote: 'x', dedupe_key: 12345 }).dedupe_key, null, 'non-string key -> null (not coerced)');
+
 // ── isValidNoteId: canonical UUID shape only ──
 ok(isValidNoteId('0f9c1e2a-1b2c-4d5e-8f90-a1b2c3d4e5f6'), 'canonical uuid accepted');
 ok(isValidNoteId('0F9C1E2A-1B2C-4D5E-8F90-A1B2C3D4E5F6'), 'uppercase uuid accepted');
