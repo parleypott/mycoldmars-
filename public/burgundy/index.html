@@ -643,14 +643,20 @@ function paraOfNode(node) {
   return el?.closest?.('p[data-key]') || null;
 }
 function offsetInPara(p, node, nodeOffset) {
-  let seen = 0;
-  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    const t = walker.currentNode;
-    if (t === node) return seen + nodeOffset;
-    seen += t.textContent.length;
-  }
-  return -1;
+  // Measure with a Range, not a text-node walk. The old walk matched only
+  // TEXT-node containers (t === node); but once a paragraph carries <mark>s,
+  // iPad/WebKit routinely reports a selection endpoint as an ELEMENT node
+  // (the <p> or a <mark>, with a child-index offset). The walk then returned
+  // -1 and the selectionchange handler bailed -> the highlight pill vanished,
+  // worse the more highlights existed. A Range counts characters from the
+  // paragraph start whether the container is text OR an element, matching the
+  // textContent counting used elsewhere. (2026-07-16 selection-decay fix)
+  try {
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    r.setEnd(node, nodeOffset);
+    return r.toString().length;
+  } catch { return -1; }
 }
 document.addEventListener('selectionchange', () => {
   const s = document.getSelection();
@@ -927,8 +933,16 @@ function rerenderMarks() {
 document.addEventListener('click', e => {
   const m = e.target.closest('mark');
   if (m) {
-    const n = NOTES.find(x => x.id === m.dataset.noteId);
-    if (n) { openSheet(n); return; }
+    // ONLY on a real tap — not the tail of a selection that ended on a
+    // highlight. On iPad, selecting a word on/near a <mark> resolves the
+    // tap-target to the mark and used to hijack into the note sheet, which
+    // collapsed the selection and killed the pill. The more highlights, the
+    // more clickable mark surface, so this got worse "after a few highlights".
+    // (2026-07-16 selection-decay fix)
+    if (document.getSelection()?.isCollapsed && Date.now() - lastSelCollapse >= 400) {
+      const n = NOTES.find(x => x.id === m.dataset.noteId);
+      if (n) { openSheet(n); return; }
+    }
   }
   if (Date.now() - lastSelCollapse < 400) return;   // dismissing a selection ≠ zen toggle
   // while listening, tapping a paragraph means "read from HERE", not zen
