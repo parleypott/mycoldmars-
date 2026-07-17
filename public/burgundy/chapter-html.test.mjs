@@ -19,7 +19,12 @@ import assert from 'node:assert/strict';
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'index.html'), 'utf8');
 const m = html.match(/function chapterHTML\(ch, ci, esc\)\s*\{[\s\S]*?\n\}/);
 assert.ok(m, 'could not extract chapterHTML() from index.html — did the function signature change?');
-const chapterHTML = (0, eval)('(' + m[0] + ')');
+// chapterHTML now closes over the module-level mdInline() (shared inline-format
+// helper extracted in dd9d299) — extract it too so the source-locked eval resolves it.
+const md = html.match(/function mdInline\(s\)\s*\{[\s\S]*?\n\}/);
+assert.ok(md, 'could not extract mdInline() from index.html — did the function signature change?');
+const escSrc = `s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')`;
+const chapterHTML = (0, eval)(`(function(){ const esc = ${escSrc}; ${md[0]} return ${m[0]}; })()`);
 
 // A minimal esc mirroring the reader's (enough to prove escaping is applied).
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

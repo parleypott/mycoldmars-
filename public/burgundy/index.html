@@ -496,7 +496,7 @@ function render() {
     html += `
     <section class="chapter prologue" data-ch="pro">
       ${String(fm.title || '').trim() ? `<div class="prologue-title">${esc(fm.title)}</div>` : ''}
-      ${(fm.paragraphs || []).map(p => `<p>${mdInline(String(p ?? ''))}</p>`).join('')}
+      ${(Array.isArray(fm.paragraphs) ? fm.paragraphs : []).map(p => `<p>${mdInline(String(p ?? ''))}</p>`).join('')}
       ${String(fm.sign || '').trim() ? `<p class="prologue-sign">${esc(fm.sign)}</p>` : ''}
     </section>`;
   } else {
