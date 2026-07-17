@@ -544,9 +544,16 @@ function chapterHTML(ch, ci, esc) {
           if (/^\[?work in progress\]?$/i.test(t)) return `<p class="wip-note" data-key="${ci}:${pi}">· work in progress ·</p>`;
           const cls = openerDone ? '' : ' class="opener"';
           openerDone = true;
-          // ~~text~~ from the manuscript renders as a real strikethrough
-          // (safe post-esc: esc never touches tildes)
-          return `<p${cls} data-key="${ci}:${pi}">${esc(s).replace(/~~([^~]+?)~~/g, '<s>$1</s>')}</p>`;
+          // inline formatting from the manuscript, restored post-esc (esc never
+          // touches ~ or *): ~~strike~~, ***bold-italic***, **bold**, *italic*.
+          // textContent stays clean so note anchoring (which counts textContent)
+          // is unaffected; highlighting already spans inline elements via <s>.
+          const md = esc(s)
+            .replace(/~~([^~]+?)~~/g, '<s>$1</s>')
+            .replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+          return `<p${cls} data-key="${ci}:${pi}">${md}</p>`;
         }).join('');
       })()}
     </section>`;
