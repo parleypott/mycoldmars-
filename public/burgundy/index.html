@@ -180,6 +180,11 @@
     background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft);transition:background .3s}
   .chapter p{margin:0;text-indent:1.5em;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
   .chapter p.opener{text-indent:0}
+  /* the prologue reads as a letter, not novel prose: ragged-right, no indent,
+     paragraph spacing, a signature that sits to the right */
+  .prologue p{text-indent:0;text-align:left;margin:0 0 1.1em;hyphens:none;-webkit-hyphens:none}
+  .prologue .ch-title{font-size:clamp(24px,5.4vw,34px)}
+  .prologue-sign{text-align:right;font-style:italic;color:var(--ink-soft);margin-top:1.5em!important}
   .chapter p+p.speaking, .chapter p.speaking{/* keep listen highlight readable */}
   .chapter p.asterism{text-indent:0!important;text-align:center!important;letter-spacing:.9em;padding:1.4em 0;color:var(--ink-soft)}
   .chapter p.asterism + p{text-indent:0}
@@ -399,6 +404,14 @@ const safeGet = (k) => { try { return localStorage.getItem(k); } catch { return 
 let READER = null;   // per-device identity: each reader sees only their own margin notes
 function readerId() {
   if (READER) return READER;
+  // A per-reader URL token (?r=jess) is the DURABLE identity: it survives a
+  // device switch, a Safari data-clear, and iOS ITP storage eviction, so one
+  // person's notes never fragment into many ids and never lose their own
+  // highlights on a second device. Hand each reader their own link before they
+  // open it. Falls back to a per-device random id for anyone who opens the bare
+  // URL. (2026-07-17 pre-onboarding identity fix)
+  const tok = (new URLSearchParams(location.search).get('r') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+  if (tok) { READER = 'r-' + tok; safeSet('bg-reader', READER); return READER; }
   READER = safeGet('bg-reader');
   if (!READER) { READER = 'r-' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()); safeSet('bg-reader', READER); }
   return READER;
@@ -471,6 +484,23 @@ function render() {
         press and hold a sentence to leave a note for the author<br>
         this device remembers your place, your name, your notes, and your audio</div>
     </div>`;
+  // Johnny's note to the readers — front matter, formatted like a prologue
+  // (no chapter numeral, a letter-set left rag, signed). Not annotatable (no
+  // data-key), it is not part of the manuscript readers mark up.
+  html += `
+    <section class="chapter prologue" data-ch="pro">
+      <div class="ch-head">
+        <div class="ch-num">Prologue</div>
+        <div class="ch-title">What This Is</div>
+        <div class="ch-rule"></div>
+      </div>
+      <p class="opener">Burgundy is the product of five years of conversation — between Henry and me and others, including the weekly FaceTimes with his grandma where he first began building his world.</p>
+      <p>Henry's imagination is vast and singular. It's a mind unlike any I know, by a long way. As he's gotten older — as he's devoured hundreds of novels and taught himself geopolitics, astrophysics, engineering, and economics — those subjects have found their way into his invented worlds.</p>
+      <p>Three years ago it became clear that his world had grown big and complex enough to become a novel, while staying coherent enough to actually hold together. So we started developing it, mostly just in conversation: characters, storylines, the shape of things. Two years ago we began putting down words — slowly, in the long breaks from school and work. This year we made real progress.</p>
+      <p>And that's what this is: an initial manuscript of the first few chapters. An introduction to the world Henry invited me into, and that I've helped him build.</p>
+      <p>Have a read, and tell us what you think. What's working and what isn't. What lands and what confuses. We want to hear all of it.</p>
+      <p class="prologue-sign">— Johnny</p>
+    </section>`;
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
   el.innerHTML = `<div class="pages" id="pages">${html}</div>`;
@@ -1091,7 +1121,11 @@ addEventListener('pointerup', e => {
 function renderToc() {
   const roman = (n) => { const R = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let s = ''; for (const [v, r] of R) while (n >= v) { s += r; n -= v; } return s; };
   const chapters = safeBook(BOOK).chapters || [];
-  $('toc-list').innerHTML = chapters.map((c, i) => `
+  $('toc-list').innerHTML = `
+    <button class="toc-item" data-toc="pro">
+      <span class="toc-num">·</span>
+      <span class="toc-name">What This Is</span>
+    </button>` + chapters.map((c, i) => `
     <button class="toc-item" data-toc="${i}">
       <span class="toc-num">${roman(i + 1)}</span>
       <span class="toc-name">${esc(bareTitle(c?.title) || 'Chapter ' + roman(i + 1))}</span>
