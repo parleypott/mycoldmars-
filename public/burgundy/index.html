@@ -180,11 +180,14 @@
     background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft);transition:background .3s}
   .chapter p{margin:0;text-indent:1.5em;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
   .chapter p.opener{text-indent:0}
-  /* the prologue reads as a letter, not novel prose: ragged-right, no indent,
-     paragraph spacing, a signature that sits to the right */
-  .prologue p{text-indent:0;text-align:left;margin:0 0 1.1em;hyphens:none;-webkit-hyphens:none}
-  .prologue .ch-title{font-size:clamp(24px,5.4vw,34px)}
-  .prologue-sign{text-align:right;font-style:italic;color:var(--ink-soft);margin-top:1.5em!important}
+  /* the prologue is a little note to the reader, not a chapter: no numeral, no
+     fleuron, no drop cap, a narrower intimate column, ragged-left letter prose */
+  .prologue{padding-top:9vh;max-width:min(544px,90%);margin-left:auto;margin-right:auto}
+  .prologue-title{font-family:var(--serif);font-style:italic;font-size:clamp(21px,4.4vw,27px);color:var(--ink);letter-spacing:.01em;margin-bottom:1.5em}
+  .prologue p{text-indent:0;text-align:left;margin:0 0 1em;hyphens:none;-webkit-hyphens:none;
+    font-size:clamp(16px,2.05vw,18px);line-height:1.62;color:var(--ink-soft)}
+  .prologue p:first-of-type::first-letter{font-size:inherit;font-family:inherit;float:none;line-height:inherit;margin:0;font-weight:inherit}
+  .prologue-sign{text-indent:0;font-style:italic;color:var(--ink);margin-top:1.4em!important}
   .chapter p+p.speaking, .chapter p.speaking{/* keep listen highlight readable */}
   .chapter p.asterism{text-indent:0!important;text-align:center!important;letter-spacing:.9em;padding:1.4em 0;color:var(--ink-soft)}
   .chapter p.asterism + p{text-indent:0}
@@ -489,17 +492,13 @@ function render() {
   // data-key), it is not part of the manuscript readers mark up.
   html += `
     <section class="chapter prologue" data-ch="pro">
-      <div class="ch-head">
-        <div class="ch-num">Prologue</div>
-        <div class="ch-title">What This Is</div>
-        <div class="ch-rule"></div>
-      </div>
-      <p class="opener">Burgundy is the product of five years of conversation — between Henry and me and others, including the weekly FaceTimes with his grandma where he first began building his world.</p>
-      <p>Henry's imagination is vast and singular. It's a mind unlike any I know, by a long way. As he's gotten older — as he's devoured hundreds of novels and taught himself geopolitics, astrophysics, engineering, and economics — those subjects have found their way into his invented worlds.</p>
-      <p>Three years ago it became clear that his world had grown big and complex enough to become a novel, while staying coherent enough to actually hold together. So we started developing it, mostly just in conversation: characters, storylines, the shape of things. Two years ago we began putting down words — slowly, in the long breaks from school and work. This year we made real progress.</p>
+      <div class="prologue-title">What This Is</div>
+      <p>Burgundy is the product of five years of conversation, between Henry and me and others, including the weekly FaceTimes with his grandma where he first began building his world.</p>
+      <p>Henry's imagination is vast and singular. It's a mind unlike any I know, by a long way. As he's gotten older, as he's devoured hundreds of novels and taught himself geopolitics, astrophysics, engineering, and economics, those subjects have found their way into his invented worlds.</p>
+      <p>Three years ago it became clear that his world had grown big and complex enough to become a novel, while staying coherent enough to actually hold together. So we started developing it, mostly just in conversation: characters, storylines, the shape of things. Two years ago we began putting down words, slowly, in the long breaks from school and work. This year we made real progress.</p>
       <p>And that's what this is: an initial manuscript of the first few chapters. An introduction to the world Henry invited me into, and that I've helped him build.</p>
       <p>Have a read, and tell us what you think. What's working and what isn't. What lands and what confuses. We want to hear all of it.</p>
-      <p class="prologue-sign">— Johnny</p>
+      <p class="prologue-sign">Johnny</p>
     </section>`;
   chapters.forEach((ch, ci) => { html += chapterHTML(ch, ci, esc); });
   html += `<div class="the-end">· to be continued ·</div><div class="orphans" id="orphans"></div>`;
