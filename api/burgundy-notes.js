@@ -55,8 +55,30 @@ export default async function handler(req) {
       const body = await req.json().catch(() => null);
       const row = sanitizeNoteRow(body);
       if (!row) return json(400, { error: 'para_key and quote required' });
+      // IDEMPOTENCY (2026-07-16): a POST the client retried after it LOOKED
+      // failed but had already reached the DB (6s abort, a mobile radio drop
+      // that rejects fetch post-landing, an offline-queue reflush) carries the
+      // same dedupe_key. Return the existing row instead of inserting a twin.
+      // This is the fix for the duplicate-note leak (23 pairs found live, each
+      // ~1s apart and byte-identical). Sequential retries are fully covered;
+      // the partial unique index below is the hard backstop for a rare race.
+      const findByKey = async () => {
+        if (!row.dedupe_key) return null;
+        const ex = await sb(`burgundy_notes?dedupe_key=eq.${encodeURIComponent(row.dedupe_key)}&select=*&limit=1`);
+        if (!ex.ok) return null;
+        const [hit] = await ex.json();
+        return hit || null;
+      };
+      const pre = await findByKey();
+      if (pre) return json(200, { ok: true, note: pre, deduped: true });
       const r = await sb('burgundy_notes', { method: 'POST', body: JSON.stringify(row) });
-      if (!r.ok) return json(502, { error: 'db write failed' });
+      if (!r.ok) {
+        // lost a race to an identical-key insert (unique-index reject)? the row
+        // is already there — return it rather than a spurious failure
+        const raced = await findByKey();
+        if (raced) return json(200, { ok: true, note: raced, deduped: true });
+        return json(502, { error: 'db write failed' });
+      }
       const [saved] = await r.json();
       return json(200, { ok: true, note: saved });
     }

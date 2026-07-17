@@ -866,7 +866,15 @@ async function saveNote(n) {
   // born now. Restamping an old note's anchors with today's version lies about
   // which publish those para_key/chapter_idx came from and mis-resolves them in
   // the authoring tool after a chapter split/insert.
-  const row = { ...n, name: readerName(), book_version: n.book_version ?? (BOOK?.version || ''), reader: readerId() };
+  // IDEMPOTENCY KEY (2026-07-16): a stable per-save key so a POST that reached
+  // the server but LOOKED failed to the client (6s abort, a transient mobile
+  // radio drop that rejects fetch after the request landed, an offline queue
+  // reflush) can be retried without inserting a second identical row. It is
+  // generated ONCE here and rides both the immediate POST and any queued
+  // retry, so the server dedups on it. This is the fix for the 23 duplicate
+  // note pairs found on the live reader — every one ~1s apart, byte-identical.
+  const dedupe_key = 'dk-' + ((crypto?.randomUUID?.()) || (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+  const row = { ...n, name: readerName(), book_version: n.book_version ?? (BOOK?.version || ''), reader: readerId(), dedupe_key };
   // PAINT FIRST. The color must appear the instant the reader acts — iPad wifi
   // routinely claims online while the radio is dead, and a hanging POST used to
   // mean no mark, no feedback, for minutes. The network is bookkeeping.

@@ -30,6 +30,12 @@ export function sanitizeNoteRow(body) {
     // the authoring tool's PERMANENT chapter id (rides book.json since
     // 2026-07-16) — survives chapter insertion/reordering forever
     chapter_id: String(body.chapter_id || '').slice(0, 40),
+    // client-generated idempotency key (2026-07-16): dedups a POST that the
+    // client retried after it looked failed but had actually reached the DB.
+    // Omitted (null) for legacy clients — the partial unique index only
+    // constrains non-null keys, so those still insert as before.
+    dedupe_key: (typeof body.dedupe_key === 'string' && body.dedupe_key.trim())
+      ? body.dedupe_key.slice(0, 60) : null,
   };
 }
 
