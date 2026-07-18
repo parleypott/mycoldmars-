@@ -1,5 +1,217 @@
 [
   {
+    "id": "F0BHSU3GH71",
+    "name": "Screenshot 2026-07-18 at 9.57.47 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 42884,
+    "local_path": "images/F0BHSU3GH71.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Man... The research quality, production value and engaging delivery are outstanding + more specifically, interesting timely topic! = No-brainer immediate subbed.",
+      "commenter": "@KahuHämäläinen",
+      "sentiment": "praise",
+      "themes": [
+        "production value",
+        "research quality",
+        "delivery",
+        "subscription"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:18.136Z"
+  },
+  {
+    "id": "F0BJC0V5D28",
+    "name": "Screenshot 2026-07-18 at 9.57.57 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 25907,
+    "local_path": "images/F0BJC0V5D28.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Very interesting video. I always wondered why China and India are so bad",
+      "commenter": "lukabozic5",
+      "sentiment": "insightful",
+      "themes": [
+        "china",
+        "india",
+        "geopolitics",
+        "curiosity"
+      ],
+      "video_hint": "Video likely about China and India, possibly comparing them or discussing their shortcomings in some domain",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:18.145Z"
+  },
+  {
+    "id": "F0BJA7046N5",
+    "name": "Screenshot 2026-07-18 at 8.13.20 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 45861,
+    "local_path": "images/F0BJA7046N5.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Finally.... Finally...\nYou listened to me...\nI was waiting for it .. since ages... ( Its just a hyperbole, not literally was waiting for ages..)",
+      "commenter": "SHIVAM_SWASTIK",
+      "sentiment": "praise",
+      "themes": [
+        "anticipation",
+        "creator response",
+        "humor",
+        "engagement"
+      ],
+      "video_hint": "A video or feature the commenter had previously requested from the creator",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:19.026Z"
+  },
+  {
+    "id": "F0BJ50TBHDK",
+    "name": "Screenshot 2026-07-18 at 9.57.11 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 61550,
+    "local_path": "images/F0BJ50TBHDK.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Thanks for making this.\nA single district here has more people than the entire population of some of these qualified nations.\nIt is a huge embarrassment for us despite having 1.5 Billion people we are unable to find 11.",
+      "commenter": "abhith_shaji",
+      "sentiment": "critical",
+      "themes": [
+        "india",
+        "football",
+        "population",
+        "world cup qualification"
+      ],
+      "video_hint": "Video about FIFA World Cup qualifying nations or India's failure to qualify for football/soccer",
+      "is_question": false,
+      "is_criticism": true
+    },
+    "analyzed_at": "2026-07-18T14:53:19.657Z"
+  },
+  {
+    "id": "F0BJ221GVDH",
+    "name": "Screenshot 2026-07-18 at 9.56.14 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 35857,
+    "local_path": "images/F0BJ221GVDH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Thanks for making the Video , hope indian government would wake up",
+      "commenter": "tufanrakshit7624",
+      "sentiment": "praise",
+      "themes": [
+        "india",
+        "government",
+        "appreciation",
+        "awareness"
+      ],
+      "video_hint": "A video about an Indian government policy or social issue",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:21.268Z"
+  },
+  {
+    "id": "F0BHSU3D72B",
+    "name": "Screenshot 2026-07-18 at 9.56.40 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 49284,
+    "local_path": "images/F0BHSU3D72B.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Sam did a fantastic job summerising the essence of the Chinese football situation AKA the biggest disgrace in the solar galaxy.",
+      "commenter": "kaizhang5811",
+      "sentiment": "praise",
+      "themes": [
+        "chinese football",
+        "host",
+        "praise",
+        "sports"
+      ],
+      "video_hint": "Video about the state of Chinese football",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:21.392Z"
+  },
+  {
+    "id": "F0BJA6ZN3BK",
+    "name": "Screenshot 2026-07-18 at 9.55.29 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47611,
+    "local_path": "images/F0BJA6ZN3BK.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "Thank you Sam for addressing this important topic.",
+      "commenter": "moosejawrobinson",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "topic acknowledgment"
+      ],
+      "video_hint": "video addresses an important topic presented by a creator named Sam",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:21.495Z"
+  },
+  {
+    "id": "F0BJC0VJXGU",
+    "name": "Screenshot 2026-07-18 at 9.55.12 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 36273,
+    "local_path": "images/F0BJC0VJXGU.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1784383206.863999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1784383206863999",
+    "posted_at": "2026-07-18T14:00:06.863Z",
+    "analysis": {
+      "comment_text": "big fan sir😂😭",
+      "commenter": "asavsuthar4392",
+      "sentiment": "praise",
+      "themes": [
+        "fan",
+        "host"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-18T14:53:22.104Z"
+  },
+  {
     "id": "F0BJ3FV9X4J",
     "name": "Screenshot 2026-07-17 at 9.28.24 AM.png",
     "ext": "png",
