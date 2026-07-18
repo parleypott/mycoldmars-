@@ -57,11 +57,25 @@ const setFolio = (0, eval)('(' + mSet[0] + ')');
 
 // --- mock DOM ------------------------------------------------------------
 const mkPara = (text) => ({ dataset: {}, textContent: text });
+// a front-matter (prologue) paragraph — carries data-key for annotation but
+// must be excluded from the folio count.
+const mkProl = (text) => ({ dataset: {}, textContent: text, prologue: true });
 function setParas(paras) {
   globalThis.document = {
     querySelectorAll(sel) {
-      assert.equal(sel, '.chapter p[data-key]', 'buildFolio selector drifted');
+      assert.equal(sel, '.chapter:not(.prologue) p[data-key]', 'buildFolio selector drifted (must exclude the .prologue front matter)');
       return paras.slice();
+    },
+  };
+}
+// mock that HONORS the shipped selector's `:not(.prologue)` filter, so a revert
+// of index.html back to `.chapter p[data-key]` changes the paragraphs buildFolio
+// sees and turns the front-matter-exclusion assertions RED.
+function setMixedParas(paras) {
+  globalThis.document = {
+    querySelectorAll(sel) {
+      const excludeProl = sel.includes(':not(.prologue)');
+      return paras.filter((p) => !(excludeProl && p.prologue));
     },
   };
 }
@@ -140,6 +154,34 @@ const words = (n) => Array.from({ length: n }, () => 'x').join(' ');
   setParas([]);
   buildFolio();
   assert.equal(globalThis.FOLIO_TOTAL, 1, 'no paragraphs -> total is 1, not 0');
+}
+
+// ------------------------------------------------------------------------
+// 5b. FRONT MATTER IS NOT COUNTED (regression fix, iter #29, 2026-07-18).
+//     Commit 7e03e59 made the prologue (Johnny's front-matter note) annotatable
+//     by giving its paragraphs data-key. That pulled the note into buildFolio's
+//     `.chapter p[data-key]` count, inflating EVERY chapter's page number by the
+//     note's word count and breaking the cross-surface page contract. The fix
+//     scopes the selector to `.chapter:not(.prologue) p[data-key]` (mirroring
+//     flatParas). This block proves the front matter no longer shifts the pages —
+//     and, via setMixedParas honoring the shipped selector, a revert goes RED.
+// ------------------------------------------------------------------------
+{
+  const fm0 = mkProl(words(250)); // Johnny's note — ~one page of front matter
+  const fm1 = mkProl(words(120));
+  const ch1 = mkPara(words(10));  // first real chapter paragraph
+  const ch2 = mkPara(words(300)); // rest of chapter 1
+  setMixedParas([fm0, fm1, ch1, ch2]);
+  buildFolio();
+  // chapter 1 opens on page 1 — NOT page 2/3, which is where 370 words of front
+  // matter would have pushed it under the buggy selector.
+  assert.equal(ch1.dataset.bookpage, 1, 'front matter must NOT push chapter 1 off page 1 — folio counts manuscript prose only');
+  assert.equal(ch2.dataset.bookpage, 2, 'chapter prose paginates from word 1 (cum 310 -> page 2), front matter excluded');
+  assert.equal(globalThis.FOLIO_TOTAL, 2, 'total counts chapter prose only (310 words -> 2 pages), not the 370 front-matter words');
+  // the excluded front-matter paragraphs never receive a bookpage, so setFolio
+  // keeps the folio bare while the reader is in the note.
+  assert.equal(fm0.dataset.bookpage, undefined, 'a front-matter paragraph gets no bookpage (folio hidden there)');
+  assert.equal(fm1.dataset.bookpage, undefined, 'a front-matter paragraph gets no bookpage (folio hidden there)');
 }
 
 // ------------------------------------------------------------------------

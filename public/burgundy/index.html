@@ -548,7 +548,12 @@ const FOLIO_WPP = 250;
 let FOLIO_TOTAL = 1;
 function buildFolio() {
   let cum = 0;
-  for (const p of document.querySelectorAll('.chapter p[data-key]')) {
+  // folio counts MANUSCRIPT prose only. The prologue (Johnny's front-matter
+  // note) is now annotatable so it carries data-key, but it is front matter —
+  // excluded here so it never inflates the chapters' page numbers (the folio's
+  // cross-surface contract: a page number means the same prose in the writing
+  // tool and in print). Mirrors flatParas' `.chapter:not(.prologue)` treatment.
+  for (const p of document.querySelectorAll('.chapter:not(.prologue) p[data-key]')) {
     const t = p.textContent.trim();
     if (t) cum += t.split(/\s+/).length;
     // page of the word this paragraph ENDS on. Use the SAME ceil formula as
