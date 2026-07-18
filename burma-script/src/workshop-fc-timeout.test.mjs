@@ -30,7 +30,17 @@ ok('client timeout constant defined', !!mClient);
 const clientMs = mClient ? Number(mClient[1].replace(/_/g, '')) : NaN;
 ok('client timeout ≤ 120s (never "forever")', clientMs <= 120_000, String(clientMs));
 ok('AbortController armed', /new AbortController\(\)/.test(jsx));
-ok('abort scheduled at FC_CLIENT_TIMEOUT_MS', /setTimeout\(\(\)\s*=>\s*ac\.abort\(\),\s*FC_CLIENT_TIMEOUT_MS\)/.test(jsx));
+// 2026-07-17: two bounds now — interactive (FC_CLIENT_TIMEOUT_MS) and DEEP CHECK
+// (DEEP_CLIENT_TIMEOUT_MS). The abort must be scheduled at the per-run selection, and the
+// selection must be exactly a ternary over the two named constants — no third path, no
+// unbounded branch. The original guarantee (every fc fetch aborts at a hard bound) holds.
+ok('abort scheduled at the per-run client bound', /setTimeout\(\(\)\s*=>\s*ac\.abort\(\),\s*clientTimeout\)/.test(jsx));
+ok('per-run bound selects ONLY between the two named constants',
+  /clientTimeout\s*=\s*isDeepRun\s*\?\s*DEEP_CLIENT_TIMEOUT_MS\s*:\s*FC_CLIENT_TIMEOUT_MS/.test(jsx));
+const mDeepClient = jsx.match(/DEEP_CLIENT_TIMEOUT_MS\s*=\s*([\d_]+)/);
+ok('deep client timeout constant defined', !!mDeepClient);
+const deepClientMs = mDeepClient ? Number(mDeepClient[1].replace(/_/g, '')) : NaN;
+ok('deep client timeout ≤ 5min (deep, not forever)', deepClientMs <= 300_000, String(deepClientMs));
 ok('fetch carries the signal', /signal:\s*ac\.signal/.test(jsx));
 
 // 2. cross-file contract: client bound > server bound (server's clean JSON 504 wins normally)
@@ -38,6 +48,12 @@ const mServer = api.match(/FC_UPSTREAM_TIMEOUT_MS\s*=\s*([\d_]+)/);
 ok('server timeout constant found in api/burma-tk.js', !!mServer);
 const serverMs = mServer ? Number(mServer[1].replace(/_/g, '')) : NaN;
 ok('client timeout > server timeout + 10s slop', clientMs >= serverMs + 10_000, `client ${clientMs} vs server ${serverMs}`);
+// Same cross-file contract on the deep lane: the server's clean JSON 504 (240s) must win
+// before the client's own abort (260s) in normal operation.
+const mDeepServer = api.match(/FC_DEEP_TIMEOUT_MS\s*=\s*([\d_]+)/);
+ok('deep server timeout constant found in api/burma-tk.js', !!mDeepServer);
+const deepServerMs = mDeepServer ? Number(mDeepServer[1].replace(/_/g, '')) : NaN;
+ok('deep client timeout > deep server timeout + 10s slop', deepClientMs >= deepServerMs + 10_000, `client ${deepClientMs} vs server ${deepServerMs}`);
 
 // 3. AbortError becomes a human message
 ok('AbortError branch produces a plain-language timeout message',
