@@ -35,6 +35,23 @@
     --hl-amber:rgba(226,168,60,.34); --hl-green:rgba(88,170,120,.30);
     --hl-blue:rgba(110,155,205,.30); --hl-rose:rgba(210,110,95,.28);
   }
+  /* SYSTEM 6 — Macintosh 1-bit bitmap skin: black ink on bitmap white,
+     monospace body, a single monochrome accent (solid near-black), hairline
+     tan rules. Flat and raw, no glow. */
+  html[data-theme="system6"]{
+    --paper:#F5F4EF; --paper-deep:#ECEBE3; --ink:#17150F;
+    --ink-soft:rgba(23,21,15,.74); --ink-faint:rgba(23,21,15,.42);
+    --line:#C7C5BA; --orange:#0B0A06; --green:#17150F;
+    --hl-amber:rgba(23,21,15,.13); --hl-green:rgba(23,21,15,.10);
+    --hl-blue:rgba(23,21,15,.10); --hl-rose:rgba(23,21,15,.14);
+    --serif:ui-monospace,Monaco,"SF Mono",Menlo,"Cascadia Code",Consolas,"Courier New",monospace;
+    --display:ui-monospace,Monaco,"SF Mono",Menlo,"Courier New",monospace;
+    --size:17px; --lead:1.66;
+  }
+  /* in the 1-bit skin, chapter titles are bold bitmap headers, not display serif */
+  html[data-theme="system6"] .chap-title,
+  html[data-theme="system6"] h1,
+  html[data-theme="system6"] h2{font-weight:700;letter-spacing:0}
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
   /* author's visible cuts — struck but still faintly legible */
@@ -351,6 +368,7 @@
     <div class="p-label" id="p-label">—</div>
   </div>
   <button class="bb-btn" id="btn-mode" title="switch between pages and scrolling">≡ scroll</button>
+  <button class="bb-btn" id="btn-style" title="reading style — British Energy or System 6">british</button>
   <button class="bb-btn" id="btn-theme" title="night mode" aria-label="night mode">◐</button>
   <button class="bb-btn" id="btn-chapters" title="contents" aria-label="contents">ch</button>
 </footer>
@@ -1216,17 +1234,34 @@ function setSize(d) {
 }
 { const s = safeGet('bg-size'); if (s) document.documentElement.style.setProperty('--size', s + 'px'); }
 function syncThemeMeta() {
-  const dark = document.documentElement.dataset.theme === 'dark';
+  const dt = document.documentElement.dataset.theme;
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = dark ? '#191712' : '#E5DECC';
+  if (m) m.content = dt === 'dark' ? '#191712' : dt === 'system6' ? '#F5F4EF' : '#E5DECC';
 }
-$('btn-theme').addEventListener('click', () => {
-  const t = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
-  document.documentElement.dataset.theme = t;
-  safeSet('bg-theme', t);
+// Two independent axes: STYLE (british | system6) and NIGHT (british only).
+// System 6 is a monochrome light skin, so night mode implies British Energy.
+function applyLook() {
+  const style = safeGet('bg-style') || 'british';
+  const night = safeGet('bg-theme') === 'dark';
+  document.documentElement.dataset.theme = style === 'system6' ? 'system6' : (night ? 'dark' : '');
+  const sb = $('btn-style'); if (sb) sb.textContent = style === 'system6' ? 'system 6' : 'british';
   syncThemeMeta();
+}
+function repaginateSoon() { if (typeof relayoutKeepingPlace === 'function') relayoutKeepingPlace(); }
+$('btn-style').addEventListener('click', () => {
+  const cur = safeGet('bg-style') || 'british';
+  safeSet('bg-style', cur === 'system6' ? 'british' : 'system6');
+  applyLook();
+  repaginateSoon();   // serif <-> monospace changes pagination; keep the reader's place
 });
-{ const t = safeGet('bg-theme'); if (t) document.documentElement.dataset.theme = t; syncThemeMeta(); }
+$('btn-theme').addEventListener('click', () => {
+  const goingDark = safeGet('bg-theme') !== 'dark';
+  safeSet('bg-theme', goingDark ? 'dark' : '');
+  safeSet('bg-style', 'british');   // night mode lives in British Energy
+  applyLook();
+  repaginateSoon();
+});
+applyLook();
 $('btn-chapters').addEventListener('click', () => {
   if (matchMedia('(min-width:1180px)').matches) {
     // rail is always visible on wide screens — the button hops to the next chapter
