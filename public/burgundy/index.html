@@ -472,10 +472,14 @@ async function boot() {
       if (!d.notes || d.notes.length < 500) break;
       page++;
     }
-    NOTES = all.filter(n => n.reader === readerId());
+    // your own notes PLUS legacy rows saved before per-reader ids existed (reader
+    // empty or the server default 'reader') — those belong to everyone and were
+    // invisible in every margin. (audit 2026-07-19)
+    NOTES = all.filter(n => n.reader === readerId() || !n.reader || n.reader === 'reader');
   } catch { NOTES = []; }
-  // offline: anything still in the device queue is YOURS — show it
-  NOTES = NOTES.concat(queuedNotes().map(r => ({ ...r, id: r._lid || ('local-' + Math.random().toString(36).slice(2)), _local: true })));
+  // offline: anything still in the device queue is YOURS — show it (skip delete-stubs,
+  // which are queued tombstones, not paintable notes)
+  NOTES = NOTES.concat(queuedNotes().filter(r => !r._delete).map(r => ({ ...r, id: r._lid || ('local-' + Math.random().toString(36).slice(2)), _local: true })));
   render();
   if (safeGet('bg-place2')) document.body.classList.add('zen');   // returning reader: quiet page; first-timer sees the controls
   restorePlace();
@@ -885,12 +889,20 @@ $('sheet-save').addEventListener('click', async () => {
       }
     }
     if (ok) {
-      $('saved-flash').hidden = false;
+      const f = $('saved-flash'); f.textContent = '✓ saved'; f.style.color = '';
+      f.hidden = false;
       editingNote = null;   // a second tap in the 550ms flash window can't re-save
       setTimeout(closeSheet, 550);
       clearSelection();
+    } else {
+      // honest failure — the note could NOT be durably stored (quota full). The mark is
+      // painted but say so, don't flash a false "✓ saved" over a lost note. (audit 2026-07-19)
+      const f = $('saved-flash');
+      f.textContent = 'couldn’t save — free some space, then try again';
+      f.style.color = '#c0392b';
+      f.hidden = false;
+      setTimeout(() => { f.hidden = true; f.textContent = '✓ saved'; f.style.color = ''; }, 3500);
     }
-    // !ok → sheet stays open, text preserved; saveNote already alerted
   } finally {
     // KEEP the save button disabled through the closing flash on success
     // (closeSheet re-enables it) so a second tap can't write a twin. Only
@@ -1002,9 +1014,10 @@ async function saveNote(n) {
     if (i >= 0) NOTES[i] = d.note;
     return true;
   } catch (e) {
-    // slow or dead network: the mark is already on screen — queue the send
-    queueNote({ ...row, _lid: lid });
-    return true;
+    // slow or dead network: the mark is already on screen — queue the send.
+    // If even the queue write fails (quota full), report the truth so the caller
+    // doesn't flash "✓ saved" over a note that was actually lost. (audit 2026-07-19)
+    return queueNote({ ...row, _lid: lid });
   }
 }
 function rerenderMarks() {
@@ -1575,15 +1588,19 @@ function refreshOfflineChip() { $('offline-chip').hidden = navigator.onLine; }
 addEventListener('online', () => { refreshOfflineChip(); flushNoteQueue(); });
 addEventListener('offline', refreshOfflineChip);
 function queuedNotes() { try { const v = JSON.parse(safeGet('bg-note-queue') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+// returns TRUE only if the row is durably stored. On a full quota it retries once
+// after eviction, then reports false so the caller can tell the reader honestly
+// instead of flashing a false "✓ saved". (audit 2026-07-19)
 function queueNote(row) {
   const q = queuedNotes(); q.push(row);
   safeSet('bg-note-queue', JSON.stringify(q));
-  if (queuedNotes().length !== q.length) {
-    // shared 5MB origin quota is full — evict the biggest cache and retry once
-    try { localStorage.removeItem('bg-tts-urls'); } catch {}
-    safeSet('bg-note-queue', JSON.stringify(q));
-    if (queuedNotes().length !== q.length) console.warn('[notes] storage full — note may not sync until space frees');
-  }
+  if (queuedNotes().length === q.length) return true;
+  // shared 5MB origin quota is full — evict the biggest cache and retry once
+  try { localStorage.removeItem('bg-tts-urls'); } catch {}
+  safeSet('bg-note-queue', JSON.stringify(q));
+  if (queuedNotes().length === q.length) return true;
+  console.warn('[notes] storage full — note NOT saved');
+  return false;
 }
 let flushingQueue = false;
 async function flushNoteQueue() {
