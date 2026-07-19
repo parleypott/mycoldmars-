@@ -605,7 +605,7 @@ function chapterHTML(ch, ci, esc) {
   const bare = String(c.title || '').replace(/^\s*chapter\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*[:·.\-—]?\s*/i, '').trim();
   return `<section class="chapter" data-ch="${ci}" data-chid="${esc(String(c.id || ''))}">
       <div class="ch-head">
-        <div class="ch-num">Chapter ${roman(ci + 1)}</div>
+        <div class="ch-num">Chapter ${ci + 1}</div>
         ${bare ? `<div class="ch-title">${esc(bare)}</div>` : ''}
         <div class="ch-rule"></div>
       </div>
@@ -1191,8 +1191,8 @@ function renderToc() {
       <span class="toc-name">${esc(fmTitle)}</span>
     </button>` + chapters.map((c, i) => `
     <button class="toc-item" data-toc="${i}">
-      <span class="toc-num">${roman(i + 1)}</span>
-      <span class="toc-name">${esc(bareTitle(c?.title) || 'Chapter ' + roman(i + 1))}</span>
+      <span class="toc-num">${i + 1}</span>
+      <span class="toc-name">${esc(bareTitle(c?.title) || 'Chapter ' + (i + 1))}</span>
     </button>`).join('');
   $('toc-list').querySelectorAll('.toc-item').forEach(b => b.addEventListener('click', () => {
     const sec = document.querySelector(`.chapter[data-ch="${b.dataset.toc}"]`);
