@@ -74,6 +74,12 @@
   .brand{font-family:var(--serif);font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink-soft)}
   .chap-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);
     flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tb-who{flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:999px;
+    font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--orange);padding:4px 10px;cursor:pointer;white-space:nowrap;max-width:42vw;
+    overflow:hidden;text-overflow:ellipsis;align-self:center;-webkit-tap-highlight-color:transparent}
+  .tb-who:active{background:color-mix(in srgb, var(--orange) 14%, transparent)}
+  .tb-who #who-name{color:var(--ink-soft)}
   .bottombar{
     position:fixed;bottom:0;left:0;right:0;z-index:40;
     padding:10px 20px calc(env(safe-area-inset-bottom) + 10px);
@@ -326,6 +332,7 @@
   <button class="tb-burger" id="btn-burger" aria-label="contents" title="contents">☰</button>
   <span class="brand">BURGUNDY</span>
   <span class="chap-label" id="chap-label">— </span>
+  <button class="tb-who" id="btn-who" type="button" title="who's leaving notes — tap to change">✎ <span id="who-name">sign in</span></button>
 </header>
 
 <div class="gate" id="gate" hidden>
@@ -915,8 +922,20 @@ function askName() {
     $('nb-input').value = readerName();
     $('namebox').hidden = false;
     document.body.classList.add('name-on');
-    setTimeout(() => $('nb-input').focus(), 150);
+    // preselect the current name so a NEW reader on a shared device can just
+    // type over it — the whole point of the re-identify button
+    setTimeout(() => { const i = $('nb-input'); i.focus(); i.select(); }, 150);
   });
+}
+// the always-visible identity chip in the top bar: tap to set or change who's
+// signing notes. Locked in (bg-name persists) but changeable any time — so a
+// second reader on the same iPad isn't stuck wearing the first reader's name.
+function updateWhoChip() {
+  const el = $('who-name'); if (!el) return;
+  const n = readerName();
+  el.textContent = n || 'sign in';
+  const btn = $('btn-who');
+  if (btn) btn.title = n ? `signing notes as ${n} — tap to change` : "tap to sign your notes";
 }
 function settleName(v) {
   $('namebox').hidden = true;
@@ -930,9 +949,11 @@ $('nb-form').addEventListener('submit', e => {
   if (!v) { $('nb-input').focus(); return; }
   safeSet('bg-name', v);
   updateSheetSig();
+  updateWhoChip();
   settleName(v);
 });
 $('nb-skip').addEventListener('click', () => settleName(''));
+$('btn-who').addEventListener('click', () => askName());
 $('namebox-scrim').addEventListener('click', () => settleName(''));
 function updateSheetSig() {
   const el = $('sheet-sig'); if (!el) return;
@@ -1616,6 +1637,7 @@ async function flushNoteQueue() {
 })();
 refreshOfflineChip();
 if (gateOpen()) boot(); else showGate();
+updateWhoChip();   // show who's currently signing notes the moment the chrome renders
 flushNoteQueue();
 // belt-and-braces: 'online' events are unreliable across webviews — also retry
 // when the app comes back to the foreground and on a slow heartbeat
