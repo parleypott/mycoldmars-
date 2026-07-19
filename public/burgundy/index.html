@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="/burgundy/icon-180.png">
 <link rel="icon" type="image/svg+xml" href="/burgundy/icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fondamento:ital@0;1&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   /* ── the reading instrument: Kindle typography on Burma warm paper ── */
   :root{
@@ -26,6 +26,7 @@
     --serif:'Libre Caslon Text','Iowan Old Style',Georgia,serif;
     --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
     --display:'Playfair Display','Libre Caslon Text',Georgia,serif;
+    --chapter:'Fondamento','Libre Caslon Text',Georgia,serif;  /* warm calligraphic sheet-music serif — chapter titles */
     --size:19px; --lead:1.78;
   }
   html[data-theme="dark"]{
@@ -46,6 +47,7 @@
     --hl-blue:rgba(23,21,15,.10); --hl-rose:rgba(23,21,15,.14);
     --serif:ui-monospace,Monaco,"SF Mono",Menlo,"Cascadia Code",Consolas,"Courier New",monospace;
     --display:ui-monospace,Monaco,"SF Mono",Menlo,"Courier New",monospace;
+    --chapter:ui-monospace,Monaco,"SF Mono",Menlo,"Courier New",monospace;
     --size:17px; --lead:1.66;
   }
   /* in the 1-bit skin, chapter titles are bold bitmap headers, not display serif */
@@ -197,7 +199,7 @@
   .chapter{padding-top:11vh}
   .ch-head{margin-bottom:6vh;text-align:center}
   .ch-num{font-family:var(--serif);font-size:14px;letter-spacing:.42em;text-transform:uppercase;color:var(--ink-soft);font-variant-numeric:oldstyle-nums}
-  .ch-title{font-family:var(--display);font-weight:500;font-style:italic;font-size:clamp(26px,6vw,38px);line-height:1.15;margin-top:18px;letter-spacing:.01em}
+  .ch-title{font-family:var(--chapter);font-weight:400;font-style:normal;font-size:clamp(28px,6.4vw,42px);line-height:1.12;margin-top:18px;letter-spacing:.005em}
   .ch-rule{width:56px;height:1px;background:var(--ink);opacity:.45;margin:26px auto 0;position:relative}
   .ch-rule::after{content:'❦';position:absolute;left:50%;top:-9px;transform:translateX(-50%);
     background:var(--paper);padding:0 10px;font-size:12px;color:var(--ink-soft);transition:background .3s}
