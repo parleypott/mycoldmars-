@@ -52,18 +52,19 @@ const eq = (a, b, msg) => { assert.equal(a, b, msg); pass++; };
   // first real paragraph carries the drop-cap "opener" class; the rest are plain
   ok(out.includes('data-key="0:0">one</p>') && out.includes('class="opener"'), 'first paragraph rendered with key 0:0 as opener');
   ok(out.includes('<p data-key="0:1">two</p>'), 'second paragraph rendered plain with key 0:1');
-  ok(out.includes('Chapter I'), 'chapter number is 1-based (roman numeral, 1930s book setting)');
+  ok(out.includes('Chapter 1</div>'), 'chapter number is 1-based Arabic (commit 4008529 swapped roman → arabic in heading + TOC)');
   ok(out.includes('The Basement'), 'chapter title rendered');
 }
 
 // 2. Well-formed chapter: every paragraph present, escaped, in order (zero regression).
 //    (The old byte-identical-to-pre-fix check was retired when the ef2bb25 typography
-//    commit changed the heading format to roman numerals + a "chapter N" title scrub;
+//    commit changed the heading format + a "chapter N" title scrub; commit 4008529 then
+//    swapped the roman numeral back to a plain Arabic number in the heading + TOC.
 //    buggyChapterHTML remains below purely as a THROW oracle for the crash mutations.)
 {
   const ch = { title: "Mira's wing", paragraphs: ['a', 'b', 'c'] };
   const out = chapterHTML(ch, 2, esc);
-  ok(out.includes('Chapter III'), 'ch 3 numbered III');
+  ok(out.includes('Chapter 3</div>'), 'ch 3 numbered 3 (Arabic)');
   ok(out.includes("Mira&#39;s wing") || out.includes("Mira's wing"), 'title rendered');
   ok(out.includes('data-key="2:0">a</p>') && out.includes('<p data-key="2:2">c</p>'), 'all paragraphs in order');
 }
@@ -77,7 +78,7 @@ const eq = (a, b, msg) => { assert.equal(a, b, msg); pass++; };
     'FIXED: a paragraphs-less chapter does not crash render()'); pass++;
   // the leading "Chapter 5" is scrubbed onto the numeral line — the remainder is the title
   ok(out.includes('(drafting)'), 'drafting chapter shows its scrubbed title');
-  ok(out.includes('Chapter V'), 'drafting chapter numbered V from its index');
+  ok(out.includes('Chapter 5</div>'), 'drafting chapter numbered 5 from its index (Arabic)');
   ok(!out.includes('<p data-key'), 'drafting chapter renders no paragraph nodes');
   assert.throws(() => buggyChapterHTML(drafting, 4, esc), TypeError,
     'MUTATION PROOF: pre-fix form threw TypeError on the same input'); pass++;
@@ -100,7 +101,7 @@ for (const badCh of [null, undefined, 42, 'a bare string chapter', true]) {
   let out;
   assert.doesNotThrow(() => { out = chapterHTML(badCh, 3, esc); },
     `FIXED: chapter entry = ${JSON.stringify(badCh)} does not crash render()`); pass++;
-  ok(out.includes('Chapter IV'), `null-entry ${JSON.stringify(badCh)} still renders its 1-based number`);
+  ok(out.includes('Chapter 4</div>'), `null-entry ${JSON.stringify(badCh)} still renders its 1-based number (Arabic)`);
   ok(!out.includes('<p data-key'), `null-entry ${JSON.stringify(badCh)} yields no paragraph nodes`);
   ok(!out.includes('class="ch-title"'), `null-entry ${JSON.stringify(badCh)} renders no title node, not "undefined"`);
 }

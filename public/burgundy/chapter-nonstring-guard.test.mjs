@@ -55,7 +55,7 @@ for (const bad of [5, 0, true, { t: 'x' }, ['a']]) {
 
 // ── 3. byte-identical output for well-formed string data ─────────────────────
 const good = chapterHTML({ title: 'Chapter 3: The Word', paragraphs: ['First para.', '* * *', 'Second.'] }, 2, esc);
-ok(good.includes('Chapter III'), 'roman numeral for the chapter number');
+ok(good.includes('Chapter 3</div>'), 'Arabic chapter number (commit 4008529 swapped roman → arabic)');
 ok(good.includes('The Word'), 'leading "chapter N:" scrubbed, remainder kept as title');
 ok(good.includes('class="asterism"'), 'a "* * *" paragraph renders as an asterism scene break');
 ok(good.includes('First para.') && good.includes('Second.'), 'ordinary paragraphs render verbatim');
