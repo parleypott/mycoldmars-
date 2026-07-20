@@ -196,19 +196,18 @@ function LibraryApp() {
           <div class="sl-grid">
             {filtered.map((row) => (
               <div class="sl-card" key={row.id} data-slug={row.slug}>
-                <button
-                  class="sl-card-open"
-                  disabled={isTrash}
-                  onClick={() => !isTrash && openSlug(row.slug)}
-                  title={isTrash ? 'Restore to open' : `Open ${row.title}`}
-                >
-                  <span class="sl-card-kind">{kindLabel(row)}</span>
-                  {editingId === row.id ? (
+                {editingId === row.id ? (
+                  // RENAME MODE — a plain container, NOT a <button>. The old markup nested this
+                  // <input> inside the open <button>, which is invalid HTML (interactive-in-button)
+                  // and made a click/keystroke on the field fall through to the button's onClick →
+                  // the card "opened the script" instead of letting you type. Rendering the input
+                  // as its own element (never inside the open button) is the fix.
+                  <div class="sl-card-open sl-card-editing">
+                    <span class="sl-card-kind">{kindLabel(row)}</span>
                     <input
                       class="sl-card-rename"
                       value={draftTitle}
                       autoFocus
-                      onClick={(e) => e.stopPropagation()}
                       onInput={(e) => setDraftTitle(e.currentTarget.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
@@ -216,15 +215,24 @@ function LibraryApp() {
                       }}
                       onBlur={commitRename}
                     />
-                  ) : (
+                    <span class="sl-card-time">edited {relativeTimeFrom(row.updatedAt)}</span>
+                  </div>
+                ) : (
+                  <button
+                    class="sl-card-open"
+                    disabled={isTrash}
+                    onClick={() => !isTrash && openSlug(row.slug)}
+                    title={isTrash ? 'Restore to open' : `Open ${row.title}`}
+                  >
+                    <span class="sl-card-kind">{kindLabel(row)}</span>
                     <span class="sl-card-title">{row.title}</span>
-                  )}
-                  <span class="sl-card-time">
-                    {isTrash
-                      ? (() => { const d = archiveDaysLeft(row.trashedAt || row.deletedAt); return d === null ? 'in trash' : `archives in ${d}d`; })()
-                      : `edited ${relativeTimeFrom(row.updatedAt)}`}
-                  </span>
-                </button>
+                    <span class="sl-card-time">
+                      {isTrash
+                        ? (() => { const d = archiveDaysLeft(row.trashedAt || row.deletedAt); return d === null ? 'in trash' : `archives in ${d}d`; })()
+                        : `edited ${relativeTimeFrom(row.updatedAt)}`}
+                    </span>
+                  </button>
+                )}
 
                 <div class="sl-card-actions">
                   {isTrash ? (

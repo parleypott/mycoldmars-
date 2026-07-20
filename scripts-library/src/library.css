@@ -406,3 +406,9 @@
 .sl-card-open:not([disabled]) { cursor: pointer; }
 .sl-card-open:not([disabled]):hover .sl-card-title { color: var(--accent, #b0431f); }
 .sl-card-open:focus-visible { outline: 2px solid var(--accent, #b0431f); outline-offset: 2px; border-radius: 6px; }
+
+/* IN-EDITOR RENAME affordance — the engine's masthead title becomes click-to-rename when opened
+   through the library (boot.jsx injectMastheadRename). Purely a hover hint; the overlay input that
+   does the editing is styled inline in JS. Not present on ?read shares. */
+.wp-masthead-title.sl-renamable { cursor: text; transition: opacity 120ms ease; }
+.wp-masthead-title.sl-renamable:hover { opacity: 0.72; }

@@ -17,7 +17,7 @@
 // which is fine and keeps state trivially correct. A "← Library" affordance is
 // injected into the page in project mode (the engine files stay UNCHANGED).
 
-import { seedIfAbsent, findBySlug, touchProject } from './project-store.js';
+import { seedIfAbsent, findBySlug, touchProject, renameProject } from './project-store.js';
 import { configForProject } from './config-for-project.js';
 import { ensureUnlocked } from './gate.js';
 import { armSentry } from '../../burma-script/src/sentry-boot.js';
@@ -58,6 +58,87 @@ function injectLibraryBackbar() {
   a.setAttribute('title', 'Back to the Script Library');
   a.setAttribute('aria-label', 'Back to the Script Library');
   document.body.appendChild(a);
+}
+
+/**
+ * IN-EDITOR RENAME. The shared engine renders the script's name as a static <h1 class="wp-masthead-title">
+ * from config (main.jsx DOC_TITLE) with NO rename path — the engine stays library-agnostic. The library
+ * wires renaming here, same posture as the back-bar. Click the title → an OVERLAY input (appended to
+ * <body>, positioned over the h1) opens; the overlay avoids mutating the Preact-owned <h1> in place,
+ * which a re-render would clobber. Commit → renameProject (title + cloud PATCH; slug regenerated) →
+ * point the hash at the new slug and reload, so the engine remounts from the renamed config (h1 text and
+ * document.title both refresh). Renames project metadata only — never the Yjs doc — so it's collab-safe.
+ * Polls a few frames because the engine mounts asynchronously after its dynamic import resolves.
+ */
+function injectMastheadRename(row, tries = 0) {
+  const titleEl = document.querySelector('.wp-masthead-title');
+  if (!titleEl) {
+    // The engine mounts ASYNCHRONOUSLY after its import resolves (rehydrate → migrate → render),
+    // so the masthead can appear a few seconds later. Poll via setTimeout (NOT requestAnimationFrame,
+    // which throttles hard in a background tab) for ~10s before giving up.
+    if (tries < 200) setTimeout(() => injectMastheadRename(row, tries + 1), 50);
+    return;
+  }
+  if (titleEl.dataset.renameWired) return;
+  titleEl.dataset.renameWired = '1';
+  titleEl.classList.add('sl-renamable');
+  titleEl.setAttribute('title', 'Click to rename');
+
+  titleEl.addEventListener('click', () => {
+    if (document.getElementById('sl-masthead-rename')) return;
+    const rect = titleEl.getBoundingClientRect();
+    const cs = getComputedStyle(titleEl);
+    const current = String(row.title || titleEl.textContent || '').trim();
+    const input = document.createElement('input');
+    input.id = 'sl-masthead-rename';
+    input.value = current;
+    Object.assign(input.style, {
+      position: 'fixed',
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      width: Math.max(rect.width + 24, 240) + 'px',
+      minHeight: rect.height + 'px',
+      font: cs.font,
+      fontFamily: cs.fontFamily,
+      fontSize: cs.fontSize,
+      fontWeight: cs.fontWeight,
+      lineHeight: cs.lineHeight,
+      letterSpacing: cs.letterSpacing,
+      color: cs.color,
+      background: 'var(--frame, #efeadd)',
+      border: '2px solid var(--orange, #ff5b1f)',
+      borderRadius: '8px',
+      padding: '2px 8px',
+      margin: '0',
+      zIndex: '9999',
+      outline: 'none',
+      boxSizing: 'border-box',
+    });
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const next = input.value.trim();
+      input.remove();
+      if (commit && next && next !== current) {
+        const updated = renameProject(row.id, next);
+        const slug = (updated && updated.slug) || row.slug;
+        try { history.replaceState(null, '', '#' + encodeURIComponent(slug)); } catch {}
+        mountedMode = slug; // keep the route reconciler in sync across the reload
+        showLoadingVeil('Renaming…');
+        window.location.reload();
+      }
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+  });
 }
 
 // ── Full-screen loading veil ─────────────────────────────────────────────────
@@ -111,6 +192,10 @@ async function openProject(row) {
     touchProject(row.id); // float recently-opened to the top of the library
     await import('../../burma-script/src/main.jsx');
     injectLibraryBackbar();
+    // Wire in-editor rename — but never on a ?read share (structurally read-only).
+    import('../../burma-script/src/read-mode.js')
+      .then((m) => { if (!m.isReadOnly()) injectMastheadRename(row); })
+      .catch(() => {});
     // PRESENCE (Wave 2): show who else is in this project. Fire-and-forget from the library layer so the
     // engine files stay UNCHANGED. Pass the cloud id when we have it, else the slug — the endpoint
     // resolves either. A local-only project (no cloud row) resolves to an empty list and renders nothing.
