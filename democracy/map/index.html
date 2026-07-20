@@ -183,7 +183,7 @@
   svg.append('path').datum(d3.geoGraticule().step([30,30])()).attr('class','graticule').attr('d',path);
 
   const tip = document.getElementById('tip');
-  let view='regime', active=null;
+  let view='regime', sel=new Set();
 
   const paths = svg.append('g').selectAll('path')
     .data(GEO.features).join('path')
@@ -209,15 +209,24 @@
       if(view==='regime') return p.regime==null?'var(--nodata)':COL[p.regime];
       return p.egal==null?'var(--nodata)':egalColor(p.egal);
     });
-    paths.classed('dimmed', d=> view==='regime' && active!=null && d.properties.regime!==active);
+    paths.classed('dimmed', d=> view==='regime' && sel.size>0 && !sel.has(d.properties.regime));
+    d3.selectAll('.lg').classed('off',function(){return sel.size>0 && !sel.has(+this.dataset.cat);});
   }
 
   // categorical legend
   const lg=d3.select('#legend');
   [0,1,2,3].forEach(c=>{
     const el=lg.append('div').attr('class','lg').attr('data-cat',c)
-      .on('click',()=>{ active=(active===c)?null:c; paint();
-        d3.selectAll('.lg').classed('off',function(){return active!=null && +this.dataset.cat!==active;}); });
+      .on('click',(event)=>{
+        if(event.shiftKey){                       // shift-click: add/remove, keep the rest lit
+          sel.has(c) ? sel.delete(c) : sel.add(c);
+        } else if(sel.size===1 && sel.has(c)){     // plain click on the sole selection: clear
+          sel.clear();
+        } else {                                   // plain click: isolate just this one
+          sel.clear(); sel.add(c);
+        }
+        paint();
+      });
     el.append('div').attr('class','sw').style('background',COL[c]);
     const b=el.append('div');
     b.append('div').attr('class','lab').text(RM.labels[c]);
@@ -238,7 +247,7 @@
     regime:{fig:'REGIMES OF THE WORLD',
       h1:'Which countries are <em>electoral democracies</em>?',
       sub:'V-Dem sorts every country into one of four regimes by how free and fair its elections are, and whether the rule of law and rights that make a democracy <b>liberal</b> hold underneath them. An <b>electoral democracy</b> clears the bar for clean, multiparty elections; a <b>liberal democracy</b> also protects minorities and constrains executive power. Hover any country. Click a category to isolate it.',
-      hint:'click a category below to isolate it · click again to reset'},
+      hint:'click a category to isolate it · shift-click to light up more than one · click again to reset'},
     egal:{fig:'EGALITARIAN DEMOCRACY',
       h1:'How <em>egalitarian</em> is each democracy?',
       sub:'Beyond clean elections, V-Dem asks a harder question: are rights, freedoms, and power actually distributed <b>equally</b> across social groups? The <b>egalitarian democracy index</b> runs 0 to 1. Denmark tops it; the poorest and most fractured states sit near zero. Hover any country for its score.',
@@ -253,7 +262,7 @@
   }
 
   function setView(v){
-    view=v; active=null;
+    view=v; sel.clear();
     d3.selectAll('.tab').classed('on',function(){return this.dataset.view===v;});
     d3.selectAll('.lg').classed('off',false);
     const c=COPY[v];
