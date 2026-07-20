@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Regimes of the World · V-Dem 2024</title>
-<meta name="description" content="Every country on Earth by V-Dem, 2024: which are electoral democracies, and how egalitarian each democracy is." />
+<title>Regimes of the World · V-Dem 2025</title>
+<meta name="description" content="Every country on Earth by V-Dem, 2025: which are electoral democracies, and how egalitarian each democracy is." />
 <meta property="og:title" content="Regimes of the World: which countries are electoral democracies" />
-<meta property="og:description" content="V-Dem's classification of all 174 countries, 2024. Closed autocracy to liberal democracy, plus the egalitarian democracy index." />
+<meta property="og:description" content="V-Dem's classification of all 174 countries, 2025. Closed autocracy to liberal democracy, plus the egalitarian democracy index." />
 <meta property="og:image" content="/democracy/og.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <style>
@@ -113,7 +113,7 @@
 <div class="wrap">
   <header>
     <div class="fig">FIG.01 &nbsp;·&nbsp; <span class="b" id="figName">REGIMES OF THE WORLD</span></div>
-    <div class="fig">V-DEM v15 &nbsp;·&nbsp; DATA YEAR 2024</div>
+    <div class="fig">V-DEM 2026 &nbsp;·&nbsp; DATA YEAR 2025</div>
   </header>
 
   <div class="tabs" id="tabs">
@@ -149,9 +149,9 @@
   <div class="foot">
     <div class="note" id="missingNote"></div>
     <div>
-      Source: <a href="https://v-dem.net" target="_blank" rel="noopener">V-Dem Institute</a>, v15 · via
+      Source: <a href="https://v-dem.net" target="_blank" rel="noopener">V-Dem Institute</a>, 2026 release · via
       <a href="https://ourworldindata.org/grapher/political-regime" target="_blank" rel="noopener">Our World in Data</a>.<br>
-      174 countries · data year 2024 · &nbsp;<a href="/democracy">← the spectrum tool</a>
+      174 countries · data year 2025 · &nbsp;<a href="/democracy">← the spectrum tool</a>
     </div>
   </div>
 </div>
@@ -264,7 +264,7 @@
     document.getElementById('legend').classList.toggle('hide', v!=='regime');
     document.getElementById('cont').classList.toggle('hide', v!=='egal');
     document.getElementById('missingNote').innerHTML=missingText();
-    document.title = (v==='egal'?'Egalitarian democracy':'Regimes of the World')+' · V-Dem 2024';
+    document.title = (v==='egal'?'Egalitarian democracy':'Regimes of the World')+' · V-Dem 2025';
     if(location.hash.slice(1)!==v) history.replaceState(null,'', v==='egal'?'#egal':'#regime');
     paint();
   }
