@@ -322,6 +322,7 @@ export const SLASH_ITEMS = [
   // MARKS — the inline direction-mark kinds.
   makeItem('archive',   [],               (editor, range) => setArchiveMark(editor, range)),
   makeItem('oncam',     ['on cam', 'on cam to film'], (editor, range) => setDirectionMark(editor, range, 'oncam')),
+  makeItem('sot',       ['soundbite', 'quote', 'speaking', 'speech', 'interview'], (editor, range) => setDirectionMark(editor, range, 'sot')),
   makeItem('factcheck', ['fc', 'source'], (editor, range) => setDirectionMark(editor, range, 'factcheck')),
   makeItem('footnote',  ['fn', 'note', 'todo'], (editor, range) => insertFcFootnote(editor, range), { hint: 'FN' }),
   makeItem('bookmark',  ['bm', 'mark', 'pin'], (editor, range) => insertBookmark(editor, range), { hint: 'BM' }),

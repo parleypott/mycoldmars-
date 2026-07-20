@@ -25,7 +25,7 @@ function ok(label, fn) { fn(); pass++; }
 ok('SLASH_ITEMS is the seventeen commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'map-data', 'direction', 'break', 'bullet', 'number'],
+    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'sot', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'map-data', 'direction', 'break', 'bullet', 'number'],
   );
 });
 

@@ -27,7 +27,7 @@ ok('every ROLE_DEF has id, label, tint, and a real selector', () => {
 });
 
 ok('the six expected crafts are present and no other', () => {
-  assert.deepEqual([...ROLE_IDS].sort(), ['3d', 'animation', 'archive', 'broll', 'cartography', 'factcheck', 'vo']);
+  assert.deepEqual([...ROLE_IDS].sort(), ['3d', 'animation', 'archive', 'broll', 'cartography', 'factcheck', 'sot', 'vo']);
 });
 
 ok('every id is a legal single CSS token (no whitespace — CSS ~= must match it)', () => {
