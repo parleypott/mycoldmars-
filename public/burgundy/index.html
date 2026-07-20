@@ -244,6 +244,13 @@
     .pill{left:50% !important;top:auto !important;transform:translateX(-50%);
       bottom:calc(env(safe-area-inset-bottom) + 76px)}
     #pill button{padding:15px 22px;font-size:13px}
+    /* iPhone/iPad: kill the frosted-glass "floating page" vibe — the blurred
+       translucent bars read as elevated panels casting a shadow over the sheet.
+       Make them flat opaque paper so the bars are part of the page, not above it. */
+    .topbar, .bottombar{
+      background:var(--paper);
+      -webkit-backdrop-filter:none; backdrop-filter:none;
+    }
   }
   body:has(.pill.on) .folio{opacity:0}
   .pill button{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
