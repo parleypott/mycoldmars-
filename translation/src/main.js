@@ -2937,6 +2937,13 @@ function getSeqMeta() {
   if (customSequenceName) {
     meta.sequenceName = customSequenceName;
   }
+  // Always carry a sequence label into copy/paste and exports. Imported
+  // transcripts have no custom_sequence_name and no CSV-derived sacred name,
+  // which left the clipboard prefix blank ("[0:27 → 0:55] text" instead of
+  // "[NAME | 0:27 → 0:55] text"). Fall back to the transcript name.
+  if (!meta.sequenceName) {
+    meta.sequenceName = currentTranscriptName || '';
+  }
   return meta;
 }
 
