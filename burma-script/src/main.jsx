@@ -1338,6 +1338,61 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     return () => cancelAnimationFrame(id);
   }, [chFocus]);
 
+  // SCROLL MEMORY — a reload (browser refresh, or the in-editor rename reload) must keep you where
+  // you were reading, not fling you to the top. The window is the scroll container. We persist
+  // window.scrollY per script and restore it on mount AFTER the doc has laid out tall enough — the
+  // content renders asynchronously, so an early scrollTo would clamp to the top. scrollRestoration
+  // 'manual' stops the browser's own jump-then-guess. Defers to an explicit ?bm= bookmark deep link
+  // and to chapter-focus (which owns its own scroll dance) so we never fight a deliberate jump.
+  useEffect(() => {
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch {}
+    const key = `wp_scroll_${EPISODE.id}`;
+    let savedY = 0;
+    try { savedY = Number(localStorage.getItem(key)) || 0; } catch {}
+
+    let saveTimer = 0;
+    const onScroll = () => {
+      // Never overwrite the reading position while in chapter-focus — that scrolls to 0 then
+      // restores its pre-focus spot on exit; the page carries data-chfocus while focused.
+      if (document.querySelector('.wp-page')?.hasAttribute('data-chfocus')) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try { localStorage.setItem(key, String(Math.round(window.scrollY))); } catch {}
+      }, 150);
+    };
+    // Only start persisting AFTER we've restored (or decided not to), so the transient scrollY=0
+    // of a still-short document during load can't clobber the saved position before we use it.
+    const startSaving = () => window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Poll with setTimeout, NOT requestAnimationFrame — rAF is throttled/paused while the tab is
+    // backgrounded, which would stall the restore (and never attach the save listener). setTimeout
+    // keeps ticking. ~150 tries × 40ms ≈ 6s ceiling for the content to lay out tall enough.
+    // RESTORE-AND-HOLD. A single early scrollTo doesn't stick — the doc reports full height almost
+    // immediately, but a later boot step (focus/layout settle) yanks scroll back to 0. So we re-assert
+    // the saved position on a setTimeout loop (setTimeout, not rAF — rAF pauses in a background tab),
+    // correcting any reset, until it holds steady for a few ticks (or a ~2s ceiling). Then, and only
+    // then, we start persisting scroll — so the transient 0 during boot can't overwrite the target.
+    let pollTimer = 0;
+    let tries = 0;
+    let stable = 0;
+    const skipRestore = savedY <= 0 || !!bookmarkTargetFromUrl();
+    const restoreHold = () => {
+      if (skipRestore) { startSaving(); return; }
+      if (Math.abs(window.scrollY - savedY) > 2) { window.scrollTo(0, savedY); stable = 0; }
+      else { stable += 1; }
+      tries += 1;
+      if (stable >= 5 || tries > 50) { startSaving(); return; } // held ~200ms, or ~2s cap
+      pollTimer = setTimeout(restoreHold, 40);
+    };
+    restoreHold();
+
+    return () => {
+      clearTimeout(pollTimer);
+      clearTimeout(saveTimer);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
   // ESC exits focus — unless a floating menu is open (those own their Esc and close first).
   useEffect(() => {
     if (!chFocus) return undefined;

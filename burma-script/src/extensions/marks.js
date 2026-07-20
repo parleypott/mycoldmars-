@@ -474,7 +474,7 @@ function openTimecodeMenu(view, pos, anchorRect) {
 
   const head = document.createElement('div');
   head.className = 'wp-bm-head';
-  head.textContent = palau ? 'Sequence' : 'Shooting day';
+  head.textContent = 'Shooting day';
   menu.appendChild(head);
 
   const addItem = (label, isCurrent, onPick) => {
@@ -488,16 +488,27 @@ function openTimecodeMenu(view, pos, anchorRect) {
   };
 
   if (palau) {
-    // PALAU — SEQUENCE picker. Lists every sequence the doc knows (all interview speakers + all
-    // DAY string-outs), marks the chip's current one, and offers a free-typed new name. Setting one
-    // writes the chip's `seq` attr → onUpdate → autosave → survives reload (mirrors the DAY path).
-    // The list scrolls when long (.wp-tcmenu max-height). Replaces the DAY 1/2/3 menu on Palau.
-    const seqs = collectSequences(view.state);
-    // Surface the current seq even if it somehow isn't in the scanned registry, so it's selectable.
-    if (curSeq && !seqs.includes(cleanSeqLabel(curSeq))) seqs.unshift(cleanSeqLabel(curSeq));
+    // DAY-BASED scripts tag TWO things on a timecode: its shoot DAY (the `day` attr — drives the
+    // "DAY N ·" chip and CLEARS the red "DAY ?" nag) and, optionally, an interview SEQUENCE (`seq`).
+    // Lead with the DAYs so there's ALWAYS a direct way to set the day — the bug was that this menu
+    // only offered sequences (and a "DAY N" pick set `seq`, never `day`), so the nag never cleared
+    // and a fresh doc with no day-sequences yet had no day option at all.
+    const dayOf = (label) => { const m = /^DAY\s*(\d+)$/i.exec(String(label || '').trim()); return m ? Number(m[1]) : null; };
+    (getEpisode()?.days || [1, 2, 3]).forEach((d) =>
+      addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
+    addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+
+    // Interview SEQUENCES (optional grouping) — interviews only; the DAYs are handled above so we
+    // don't double-list them. Setting one writes `seq` → onUpdate → autosave → survives reload.
+    const seqs = collectSequences(view.state).filter((s) => dayOf(s) == null);
+    if (curSeq && dayOf(curSeq) == null && !seqs.includes(cleanSeqLabel(curSeq))) seqs.unshift(cleanSeqLabel(curSeq));
     const curSeqLabel = curSeq ? cleanSeqLabel(curSeq) : null;
-    seqs.forEach((sq) => addItem(sq, curSeqLabel === sq, () => patchTimecodeAt(view, pos, { seq: sq })));
-    addItem('No sequence', curSeq == null, () => patchTimecodeAt(view, pos, { seq: null }));
+    if (seqs.length) {
+      const sepSeq = document.createElement('div'); sepSeq.className = 'wp-bm-sep'; menu.appendChild(sepSeq);
+      const seqHead = document.createElement('div'); seqHead.className = 'wp-bm-head'; seqHead.textContent = 'Sequence'; menu.appendChild(seqHead);
+      seqs.forEach((sq) => addItem(sq, curSeqLabel === sq, () => patchTimecodeAt(view, pos, { seq: sq })));
+      addItem('No sequence', curSeq == null, () => patchTimecodeAt(view, pos, { seq: null }));
+    }
 
     const sepNew = document.createElement('div'); sepNew.className = 'wp-bm-sep'; menu.appendChild(sepNew);
     const addNew = document.createElement('button');
