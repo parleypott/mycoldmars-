@@ -661,9 +661,35 @@ export const TimecodeMark = Mark.create({
   // ("2:02:01:07") self-chipped in the editor but never routed as a SOT in the parser. \d{2} closes
   // that divergence; the three sites (parser TC, builder TIMECODE_RE, these rules) now agree.
   addInputRules() {
+    // On day-based scripts (palauTimecodes) a shoot-day-prefixed timecode self-chips AND captures its
+    // DAY: "Day 1 00:02:06:21" — and every variation "day 1 …", "DAY1 …", or fully glued "day100:…" —
+    // collapses into ONE chip tagged day=1 ("DAY 1 · 00:02:06:21"). The glued case splits correctly
+    // because the timecode's hour is a hard \d{2}, so "day1" + "00:02:06:21" is the only valid parse.
+    //
+    // ONE combined rule (day-branch OR bare-branch), never a separate day rule alongside the bare one:
+    // paste rules run as INDEPENDENT sequential transactions, so a second (bare) rule would re-scan the
+    // collapsed code and re-mark it with empty attrs, CLOBBERING day back to null. markInputRule keeps
+    // only the LAST capture group (the bare code) as the chip text and deletes the rest incl. "Day 1 ";
+    // getAttributes lifts day off group 1. The day branch drops the bare rule's (?<!\d) guard (it
+    // consumes the day digit itself) so the glued form chips. User-typed → one tr → collab-safe.
+    if (episodeFlag('palauTimecodes')) {
+      return [markInputRule({
+        find: /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])\s*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)$/,
+        type: this.type,
+        getAttributes: (match) => ({ day: match[1] ? Number(match[1]) : null, tc: match[2] }),
+      })];
+    }
+    // Burma (palauTimecodes off): bare no-day interview codes only — unchanged.
     return [markInputRule({ find: /((?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d))$/, type: this.type })];
   },
   addPasteRules() {
+    if (episodeFlag('palauTimecodes')) {
+      return [markPasteRule({
+        find: /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])\s*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g,
+        type: this.type,
+        getAttributes: (match) => ({ day: match[1] ? Number(match[1]) : null, tc: match[2] }),
+      })];
+    }
     return [markPasteRule({ find: /((?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d))/g, type: this.type })];
   },
   // Left-click a timecode chip → copy it (flash + toast), exactly like the SOT LCD. Right-click →

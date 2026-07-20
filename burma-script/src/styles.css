@@ -1276,6 +1276,17 @@ html.read-only #library-pill { display: none !important; }
 .wp-tc-tag:not([data-day])::before { content: "["; color: var(--ep-chip-bracket); }
 .wp-tc-tag:not([data-day])::after  { content: "]"; color: var(--ep-chip-bracket); }
 .wp-tc-tag[data-day]::before { content: "DAY " attr(data-day) " · "; color: var(--ep-chip-day); font-weight: 700; letter-spacing: .04em; }
+
+/* DAY-BASED scripts (palauTimecodes, flagged as .wp-page[data-daytc]): a timecode typed with NO day
+   is INCOMPLETE — every shot belongs to a shoot day. Instead of the neutral [brackets], nag it with a
+   bold RED "DAY ?" and a red outline so it visibly begs to be tagged (right-click → pick the day).
+   Scoped to [data-daytc] so Burma's no-day interview codes keep their quiet [ ] brackets. CSS-only —
+   the chip's data-tc / text node are untouched, so copy + the integrity audit are unchanged. */
+.wp-page[data-daytc] .wp-tc-tag:not([data-day]) { border-color: #e11900; color: #b3300e; }
+.wp-page[data-daytc] .wp-tc-tag:not([data-day])::before {
+  content: "DAY ? "; color: #e11900; font-weight: 800; letter-spacing: .05em;
+}
+.wp-page[data-daytc] .wp-tc-tag:not([data-day])::after { content: none; }
 .wp-tc-tag:hover { border-color: var(--ep-chip-hover-border); color: var(--ep-chip-hover-text); }
 .wp-tc-tag.copied { border-color: var(--ep-copied); color: var(--ep-copied); }
 /* Keep the chip legible against the lighter direction prose. */

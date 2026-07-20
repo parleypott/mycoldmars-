@@ -1442,6 +1442,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     <div
       class="wp-page"
       data-episode={EPISODE.id}
+      data-daytc={EPISODE.features?.palauTimecodes ? '' : undefined}
       data-readonly={readOnly ? '' : undefined}
       data-mode={!readOnly && editUi ? 'edit' : 'read'}
       data-chfocus={chFocus ? '' : undefined}
