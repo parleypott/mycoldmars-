@@ -170,6 +170,34 @@ for (const doc of [
   eq(viaSUT, viaRef, `twin-lock: recoveryDbNameForConfig agrees with deriveDbName for DOC=${JSON.stringify(doc)}`);
 }
 
+// ── NEW-STYLE DEFAULT: every brand-new script inherits the Palau look ──
+// Regression guard for the 2026-07-20 fix. Before it, brand-new projects shipped NO
+// `features` object, so episodeFlag() read false for everything and chapters rendered
+// the OLD flat style. If a future edit drops `features` or flips one of the three
+// deliberately-OFF flags, this goes RED.
+{
+  const n = configForProject({ id: 'abc123', title: 'Fresh Script' });
+  ok(n.features && typeof n.features === 'object', 'new script: carries a features object');
+  // The flag that draws the big framed chapter — the whole point.
+  ok(n.features.chapterFrames === true, 'new script: chapterFrames ON (framed chapters)');
+  // The full presentational/interaction set that makes the Palau "new style".
+  for (const f of ['chipChrome', 'chapterFrames', 'rowDragReorder', 'convertMenu',
+                   'archiveOwnLine', 'dayFold', 'sequencePicker', 'palauTimecodes', 'inlineSotName']) {
+    ok(n.features[f] === true, `new script: ${f} ON`);
+  }
+  // The three that MUST stay off (data-loss healers + collab room auto-join).
+  ok(!n.features.normalizeTableRows, 'new script: normalizeTableRows OFF (data-loss healer)');
+  ok(!n.features.rebuildFromSourceWhenPristine, 'new script: rebuildFromSourceWhenPristine OFF (inert for authored docs)');
+  ok(!n.features.collab, 'new script: collab OFF (no auto-join Liveblocks room)');
+}
+
+// Legacy seeded projects must keep THEIR OWN features verbatim — the new-style default
+// is only for brand-new rows, never an override of a pinned Burma/Palau config.
+{
+  const p = configForProject({ episode: 'palau' });
+  ok(p.features && p.features.collab === true, 'legacy palau: keeps its own features (incl. collab) verbatim');
+}
+
 console.log(fail === 0
   ? `PASS — all ${pass} config-for-project cases correct`
   : `\n${fail} FAILED, ${pass} passed`);

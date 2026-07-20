@@ -38,6 +38,34 @@ const DEFAULT_GENRES = [
   { id: 'other',     label: '',          head: null },
 ];
 
+// The "NEW STYLE" every new script inherits by default — the Palau/Palau2 look Johnny
+// wants as the house standard (big framed chapters, chip chrome, timecode chips, etc.).
+// Previously brand-new library scripts shipped NO features object, so episodeFlag() read
+// false for everything and they rendered the OLD flat style. This is the whole fix: seed
+// the presentational + interaction flags ON so a fresh script frames its chapters the
+// moment you add one.
+//
+// Audited flag-by-flag (2026-07-20) for safety on a brand-new empty cloud-backed doc.
+// THREE Palau flags are deliberately OMITTED (default off):
+//   • normalizeTableRows            — a stale-doc HEALER (culls word-less rows on load);
+//                                     zero visual benefit here, medium data-loss risk.
+//   • rebuildFromSourceWhenPristine — rebuilds the doc from config.blocksData, which is
+//                                     [] for user-authored scripts; inert + wrong model.
+//   • collab                        — renders nothing; would auto-join a Liveblocks room
+//                                     per script (COLLAB LOOP LAW). Opt in per-project only.
+// None of the flags below dispatch auto-transactions, so none can trip the collab loop.
+const NEW_STYLE_FEATURES = {
+  chipChrome: true,       // calm framed block chrome instead of shouty text labels
+  chapterFrames: true,    // THE big framed chapter look (COLD OPEN frame) + sidebar
+  rowDragReorder: true,   // ⇕ grip to drag-reorder rows (lossless)
+  convertMenu: true,      // right-click "convert selection to viz chip"
+  archiveOwnLine: true,   // /archive pops its own indented checkable line
+  dayFold: true,          // fold a redundant literal "DAY N" before a timecode chip
+  sequencePicker: true,   // chip right-click picks SEQUENCE (doc-derived), not DAY
+  palauTimecodes: true,   // 3-part/bracket timecode chips, bundled-day strip
+  inlineSotName: true,    // SOT speaker/sequence name bold inline at head of quote
+};
+
 /** All localStorage doc keys a config touches (for purge). */
 export function storageKeysForConfig(cfg) {
   const s = (cfg && cfg.storage) || {};
@@ -98,6 +126,9 @@ export function configForProject(row) {
     sequences: [],
     genres: DEFAULT_GENRES,
     flavors: [],
+    // The house "new style" — framed chapters + chip chrome, on by default for every new
+    // script (see NEW_STYLE_FEATURES above for the audit and the three deliberate omissions).
+    features: { ...NEW_STYLE_FEATURES },
     blocksData: [], // empty starter — the engine builds an empty doc on first open
     // Cloud-backed projects get the real cloud lifecycle (SAVING / SAVED TO CLOUD / offline / conflict
     // pill states). Offline-created local projects stay calm-local.
