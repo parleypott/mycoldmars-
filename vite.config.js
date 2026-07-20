@@ -223,6 +223,7 @@ export default defineConfig(({ mode }) => {
         queenScarletSchoolExplore: resolve(__dirname, 'queen-scarlet-school/explore/index.html'),
         queenScarletSchoolStyle: resolve(__dirname, 'queen-scarlet-school/style/index.html'),
         democracy: resolve(__dirname, 'democracy/index.html'),
+        democracyMap: resolve(__dirname, 'democracy/map/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),
         research: resolve(__dirname, 'research/index.html'),

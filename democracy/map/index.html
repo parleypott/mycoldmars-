@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Regimes of the World · V-Dem 2024</title>
+<meta name="description" content="Every country on Earth, classified by V-Dem's Regimes of the World measure. Which are electoral democracies, 2024." />
+<meta property="og:title" content="Regimes of the World: which countries are electoral democracies" />
+<meta property="og:description" content="V-Dem's classification of all 174 countries, 2024. Closed autocracy to liberal democracy." />
+<meta property="og:image" content="/democracy/og.png" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<style>
+  :root{
+    --bg:#0e0d0c; --panel:#141210; --ink:#ece6da; --dim:#8f877a; --faint:#5b544a;
+    --line:#2a2724; --nodata:#211f1d;
+    --c0:#3c3a38;  /* closed autocracy   */
+    --c1:#6e5847;  /* electoral autocracy */
+    --c2:#E8622A;  /* ELECTORAL DEMOCRACY — the subject */
+    --c3:#F3B646;  /* liberal democracy  */
+    --accent:#E8622A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;-webkit-font-smoothing:antialiased}
+  body{min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden}
+  a{color:inherit}
+
+  .wrap{max-width:1180px;margin:0 auto;width:100%;padding:26px 22px 60px;flex:1}
+
+  header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;
+    gap:10px 24px;border-bottom:1px solid var(--line);padding-bottom:16px}
+  .fig{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
+  .fig .b{color:var(--accent)}
+  h1{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:400;
+    font-size:clamp(26px,4.4vw,44px);line-height:1.02;letter-spacing:-.01em;margin-top:14px}
+  h1 em{font-style:normal;color:var(--accent)}
+  .sub{margin-top:12px;max-width:70ch;font-size:13.5px;line-height:1.6;color:var(--dim)}
+  .sub b{color:var(--ink);font-weight:400}
+
+  .mapwrap{position:relative;margin-top:22px;border:1px solid var(--line);
+    background:radial-gradient(120% 120% at 50% 0%,#151311 0%,var(--bg) 70%)}
+  svg{display:block;width:100%;height:auto}
+  .country{stroke:var(--bg);stroke-width:.35px;cursor:default;
+    transition:opacity .18s ease, fill .18s ease}
+  .country:hover{stroke:var(--ink);stroke-width:.7px}
+  .graticule{fill:none;stroke:#211f1c;stroke-width:.5px}
+  .sphere{fill:#100e0d;stroke:var(--line);stroke-width:1px}
+  .dimmed{opacity:.14}
+
+  .tip{position:fixed;pointer-events:none;z-index:40;background:var(--panel);
+    border:1px solid var(--line);padding:9px 12px;opacity:0;transform:translateY(3px);
+    transition:opacity .12s;max-width:240px}
+  .tip .n{font-size:13px;color:var(--ink);margin-bottom:3px}
+  .tip .r{font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+  .tip .swatch{display:inline-block;width:8px;height:8px;margin-right:6px;vertical-align:middle}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .lg{flex:1 1 200px;min-width:180px;display:flex;align-items:flex-start;gap:11px;
+    border:1px solid var(--line);background:var(--panel);padding:12px 13px;cursor:pointer;
+    transition:border-color .15s, background .15s; user-select:none}
+  .lg:hover{border-color:var(--faint)}
+  .lg.off{opacity:.4}
+  .lg .sw{width:16px;height:16px;flex:none;margin-top:1px}
+  .lg .lab{font-size:12px;letter-spacing:.02em}
+  .lg .cnt{font-family:Georgia,serif;font-style:italic;font-size:22px;line-height:1;margin-top:5px;color:var(--ink)}
+  .lg .cnt small{font-family:ui-monospace,monospace;font-style:normal;font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-left:5px}
+  .lg .desc{font-size:10.5px;line-height:1.5;color:var(--faint);margin-top:6px;max-width:26ch}
+
+  .foot{margin-top:26px;display:flex;flex-wrap:wrap;gap:14px 30px;justify-content:space-between;
+    border-top:1px solid var(--line);padding-top:16px;font-size:11px;color:var(--faint);line-height:1.6}
+  .foot .note{max-width:62ch}
+  .foot a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line)}
+  .foot a:hover{color:var(--accent);border-color:var(--accent)}
+  .hint{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+    margin-top:10px;text-align:center}
+  @media (max-width:560px){ .wrap{padding:18px 14px 48px} .legend .lg{flex:1 1 46%} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="fig">FIG.01 &nbsp;·&nbsp; <span class="b">REGIMES OF THE WORLD</span></div>
+    <div class="fig">V-DEM v15 &nbsp;·&nbsp; DATA YEAR 2024</div>
+  </header>
+
+  <h1>Which countries are <em>electoral democracies</em>?</h1>
+  <p class="sub">V-Dem sorts every country into one of four regimes by how free and fair its elections are, and whether the rule of law and rights that make a democracy <b>liberal</b> hold underneath them. An <b>electoral democracy</b> clears the bar for clean, multiparty elections; a <b>liberal democracy</b> also protects minorities and constrains executive power. Hover any country. Click a category to isolate it.</p>
+
+  <div class="mapwrap">
+    <svg id="map" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet" aria-label="World map of political regimes"></svg>
+  </div>
+  <div class="hint">click a category below to isolate it · click again to reset</div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="foot">
+    <div class="note" id="missingNote"></div>
+    <div>
+      Source: <a href="https://v-dem.net" target="_blank" rel="noopener">V-Dem Institute</a>,
+      Regimes of the World (<code>v2x_regime</code>), v15 · via
+      <a href="https://ourworldindata.org/grapher/political-regime" target="_blank" rel="noopener">Our World in Data</a>.<br>
+      174 countries · data year 2024 · &nbsp;<a href="/democracy">← the spectrum tool</a>
+    </div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="/democracy/map/mapdata.js"></script>
+<script>
+(function(){
+  const GEO = window.REGIME_GEO, META = window.REGIME_META;
+  const COL = ['#3c3a38','#6e5847','#E8622A','#F3B646'];
+  const DESC = [
+    'No meaningful multiparty elections for the executive.',
+    'Elections happen, but they are neither free nor fair.',
+    'Free and fair multiparty elections. The democratic threshold.',
+    'Electoral democracy plus rule of law and protected rights.'
+  ];
+  const svg = d3.select('#map');
+  const W = 960, H = 500;
+  const proj = d3.geoNaturalEarth1().fitExtent([[8,8],[W-8,H-8]], GEO);
+  const path = d3.geoPath(proj);
+
+  // sphere + graticule
+  svg.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d', path);
+  svg.append('path').datum(d3.geoGraticule().step([30,30])()).attr('class','graticule').attr('d', path);
+
+  let active = null; // isolated category or null
+  const tip = document.getElementById('tip');
+
+  const paths = svg.append('g').selectAll('path')
+    .data(GEO.features).join('path')
+      .attr('class','country')
+      .attr('d', path)
+      .attr('fill', d => d.properties.regime==null ? 'var(--nodata)' : COL[d.properties.regime])
+      .on('mousemove', (e,d)=>{
+        const r = d.properties.regime;
+        tip.style.opacity=1; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px';
+        const rl = r==null ? 'Not classified' : META.labels[r];
+        const sw = r==null ? 'var(--nodata)' : COL[r];
+        tip.innerHTML = '<div class="n">'+d.properties.name+'</div>'+
+          '<div class="r" style="color:'+(r==null?'#8f877a':COL[r])+'"><span class="swatch" style="background:'+sw+'"></span>'+rl+'</div>';
+      })
+      .on('mouseleave', ()=>{ tip.style.opacity=0; });
+
+  function applyActive(){
+    paths.classed('dimmed', d => active!=null && d.properties.regime!==active);
+    d3.selectAll('.lg').classed('off', function(){
+      return active!=null && +this.dataset.cat!==active;
+    });
+  }
+  function toggle(cat){ active = (active===cat) ? null : cat; applyActive(); }
+
+  // legend
+  const lg = d3.select('#legend');
+  [0,1,2,3].forEach(c=>{
+    const el = lg.append('div').attr('class','lg').attr('data-cat',c)
+      .on('click',()=>toggle(c));
+    el.append('div').attr('class','sw').style('background',COL[c]);
+    const body = el.append('div');
+    body.append('div').attr('class','lab').text(META.labels[c]);
+    body.append('div').attr('class','cnt').html(META.counts[c]+'<small>countries</small>');
+    body.append('div').attr('class','desc').text(DESC[c]);
+  });
+
+  // micro-states caption (too small to render at world scale)
+  const ms = META.missing.map(m=>m.name+' ('+META.labels[m.regime].replace(' democracy','').replace(' autocracy',' aut.')+')');
+  document.getElementById('missingNote').innerHTML =
+    '<b style="color:#8f877a">Not shown</b>: 11 small island & city-states fall below the map’s resolution but are counted above: '+
+    META.missing.map(m=>m.name).join(', ')+'.';
+})();
+</script>
+</body>
+</html>
