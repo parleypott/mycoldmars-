@@ -204,6 +204,68 @@ eq(buildEditorDocument([], null, {}, {}, [], null, {}), { type: 'doc', content: 
   eq(extractHighlightsFromEditor({ content: [] }), [], 'empty content → []');
 }
 
+// ───────────────────────── chunk large same-speaker runs (OOM fix) ─────────────────────────
+// THE FIX (commit 74d1609): an undiarized import — every segment shares one blank
+// speaker — used to collapse into ONE speakerBlock holding hundreds/thousands of
+// mark-spans. ProseMirror builds the whole ViewDesc + layout for that single block
+// on mount → renderer OOM / "Aw Snap". buildEditorDocument now caps a block at 40
+// segments (MAX_SEGMENTS_PER_BLOCK), splitting the same speaker across many blocks so
+// layout happens incrementally. These lock the invariant the crash-fix relies on.
+{
+  const N = 95; // 40 + 40 + 15
+  const segs = Array.from({ length: N }, (_, i) => ({
+    number: i + 1, speaker: '', start: i, end: i + 1, text: 't' + (i + 1),
+  }));
+  const doc = buildEditorDocument(segs, null, {}, {}, [], null, {});
+
+  // 95 same-speaker segments → three blocks (40/40/15), never one giant block.
+  eq(doc.content.length, 3, 'undiarized run split into ceil(95/40)=3 blocks');
+  const sizes = doc.content.map(b => b.content[0].content.length);
+  eq(sizes, [40, 40, 15], 'block sizes are 40,40,15');
+  ok(sizes.every(n => n <= 40), 'NO block exceeds MAX_SEGMENTS_PER_BLOCK — the OOM guard');
+
+  // Every segment survives, in order, exactly once across the chunks.
+  const nums = doc.content.flatMap(b => b.content[0].content.map(t => t.marks[0].attrs.number));
+  eq(nums.length, N, 'no segment dropped by chunking');
+  ok(nums.every((n, i) => n === i + 1), 'segment order preserved across chunk boundaries');
+
+  // Every chunk shares the run's speaker/color; each stamps ITS OWN first-seg start.
+  ok(doc.content.every(b => b.attrs.speaker === 'Unknown'), 'all chunks keep the run speaker');
+  ok(doc.content.every(b => b.attrs.color === '#DD2C1E'), 'all chunks keep the run color');
+  eq(doc.content[0].attrs.startTime, '0:00', 'chunk 1 startTime = seg 1 start (0)');
+  eq(doc.content[1].attrs.startTime, '0:40', 'chunk 2 startTime = seg 41 start (40s)');
+  eq(doc.content[2].attrs.startTime, '1:20', 'chunk 3 startTime = seg 81 start (80s)');
+
+  // A run of exactly 40 stays a single block (boundary — no spurious empty chunk).
+  const forty = buildEditorDocument(
+    Array.from({ length: 40 }, (_, i) => ({ number: i + 1, speaker: 'A', start: i, end: i + 1, text: 'x' })),
+    null, { A: '#1' }, {}, [], null, {});
+  eq(forty.content.length, 1, 'exactly 40 segments → one block (no over-split)');
+  eq(forty.content[0].content[0].content.length, 40, 'the one block holds all 40');
+
+  // RED proof: the OLD un-chunked builder emits ONE block with all 95 spans — the
+  // exact OOM condition. If chunking regresses (MAX bumped huge / loop reverted),
+  // buildEditorDocument would match this and the guard assertions above go RED.
+  function oldUnchunked(segments) {
+    const groups = [];
+    let cur = null;
+    for (const seg of segments) {
+      if (!seg) continue;
+      const sp = seg.speaker || 'Unknown';
+      if (!cur || cur.speaker !== sp) { cur = { speaker: sp, segments: [] }; groups.push(cur); }
+      cur.segments.push(seg);
+    }
+    return { type: 'doc', content: groups.filter(g => g.segments.length > 0).map(g => ({
+      type: 'speakerBlock',
+      content: [{ type: 'paragraph', content: g.segments.map(s => ({ type: 'text', text: 't' })) }],
+    })) };
+  }
+  const old = oldUnchunked(segs);
+  eq(old.content.length, 1, 'RED proof: old builder makes ONE block for the whole run');
+  eq(old.content[0].content[0].content.length, N, 'RED proof: that one block holds all 95 spans (OOM)');
+  ok(doc.content.length !== old.content.length, 'RED proof: chunking changed the block count');
+}
+
 // ───────────────────────── report ─────────────────────────
 if (fail) { console.log(fails.join('\n')); console.log(`\ndocument-builder (interpreter editor): ${pass} passed, ${fail} failed`); process.exit(1); }
 console.log(`document-builder (interpreter editor): ${pass}/${pass} passed`);
