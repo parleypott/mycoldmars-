@@ -135,9 +135,12 @@ export function isGenericSpeaker(name) {
 
 export async function analyzeTranscript(segments) {
   const tagged = segments.map(s => ({ ...s, isGeneric: isGenericSpeaker(s.speaker) }));
-  const labeled = tagged.filter(s => !s.isGeneric);
-  const genericCount = tagged.filter(s => s.isGeneric).length;
-  const genericNums = tagged.filter(s => s.isGeneric).map(s => s.number);
+  // Undiarized transcript (all speakers blank/generic): analyze ALL segments
+  // instead of stripping everything and sending Claude an empty transcript.
+  const allGeneric = tagged.length > 0 && tagged.every(s => s.isGeneric);
+  const labeled = allGeneric ? tagged : tagged.filter(s => !s.isGeneric);
+  const genericCount = allGeneric ? 0 : tagged.filter(s => s.isGeneric).length;
+  const genericNums = allGeneric ? [] : tagged.filter(s => s.isGeneric).map(s => s.number);
 
   const transcriptText = labeled
     .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
@@ -252,9 +255,14 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
   const results = new Array(segments.length);
   const labeledWithIndex = [];
 
+  // No real speaker labels at all (undiarized import where every speaker is ''):
+  // translate every segment instead of marking them [unintelligible]. The
+  // generic-skip only exists to separate REAL speakers from chatter; with no
+  // real speaker to contrast against, it would strip the whole transcript.
+  const allGeneric = segments.length > 0 && segments.every(s => isGenericSpeaker(s.speaker));
   for (let i = 0; i < segments.length; i++) {
     const s = segments[i];
-    if (isGenericSpeaker(s.speaker)) {
+    if (isGenericSpeaker(s.speaker) && !allGeneric) {
       results[i] = {
         number: s.number,
         original: s.text,
@@ -336,7 +344,10 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
  * explaining what kind of soundbite belongs there.
  */
 export async function detectThemes(segments, { editorialFocus, narrativeSummary } = {}) {
-  const labeled = segments.filter(s => !isGenericSpeaker(s.speaker));
+  const nonGeneric = segments.filter(s => !isGenericSpeaker(s.speaker));
+  // Undiarized transcripts (every speaker blank/generic) would filter to empty
+  // and yield zero themes — fall back to ALL segments so themes still generate.
+  const labeled = nonGeneric.length ? nonGeneric : segments;
   const transcriptText = labeled
     .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
     .join('\n');
@@ -381,7 +392,9 @@ Respond with JSON only (no markdown fencing):
  * Returns: [{ segmentNumber, themes: [name, ...], label?: string }]
  */
 export async function extractSoundbites({ segments, themes, editorialFocus, narrativeSummary, onProgress }) {
-  const labeled = segments.filter(s => !isGenericSpeaker(s.speaker));
+  const nonGeneric = segments.filter(s => !isGenericSpeaker(s.speaker));
+  // Fall back to ALL segments when nothing has a real speaker (undiarized import).
+  const labeled = nonGeneric.length ? nonGeneric : segments;
   if (labeled.length === 0 || themes.length === 0) return [];
 
   // Chunk transcript so we don't blow out a single context. ~80 segments per chunk.

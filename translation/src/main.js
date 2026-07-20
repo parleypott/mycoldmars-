@@ -5193,6 +5193,16 @@ btnTranslate.addEventListener('click', () => {
   startTranslation();
 });
 
+// Prominent in-editor Translate button (step 5) — one click to (re)run the
+// whole Arabic→English pass on the open transcript without hunting for step 4.
+document.getElementById('btn-translate-editor')?.addEventListener('click', () => {
+  if (!segments || segments.length === 0) {
+    showError('Load a transcript first.');
+    return;
+  }
+  startTranslation();
+});
+
 async function startTranslation() {
   gatherSpeakerSelections();
   goToStep(4);

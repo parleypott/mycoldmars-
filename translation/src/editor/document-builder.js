@@ -100,53 +100,66 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
     });
   }
 
-  // Convert groups to Tiptap JSON nodes
-  const content = groups.filter(g => g.segments.length > 0).map(group => {
+  // Convert groups to Tiptap JSON nodes.
+  //
+  // Chunk large speaker runs into multiple speakerBlocks. A transcript with no
+  // diarization (every segment shares one speaker — e.g. a Trint import with
+  // blank speakers) would otherwise collapse into a SINGLE contenteditable
+  // paragraph holding hundreds/thousands of mark-spans. ProseMirror builds the
+  // whole ViewDesc + layout for that one block on mount → renderer OOM / "Aw
+  // Snap". Splitting the same speaker across many blocks restores the natural
+  // chunking a multi-speaker doc gets for free, so layout happens incrementally.
+  const MAX_SEGMENTS_PER_BLOCK = 40;
+  const content = [];
+  for (const group of groups.filter(g => g.segments.length > 0)) {
     const color = speakerColors[group.speaker] || '#DD2C1E';
     const isHidden = (hiddenSpeakers || []).includes(group.speaker);
-
-    // Build paragraph content — each segment is text with a segment mark
-    const paraContent = group.segments.map(seg => {
-      const text = seg.unintelligible ? '[unintelligible] ' : seg.translated + ' ';
-      return {
-        type: 'text',
-        text,
-        marks: [{
-          type: 'segment',
-          attrs: {
-            number: seg.number,
-            start: seg.start,
-            end: seg.end,
-            originalText: seg.originalText,
-          },
-        }],
-      };
-    });
 
     // Look up language for this raw speaker name
     const langRaw = languageMap?.[group.speaker] || '';
     const langCode = toLangCode(langRaw);
 
-    // Format start time of first segment for the timecode tag
-    const firstSeg = group.segments[0];
-    const startTime = firstSeg ? formatTimecodeForTag(firstSeg.start) : '';
+    for (let i = 0; i < group.segments.length; i += MAX_SEGMENTS_PER_BLOCK) {
+      const chunk = group.segments.slice(i, i + MAX_SEGMENTS_PER_BLOCK);
 
-    return {
-      type: 'speakerBlock',
-      attrs: {
-        speaker: speakerMap?.[group.speaker] || group.speaker,
-        color,
-        visible: !isHidden,
-        dismissed: isHidden,
-        language: langCode,
-        startTime,
-      },
-      content: [{
-        type: 'paragraph',
-        content: paraContent,
-      }],
-    };
-  });
+      // Build paragraph content — each segment is text with a segment mark
+      const paraContent = chunk.map(seg => {
+        const text = seg.unintelligible ? '[unintelligible] ' : seg.translated + ' ';
+        return {
+          type: 'text',
+          text,
+          marks: [{
+            type: 'segment',
+            attrs: {
+              number: seg.number,
+              start: seg.start,
+              end: seg.end,
+              originalText: seg.originalText,
+            },
+          }],
+        };
+      });
+
+      // Timecode tag = start time of this chunk's first segment
+      const startTime = chunk[0] ? formatTimecodeForTag(chunk[0].start) : '';
+
+      content.push({
+        type: 'speakerBlock',
+        attrs: {
+          speaker: speakerMap?.[group.speaker] || group.speaker,
+          color,
+          visible: !isHidden,
+          dismissed: isHidden,
+          language: langCode,
+          startTime,
+        },
+        content: [{
+          type: 'paragraph',
+          content: paraContent,
+        }],
+      });
+    }
+  }
 
   return { type: 'doc', content };
 }

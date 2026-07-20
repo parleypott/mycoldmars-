@@ -837,6 +837,17 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 .edit-toolbar .export-menu {
   margin-left: auto;
 }
+/* Prominent one-click translate — kicks the whole Arabic→English pass. */
+.edit-translate-btn {
+  font-size: 15px;
+  padding: var(--np-space-4) var(--np-space-8);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.edit-translate-btn.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
 
 /* ── View toggle ── */
 .view-toggle {
