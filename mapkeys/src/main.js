@@ -2,7 +2,7 @@ import mapboxgl from 'mapbox-gl';
 import { unzipSync, strFromU8 } from 'fflate';
 import GIF from 'gif.js';
 import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
-import { feature as topoFeature } from 'topojson-client';
+import { feature as topoFeature, mesh as topoMesh } from 'topojson-client';
 // 10m is Natural Earth's highest resolution — ~3.5MB, but borders look real
 // (coastlines, archipelagos, peninsulas all detailed) instead of low-poly
 // 110m blocks. Worth the payload for a video/animation tool.
@@ -41,6 +41,15 @@ const COUNTRIES = (() => {
 })();
 const COUNTRY_BY_ID = new Map(COUNTRIES.map(c => [c.id, c]));
 const COUNTRY_BY_NAME = new Map(COUNTRIES.map(c => [c.name.toLowerCase(), c]));
+
+// World-borders mesh for the BORDERS hub — every boundary arc drawn exactly
+// once (interior borders + coastlines). Built lazily on first enable; the
+// topology is already parsed at startup so this is just arc stitching.
+let _bordersGeom = null;
+function bordersGeom() {
+  if (!_bordersGeom) _bordersGeom = topoMesh(countriesTopo, countriesTopo.objects.countries);
+  return _bordersGeom;
+}
 
 // searchCountries (the country-picker ranking) lives in ./country-search.js so
 // it's headless-testable; here it's bound to the module-scoped COUNTRIES list.
@@ -243,6 +252,8 @@ map.on('style.load', () => {
   for (const overlay of state.overlays) {
     ensureOverlayOnMap(overlay);
   }
+  // World borders sit above old-map rasters, below routes/shapes.
+  ensureBordersOnMap();
   for (const layer of state.layers) {
     ensureLayerOnMap(layer);
   }
@@ -262,6 +273,25 @@ map.on('style.load', () => {
 // ─── State ───
 
 const DEFAULT_LAYER_STYLE = { color: '#2b2a26', width: 3, opacity: 1, dashed: false, trail: true };
+
+// ─── BORDERS hub — two independently-styled world-border line layers ───
+const DEFAULT_BORDERS = {
+  primary:   { on: false, color: '#6b5640', width: 1,   opacity: 0.85, dashed: false },
+  secondary: { on: false, color: '#a8482b', width: 2.5, opacity: 0.35, dashed: true },
+};
+function normalizeBorders(raw) {
+  const one = (d, r) => ({
+    on: r && typeof r.on === 'boolean' ? r.on : d.on,
+    color: r && typeof r.color === 'string' ? r.color : d.color,
+    width: r && typeof r.width === 'number' ? r.width : d.width,
+    opacity: r && typeof r.opacity === 'number' ? r.opacity : d.opacity,
+    dashed: r && typeof r.dashed === 'boolean' ? r.dashed : d.dashed,
+  });
+  return {
+    primary: one(DEFAULT_BORDERS.primary, raw && raw.primary),
+    secondary: one(DEFAULT_BORDERS.secondary, raw && raw.secondary),
+  };
+}
 // Color cycle for new uploads so they're visually distinct by default.
 const LAYER_COLORS = ['#2b2a26', '#a8482b', '#3b6a4a', '#4a5e8a', '#8a4a6a', '#6a4a2b'];
 
@@ -272,6 +302,7 @@ const state = {
   layers: [],             // [{ id, name, coords, cumDist, totalDist, style, visible }]
   overlays: [],           // [{ id, name, kind, source, tiles, opacity, visible, bounds }]
   activeLayerId: null,    // which layer the route-style controls bind to
+  borders: normalizeBorders(null),  // BORDERS hub: { primary, secondary } world-border styling
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
   activeShapeId: null,    // selected shape (or null)
@@ -285,6 +316,10 @@ const state = {
   playStart: 0,
   playOffset: 0,
 };
+
+// Debug handle — lets a console (or headless CDP verification) inspect the
+// live editor without exposing anything in the UI.
+window.__mapkeys = { map, state };
 
 // Backwards-compat shim: code that referenced state.route as "the current
 // route" now reads the active layer (or first visible layer).
@@ -651,6 +686,67 @@ function ensureShapeOnMap(shape) {
 }
 
 function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
+
+// ─── BORDERS hub — map plumbing ───
+// One geojson source (the world-atlas mesh), two line layers styled from
+// state.borders. Layers are created lazily the first time either is switched
+// on, inserted beneath every route/shape/selection layer so borders always
+// read as basemap chrome, never as content.
+
+const BORDERS_SRC = 'mk-borders-src';
+const BORDERS_LAYERS = { primary: 'mk-borders-1', secondary: 'mk-borders-2' };
+
+function bordersBeforeId() {
+  for (const l of map.getStyle().layers) {
+    if (/^(route-|shape-|mk-sel|mk-country-edit|mk-draw)/.test(l.id)) return l.id;
+  }
+  return undefined;
+}
+
+function ensureBordersOnMap() {
+  const b = state.borders;
+  if (!b || (!b.primary.on && !b.secondary.on)) { applyBordersToMap(); return; }
+  try {
+    if (!map.getSource(BORDERS_SRC)) {
+      map.addSource(BORDERS_SRC, {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: bordersGeom() },
+      });
+    }
+    const beforeId = bordersBeforeId();
+    for (const key of ['primary', 'secondary']) {
+      const id = BORDERS_LAYERS[key];
+      if (!map.getLayer(id)) {
+        map.addLayer({
+          id,
+          type: 'line',
+          source: BORDERS_SRC,
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+        }, beforeId);
+      }
+    }
+  } catch (err) {
+    console.warn('[mapkeys] borders setup failed:', err.message);
+  }
+  applyBordersToMap();
+}
+
+function applyBordersToMap() {
+  const b = state.borders;
+  if (!b) return;
+  for (const key of ['primary', 'secondary']) {
+    const id = BORDERS_LAYERS[key];
+    if (!map.getLayer(id)) continue;
+    const s = b[key];
+    try {
+      map.setLayoutProperty(id, 'visibility', s.on ? 'visible' : 'none');
+      map.setPaintProperty(id, 'line-color', s.color);
+      map.setPaintProperty(id, 'line-width', s.width);
+      map.setPaintProperty(id, 'line-opacity', s.opacity);
+      map.setPaintProperty(id, 'line-dasharray', s.dashed ? [2, 2] : [1, 0]);
+    } catch (_) {}
+  }
+}
 
 function removeShapeFromMap(shape) {
   const ids = shapeSourceIds(shape.id);
@@ -1985,6 +2081,75 @@ function flashUpdateConfirmation() {
   }, 900);
 }
 
+// ─── BORDERS hub UI ───
+
+const bordersHub = document.getElementById('borders-hub');
+
+document.getElementById('borders-btn').addEventListener('click', () => {
+  const opening = bordersHub.classList.contains('hidden');
+  bordersHub.classList.toggle('hidden');
+  if (opening) syncBordersHub();
+});
+document.getElementById('bh-close').addEventListener('click', () => bordersHub.classList.add('hidden'));
+
+function bhInputs(key) {
+  const p = key === 'primary' ? 'bh1' : 'bh2';
+  return {
+    on: document.getElementById(`${p}-on`),
+    color: document.getElementById(`${p}-color`),
+    width: document.getElementById(`${p}-width`),
+    widthVal: document.getElementById(`${p}-width-val`),
+    opacity: document.getElementById(`${p}-opacity`),
+    opacityVal: document.getElementById(`${p}-opacity-val`),
+    dashed: document.getElementById(`${p}-dashed`),
+  };
+}
+
+function syncBordersHub() {
+  for (const key of ['primary', 'secondary']) {
+    const s = state.borders[key];
+    const el = bhInputs(key);
+    el.on.checked = s.on;
+    el.color.value = s.color;
+    el.width.value = s.width;
+    el.widthVal.value = s.width;
+    el.opacity.value = Math.round(s.opacity * 100);
+    el.opacityVal.value = Math.round(s.opacity * 100);
+    el.dashed.checked = s.dashed;
+  }
+}
+
+function wireBordersLayer(key) {
+  const el = bhInputs(key);
+  const upd = (mut) => {
+    mut(state.borders[key]);
+    ensureBordersOnMap();
+    saveLayers();
+  };
+  el.on.addEventListener('change', () => upd(s => { s.on = el.on.checked; }));
+  el.color.addEventListener('input', () => upd(s => { s.color = el.color.value; }));
+  el.width.addEventListener('input', () => {
+    el.widthVal.value = el.width.value;
+    upd(s => { s.width = parseFloat(el.width.value); });
+  });
+  el.widthVal.addEventListener('change', () => {
+    el.width.value = el.widthVal.value;
+    const n = parseFloat(el.widthVal.value);
+    upd(s => { s.width = Number.isFinite(n) ? n : 1; });
+  });
+  el.opacity.addEventListener('input', () => {
+    el.opacityVal.value = el.opacity.value;
+    upd(s => { s.opacity = parseInt(el.opacity.value, 10) / 100; });
+  });
+  el.opacityVal.addEventListener('change', () => {
+    el.opacity.value = el.opacityVal.value;
+    upd(s => { s.opacity = (parseInt(el.opacityVal.value, 10) || 0) / 100; });
+  });
+  el.dashed.addEventListener('change', () => upd(s => { s.dashed = el.dashed.checked; }));
+}
+wireBordersLayer('primary');
+wireBordersLayer('secondary');
+
 document.getElementById('kf-update-view').addEventListener('click', updateSelectedKeyframe);
 document.getElementById('kf-delete').addEventListener('click', () => {
   if (state.selectedId) deleteKeyframe(state.selectedId);
@@ -2012,6 +2177,10 @@ function getProjectSnapshot() {
     activeShapeId: state.activeShapeId,
     keyframes: state.keyframes,
     overlays: state.overlays.map(serializeOverlay),
+    borders: {
+      primary: { ...state.borders.primary },
+      secondary: { ...state.borders.secondary },
+    },
     camera: {
       center: [c.lng, c.lat],
       zoom: map.getZoom(),
@@ -2150,6 +2319,7 @@ function hydrateSnapshotIntoState(parsed) {
   state.shapes = (Array.isArray(parsed.shapes) ? parsed.shapes : []).map(hydrateShape).filter(Boolean);
   state.activeShapeId = parsed.activeShapeId || null;
   state.overlays = (Array.isArray(parsed.overlays) ? parsed.overlays : []).map(hydrateOverlay).filter(Boolean);
+  state.borders = normalizeBorders(parsed.borders);
 
   state.keyframes = (Array.isArray(parsed.keyframes) ? parsed.keyframes : []).map(k => ({
     ...k,
@@ -3929,6 +4099,7 @@ function applyProjectSnapshot(snap) {
     // handler walks state.* and attaches everything itself.
     if (map.isStyleLoaded()) {
       for (const o of state.overlays) ensureOverlayOnMap(o);
+      ensureBordersOnMap();
       for (const l of state.layers) ensureLayerOnMap(l);
       for (const s of state.shapes) { ensureShapeOnMap(s); redrawShape(s); }
       setRouteSources(state.previewProgress);
@@ -3951,6 +4122,7 @@ function applyProjectSnapshot(snap) {
     syncShapeStyleInputs();
     syncRouteStyleInputs();
     syncDrawSlider();
+    syncBordersHub();
     updateSelectionIndicator();
   } finally {
     suppressAutosave = false;

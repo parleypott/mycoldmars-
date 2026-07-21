@@ -24,6 +24,7 @@
     <button class="btn" id="add-octagon-btn">+ Octagon</button>
     <button class="btn" id="add-line-btn">+ Line</button>
     <button class="btn" id="add-country-btn">+ Country</button>
+    <button class="btn" id="borders-btn" title="World borders — toggle & style">Borders</button>
     <button class="btn" id="add-oldmap-btn">+ Old Map</button>
     <div id="skin-toggle" title="Basemap skin">
       <button class="skin-btn" data-skin="earthen">Earthen</button>
@@ -107,6 +108,58 @@
     </label>
     <button class="btn ghost" id="ss-edit-country" title="Edit geometry — click parts to drop them">Edit parts</button>
     <button class="btn ghost danger" id="ss-delete">Delete</button>
+  </div>
+
+  <div id="borders-hub" class="hidden">
+    <div id="bh-header">
+      <span class="rs-active-label">BORDERS</span>
+      <button class="ss-close" id="bh-close" title="Close">×</button>
+    </div>
+    <label class="rs-field">
+      <span>World borders</span>
+      <input type="checkbox" id="bh1-on">
+    </label>
+    <label class="rs-field">
+      <span>Color</span>
+      <input type="color" id="bh1-color" value="#6b5640">
+    </label>
+    <label class="rs-field">
+      <span>Width</span>
+      <input type="range" id="bh1-width" min="0.5" max="8" step="0.5" value="1">
+      <span class="rs-val"><input class="rs-num" type="number" id="bh1-width-val" min="0.5" max="8" step="0.5" value="1"></span>
+    </label>
+    <label class="rs-field">
+      <span>Opacity</span>
+      <input type="range" id="bh1-opacity" min="5" max="100" step="1" value="85">
+      <span class="rs-val"><input class="rs-num" type="number" id="bh1-opacity-val" min="0" max="100" step="1" value="85">%</span>
+    </label>
+    <label class="rs-field">
+      <span>Dashed</span>
+      <input type="checkbox" id="bh1-dashed">
+    </label>
+    <div class="bh-section">2ND LAYER</div>
+    <label class="rs-field">
+      <span>Show</span>
+      <input type="checkbox" id="bh2-on">
+    </label>
+    <label class="rs-field">
+      <span>Color</span>
+      <input type="color" id="bh2-color" value="#a8482b">
+    </label>
+    <label class="rs-field">
+      <span>Width</span>
+      <input type="range" id="bh2-width" min="0.5" max="8" step="0.5" value="2.5">
+      <span class="rs-val"><input class="rs-num" type="number" id="bh2-width-val" min="0.5" max="8" step="0.5" value="2.5"></span>
+    </label>
+    <label class="rs-field">
+      <span>Opacity</span>
+      <input type="range" id="bh2-opacity" min="5" max="100" step="1" value="35">
+      <span class="rs-val"><input class="rs-num" type="number" id="bh2-opacity-val" min="0" max="100" step="1" value="35">%</span>
+    </label>
+    <label class="rs-field">
+      <span>Dashed</span>
+      <input type="checkbox" id="bh2-dashed" checked>
+    </label>
   </div>
 
   <div id="layers-panel" class="hidden">

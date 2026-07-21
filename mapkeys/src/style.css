@@ -185,6 +185,56 @@ html, body {
   white-space: nowrap;
 }
 
+/* ─── Borders hub — world-border toggles + styling, opened from the topbar ─── */
+
+#borders-hub {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 12;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  background: rgba(246, 239, 222, 0.94);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px -10px rgba(43, 42, 38, 0.35);
+}
+#borders-hub .rs-field {
+  width: 100%;
+  justify-content: space-between;
+}
+#borders-hub .rs-field input[type="range"] {
+  width: 110px;
+}
+#bh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-edge);
+}
+#bh-header .rs-active-label {
+  border-right: none;
+  padding-right: 0;
+  flex: 1;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ink);
+}
+.bh-section {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--ink-soft);
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-edge);
+}
+
 /* ─── Shape style panel — floats in its own corner, only visible when a
        shape is actively selected (click the shape on the map or its row). ─── */
 
