@@ -243,6 +243,22 @@ function toast(msg, tone = 'error') {
   try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone, msg } })); } catch {}
 }
 
+// CONTENT HASH for dedupe — SHA-256 of the FINAL bytes (post gif→mp4 transcode, since both roads
+// receive `upload`). The server names the object by this hash and, if an identical object already
+// exists, reuses it and skips storing the bytes a second time (identical drop, or the same reference
+// used across scripts). Best-effort: no SubtleCrypto (older/insecure context) or any error → '' →
+// the server falls back to the original stamped path, byte-for-byte as before dedupe existed.
+async function sha256Hex(file) {
+  try {
+    if (!(globalThis.crypto && crypto.subtle && typeof crypto.subtle.digest === 'function')) return '';
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    const bytes = new Uint8Array(digest);
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
+    return hex;
+  } catch { return ''; }
+}
+
 // FileReader → bare base64 (strip the data:*;base64, prefix — the endpoint wants raw).
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -259,7 +275,7 @@ function fileToBase64(file) {
 
 // Small-file road: bytes as base64 JSON through the edge function (the original path).
 async function uploadViaBase64(file, id) {
-  const dataBase64 = await fileToBase64(file);
+  const [dataBase64, contentHash] = await Promise.all([fileToBase64(file), sha256Hex(file)]);
   // The scripts-library gate's fetch interceptor injects the signed-in JWT on
   // same-origin /api/* calls, so this request is authed for free in editable sessions.
   const res = await fetch('/api/script-image-upload', {
@@ -270,6 +286,7 @@ async function uploadViaBase64(file, id) {
       block_id: id,
       dataBase64,
       mimeType: file.type,
+      contentHash,
     }),
   });
   const out = await res.json().catch(() => null);
@@ -280,6 +297,7 @@ async function uploadViaBase64(file, id) {
 // Big-file road: mint a signed URL (auth + mime coercion + path minting server-side), then
 // PUT the raw bytes browser → Supabase directly. No base64 inflation, no edge body ceiling.
 async function uploadViaSignedUrl(file, id) {
+  const contentHash = await sha256Hex(file);
   const res = await fetch('/api/script-image-sign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -288,9 +306,13 @@ async function uploadViaSignedUrl(file, id) {
       block_id: id,
       mimeType: file.type,
       sizeBytes: file.size,
+      contentHash,
     }),
   });
   const out = await res.json().catch(() => null);
+  // DEDUPE HIT — the bytes already live in the bucket; the server returned the public URL and NO
+  // uploadUrl. Skip the PUT entirely (zero bytes moved) and adopt the existing object.
+  if (res.ok && out && out.ok && out.deduped && out.publicUrl) return { url: out.publicUrl };
   if (!res.ok || !out || !out.ok || !out.uploadUrl) {
     return { error: (out && out.error) || `http ${res.status}` };
   }
