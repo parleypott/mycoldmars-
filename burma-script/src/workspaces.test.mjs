@@ -31,7 +31,7 @@ import Gapcursor from '@tiptap/extension-gapcursor';
 import {
   WORKSPACE_ROLES, workspaceRole, rowIsMember, walkTopRows, walkRows, chapterTitle,
   scanWorkspace, workspaceMetrics, timedWordsInRow, isTimedBlock, TIMED_BLOCK_TYPES,
-  countWords, WORDS_PER_MINUTE, PENDING_TINT,
+  countWords, WORDS_PER_MINUTE, PENDING_TINT, TK_TINT,
 } from './workspaces.js';
 import { ROLE_DEFS } from './roles.js';
 import { BURMA_NODES } from './extensions/blocks.js';
@@ -83,11 +83,11 @@ const broll = (id, text) => block('brollBlock', id, [para(txt(text))]);
 const chapterBlk = (id, title) => block('chapterBlock', id, [para(txt(title))], { genre: 'other' });
 
 // ── 1. REGISTRY ──────────────────────────────────────────────────────────────
-ok('WORKSPACE_ROLES: order, labels, lens tints, pending red', () => {
+ok('WORKSPACE_ROLES: order, labels, lens tints, pending red, tk subtle red', () => {
   assert.deepEqual(WORKSPACE_ROLES.map((r) => r.key),
-    ['3d', 'animation', 'archive', 'broll', 'mapdata', 'factcheck', 'vo', 'pending']);
+    ['3d', 'animation', 'archive', 'broll', 'mapdata', 'factcheck', 'vo', 'pending', 'tk']);
   assert.deepEqual(WORKSPACE_ROLES.map((r) => r.label),
-    ['3D ANIMATION', 'ANIMATION', 'ARCHIVE', 'B-ROLL', 'MAP DATA', 'FACT CHECK', 'VO', 'PENDING VISUAL PLAN']);
+    ['3D ANIMATION', 'ANIMATION', 'ARCHIVE', 'B-ROLL', 'MAP DATA', 'FACT CHECK', 'VO', 'PENDING VISUAL PLAN', 'TK']);
   // Overlapping crafts wear the lens tint — one legend, one ink.
   const lens = (id) => ROLE_DEFS.find((r) => r.id === id).tint;
   assert.equal(workspaceRole('vo').tint, lens('vo'));
@@ -99,6 +99,9 @@ ok('WORKSPACE_ROLES: order, labels, lens tints, pending red', () => {
   assert.equal(workspaceRole('mapdata').tint, lens('cartography'), 'mapdata rides the cartography lens tint');
   assert.equal(workspaceRole('pending').tint, PENDING_TINT);
   assert.equal(PENDING_TINT, '#b02318', 'the stage-1 /pending alert red');
+  assert.equal(workspaceRole('tk').tint, TK_TINT);
+  assert.equal(TK_TINT, '#a03a2e', 'the SUBTLE loose-end red — quieter than the /pending alarm');
+  assert.notEqual(TK_TINT, PENDING_TINT, 'TK is a nag, /pending is an alarm — never the same ink');
 });
 
 // ── 2. LENS AGREEMENT — workspace surfaces == lens selector atoms ────────────
@@ -112,6 +115,7 @@ ok('every lens-overlapping craft: workspace surfaces are EXACTLY the lens sel at
   const ATOM_SURFACE = { vo: { blockTypes: 'voBlock' }, fc: { markTypes: 'factCheckSpan' }, broll: { blockTypes: 'brollBlock' } };
   for (const role of WORKSPACE_ROLES) {
     if (role.key === 'pending') continue; // /pending has no lens craft — attr-only surface
+    if (role.key === 'tk') continue; // TK has no lens craft — pattern surface (tk-pattern.js; pinned by tk-detect.test.mjs)
     const def = ROLE_DEFS.find((r) => r.id === role.key)
       || ROLE_DEFS.find((r) => r.sel.includes(`data-kind="${role.key}"`));
     assert.ok(def, `craft "${role.key}" must have a lens counterpart in ROLE_DEFS`);
@@ -148,6 +152,9 @@ const MEMBER_DOC = docFrom({
     row([bin('bin_arc', dhl('archive', 'needed', 'ARCHIVE NEEDED colonial rail footage'))]), // 8 → archive
     row([bin('bin_map', dhl('mapdata', 'static', 'border overlay 1948'))]),// 9 → mapdata
     row([bin('bin_fck', dhl('factcheck', 'todo', 'GDP figure'))]),         // 10 → factcheck (chip)
+    row([bin('bin_tkb', txt('and then I talked to TK for an hour'))]),     // 11 → tk (bare pattern)
+    row([bin('bin_tkp', txt("we need (TK musician's name) before lock"))]),// 12 → tk (parenthetical)
+    row([bin('bin_tks', txt('{tk find the drummer}', [{ type: 'tkSpan' }]))]), // 13 → tk (tkSpan mark, no pattern)
     { type: 'paragraph' },                                                 // bare stray — no row
   ],
 });
@@ -163,6 +170,8 @@ ok('membership per role: chips, legacy surfaces, vo blocks, pending attr', () =>
   assert.deepEqual(members('pending'), [7]);
   assert.deepEqual(members('archive'), [8]);
   assert.deepEqual(members('mapdata'), [9]);
+  assert.deepEqual(members('tk'), [11, 12, 13],
+    'BOTH TK surfaces gather: bare TK, (TK …) parenthetical, AND {tk} bracket runs (tkSpan)');
 });
 
 ok('rowIsMember accepts a role entry or its key; unknown keys are never members', () => {
