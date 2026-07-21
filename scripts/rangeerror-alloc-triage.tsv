@@ -27,3 +27,4 @@ translation/src/api-client.js	newArray(items.length)	SAFE	items.length — alway
 translation/src/api-client.js	newArray(segments.length)	SAFE	segments.length — always a nonneg integer count
 public/ascent/src/app.js	newArray(ys.length)	SAFE	ys.length = one hikes elevation-series length (bounded, ~hundreds-1500 pts)
 public/ascent/src/app.js	newArray(LM.length)	SAFE	LM = window.LANDMARKS, fixed 12-entry seed (bounded)
+burma-script/src/tk-pattern.js	.repeat(child.nodeSize)	SAFE	PM node.nodeSize — always a positive integer (>=1) far below 2^32

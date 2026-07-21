@@ -64,6 +64,14 @@
   --vis-bg:    #f1e3e1;  /* visual chip */
   --vis-text:  #6e1f1a;
 
+  /* LOOSE TK — the no-slash nag (tk-detect.js paints bare TK / '(TK …)' with
+     .wp-tk-loose). SUBTLE red: muted ink + a very faint warm wash + a hairline
+     underline. A quiet note-to-self, deliberately calmer than the /pending alarm
+     (#b02318). Every light scheme reads these defaults; slate re-inks lighter. */
+  --tkl-ink:  #a03a2e;
+  --tkl-wash: rgba(160, 58, 46, .07);
+  --tkl-line: rgba(160, 58, 46, .45);
+
   --grip-grad: repeating-linear-gradient(0deg, #ddd7c8, #ddd7c8 2px, #ece7da 2px, #ece7da 4px);
   --grip-grad-note: repeating-linear-gradient(0deg, #f0e2a8, #f0e2a8 2px, #f6ecbf 2px, #f6ecbf 4px);
   --grip-grad-dark: repeating-linear-gradient(0deg, #2a2a26, #2a2a26 2px, #36352f 2px, #36352f 4px);
@@ -123,6 +131,7 @@
   --label:#9298a1; --label-2:#9197a0; --label-3:#959aa2; --label-4:#959aa2; --label-5:#969ba3; --lane-lab:#959aa2;
   --note-fill:#34321f; --note-fill-hover:#3d3a24; --note-text:#e8dca0; --note-lab:#c9b96e;
   --tk-bg:#3a3520; --tk-text:#e8d488; --vis-bg:#3a2926; --vis-text:#e0a59a;
+  --tkl-ink:#d98f7f; --tkl-wash:rgba(217, 143, 127, .10); --tkl-line:rgba(217, 143, 127, .5);
   --grip-grad: repeating-linear-gradient(0deg,#34373d,#34373d 2px,#3d4047 2px,#3d4047 4px);
   --grip-grad-dark: repeating-linear-gradient(0deg,#1f2024,#1f2024 2px,#2a2b30 2px,#2a2b30 4px);
 }
@@ -806,6 +815,9 @@ html.read-only #library-pill { display: none !important; }
 .wp-ws-chip[data-ws="factcheck"] { background: #f2d4d4; border-color: #d79a9a; color: #7a2e2e; }
 .wp-ws-chip[data-ws="vo"]        { background: rgba(47,111,176,.14); border-color: #2f6fb0; color: #24567e; }
 .wp-ws-chip[data-ws="pending"]   { background: #b02318; border-color: #8f1c13; color: #fbfaf5; }
+/* TK — the loose-end drawer: the subtle-red family of the .wp-tk-loose paint (translucent
+   wash + strong muted-red ring), read against ARCHIVE's solid pink and PENDING's alarm fill. */
+.wp-ws-chip[data-ws="tk"]        { background: rgba(160,58,46,.10); border-color: #a03a2e; color: #7c2d22; }
 
 /* WORKSPACE FOCUS BAR — the fixed way home (chapter-focus bar family). */
 .wp-wsbar {
@@ -1468,6 +1480,22 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
   transition: background .14s var(--ease);
 }
 .wp-tk:hover { background: #ffe9a8; }
+/* LOOSE TK — tk-detect.js decorations, NOT the {tk} chip above (that surface keeps its
+   own yellow look; the plugin never stacks the two). A bare TK or a '(TK …)' parenthetical
+   "turns a little red": muted ink, a very faint warm wash, a hairline underline. Font,
+   size and cursor all inherit — the words stay ordinary prose, this is a quiet nag the
+   writer sweeps up later in the TK workspace, not the /pending alarm. */
+.wp-tk-loose {
+  color: var(--tkl-ink);
+  background: var(--tkl-wash);
+  border-radius: 2px;
+  padding: 0 1px;
+  text-decoration: underline;
+  text-decoration-color: var(--tkl-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
 /* FACT-CHECK assertion — quiet, EDITABLE prose (Johnny 2026-07-07: the boxed chip froze
    whole assertions into what read as uneditable blocks). Subtle red wash + dashed underline
    while unverified; flips green once the receipt lands (data-fc-status). Font/size/color
@@ -2430,6 +2458,12 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   background: rgba(26, 5, 3, .32) !important;
   border-color: rgba(251, 250, 245, .55) !important;
 }
+/* the LOOSE TK paint inside a /pending cell: the wash goes dark-well like the chips and the
+   hairline re-inks near-white — the cell's own re-ink already turns the words light. */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk-loose {
+  background: rgba(26, 5, 3, .32) !important;
+  text-decoration-color: rgba(251, 250, 245, .55) !important;
+}
 
 /* ============================================================
    RESPONSIVE
@@ -2461,6 +2495,8 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   .wp-chapter .wp-cart-body, .wp-chapter .wp-body, .wp-ch-kind, .wp-ch-tag { color: #000 !important; }
   .wp-vo .wp-body, .wp-dir .wp-body, .wp-note .wp-body, .wp-montage .wp-body, .wp-bin .wp-body, .wp-none .wp-body { color: #000 !important; font-size: 11pt !important; }
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
+  /* LOOSE TK in print: visible but calm — the wash drops, the muted-red ink + hairline stay. */
+  .wp-tk-loose { background: none !important; color: #a03a2e !important; text-decoration-color: #a03a2e !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-dir.is-done { opacity: 1 !important; }
   /* TABLE LAYER in print: no fills, keep the single hairline as black ink. */

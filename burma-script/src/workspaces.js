@@ -19,6 +19,7 @@
 
 import { ROLE_DEFS } from './roles.js';
 import { rowFirstBlockId } from './extensions/table.js';
+import { textblockHasTk } from './tk-pattern.js';
 
 // ───────────────────────────────────────────────────────────────────────────
 // TIMED-WORD TAXONOMY — Johnny's rule, encoded once:
@@ -80,6 +81,7 @@ export function countWords(text) {
 //   markTypes  → marks by type name                               ([data-fc] = factCheckSpan)
 //   blockTypes → block nodes by type name                         ([data-vo]/[data-broll])
 //   attrFlags  → block attrs that are strictly `true`             (pendingViz — stage 1)
+//   textScan   → a per-TEXTBLOCK content probe (node) => bool     (TK — tk-pattern.js)
 
 // Hub tint: reuse the lens craft's color where the crafts overlap, so a crew member's
 // workspace reads in the same ink as their lens legend. Match by ROLE_DEFS id, falling
@@ -93,6 +95,11 @@ function lensTint(key) {
 // PENDING has no lens craft — it wears the stage-1 alert red (/pending cell paint).
 export const PENDING_TINT = '#b02318';
 
+// TK has no lens craft either — it wears the SUBTLE red of the loose-end paint
+// (styles.css .wp-tk-loose ink), deliberately quieter than the /pending alarm and
+// distinct from the ARCHIVE pink.
+export const TK_TINT = '#a03a2e';
+
 export const WORKSPACE_ROLES = [
   { key: '3d',        label: '3D ANIMATION',        tint: lensTint('3d'),        surfaces: { markKinds: ['3d'] } },
   { key: 'animation', label: 'ANIMATION',           tint: lensTint('animation'), surfaces: { markKinds: ['animation'] } },
@@ -102,6 +109,12 @@ export const WORKSPACE_ROLES = [
   { key: 'factcheck', label: 'FACT CHECK',          tint: lensTint('factcheck'), surfaces: { markKinds: ['factcheck'], markTypes: ['factCheckSpan'] } },
   { key: 'vo',        label: 'VO',                  tint: lensTint('vo'),        surfaces: { blockTypes: ['voBlock'] } },
   { key: 'pending',   label: 'PENDING VISUAL PLAN', tint: PENDING_TINT,          surfaces: { attrFlags: ['pendingViz'] } },
+  // TK — Johnny's loose-end drawer: "aggregate all those loose ends in one place."
+  // BOTH TK surfaces gather here: the bare/parenthetical TK pattern in prose (the
+  // tk-detect paint — textScan is tk-pattern.js textblockHasTk, the SAME probe the
+  // decorations build from, pinned by tk-detect.test.mjs) AND the {tk …} bracket
+  // runs (the tkSpan mark — excluded from the loose-end PAINT, included HERE).
+  { key: 'tk',        label: 'TK',                  tint: TK_TINT,               surfaces: { markTypes: ['tkSpan'], textScan: textblockHasTk } },
 ];
 
 export function workspaceRole(key) {
@@ -120,6 +133,7 @@ export function rowIsMember(rowNode, role) {
     if (hit) return false;
     if (s.blockTypes && s.blockTypes.includes(node.type?.name)) { hit = true; return false; }
     if (s.attrFlags && s.attrFlags.some((a) => node.attrs?.[a] === true)) { hit = true; return false; }
+    if (s.textScan && node.isTextblock && s.textScan(node)) { hit = true; return false; }
     if ((s.markKinds || s.markTypes) && node.marks && node.marks.length) {
       for (const m of node.marks) {
         if (s.markKinds && m.type?.name === 'directionMark' && s.markKinds.includes(m.attrs?.kind)) { hit = true; return false; }
