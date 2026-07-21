@@ -130,4 +130,49 @@ ok('split → merge → split keeps the words through the whole cycle', () => {
   assert.equal(rowIsSplitNode(s3.doc.child(0)), true);
 });
 
+// ── 4. EMPTY-SHOWN-PARA DROP — the branch every split→merge actually hits ─────────────────────
+// doSplitRow ALWAYS opens the shown lane as a lone empty paragraph, so the overwhelmingly
+// common merge is "fold a just-split row back". doMergeRow drops that empty placeholder so the
+// merged full-width cell holds ONLY the said blocks — no trailing empty paragraph junk that
+// would otherwise accumulate one blank line per split→merge cycle. The words()-based asserts
+// above CANNOT see this (an empty para contributes zero words), so pin it on BLOCK COUNT.
+const cellBlockTypes = (state) => {
+  const cell = state.doc.child(0).child(0);
+  return [...Array(cell.childCount)].map((_, i) => cell.child(i).type.name);
+};
+ok('merge drops a lone empty shown paragraph — merged full cell keeps only the said block', () => {
+  // Real round-trip: full → split (shown becomes an empty para) → merge back.
+  const state = makeState({ type: 'doc', content: [fullRow([none('f', 'all the words stay')])] });
+  let s1 = state; doSplitRow(state, (tr) => { s1 = state.apply(tr); }, 0);
+  let s2 = s1; doMergeRow(s1, (tr) => { s2 = s1.apply(tr); }, 0);
+  assert.deepEqual(cellBlockTypes(s2), ['noneBlock'], 'exactly the said block — empty shown para dropped');
+  assert.equal(words(s2.doc), 'all the words stay', 'no words lost by the drop');
+
+  // Hand-built split row whose shown lane is a bare empty paragraph → same drop.
+  const built = makeState({ type: 'doc', content: [splitRow([none('s', 'said words')], [{ type: 'paragraph' }])] });
+  let m = built; doMergeRow(built, (tr) => { m = built.apply(tr); }, 0);
+  assert.deepEqual(cellBlockTypes(m), ['noneBlock'], 'lone empty shown para dropped in a direct merge');
+});
+ok('merge KEEPS a shown lane that carries content (drop is empty-only, never a word-eater)', () => {
+  // Multi-block shown lane with real content — every block survives, in reading order.
+  const state = makeState({ type: 'doc', content: [splitRow([none('s', 'the said')], [none('v', 'the shown'), none('w', 'more shown')])] });
+  let m = state; doMergeRow(state, (tr) => { m = state.apply(tr); }, 0);
+  assert.deepEqual(cellBlockTypes(m), ['noneBlock', 'noneBlock', 'noneBlock'], 'said + both shown blocks kept');
+  assert.equal(words(m.doc), 'the said the shown more shown', 'reading order preserved, zero loss');
+});
+// MUTATION ORACLE — a keep-all merge (the branch neutered) leaves the empty para behind, so
+// the split→merge round-trip yields TWO blocks. Proves the assertions above are load-bearing:
+// they go RED the moment doMergeRow stops dropping the empty shown placeholder.
+ok('oracle: a keep-all merge would leak the empty para (childCount 2) — drop is what makes it 1', () => {
+  const state = makeState({ type: 'doc', content: [fullRow([none('f', 'words')])] });
+  let s1 = state; doSplitRow(state, (tr) => { s1 = state.apply(tr); }, 0);
+  const row = s1.doc.child(0);
+  // Rebuild what a NO-DROP merge would produce: every block from every cell, verbatim.
+  const allBlocks = [];
+  row.forEach((cell) => cell.forEach((blk) => allBlocks.push(blk)));
+  assert.equal(allBlocks.length, 2, 'said block + the empty shown para — the leak the drop prevents');
+  assert.equal(allBlocks[1].type.name, 'paragraph', 'the second is the empty shown placeholder');
+  assert.equal(allBlocks[1].content.size, 0, 'and it is genuinely empty (zero words)');
+});
+
 console.log(`divider-affordance.test.mjs: ${pass} assertions passed`);
