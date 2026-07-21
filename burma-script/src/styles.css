@@ -1115,41 +1115,50 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
    said / shown"; ⊞ on a split row = "merge back to one". Dead flat — no box,
    no shadow. Faint by default, the ONE orange accent on hover. Reveals on row
    hover so the rack stays calm until you reach for it. */
-.wp-row-spine {
+/* ---- MERGE / SPLIT — the column-divider chips ------------------------------
+   The old left-margin ⊞ spine is dead. A SPLIT row shows a small MERGE chip
+   vertically centered ON the divider line (left is set by the nodeview from the
+   2nd cell's real offset — the 1.2:1 flex means 50% would lie); a FULL-WIDTH
+   row shows a SPLIT chip at the far-right edge, dead-center vertically, where
+   the divider would return. Same circle-chip family + row-hover reveal as the
+   "+" add-row button. FLAT — border, no shadow. */
+.wp-row-colmerge,
+.wp-row-colsplit {
   position: absolute;
-  left: -26px;
-  top: 0;
-  width: 22px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 1px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
   user-select: none;
   -webkit-user-select: none;
+  line-height: 0;
 }
-.wp-row-split {
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1;
-  width: 20px;
-  height: 20px;
-  display: flex;
+.wp-row-colmerge { left: 50%; }          /* re-measured to the real divider on row hover */
+.wp-row-colsplit { left: auto; right: 0; transform: translate(50%, -50%); }
+.wp-row-col-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 0;
-  background: none;
+  padding: 0;
+  border: 1.5px solid var(--ep-grid-rule);
+  border-radius: 50%;
+  background: var(--face);
+  color: var(--label-2);
   box-shadow: none;
-  color: var(--lane-lab);
   opacity: 0;
   cursor: pointer;
-  border-radius: 4px;
-  transition: opacity .14s var(--ease), color .14s var(--ease);
+  transition: opacity .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease);
 }
-.wp-trow:hover .wp-row-split { opacity: .55; }
-.wp-row-split:hover { opacity: 1; color: var(--orange); }   /* the ONE orange accent */
-.wp-row-split.is-merge { opacity: .7; }                      /* split rows show the merge grip a touch more */
-.wp-trow[data-cols="2"]:hover .wp-row-split,
-.wp-trow[data-cols="3"]:hover .wp-row-split { opacity: 1; }
+.wp-trow:hover .wp-row-col-btn { opacity: .6; }
+.wp-row-col-btn:hover,
+.wp-row-col-btn:focus-visible { opacity: 1; color: var(--ep-accent); border-color: var(--ep-accent); }
+/* Ghosted / filtered rows never surface a structure affordance (ghosts are also
+   pointer-events:none — this is the belt to that suspender). */
+.wp-trow.wp-ws-ghost .wp-row-colmerge,
+.wp-trow.wp-ws-ghost .wp-row-colsplit,
+.wp-trow.wp-ws-ghost .wp-row-add,
+.wp-trow.wp-ws-ghost .wp-row-drag { display: none; }
 
 /* ---- ROW DRAG GRIP — the ONLY way a row moves ------------------------------
    Far-left margin, the (dead) ⊞ spine's old slot. Three quiet bars, mono/flat,
@@ -2507,7 +2516,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   html, body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .wp-screw, .wp-rack-head, .wp-rack-foot, .wp-outline, .wp-spine, .wp-grip, .wp-cap-num,
   .wp-rec, .wp-done, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
-  .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag,
+  .wp-row-add, .wp-addrows-menu, .wp-row-colmerge, .wp-row-colsplit, .wp-row-drag,
   .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill { display: none !important; }
   .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none !important; } /* margin numbers are screen chrome */
   .wp-page { padding: 0 !important; }
@@ -2982,7 +2991,8 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    controls that dispatch transactions OUTSIDE the editable flag (row spines, add
    "+", drag grips, block grips, done ticks) so read mode can never write. Copy
    chips, bookmarks, the ⛶ chapter focus and reading controls all stay live. */
-.wp-page[data-mode="read"] .wp-row-spine,
+.wp-page[data-mode="read"] .wp-row-colmerge,
+.wp-page[data-mode="read"] .wp-row-colsplit,
 .wp-page[data-mode="read"] .wp-row-add,
 .wp-page[data-mode="read"] .wp-grip { display: none; }
 /* EXCEPTION — the ⇕ row-drag grip stays live in read mode (Johnny 2026-07-08: "the row
