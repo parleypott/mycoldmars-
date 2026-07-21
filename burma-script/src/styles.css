@@ -429,6 +429,20 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
    like every other row (matching the left-margin row menu's is-danger treatment). */
 .wp-bulk-menu .wp-bulk-delete.is-danger .wp-convert-label{ color:#b0431f; letter-spacing:.06em; }
 .wp-bulk-menu .wp-bulk-delete.is-danger.is-active .wp-convert-label{ color:#7e2c12; }
+/* UTILITY ROW — the killed BubbleMenu's survivors folded in: TK · FC chips + the three alignment
+   squares, one compact hairline-separated row. Flat, mono, no shadow; keyboard ring shares the
+   slash-menu's is-active tint; is-on = the mark/alignment already covers the whole selection. */
+.wp-bulk-utils{ display:flex; align-items:center; gap:4px; padding:3px 8px; }
+.wp-bulk-util{
+  display:inline-flex; align-items:center; justify-content:center;
+  border:0; background:transparent; border-radius:5px; cursor:pointer;
+  font-family:var(--mono); color:var(--ink); padding:3px 5px; line-height:1;
+}
+.wp-bulk-util.is-active{ background:rgba(255,91,31,.14); }
+.wp-bulk-util-span .wp-bulk-chip{ padding:2px 6px; border-radius:4px; }
+.wp-bulk-util-align{ width:24px; height:24px; font-size:13px; padding:0; }
+.wp-bulk-util-align.is-on{ background:var(--ink); color:var(--face, #f4efe4); }
+.wp-bulk-util-span.is-on{ outline:1.5px solid var(--ink); outline-offset:-1.5px; }
 .wp-convert-dot[data-kind="__vo"]{ background:var(--ep-cap, #3a382f); border-color:var(--ep-cap, #3a382f); }
 .wp-convert-dot[data-kind="archive"]{ background:#f2d4d4; border-color:#d79a9a; }
 .wp-convert-dot[data-kind="oncam"]{ background:#f4c2b0; border-color:#d97a52; }
@@ -1111,41 +1125,57 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
    said / shown"; ⊞ on a split row = "merge back to one". Dead flat — no box,
    no shadow. Faint by default, the ONE orange accent on hover. Reveals on row
    hover so the rack stays calm until you reach for it. */
-.wp-row-spine {
+/* ---- MERGE / SPLIT — the column-divider chips ------------------------------
+   The old left-margin ⊞ spine is dead. A SPLIT row shows a small MERGE chip
+   vertically centered ON the divider line (left is set by the nodeview from the
+   2nd cell's real offset — the 1.2:1 flex means 50% would lie); a FULL-WIDTH
+   row shows a SPLIT chip at the far-right edge, dead-center vertically, where
+   the divider would return. Same circle-chip family + row-hover reveal as the
+   "+" add-row button. FLAT — border, no shadow. */
+.wp-row-colmerge,
+.wp-row-colsplit {
   position: absolute;
-  left: -26px;
-  top: 0;
-  width: 22px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 1px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
   user-select: none;
   -webkit-user-select: none;
+  line-height: 0;
 }
-.wp-row-split {
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1;
-  width: 20px;
-  height: 20px;
-  display: flex;
+.wp-row-colmerge { left: 50%; }          /* re-measured to the real divider on row hover */
+.wp-row-colsplit { left: auto; right: 0; transform: translate(50%, -50%); }
+.wp-row-col-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 0;
-  background: none;
+  padding: 0;
+  border: 1.5px solid var(--ep-grid-rule);
+  border-radius: 50%;
+  background: var(--face);
+  color: var(--label-2);
   box-shadow: none;
-  color: var(--lane-lab);
   opacity: 0;
   cursor: pointer;
-  border-radius: 4px;
-  transition: opacity .14s var(--ease), color .14s var(--ease);
+  transition: opacity .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease);
 }
-.wp-trow:hover .wp-row-split { opacity: .55; }
-.wp-row-split:hover { opacity: 1; color: var(--orange); }   /* the ONE orange accent */
-.wp-row-split.is-merge { opacity: .7; }                      /* split rows show the merge grip a touch more */
-.wp-trow[data-cols="2"]:hover .wp-row-split,
-.wp-trow[data-cols="3"]:hover .wp-row-split { opacity: 1; }
+.wp-trow:hover .wp-row-col-btn { opacity: .6; }
+.wp-row-col-btn:hover,
+.wp-row-col-btn:focus-visible { opacity: 1; color: var(--ep-accent); border-color: var(--ep-accent); }
+/* Ghosted / filtered rows never surface a structure affordance (ghosts are also
+   pointer-events:none — this is the belt to that suspender). */
+.wp-trow.wp-ws-ghost .wp-row-colmerge,
+.wp-trow.wp-ws-ghost .wp-row-colsplit,
+.wp-trow.wp-ws-ghost .wp-row-add,
+.wp-trow.wp-ws-ghost .wp-row-drag { display: none; }
+
+/* ---- ROW DRAG GRIP — the ONLY way a row moves ------------------------------
+   Styled in doctrine.css (.wp-row-drag, loads last): far-left margin, the
+   (dead) ⊞ spine's old -26px slot, three quiet bars, cursor:grab, row-hover
+   reveal. In-cell drags are structurally dead (TableRow draggable:false + the
+   capture-phase dragstart guard in table.js) — grab THERE or the row does not
+   move. */
 
 /* ---- CELL = a flex column slot --------------------------------------------- */
 .wp-tcell { flex: 1 1 0; min-width: 0; display: block; position: relative; }
@@ -2030,31 +2060,6 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 .wp-bm-del:hover { background: rgba(232,65,43,.08); }
 
 /* ============================================================
-   BUBBLE MENU — FLAT dark pill, no shadow
-   ============================================================ */
-.wp-bubble { display: inline-flex; align-items: center; gap: 2px; background: var(--ink); color: #fff; border: 1.5px solid #000; border-radius: 7px; padding: 3px; }
-.wp-bbtn {
-  font-family: var(--mono); font-size: 11px; font-weight: 700; min-width: 26px; height: 26px; padding: 0 8px;
-  background: transparent; color: #fff; border: 0; border-radius: 5px; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; letter-spacing: .04em; transition: background .12s, color .12s;
-}
-.wp-bbtn:hover { background: rgba(255,255,255,.14); }
-.wp-bbtn.active { background: #fff; color: var(--ink); }
-.wp-bbtn-tk.active { background: var(--orange); color: #fff; }
-/* Bubble-menu alignment glyph buttons — share .wp-bbtn/.active styling; the arrow glyphs read
-   better a touch larger and tighter. TextAlign emits inline style on the <p>, so rendering needs
-   no CSS; this is button polish only. */
-.wp-bbtn-align { font-size: 13px; line-height: 1; }
-.wp-bbtn-tk { color: #f3a878; }
-.wp-bbtn-fc { color: #e6b54a; }
-.wp-bbtn-fc.active { background: var(--arm); color: #fff; }
-.wp-bbtn-visual { color: #d8b6ad; }
-/* SPLIT / MERGE in the bubble — flat, the ⊟/⊞ glyph + a short label, one orange accent. */
-.wp-bbtn-split, .wp-bbtn-merge { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: #f3a878; }
-.wp-bbtn-split:hover, .wp-bbtn-merge:hover { background: var(--orange); color: #fff; }
-.wp-bsep { width: 1px; height: 16px; background: rgba(255,255,255,.18); margin: 0 3px; }
-
-/* ============================================================
    WORKSHOP HUB — right-margin drawer. FLAT panel, hairline border.
    ============================================================ */
 .wp-workshop {
@@ -2501,8 +2506,8 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   @page { margin: 16mm 14mm; }
   html, body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .wp-screw, .wp-rack-head, .wp-rack-foot, .wp-outline, .wp-spine, .wp-grip, .wp-cap-num,
-  .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
-  .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag,
+  .wp-rec, .wp-done, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
+  .wp-row-add, .wp-addrows-menu, .wp-row-colmerge, .wp-row-colsplit, .wp-row-drag,
   .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill,
   .wp-stickyhead { display: none !important; }
   .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none !important; } /* margin numbers are screen chrome */
@@ -2978,7 +2983,8 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    controls that dispatch transactions OUTSIDE the editable flag (row spines, add
    "+", drag grips, block grips, done ticks) so read mode can never write. Copy
    chips, bookmarks, the ⛶ chapter focus and reading controls all stay live. */
-.wp-page[data-mode="read"] .wp-row-spine,
+.wp-page[data-mode="read"] .wp-row-colmerge,
+.wp-page[data-mode="read"] .wp-row-colsplit,
 .wp-page[data-mode="read"] .wp-row-add,
 .wp-page[data-mode="read"] .wp-grip { display: none; }
 /* EXCEPTION — the ⇕ row-drag grip stays live in read mode (Johnny 2026-07-08: "the row
@@ -3138,9 +3144,6 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    edge, so it steps back to silence rather than crowding the text. */
 @media (max-width: 900px) { .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none; } }
 
-/* The bubble menu applies marks straight through dispatch (editable doesn't gate commands) —
-   in READ mode it must not exist as a click target. */
-.wp-page[data-mode="read"] .wp-bubble { display: none; }
 .wp-page[data-mode="read"] .wp-link-pop { display: none; }
 
 /* CHAPTER FOCUS × LIBRARY SHELL — the library's floating "back to library" pill (#sl-backbar,

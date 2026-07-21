@@ -8,7 +8,7 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { DirectionMark, defaultDirectionMarkAttrs } from './extensions/direction-chip.js';
-import { VIZ_KINDS } from './extensions/convert-menu.js';
+import { VIZ_KINDS, UTILITY_SPANS, ALIGNMENTS } from './extensions/convert-menu.js';
 
 let pass = 0;
 function ok(label, fn) { fn(); pass++; }
@@ -95,6 +95,32 @@ ok('every converted viz run round-trips through the live schema', () => {
     const node = PMNode.fromJSON(schema, json);
     node.check();
     assert.deepEqual(JSON.parse(JSON.stringify(node.toJSON())), json, `round-trip failed for ${kind}`);
+  }
+});
+
+// MENU CONTENTS CONTRACT (editor-ergonomics 2026-07-21): the floating BubbleMenu is dead; its
+// survivors — TK, FC, the three alignment tools — live in the bulk menu's utility row. What must
+// be PRESENT: tkSpan + factCheckSpan chips, left/center/right alignment squares. What must be
+// ABSENT: Bold/Italic (hotkeys), VIS (visualSpan keeps schema support, no menu surface), and any
+// MERGE/SPLIT entry (moved to the row's column-divider affordances, table.js).
+ok('utility row offers exactly TK + FC (bubble survivors, in order)', () => {
+  assert.deepEqual(UTILITY_SPANS.map((u) => u.mark), ['tkSpan', 'factCheckSpan']);
+  assert.deepEqual(UTILITY_SPANS.map((u) => u.label), ['TK', 'FC']);
+});
+
+ok('utility row offers exactly the three alignment tools (bubble glyph port)', () => {
+  assert.deepEqual(ALIGNMENTS.map((a) => a.dir), ['left', 'center', 'right']);
+  assert.deepEqual(ALIGNMENTS.map((a) => a.glyph), ['⇤', '⇔', '⇥']);
+});
+
+ok('no menu surface for VIS / bold / italic / merge / split', () => {
+  const everything = [
+    ...VIZ_KINDS.map((v) => `${v.kind}|${v.label}`),
+    ...UTILITY_SPANS.map((u) => `${u.mark}|${u.label}`),
+    ...ALIGNMENTS.map((a) => `${a.dir}|${a.title}`),
+  ].join(' ').toLowerCase();
+  for (const banned of ['visualspan', 'vis|', 'bold', 'italic', 'merge', 'split']) {
+    assert.ok(!everything.includes(banned), `menu must not surface "${banned}"`);
   }
 });
 

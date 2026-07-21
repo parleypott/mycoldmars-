@@ -38,7 +38,7 @@ import { history, undo } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { moveRow, findRowByIdentity, rowFirstBlockId, pickRowDropTarget, BURMA_TABLE_NODES } from './table.js';
+import { moveRow, findRowByIdentity, rowFirstBlockId, pickRowDropTarget, dragSourceSanctioned, BURMA_TABLE_NODES } from './table.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_MARKS } from './marks.js';
 import { DirectionMark } from './direction-chip.js';
@@ -305,6 +305,59 @@ ok('a tableCell-nested tableRow exports its blocks with types + SOT attrs intact
   assert.equal(sotOut.speaker, 'U AUNG', 'nested SOT speaker survives');
   assert.equal(sotOut.done, true, 'nested SOT done flag survives');
   assert.deepEqual([sotOut.lane, sotOut.pairId], ['said', 'pair_nested'], 'nested pairing (lane + pairId) survives');
+});
+
+
+// ── 8: ROW-DRAG SAFETY (editor-ergonomics 2026-07-21, "two broken things") ─────────────────
+// The unpair vector is closed at the SPEC: tableRow is not draggable, so ProseMirror can never
+// arm a native node drag from a mousedown inside a row (padding, cell gaps, chrome) — the drag
+// that used to pull a row out of the two-column structure and nest it inside another row's cell.
+ok('tableRow spec is draggable:false — PM native row drags are structurally dead', () => {
+  assert.equal(schema.nodes.tableRow.spec.draggable, false);
+});
+
+// Only the grips may start a native drag; anything else inside a row is an accident the capture
+// guard preventDefault's. The predicate is the guard's single truth.
+ok('dragSourceSanctioned: grips yes, cell/text/img targets no', () => {
+  const target = (matches) => ({ closest: (sel) => (matches ? {} : null) });
+  assert.equal(dragSourceSanctioned(target(true)), true);   // .wp-row-drag / [data-drag-handle] / .wp-grip
+  assert.equal(dragSourceSanctioned(target(false)), false); // a text node's parent, an <img>, a cell
+  assert.equal(dragSourceSanctioned(null), false);
+  assert.equal(dragSourceSanctioned({}), false);            // no .closest at all
+});
+
+// The grip → moveRow path preserves the row byte-exact: a SPLIT (paired) row reorders with its
+// cols/pairId/cells untouched — the two-column structure survives by construction.
+ok('reordering a split row preserves the row node byte-exact (cols + pairId + both cells)', () => {
+  const docJson = { type: 'doc', content: [
+    row([none('r1', 'first')]),
+    pairedRow('pair_keep', [vo('s1', 'said words')], [none('sh1', 'shown words')]),
+    row([none('r3', 'third')]),
+  ] };
+  const state = makeState(docJson);
+  const movedBefore = clone(state.doc.child(1).toJSON());
+  let out = state;
+  const did = moveRow(state, (tr) => { out = state.apply(tr); }, rowPos(state.doc, 1), rowPos(state.doc, 0), true);
+  assert.equal(did, true);
+  const movedAfter = clone(out.doc.child(0).toJSON());
+  assert.deepEqual(movedAfter, movedBefore, 'split row byte-identical after reorder');
+  assert.equal(out.doc.child(0).attrs.cols, 2);
+  assert.equal(out.doc.child(0).attrs.pairId, 'pair_keep');
+});
+
+// Illegal drop targets are refused outright: a position that is not a tableRow (a cell interior,
+// a block, a text position) can never become a drop target — moveRow validates the node type.
+ok('moveRow refuses non-row drop targets (cell interior, block, text pos)', () => {
+  const docJson = { type: 'doc', content: [row([none('a1', 'alpha')]), row([none('b1', 'beta')])] };
+  const state = makeState(docJson);
+  const from = rowPos(state.doc, 0);
+  let dispatched = false;
+  // walk INTO row 2: +1 = cell pos, +2 = block pos, +3 = paragraph pos — none is a tableRow
+  for (const offset of [1, 2, 3]) {
+    const did = moveRow(state, () => { dispatched = true; }, from, rowPos(state.doc, 1) + offset, true);
+    assert.equal(did, false, `offset ${offset} must be refused`);
+  }
+  assert.equal(dispatched, false, 'refused drops dispatch NOTHING');
 });
 
 console.log(`row-drag.test.mjs: ${pass} assertions passed`);

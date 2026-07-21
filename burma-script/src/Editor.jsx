@@ -38,7 +38,6 @@ import { WorkspaceFilter } from './extensions/workspace-filter.js';
 import { readChecked, writeChecked } from './extensions/ws-checkoff.js';
 import { TkDetect } from './extensions/tk-detect.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
-import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { LinkPopover } from './LinkPopover.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
 import { Workshop } from './Workshop.jsx';
@@ -481,8 +480,9 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       //
       // STRIP TextAlign's built-in keymap (Johnny 2026-07-09): it binds Mod-Shift-l/e/r/j to
       // left/center/right/justify — and Mod-Shift-R hijacked Chrome's HARD RELOAD, right-aligning
-      // the script instead of reloading. Alignment lives on the bubble-menu buttons (BubbleMenu.jsx),
-      // so these OS-colliding chords aren't needed; drop them all and give Cmd+Shift+R back to Chrome.
+      // the script instead of reloading. Alignment lives on the right-click bulk menu's buttons
+      // (convert-menu.js), so these OS-colliding chords aren't needed; drop them all and give
+      // Cmd+Shift+R back to Chrome.
       TextAlign.extend({ addKeyboardShortcuts: () => ({}) })
         .configure({ types: ['paragraph'], alignments: ['left', 'center', 'right'], defaultAlignment: 'left' }),
       ...BURMA_TABLE_NODES,
@@ -557,7 +557,7 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
     // PERF-4 — the real per-keystroke win is `shouldRerenderOnTransaction: false`: ProseMirror
     // mutates its own DOM in place without bouncing this component through React/Preact on every
     // transaction. We deliberately DO NOT set `immediatelyRender: true`: under Preact that exposes
-    // the `editor` instance to child effects (BubbleMenu, selection painters) one commit BEFORE
+    // the `editor` instance to child effects (LinkPopover, selection painters) one commit BEFORE
     // EditorContent mounts the ProseMirror view. Any `editor.view.dom` read in that window hits
     // tiptap's view Proxy, which THROWS ("view is not available"), crashing the passive-effect flush
     // and aborting the whole editor mount — no editor, no slash menu. Leaving immediatelyRender at
@@ -937,11 +937,12 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
   return (
     <>
       <EditorContent editor={editor} class="wp-editor" />
-      {/* READ-ONLY SHARE: the BubbleMenu (TK/visual/bold marks) and Workshop dock are edit-only
-          chrome — omit them entirely so a reader gets a calm, clean reading surface. */}
-      {!readOnly && <BurmaBubbleMenu editor={editor} />}
+      {/* READ-ONLY SHARE: the LinkPopover and Workshop dock are edit-only chrome — omit them
+          entirely so a reader gets a calm, clean reading surface. (The old floating BubbleMenu
+          is gone — Johnny: "it kind of gets in the way"; its survivors — TK, FC, the three
+          alignment tools — live in the right-click bulk menu, extensions/convert-menu.js.) */}
       {!readOnly && <LinkPopover editor={editor} />}
-      {/* Find & Replace panel — Cmd/Ctrl+F opens it. Edit-only chrome, like the bubble menu. */}
+      {/* Find & Replace panel — Cmd/Ctrl+F opens it. Edit-only chrome. */}
       {!readOnly && <FindReplacePanel editor={editor} />}
       {!readOnly && <Workshop />}
     </>

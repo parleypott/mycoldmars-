@@ -209,6 +209,18 @@ function findDropTargetForDrag(view, ref, clientY) {
 // never Dropcursor's red line inviting a corrupting drop into a gap.
 const rowDragKey = new PluginKey('wpRowDrag');
 
+// THE ONLY SANCTIONED DRAG INITIATORS inside the editor: the row grip (.wp-row-drag) and the
+// block cartridge grip (blocks.js's [data-drag-handle] .wp-grip). Johnny 2026-07-21: "under no
+// circumstances do I want the row to break out of the two column experience… I should be able to
+// click anywhere within the cell and drag and all it does is highlight." So ANY native dragstart
+// whose target is inside a row but NOT on a grip is an accident — a selected-text drag, an <img>
+// drag, a browser-invented drag — and gets preventDefault'd before ProseMirror or the browser can
+// turn it into a structure-mutating drop. Pure predicate, exported for the headless suite.
+export function dragSourceSanctioned(target) {
+  return !!(target && typeof target.closest === 'function'
+    && target.closest('.wp-row-drag, [data-drag-handle], .wp-grip'));
+}
+
 // Edge autoscroll: dragover fires continuously, so a small per-event nudge near the viewport
 // edges lets a row travel the full length of a 260-row doc without dropping the grip.
 const AUTOSCROLL_EDGE = 80;
@@ -233,6 +245,19 @@ function rowDragPlugin() {
       },
     },
     view(editorView) {
+      // FIX 1 (Johnny 2026-07-21, "two broken things"): pointer-down + drag INSIDE any cell must
+      // do text selection ONLY. Capture-phase, so it runs BEFORE the grips' own target-phase
+      // dragstart listeners (which we exempt via dragSourceSanctioned) and before ProseMirror's
+      // bubble-phase dragstart could arm view.dragging with a slice that a drop could then nest
+      // somewhere illegal. Belt-and-braces with TableRow's spec draggable:false below — that kills
+      // PM's own row-drag arming; this kills the browser's native selected-text/img drag vector.
+      const onDragstartCapture = (e) => {
+        const t = e.target;
+        if (dragSourceSanctioned(t)) return;   // the grips keep their native drags
+        if (!(t && typeof t.closest === 'function' && t.closest('[data-trow]'))) return;
+        e.preventDefault();
+        e.stopPropagation();
+      };
       const onDragover = (e) => {
         if (!draggingRow) return;
         e.preventDefault();      // preventDefault on dragover is what makes the drop legal here
@@ -257,10 +282,12 @@ function rowDragPlugin() {
         const t = findDropTargetForDrag(editorView, ref, e.clientY);
         if (t) moveRow(editorView.state, editorView.dispatch, t.fromPos, t.targetPos, t.before);
       };
+      editorView.dom.addEventListener('dragstart', onDragstartCapture, true);
       editorView.dom.addEventListener('dragover', onDragover, true);
       editorView.dom.addEventListener('drop', onDrop, true);
       return {
         destroy() {
+          editorView.dom.removeEventListener('dragstart', onDragstartCapture, true);
           editorView.dom.removeEventListener('dragover', onDragover, true);
           editorView.dom.removeEventListener('drop', onDrop, true);
           clearDropIndicator();
@@ -835,6 +862,13 @@ export function resolveRowPos(state) {
   return node && node.type.name === 'tableRow' ? $from.pos : null;
 }
 
+// Which column-divider affordance does a row wear? A SPLIT row (2+ cells) wears the MERGE chip
+// on its divider; a FULL-WIDTH row wears the SPLIT chip at its far-right edge. The single truth
+// paintDivider (nodeview) reads — exported so the headless suite locks the routing.
+export function rowIsSplitNode(n) {
+  return !!n && (n.childCount || n.attrs?.cols || 1) > 1;
+}
+
 // One key to toggle the current row: SPLIT a full-width row into said|shown, or MERGE a
 // two-column row back to full width. `cols` is the source of truth (2 = already split).
 // Mirrors exactly what the row split/merge buttons do — no new mutation path.
@@ -889,11 +923,11 @@ function spineGuardSafeHere() {
   return !episodeFlag('collab');
 }
 
-// ---- the right-click ROW menu (on the ⊟/⊞ split-merge box) ----------------
-// Johnny: right-click the little box icon in the left margin → a context menu, "Delete row"
-// first. No title (menus don't get titles). Items are contextual: the split/merge entry
-// mirrors whatever the icon's left-click would do. Same calm floating-menu chrome +
-// keyboard discipline as the add-rows / convert menus.
+// ---- the right-click ROW menu (on the far-left drag grip) -----------------
+// Johnny: right-click the icon in the left margin → a context menu, "Delete row" first.
+// No title (menus don't get titles). Same calm floating-menu chrome + keyboard discipline
+// as the add-rows / convert menus. NO split/merge entry — that gesture lives on the
+// column-divider affordances now (2026-07-21: every old menu/bubble surface for it is gone).
 let openRowMenu = null;
 function closeOpenRowMenu() {
   if (openRowMenu) { openRowMenu.close(); openRowMenu = null; }
@@ -901,7 +935,6 @@ function closeOpenRowMenu() {
 
 function createRowMenu(editor, rowPos, x, y) {
   const row = editor.state.doc.nodeAt(rowPos);
-  const isSplit = !!row && ((row.childCount || row.attrs?.cols || 1) > 1);
   const bookmarkId = row?.attrs?.bookmarkId || null;
   // STALE-POS GUARD (audit 2026-07-07): rowPos was captured at menu-OPEN; under collab a
   // teammate's edit while the menu sits there shifts every later position, and "Delete row"
@@ -937,9 +970,6 @@ function createRowMenu(editor, rowPos, x, y) {
         // (2026-07-08 report); an inline insert leaves the row's formatting completely untouched.
         run: () => { const p = livePos(); if (p != null) insertBookmarkAtRow(editor, p); },
       }]),
-    isSplit
-      ? { label: 'Merge columns to one row', run: () => { const p = livePos(); if (p != null) editor.chain().focus().mergeRow(p).run(); } }
-      : { label: 'Split into two columns', run: () => { const p = livePos(); if (p != null) editor.chain().focus().splitRow(p).run(); } },
   ];
 
   let activeIndex = 0;
@@ -1144,7 +1174,15 @@ export const TableRow = Node.create({
   name: 'tableRow',
   group: 'block',
   content: 'tableCell+',
-  draggable: true,
+  // STRUCTURAL LAW (Johnny 2026-07-21): a row may NEVER leave the two-column experience through a
+  // drag. spec draggable:true was the unpair vector — ProseMirror arms a native node drag on any
+  // mousedown that resolves to a draggable node (row padding, cell gaps, cartridge chrome), and
+  // its OWN drop handler will happily nest the dragged tableRow inside another row's cell (the
+  // schema allows tableRow in tableCell content — Palau's nested shape), leaving it unpaired and
+  // misaligned. draggable:false closes that entire machinery for rows. The ONLY reorder path left
+  // is the far-left grip → rowDragPlugin → moveRow, which preserves cols/pairing BY CONSTRUCTION
+  // (same-parent boundaries only, immutable-node reinsert).
+  draggable: false,
   addAttributes() {
     return {
       cols: { default: 1 },
@@ -1278,56 +1316,97 @@ export const TableRow = Node.create({
       paintPairId(node);
       paintBookmark(node);
 
-      // ---- ROW SPINE: the split / merge affordance ------------------------
-      // A flat grip on the row's left margin. A FULL-WIDTH row shows ⊟ "split"; a
-      // SPLIT row shows ⊞ "merge". One orange accent on hover, no shadow, no box.
-      const spine = el('div', 'wp-row-spine');
-      spine.setAttribute('contenteditable', 'false');
-      const btn = el('button', 'wp-row-split', { type: 'button', contenteditable: 'false' });
-      const paintBtn = (n) => {
-        const split = (n.childCount || n.attrs.cols || 1) > 1;
-        btn.textContent = split ? '⊞' : '⊟';
-        btn.className = split ? 'wp-row-split is-merge' : 'wp-row-split is-split';
-        btn.title = split ? 'Merge columns back to one full-width row' : 'Split into two columns';
-        btn.setAttribute('aria-label', split ? 'merge row' : 'split row');
+      // ---- MERGE / SPLIT — the COLUMN-DIVIDER affordances (Johnny 2026-07-21) -----
+      // The old left-margin ⊞ four-box icon is DEAD; its job lives where the geometry is:
+      //   • a SPLIT row reveals a small MERGE chip vertically centered ON the divider line
+      //     between the two columns — click = doMergeRow (lossless, one transaction);
+      //   • a FULL-WIDTH row reveals a SPLIT chip at the row's far-right edge, dead-center
+      //     vertically, where the divider would return — click = doSplitRow.
+      // Same small-circle-chip family + row-hover reveal as the "+" add-row button (the
+      // interaction precedent). Never mounted in a ?read share; hidden by CSS in sticky READ
+      // mode and on workspace-ghosted rows (ghosts are pointer-events:none anyway).
+      let mergeWrap = null;
+      let splitWrap = null;
+      const positionMergeChip = () => {
+        // Center the merge chip ON the divider: the divider is the 2nd cell's border-left, and
+        // .wp-tcell:first-child flexes 1.2 vs 1 — so 50% is WRONG. offsetLeft is measured against
+        // the positioned .wp-trow, the same coordinate space the absolute chip uses. Re-measured
+        // on every row mouseenter, so resizes/reflows can't leave the chip off the line.
+        if (!mergeWrap) return;
+        const second = content.children && content.children[1];
+        if (second && typeof second.offsetLeft === 'number') {
+          mergeWrap.style.left = `${content.offsetLeft + second.offsetLeft}px`;
+        }
       };
-      paintBtn(node);
-      btn.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;   // left-click only; right-click opens the row menu
+      const runDividerAction = (e, action) => {
+        if (e.button !== 0) return;   // left-click only
         e.preventDefault();
         e.stopPropagation();
         if (!armEditForRowGrip(editor.view)) return;   // READ→EDIT auto-arm (no-op in a ?read share)
         const pos = typeof getPos === 'function' ? getPos() : getPos;
         if (typeof pos !== 'number') return;
-        const cur = editor.state.doc.nodeAt(pos);
-        const split = cur && (cur.childCount > 1 || (cur.attrs && cur.attrs.cols > 1));
-        if (split) editor.chain().focus().mergeRow(pos).run();
+        if (action === 'merge') editor.chain().focus().mergeRow(pos).run();
         else editor.chain().focus().splitRow(pos).run();
-      });
-      // Right-click the box → the ROW menu (Delete row first). Never in read-only.
-      btn.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (isReadOnly()) return;
-        const pos = typeof getPos === 'function' ? getPos() : getPos;
-        if (typeof pos !== 'number') return;
-        closeOpenRowMenu();
-        openRowMenu = createRowMenu(editor, pos, e.clientX, e.clientY);
-      });
-      spine.appendChild(btn);
-      dom.appendChild(spine);
+      };
+      if (!isReadOnly()) {
+        mergeWrap = el('div', 'wp-row-colmerge', { contenteditable: 'false' });
+        const mergeBtn = el('button', 'wp-row-col-btn', {
+          type: 'button', contenteditable: 'false',
+          title: 'Merge said / shown columns back into one full-width row',
+          'aria-label': 'merge columns to one row',
+        });
+        // One full-width bar: what the row becomes.
+        mergeBtn.innerHTML =
+          '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">'
+          + '<rect x="1.2" y="2.7" width="9.6" height="6.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/>'
+          + '</svg>';
+        mergeBtn.addEventListener('mousedown', (e) => runDividerAction(e, 'merge'));
+        mergeWrap.appendChild(mergeBtn);
+        dom.appendChild(mergeWrap);
+
+        splitWrap = el('div', 'wp-row-colsplit', { contenteditable: 'false' });
+        const splitBtn = el('button', 'wp-row-col-btn', {
+          type: 'button', contenteditable: 'false',
+          title: 'Split this row into said / shown columns',
+          'aria-label': 'split row into two columns',
+        });
+        // Two columns: the divider returns.
+        splitBtn.innerHTML =
+          '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">'
+          + '<rect x="1.2" y="2.7" width="9.6" height="6.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/>'
+          + '<path d="M6 2.7v6.6" stroke="currentColor" stroke-width="1.4"/>'
+          + '</svg>';
+        splitBtn.addEventListener('mousedown', (e) => runDividerAction(e, 'split'));
+        splitWrap.appendChild(splitBtn);
+        dom.appendChild(splitWrap);
+
+        dom.addEventListener('mouseenter', positionMergeChip);
+      }
+      const paintDivider = (n) => {
+        if (!mergeWrap) return;
+        const split = rowIsSplitNode(n);
+        mergeWrap.style.display = split ? '' : 'none';
+        splitWrap.style.display = split ? 'none' : '';
+      };
+      paintDivider(node);
 
       // ---- ROW DRAG HANDLE (rowDragReorder episodes — Burma + Palau) ---------
-      // Far-left ⇕ grip. Hidden until row hover; grab to drag the whole row up/down. Never
-      // mounted in read-only share mode — a reader gets no reorder affordance. The glyph is
-      // deliberately NOT ⠿ — that's the block grip's glyph, and two identical grips made
-      // users grab PM's native BLOCK drag when they meant to move a row. This handle only
-      // STARTS the gesture and records the row's IDENTITY; the editor-level rowDragPlugin
-      // owns everything after (indicator, autoscroll, drop) — see OWNERSHIP LAW above.
+      // Far-left grip, in the dead ⊞ spine's old slot. Hidden until row hover; grab to drag
+      // the whole row up/down. Never mounted in read-only share mode — a reader gets no
+      // reorder affordance. This handle only STARTS the gesture and records the row's
+      // IDENTITY; the editor-level rowDragPlugin owns everything after (indicator,
+      // autoscroll, drop) — see OWNERSHIP LAW above. Right-click = the ROW menu (Delete row
+      // first) — the spine's old contextmenu role rides the grip now that the spine is gone.
       let handle = null;
       if (rowDragEnabled() && !isReadOnly()) {
         handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
-        handle.textContent = '⇕';
+        // A proper grippy icon (the old ⇕ text glyph was vestigial — unstyled, mid-flow, dead).
+        // Three quiet horizontal bars, crisp SVG like the bookmark ribbon; deliberately NOT the
+        // block grip's ⠿ dots — two identical grips is how users grabbed the wrong drag before.
+        handle.innerHTML =
+          '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">'
+          + '<path d="M1.5 2.5h9M1.5 6h9M1.5 9.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>'
+          + '</svg>';
 
         // Arm edit BEFORE the browser starts the native drag (mousedown precedes dragstart). The
         // flip is synchronous, so by dragstart view.editable is true and the reorder writes cleanly.
@@ -1357,6 +1436,16 @@ export const TableRow = Node.create({
           dom.classList.remove('wp-trow-dragging');
           clearDropIndicator();
           draggingRow = null;
+        });
+        // Right-click the grip → the ROW menu (Delete row first). Never in read-only.
+        handle.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isReadOnly()) return;
+          const pos = typeof getPos === 'function' ? getPos() : getPos;
+          if (typeof pos !== 'number') return;
+          closeOpenRowMenu();
+          openRowMenu = createRowMenu(editor, pos, e.clientX, e.clientY);
         });
 
         dom.appendChild(handle);
@@ -1402,16 +1491,29 @@ export const TableRow = Node.create({
       return {
         dom,
         contentDOM: content,
-        ignoreMutation: (m) => spine.contains(m.target)
+        // CLASS flips on the row's OWN dom are chrome paint, never content: the drag system's
+        // wp-drop-before/after indicator + wp-trow-dragging classes. Left unignored, every
+        // indicator paint read as a real mutation → PM re-rendered the nodeView → the fresh dom
+        // wiped the class → the next dragover re-painted it — a teardown/flicker loop on every
+        // frame of a row drag. ONLY class, though: Editor.jsx's paintActiveSelectionWrappers
+        // raw-writes data-pm-active-selection onto this dom from OUTSIDE PM's update cycle on
+        // every selectionUpdate; swallowing those made the DOMObserver flush treat the batch as
+        // selection-only and re-sync the native selection from stale state mid-gesture — a
+        // cross-row mouse-drag selection deterministically collapsed at the row boundary (and
+        // the select→right-click bulk menu died with it). Non-class attr flips MUST reach PM.
+        // Pinned by row-ignoremutation.test.mjs in BOTH directions.
+        ignoreMutation: (m) => (m.type === 'attributes' && m.target === dom && m.attributeName === 'class')
           || (handle && (handle === m.target || handle.contains(m.target)))
           || (addWrap && (addWrap === m.target || addWrap.contains(m.target)))
+          || (mergeWrap && (mergeWrap === m.target || mergeWrap.contains(m.target)))
+          || (splitWrap && (splitWrap === m.target || splitWrap.contains(m.target)))
           || (bmBtn && (bmBtn === m.target || bmBtn.contains(m.target))),
         update(updated) {
           if (updated.type.name !== 'tableRow') return false;
           paintCols(updated);
           paintPairId(updated);
           paintBookmark(updated);
-          paintBtn(updated);
+          paintDivider(updated);
           return true;
         },
       };
