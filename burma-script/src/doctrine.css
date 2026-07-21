@@ -507,12 +507,14 @@
 
 /* ───────────────────────── WORKSPACE CUTOUTS ─────────────────────────
    The per-craft workspace view (extensions/workspace-filter.js). Each craft
-   section renders as a FLOATING CUTOUT CARD: member rows carry the face
-   background inside 1.5px ink card walls, the section's outer rows round the
+   section renders as a CLEAN STANDALONE CARD: member rows carry the face
+   background inside 1.5px ink card walls, the card's outermost rows round the
    corners, and the page background shows through the generous gaps between
-   cards. The single row hugging each card edge stays as a GHOST — faded to
-   atmosphere, feathered by a mask, untouchable. FLAT — the cutout reads
-   through bg contrast + the ink hairline, never a shadow.
+   cards. NOTHING is half-visible around a card by default — no ghosts, no
+   feather masks. Orientation is OPT-IN: the top/bottom EXPAND pills grow the
+   card by up to a few flat-grayed CONTEXT rows at a time (a hairline divides
+   context from the section's own rows), and COLLAPSE folds them back. FLAT —
+   the cutout reads through bg contrast + the ink hairline, never a shadow.
    Lives in doctrine.css (loads last) so the card paint wins over the
    chapter-frame rules above on shared rows. */
 
@@ -538,8 +540,36 @@
   margin-top: 0;
   margin-bottom: 0;
 }
-/* card corners — the section's outer rows (placed AFTER the chframe reset so
-   the radius/margins win on a first/last row that is also a chframe row) */
+
+/* CONTEXT rows — reader-revealed orientation. FLAT GRAY: a uniform panel wash,
+   uniform reduced opacity, slightly desaturated, the full row visible edge to
+   edge (NO gradient, NO mask). They sit INSIDE the same card walls as the
+   members (the card grew to hold them) and are dead to the pointer — for
+   orientation, never editing. */
+.wp-trow.wp-ws-context {
+  background: var(--panel);
+  border-left: 1.5px solid var(--ink);
+  border-right: 1.5px solid var(--ink);
+  padding-left: 22px;
+  padding-right: 22px;
+  opacity: .5;
+  filter: saturate(.55);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* a context row that is also a chapter-frame row stands the frame chrome down,
+   same as members, so it reads as plain card interior */
+.wp-trow.wp-ws-context.wp-chframe {
+  border-top: 0;
+  border-radius: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* card corners — the card's OUTERMOST visible rows (member OR context). Placed
+   AFTER the chframe resets so the radius/margins win on an outer row that is
+   also a chframe row. */
 .wp-trow.wp-ws-first {
   border-top: 1.5px solid var(--ink);
   border-top-left-radius: 14px;
@@ -555,31 +585,10 @@
   margin-bottom: 18px;
 }
 
-/* GHOSTS — the context whisper hugging each card edge. No card chrome, ~quarter
-   ink, feathered by a vertical mask, and dead to the pointer: atmosphere, not
-   surface. is-above sits above a card and fades downward INTO the content;
-   is-below fades out; a row pinched between two cards feathers from both edges. */
-.wp-trow.wp-ws-ghost {
-  background: transparent;
-  border: 0;
-  opacity: .25;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.wp-trow.wp-ws-ghost.is-above {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 88%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 88%);
-}
-.wp-trow.wp-ws-ghost.is-below {
-  -webkit-mask-image: linear-gradient(to bottom, #000 12%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 12%, transparent 100%);
-  margin-bottom: 30px; /* clean page-bg air after the fade — the cards must FLOAT */
-}
-.wp-trow.wp-ws-ghost.is-above.is-below {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 100%);
-}
+/* THE OWNERSHIP HAIRLINE — drawn on the member row that meets revealed context,
+   so the section's own rows are unmistakably distinct from borrowed context. */
+.wp-trow.wp-ws-member.wp-ws-bodytop { border-top: 1px solid var(--rule); }
+.wp-trow.wp-ws-member.wp-ws-bodybot { border-bottom: 1px solid var(--rule); }
 
 /* STICKY ROWS — still on the card after their craft surface was edited away.
    A quiet mono tag names the state; the row itself stays fully editable. */
@@ -600,16 +609,32 @@
   pointer-events: none;
 }
 
-/* SECTION META PILL — floats above each cutout's top-left ("CH 03 — THE
-   CROSSING · ROWS 171–191"). A widget decoration in normal flow, so the pill
-   provides the breathing room between cards; clicking it jumps the master. */
-.wp-ws-meta {
+/* SECTION TOP BAR — floats above each cutout: the jump pill on the left ("CH 03
+   — THE CROSSING · ROWS 171–191"), the ABOVE expand/collapse controls on the
+   right. A widget decoration in normal flow, so it also provides the breathing
+   room between cards. */
+.wp-ws-topbar {
   display: flex;
-  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   margin: 44px 0 6px;
   padding: 0 2px;
 }
-.wp-ws-meta:first-child { margin-top: 10px; }
+.wp-ws-topbar:first-child { margin-top: 10px; }
+.wp-ws-expand-grp { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+
+/* SECTION BOTTOM BAR — the BELOW expand/collapse controls, centered under the
+   card's lower edge, with the page-bg air that keeps cards floating apart. */
+.wp-ws-botbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0 20px;
+  padding: 0 2px;
+}
+
 .wp-ws-meta-pill {
   appearance: none;
   cursor: pointer;
@@ -630,3 +655,26 @@
   text-overflow: ellipsis;
 }
 .wp-ws-meta-pill:hover { background: var(--ink); color: var(--frame); }
+
+/* EXPAND / COLLAPSE pills — same mono chrome family as the meta pill, but quiet
+   (no fill, hairline border) so the reveal affordance never shouts over the card. */
+.wp-ws-expand,
+.wp-ws-collapse {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--label-2);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 5px 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wp-ws-collapse { color: var(--label-3); }
+.wp-ws-expand:hover,
+.wp-ws-collapse:hover { color: var(--ink); border-color: var(--ink); background: var(--face-hover); }

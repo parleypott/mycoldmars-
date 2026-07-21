@@ -3,21 +3,28 @@
  *
  * Proves:
  *   1. OFF — unknown/absent role key → empty classification, EMPTY plugin state.
- *   2. CLASSES — member / ghost(is-above,is-below) / hidden over top-level rows;
- *      bare top-level strays (trailing paragraph) always hide; a single row pinched
- *      between two sections is BOTH ghosts; doc-edge sections have no outer ghost.
+ *   2. STANDALONE CARDS — by default member / hidden over top-level rows; NO ghost,
+ *      NO context classes exist; bare top-level strays (trailing paragraph) hide; a
+ *      single row pinched between two sections is HIDDEN (no half-visible atmosphere).
  *   3. CARDS — wp-ws-first/wp-ws-last on each section's outer rows (single-row
  *      sections wear both).
  *   4. NESTED ROWS (Palau) — a craft surface inside a nested row lights the WRAPPER
- *      top-level row (it inherits its wrapper's fate; it is never classified itself).
+ *      top-level row; the neighbours hide (no ghost).
  *   5. STICKY — entering snapshots member identities (firstBlockIds). A row whose
  *      surface is edited away stays visible with wp-ws-left; a newly-matching row
  *      joins live AND grows the snapshot; re-entering (fresh snapshot) drops left rows.
  *   6. SECTIONS META — master row indices + chapter attribution + firstBlockId anchor;
- *      sectionLabel renders "CH 01 — TITLE · ROWS a–b" / "ROW n" shapes.
- *   7. PLUGIN FLOW — real EditorState transactions: meta {key} enters (decorations
- *      populate), a doc change reclassifies (sticky row survives), selection-only
- *      transactions keep the same DecorationSet object, meta null exits to EMPTY.
+ *      sectionLabel renders "CH 01 — TITLE · ROWS a–b" / "ROW n" shapes; the honest
+ *      aboveCount/belowCount reveal counts (clamped to EXPAND_STEP, to the real gap).
+ *   7. EXPANSION — expand reveals up to EXPAND_STEP flat-gray CONTEXT rows inside the
+ *      card walls (wp-ws-context is-above/is-below), repeatable, clamped at doc/section
+ *      edges and the midpoint between two facing sections; the member row that meets
+ *      context wears the ownership hairline; collapse folds it back; re-entry resets.
+ *   8. PLUGIN FLOW — real EditorState transactions: meta {key} enters (decorations
+ *      populate, expansions reset), a doc change reclassifies (sticky row survives),
+ *      an expand meta reveals context, a collapse meta folds it, re-entry drops both
+ *      sticky and expansion, selection-only transactions keep the same DecorationSet,
+ *      meta null exits to EMPTY.
  *
  * Run: bun src/extensions/workspace-filter.test.mjs  (auto-discovered by scripts/run-tests.mjs)
  */
@@ -29,7 +36,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import {
-  classifyRows, buildWorkspaceDecorations, sectionLabel,
+  classifyRows, buildWorkspaceDecorations, sectionLabel, EXPAND_STEP,
   createWorkspaceFilterPlugin, workspaceFilterKey,
 } from './workspace-filter.js';
 import { doDeleteRows } from './table.js';
@@ -44,6 +51,7 @@ setEpisode(BURMA);
 
 let pass = 0;
 const ok = (label, fn) => { fn(); pass++; };
+const secById = (sections, id) => sections.find((s) => s.id === id);
 
 const schema = getSchema([
   StarterKit.configure({
@@ -92,6 +100,8 @@ function clsAt(decorations, doc, pos) {
 
 // ── fixture: 8 rows + trailing stray ─────────────────────────────────────────
 // r1 vo · r2 broll · r3 broll · r4 vo · r5 vo · r6 vo · r7 broll · r8 vo · <p>
+//   broll members → run A (rows 2-3), run B (row 7).
+//   gaps: 1 hidden above A · 3 hidden between A and B · 1 hidden below B.
 const doc8 = docFrom({
   type: 'doc',
   content: [
@@ -115,31 +125,30 @@ ok('unknown role key → empty classification + empty decorations', () => {
   assert.equal(built.decorations.find().length, 0);
 });
 
-// ── 2 + 3. CLASSES + CARDS ───────────────────────────────────────────────────
-ok('member/ghost/hidden classification, card corners, stray hidden', () => {
+// ── 2 + 3. STANDALONE CARDS + CORNERS (no ghost, no context by default) ───────
+ok('default: clean member/hidden classification, card corners, stray hidden, NO ghost/context', () => {
   const res = classifyRows(doc8, 'broll', null);
   const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
-  // section 1: rows 2-3; section 2: row 7
+  // section A: rows 2-3; section B: row 7
   assert.equal(by.b2.member && by.b3.member && by.b7.member, true);
   assert.equal(by.b2.first, true);
   assert.equal(by.b3.last, true);
   assert.equal(by.b7.first && by.b7.last, true, 'single-row section wears both corners');
-  // ghosts hug each section edge
-  assert.equal(by.b1.ghostAbove, true, 'row above section 1');
-  assert.equal(by.b4.ghostBelow, true, 'row below section 1');
-  assert.equal(by.b6.ghostAbove, true, 'row above section 2');
-  assert.equal(by.b8.ghostBelow, true, 'row below section 2');
-  // everything else hides
-  assert.equal(by.b5.hidden, true);
-  // decoration classes carry the same story
+  // no ghost, no context anywhere — neighbours are simply hidden
+  assert.equal(res.rows.some((r) => r.context), false, 'no context rows by default');
+  assert.equal(by.b1.hidden, true, 'row above section A hides (was a ghost)');
+  assert.equal(by.b4.hidden && by.b5.hidden && by.b6.hidden, true, 'the between-gap hides');
+  assert.equal(by.b8.hidden, true, 'row below section B hides');
+  // decoration classes carry the same story — NO wp-ws-ghost token exists
   const built = buildWorkspaceDecorations(doc8, 'broll', null);
   const rowsByIdx = Object.fromEntries(res.rows.map((r) => [r.index, r]));
   assert.equal(clsAt(built.decorations, doc8, rowsByIdx[2].pos), 'wp-ws-member wp-ws-first');
   assert.equal(clsAt(built.decorations, doc8, rowsByIdx[3].pos), 'wp-ws-member wp-ws-last');
-  assert.equal(clsAt(built.decorations, doc8, rowsByIdx[1].pos), 'wp-ws-ghost is-above');
-  assert.equal(clsAt(built.decorations, doc8, rowsByIdx[4].pos), 'wp-ws-ghost is-below');
+  assert.equal(clsAt(built.decorations, doc8, rowsByIdx[1].pos), 'wp-ws-hidden');
   assert.equal(clsAt(built.decorations, doc8, rowsByIdx[5].pos), 'wp-ws-hidden');
   assert.equal(clsAt(built.decorations, doc8, rowsByIdx[7].pos), 'wp-ws-member wp-ws-first wp-ws-last');
+  assert.equal(built.decorations.find().every((d) => !d.spec || !/wp-ws-ghost/.test(d.spec.wsCls || '')), true,
+    'the ghost class is gone entirely');
   // trailing bare paragraph hides
   const last = doc8.child(doc8.childCount - 1);
   let strayPos = 0;
@@ -147,7 +156,7 @@ ok('member/ghost/hidden classification, card corners, stray hidden', () => {
   assert.equal(clsAt(built.decorations, doc8, strayPos), 'wp-ws-hidden');
 });
 
-ok('a single row between two sections is BOTH ghosts; doc-edge sections have no outer ghost', () => {
+ok('a single row between two sections HIDES by default (no half-visible atmosphere)', () => {
   const docPinch = docFrom({
     type: 'doc',
     content: [
@@ -158,15 +167,22 @@ ok('a single row between two sections is BOTH ghosts; doc-edge sections have no 
   });
   const res = classifyRows(docPinch, 'broll', null);
   const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
-  assert.equal(by.p2.ghostAbove && by.p2.ghostBelow, true, 'pinched row feathers from both edges');
+  assert.equal(by.p2.hidden, true, 'the pinched row is simply hidden');
+  assert.equal(by.p2.context, false);
   assert.equal(by.p1.first && by.p1.last, true);
-  // p1 starts the doc — nothing above it to ghost; p3 ends it — nothing below.
-  const built = buildWorkspaceDecorations(docPinch, 'broll', null);
-  assert.equal(clsAt(built.decorations, docPinch, by.p2.pos), 'wp-ws-ghost is-above is-below');
+  assert.equal(by.p3.first && by.p3.last, true);
+  // honesty: p1 is doc-top (no above button), p3 is doc-bottom (no below button); the
+  // ONE row between them is offered as 1-more on each facing side.
+  const sA = secById(res.sections, 'p1');
+  const sB = secById(res.sections, 'p3');
+  assert.equal(sA.aboveCount, 0, 'nothing above the first section');
+  assert.equal(sA.belowCount, 1, 'exactly one hidden row below section A');
+  assert.equal(sB.aboveCount, 1, 'exactly one hidden row above section B');
+  assert.equal(sB.belowCount, 0, 'nothing below the last section');
 });
 
 // ── 4. NESTED ROWS ───────────────────────────────────────────────────────────
-ok('a craft surface inside a NESTED row lights the wrapper top-level row', () => {
+ok('a craft surface inside a NESTED row lights the wrapper top-level row; neighbours hide', () => {
   const docNested = docFrom({
     type: 'doc',
     content: [
@@ -179,8 +195,8 @@ ok('a craft surface inside a NESTED row lights the wrapper top-level row', () =>
   assert.equal(res.rows.length, 3, 'only top-level rows are classified');
   const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
   assert.equal(by.n2.member, true, 'wrapper is the member — nested rows inherit its fate');
-  assert.equal(by.n1.ghostAbove, true);
-  assert.equal(by.n3.ghostBelow, true);
+  assert.equal(by.n1.hidden, true);
+  assert.equal(by.n3.hidden, true);
 });
 
 // ── 5. STICKY ────────────────────────────────────────────────────────────────
@@ -215,11 +231,11 @@ ok('sticky: edited-away row stays as wp-ws-left; joiners grow the snapshot; re-e
   assert.equal(by.b3.last, true);
   const built = buildWorkspaceDecorations(docShift, 'broll', enter.snapshot);
   assert.equal(clsAt(built.decorations, docShift, by.b2.pos), 'wp-ws-member wp-ws-left wp-ws-first');
-  // RE-ENTER (fresh snapshot): b2 drops out
+  // RE-ENTER (fresh snapshot): b2 drops out and simply hides (no ghost)
   const fresh = classifyRows(docShift, 'broll', null);
   const byF = Object.fromEntries(fresh.rows.map((r) => [r.firstBlockId, r]));
   assert.equal(byF.b2.left, false);
-  assert.equal(byF.b2.ghostAbove, true, 'b2 degrades to section-1 ghost after re-entry');
+  assert.equal(byF.b2.hidden, true, 'b2 hides after re-entry — no ghost fallback');
   assert.ok(!fresh.snapshot.has('b2'));
 });
 
@@ -230,7 +246,7 @@ ok('an unchanged recompute reuses the SAME snapshot Set (no churn)', () => {
 });
 
 // ── 6. SECTIONS META ─────────────────────────────────────────────────────────
-ok('sections carry master indices, chapter attribution and the firstBlockId anchor', () => {
+ok('sections carry master indices, chapter attribution, firstBlockId anchor, honest reveal counts', () => {
   const docCh = docFrom({
     type: 'doc',
     content: [
@@ -248,18 +264,102 @@ ok('sections carry master indices, chapter attribution and the firstBlockId anch
   assert.equal(s.endIndex, 4);
   assert.equal(s.rowCount, 2);
   assert.equal(s.firstBlockId, 'm2');
+  assert.equal(s.id, 'm2');
   assert.equal(s.chapter.ord, '01');
   assert.equal(s.chapter.title, 'The Crossing');
   assert.equal(sectionLabel(s), 'CH 01 — THE CROSSING · ROWS 3–4');
   assert.equal(sectionLabel({ startIndex: 7, endIndex: 7, chapter: null }), 'ROW 7');
-  // one widget decoration per section rides the built set
+  // honest counts: 2 hidden rows above (chapter + m1), 1 below (m4)
+  assert.equal(s.aboveCount, 2);
+  assert.equal(s.belowCount, 1);
+  assert.equal(s.aboveExpanded, false);
+  assert.equal(s.belowExpanded, false);
+  // exactly one TOP-BAR widget per section; a BOTTOM-BAR too (it has a below button)
   const built = buildWorkspaceDecorations(docCh, 'broll', null);
   const widgets = built.decorations.find().filter((d) => d.from === d.to);
-  assert.equal(widgets.length, 1, 'exactly one meta-pill widget for the one section');
-  assert.equal(widgets[0].from, s.pos, 'pill anchors at the section’s first row');
+  assert.equal(widgets.length, 2, 'one top bar + one bottom bar for the one section');
 });
 
-// ── 7. PLUGIN FLOW (real EditorState transactions) ───────────────────────────
+ok('doc8 default reveal counts are honest and clamped to EXPAND_STEP', () => {
+  const res = classifyRows(doc8, 'broll', null);
+  const A = secById(res.sections, 'b2');
+  const B = secById(res.sections, 'b7');
+  assert.equal(A.aboveCount, 1, 'one hidden row above section A');
+  assert.equal(A.belowCount, EXPAND_STEP, 'three between → clamped to the step');
+  assert.equal(B.aboveCount, EXPAND_STEP, 'the same between-gap, from section B');
+  assert.equal(B.belowCount, 1, 'one hidden row below section B');
+});
+
+// ── 7. EXPANSION ─────────────────────────────────────────────────────────────
+ok('expand reveals flat-gray context INSIDE the walls; hairline marks ownership; counts stay honest', () => {
+  const exp = new Map([['b2', { above: 0, below: EXPAND_STEP }]]);
+  const res = classifyRows(doc8, 'broll', null, exp);
+  const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
+  // the three between-rows become context BELOW section A, inside its card
+  assert.equal(by.b4.context && by.b4.contextBelow, true);
+  assert.equal(by.b5.context && by.b5.contextBelow, true);
+  assert.equal(by.b6.context && by.b6.contextBelow, true);
+  // the card grew: first stays b2, last is now b6; b3 (last member) wears the hairline
+  assert.equal(by.b2.first, true);
+  assert.equal(by.b6.last, true);
+  assert.equal(by.b3.last, false, 'the corner moved off the member row onto the context');
+  assert.equal(by.b3.bodyBot, true, 'the last member row meets context → ownership hairline');
+  const built = buildWorkspaceDecorations(doc8, 'broll', null, exp);
+  assert.equal(clsAt(built.decorations, doc8, by.b4.pos), 'wp-ws-context is-below');
+  assert.equal(clsAt(built.decorations, doc8, by.b6.pos), 'wp-ws-context is-below wp-ws-last');
+  assert.equal(clsAt(built.decorations, doc8, by.b3.pos), 'wp-ws-member wp-ws-bodybot');
+  // section A's below button is now spent; COLLAPSE is offered; section B's facing
+  // above-count fell to 0 (the shared gap is consumed).
+  const A = secById(res.sections, 'b2');
+  const B = secById(res.sections, 'b7');
+  assert.equal(A.belowCount, 0);
+  assert.equal(A.belowExpanded, true);
+  assert.equal(B.aboveCount, 0);
+});
+
+ok('expansion is clamped at the doc edge and idempotent past the max', () => {
+  const one = classifyRows(doc8, 'broll', null, new Map([['b7', { above: 0, below: EXPAND_STEP }]]));
+  const many = classifyRows(doc8, 'broll', null, new Map([['b7', { above: 0, below: 99 }]]));
+  const oneBy = Object.fromEntries(one.rows.map((r) => [r.firstBlockId, r]));
+  const manyBy = Object.fromEntries(many.rows.map((r) => [r.firstBlockId, r]));
+  // only ONE row exists below section B — both requests reveal exactly it
+  assert.equal(oneBy.b8.context && oneBy.b8.contextBelow, true);
+  assert.equal(manyBy.b8.context && manyBy.b8.contextBelow, true);
+  assert.equal(secById(one.sections, 'b7').belowCount, 0, 'nothing more to reveal');
+  assert.equal(secById(many.sections, 'b7').belowCount, 0);
+});
+
+ok('two facing sections expanding into one gap CLAMP at the midpoint', () => {
+  // A (rows 2-3) and B (row 8) with a 4-row gap between (rows 4-7).
+  const docGap = docFrom({
+    type: 'doc',
+    content: [
+      row([vo('g1', 'x')]),
+      row([broll('g2', 'A1')]),
+      row([broll('g3', 'A2')]),
+      row([vo('g4', 'c1')]),
+      row([vo('g5', 'c2')]),
+      row([vo('g6', 'c3')]),
+      row([vo('g7', 'c4')]),
+      row([broll('g8', 'B1')]),
+    ],
+  });
+  // both sections ask for the whole gap (99 each) → 4 rows split 2/2 at the midpoint
+  const exp = new Map([['g2', { above: 0, below: 99 }], ['g8', { above: 99, below: 0 }]]);
+  const res = classifyRows(docGap, 'broll', null, exp);
+  const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
+  assert.equal(by.g4.contextBelow && by.g5.contextBelow, true, 'A took the top two');
+  assert.equal(by.g6.contextAbove && by.g7.contextAbove, true, 'B took the bottom two');
+  assert.equal(by.g4.contextAbove, false);
+  assert.equal(by.g7.contextBelow, false);
+  const A = secById(res.sections, 'g2');
+  const B = secById(res.sections, 'g8');
+  assert.equal(A.belowCount, 0, 'gap fully consumed → no button between');
+  assert.equal(B.aboveCount, 0);
+  assert.equal(A.belowExpanded && B.aboveExpanded, true);
+});
+
+// ── 8. PLUGIN FLOW (real EditorState transactions) ───────────────────────────
 ok('plugin: meta enters, doc change reclassifies (sticky), selection maps, meta null exits', () => {
   const plugin = createWorkspaceFilterPlugin();
   let state = EditorState.create({ doc: doc8, plugins: [plugin] });
@@ -271,6 +371,7 @@ ok('plugin: meta enters, doc change reclassifies (sticky), selection maps, meta 
   assert.equal(ps.wsKey, 'broll');
   assert.ok(ps.decorations.find().length > 0, 'decorations populate on entry');
   assert.deepEqual([...ps.snapshot].sort(), ['b2', 'b3', 'b7']);
+  assert.equal(ps.expansions.size, 0, 'entry resets expansions');
 
   // SELECTION-ONLY transaction → the very same DecorationSet object (no rebuild)
   const selTr = state.tr.setSelection(TextSelection.atStart(state.doc));
@@ -278,8 +379,7 @@ ok('plugin: meta enters, doc change reclassifies (sticky), selection maps, meta 
   assert.equal(workspaceFilterKey.getState(state2).decorations, ps.decorations);
   state = state2;
 
-  // DOC CHANGE: delete row 2 (b2, the broll) entirely → sticky has nothing to hold
-  // (row identity gone), b3 remains the section. Then TYPE into b3's row — b3 stays.
+  // DOC CHANGE: delete row 2 (b2, the broll) entirely → b3 remains the section.
   const r2 = classifyRows(state.doc, 'broll', null).rows[1];
   state = state.apply(state.tr.delete(r2.pos, r2.pos + r2.node.nodeSize));
   ps = workspaceFilterKey.getState(state);
@@ -297,6 +397,40 @@ ok('plugin: meta enters, doc change reclassifies (sticky), selection maps, meta 
   ps = workspaceFilterKey.getState(state);
   assert.equal(ps.wsKey, null);
   assert.equal(ps.decorations.find().length, 0);
+});
+
+ok('plugin: expand meta reveals context, collapse folds it, re-entry resets expansions', () => {
+  const plugin = createWorkspaceFilterPlugin();
+  let state = EditorState.create({ doc: doc8, plugins: [plugin] });
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+
+  const ctxCount = (st) => classifyRows(st.doc, 'broll',
+    workspaceFilterKey.getState(st).snapshot,
+    workspaceFilterKey.getState(st).expansions).rows.filter((r) => r.context).length;
+  assert.equal(ctxCount(state), 0, 'no context on entry');
+
+  // EXPAND section A (id b2) below by one step
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { expand: { id: 'b2', side: 'below' } }));
+  let ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.expansions.get('b2').below, EXPAND_STEP);
+  assert.equal(ctxCount(state), EXPAND_STEP, 'three context rows revealed inside the card');
+  // a wp-ws-context decoration now exists
+  assert.ok(ps.decorations.find().some((d) => d.spec && /wp-ws-context/.test(d.spec.wsCls || '')),
+    'context decoration present');
+
+  // COLLAPSE section A below → back to a clean card
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { collapse: { id: 'b2', side: 'below' } }));
+  ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.expansions.get('b2').below, 0);
+  assert.equal(ctxCount(state), 0, 'context folded back');
+
+  // EXPAND again, then RE-ENTER → expansions reset to empty
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { expand: { id: 'b2', side: 'below' } }));
+  assert.equal(ctxCount(state), EXPAND_STEP);
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.expansions.size, 0, 're-entry drops all expansions');
+  assert.equal(ctxCount(state), 0, 'clean standalone cards again');
 });
 
 ok('plugin: sticky survives a real in-place edit (surface removed, row kept)', () => {

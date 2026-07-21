@@ -994,7 +994,7 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
 
 @media print {
   /* workspace chrome is screen furniture — the filtered cutouts themselves still print */
-  .wp-wsbar, .wp-wshub, .wp-wsmenu, .wp-ws-meta { display: none !important; }
+  .wp-wsbar, .wp-wshub, .wp-wsmenu, .wp-ws-topbar, .wp-ws-botbar { display: none !important; }
   .wp-page[data-ws] { padding-top: 0 !important; }
   /* THE MAP PRINTS — a one-page roadmap. Keep the mosaic ink, hide the (already
      display:none) editor rack explicitly, shrink the strip toward one sheet. */
