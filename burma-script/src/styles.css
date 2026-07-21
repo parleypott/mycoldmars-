@@ -801,6 +801,11 @@ html.read-only #library-pill { display: none !important; }
 }
 .wp-wsbar-hint { font-size: 10px; letter-spacing: .1em; color: var(--label-3); white-space: nowrap; }
 .wp-page[data-ws] { padding-top: 56px; }
+/* The fixed library door pills (standalone #library-pill / library #sl-backbar,
+   both z-index 9999) collide with the fixed wsbar — the bar's own "‹ BACK TO
+   SCRIPT" is the way out while a workspace holds the top of the screen. */
+html:has(.wp-page[data-ws]) #library-pill,
+html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
 
 /* WORKSPACE HUB — the craft's dashboard above the editor. One chip, one stat row. */
 .wp-wshub {
@@ -822,18 +827,133 @@ html.read-only #library-pill { display: none !important; }
 .wp-wshub-empty { margin-top: 9px; font-size: 10.5px; letter-spacing: .02em; color: var(--label); text-transform: none; }
 .wp-wshub-foot { margin-top: 9px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--label-3); opacity: .8; }
 
-/* SCRIPT MAP host — stage 4 mounts the map here; until then a quiet placeholder note. */
+/* ============================================================
+   SCRIPT MAP (ws=map) — the mission-control strip (ScriptMap.jsx).
+   The whole film as a tall color-coded spine: chapter bands, segment bars
+   sized by screen time, a cumulative minute gutter. FLAT IS LAW — solid
+   fills, 1px page seams, and the dashed UNPLANNED hollow. Segment fills are
+   FIXED light solids (chip doctrine: chips keep their ink in every scheme);
+   the chrome rides the scheme tokens.
+   ============================================================ */
 .wp-wsmap-host {
   margin: 4px 2px 18px; padding: 22px 16px;
   border: 1.5px dashed var(--ink); border-radius: 11px;
   display: flex; align-items: center; justify-content: center;
 }
+.wp-wsmap-host.is-live { border: 0; padding: 0; display: block; }
 .wp-wsmap-note { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--label-3); }
+
+/* While the map holds the screen the editor stays MOUNTED (collab session
+   untouched) but hidden, along with the floating reading chrome — the map is
+   the whole instrument. */
+.wp-page[data-ws="map"] .wp-rack,
+.wp-page[data-ws="map"] .wp-control,
+.wp-page[data-ws="map"] .wp-role,
+.wp-page[data-ws="map"] .wp-rail,
+.wp-page[data-ws="map"] .wp-mode { display: none; }
+
+.wp-map { font-family: var(--mono); }
+
+/* TOP STATS BAR — total minutes, planned %, hazard counts, kind legend. */
+.wp-map-stats {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 13px 16px 11px; border: 1.5px solid var(--ink); border-radius: 11px;
+  background: var(--face);
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--label-2);
+}
+.wp-map-stat { white-space: nowrap; }
+.wp-map-stat b { font-size: 16px; font-weight: 800; color: var(--ink); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.wp-map-stat.is-pending b, .wp-map-stat.is-unplanned b { color: #b02318; }
+.wp-map-dot { color: var(--label-3); }
+.wp-map-legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+.wp-map-key { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; font-weight: 700; letter-spacing: .1em; color: var(--label-2); white-space: nowrap; }
+.wp-map-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px; box-sizing: border-box; }
+.wp-map-swatch[data-kind="broll"]     { background: #eed7be !important; border-left: 3px solid #d0873f; }
+.wp-map-swatch[data-kind="archive"]   { background: #e3c6c4 !important; border-left: 3px solid #b56b6b; }
+.wp-map-swatch[data-kind="mapdata"]   { background: #cbaa98 !important; border-left: 3px solid #9c5a3c; }
+.wp-map-swatch[data-kind="3d"]        { border-left: 3px solid #f5e63d; }
+.wp-map-swatch[data-kind="unplanned"] { background: var(--face); border: 1.5px dashed var(--ink); }
+
+/* THE SPINE — chapter bands stacked top-to-bottom; right padding = minute gutter. */
+.wp-map-spine { display: flex; flex-direction: column; gap: 30px; margin-top: 22px; padding-right: 76px; }
+
+.wp-map-ch-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.wp-map-ch-ord { font-size: 9px; font-weight: 700; letter-spacing: .22em; color: var(--label-2); }
+/* Chapter title — the chapter-frame serif ceremony, scaled to a band label. */
+.wp-map-ch-title {
+  font-family: var(--ep-title-serif, Georgia, serif);
+  font-variant-caps: small-caps;
+  font-size: 19px; font-weight: 500; letter-spacing: .04em; line-height: 1.15;
+  color: var(--ink);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wp-map-ch-min { margin-left: auto; font-size: 9px; font-weight: 700; letter-spacing: .14em; color: var(--label-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wp-map-ch.is-front .wp-map-ch-title { font-family: var(--mono); font-variant-caps: normal; font-size: 9px; font-weight: 700; letter-spacing: .22em; color: var(--label-3); }
+
+/* THE SEGMENT COLUMN — bars in normal flow (1px seams), minute ticks absolute. */
+.wp-map-ch-col { position: relative; }
+.wp-map-seg {
+  display: flex; align-items: center; box-sizing: border-box;
+  width: 100%; margin: 0 0 1px; padding: 0 12px;
+  border: 0; border-radius: 3px; cursor: pointer;
+  font-family: var(--mono); overflow: hidden; text-align: left;
+  appearance: none; -webkit-appearance: none;
+}
+.wp-map-seg:hover:not(:disabled) { outline: 1.5px solid var(--ink); outline-offset: -1.5px; }
+.wp-map-seg:disabled { cursor: default; }
+.wp-map-seg-line { display: flex; align-items: baseline; gap: 10px; width: 100%; min-width: 0; }
+.wp-map-seg-kind { font-size: 8.5px; font-weight: 800; letter-spacing: .14em; white-space: nowrap; }
+.wp-map-seg-tag { margin-left: auto; font-size: 8.5px; font-weight: 500; letter-spacing: .08em; opacity: .8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* KIND PAINT — the real chip palette. Fixed light solids (scheme-stable ink);
+   a 5px kind-colour edge keeps even a thin sliver readable as its colour. */
+.wp-map-seg[data-kind="broll"]     { background: #eed7be; color: #7a4210; border-left: 5px solid #d0873f; }
+.wp-map-seg[data-kind="archive"]   { background: #e3c6c4; color: #6e2a2a; border-left: 5px solid #b56b6b; }
+.wp-map-seg[data-kind="mapdata"]   { background: #cbaa98; color: #4c2814; border-left: 5px solid #9c5a3c; }
+.wp-map-seg[data-kind="animation"] { background: #9184c7; color: #1a1a18; border-left: 5px solid #6f5fb0; }
+/* 3d = the same chip purple keyed apart by its yellow edge (the /3d chip's yellow ink) */
+.wp-map-seg[data-kind="3d"]        { background: #9184c7; color: #1a1a18; border-left: 5px solid #f5e63d; }
+/* PENDING — the stage-1 alert red, LOUD. The punch list must jump off the map. */
+.wp-map-seg[data-kind="pending"]   { background: #b02318; color: #fbfaf5; border-left: 5px solid #8f1c13; }
+/* UNPLANNED — a hollow: face bg + dashed ink walls. Reads as a hole in the plan. */
+.wp-map-seg[data-kind="unplanned"] { background: var(--face); color: var(--label); border: 1.5px dashed var(--ink); border-radius: 4px; }
+/* NEUTRAL — structural hairlines (chapter heads, spacers); wordy neutral runs
+   (narration with no said|shown split yet) render as quiet flat-gray MASS with
+   an honest "NO VISUAL LANE" tag — real screen time never hides in a hairline. */
+.wp-map-seg[data-kind="neutral"]   { background: var(--rule); color: var(--label-3); cursor: default; }
+.wp-map-seg[data-kind="neutral"]:hover:not(:disabled) { outline: none; }
+.wp-map-seg[data-kind="neutral"][data-mass="1"] {
+  /* fixed light solid like every other segment fill (FLAT — no texture) */
+  background: #dcd6c6;
+  color: #6b6658;
+  border-left: 5px solid #b5ae9c;
+  cursor: pointer;
+}
+.wp-map-seg[data-kind="neutral"][data-mass="1"]:hover:not(:disabled) { outline: 1.5px solid var(--ink); outline-offset: -1.5px; }
+
+/* MINUTE GUTTER — cumulative screen-time ticks every 2 min, in the right margin. */
+.wp-map-tick { position: absolute; left: 100%; width: 70px; height: 0; pointer-events: none; }
+.wp-map-tick i { position: absolute; left: 8px; right: 34px; top: 0; border-top: 1px solid var(--label-3); opacity: .55; }
+.wp-map-tick em {
+  position: absolute; right: 0; top: -4.5px; font-style: normal;
+  font-size: 8.5px; font-weight: 700; letter-spacing: .1em; color: var(--label-3);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+.wp-map-foot { margin-top: 20px; font-size: 8.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--label-3); }
 
 @media print {
   /* workspace chrome is screen furniture — the filtered cutouts themselves still print */
-  .wp-wsbar, .wp-wshub, .wp-wsmenu, .wp-wsmap-host, .wp-ws-meta { display: none !important; }
+  .wp-wsbar, .wp-wshub, .wp-wsmenu, .wp-ws-meta { display: none !important; }
   .wp-page[data-ws] { padding-top: 0 !important; }
+  /* THE MAP PRINTS — a one-page roadmap. Keep the mosaic ink, hide the (already
+     display:none) editor rack explicitly, shrink the strip toward one sheet. */
+  .wp-wsmap-host:not(.is-live) { display: none !important; }
+  .wp-page[data-ws="map"] .wp-rack { display: none !important; }
+  .wp-map { zoom: .52; }
+  .wp-map-seg, .wp-map-swatch, .wp-map-stats { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .wp-map-ch { break-inside: avoid; }
 }
 
 /* ---- header row ---- */

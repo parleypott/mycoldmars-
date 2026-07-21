@@ -26,6 +26,8 @@ import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStora
 import { WORKSPACE_ROLES, workspaceRole, scanWorkspace, workspaceMetrics } from './workspaces.js';
 import { workspaceFilterKey } from './extensions/workspace-filter.js';
 import { WS_MAP_KEY, parseWsFlag, setWsInHash, setWsInSearch } from './ws-route.js';
+import { mapModel } from './script-map.js';
+import { ScriptMap } from './ScriptMap.jsx';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 import { ShareToggle } from './ShareToggle.jsx';
@@ -1558,6 +1560,9 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       try { ed.view.dispatch(ed.state.tr.setMeta(workspaceFilterKey, null)); } catch {}
     }
     if (!wsRef.current) wsScroll.current = window.scrollY; // remember the master position once
+    // SCRIPT MAP hides the editor (CSS) but keeps it mounted (collab session
+    // untouched). Blur it so a stray keystroke can't edit the invisible doc.
+    if (key === WS_MAP_KEY) { try { ed?.view?.dom?.blur(); } catch {} }
     setWs(key);
     writeWsFlag(key);
   }, [readOnly]);
@@ -1656,6 +1661,18 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     if (!ed) return;
     try { setWsMetrics(workspaceMetrics(ed.state.doc, ws)); } catch {}
   }, [tel, ws, wsRole]);
+
+  // SCRIPT MAP MODEL — same cadence discipline as the hub metrics: recomputed only
+  // while the map holds the screen, keyed on the telemetry debounce/idle state
+  // (remote collab edits land in tel too, so the map tracks the live doc). One
+  // full-doc walk per telemetry tick — microseconds at Burma scale (331 rows).
+  const [wsMap, setWsMap] = useState(null);
+  useEffect(() => {
+    if (ws !== WS_MAP_KEY) { setWsMap(null); return; }
+    const ed = editorRef.current;
+    if (!ed) return;
+    try { setWsMap(mapModel(ed.state.doc)); } catch {}
+  }, [tel, ws]);
 
   // BOOKMARK DEEP LINK — poll for the ⚑ row (it can render late: collab sync, cloud seed),
   // then center + flash it once. Gives up quietly after ~30s.
@@ -1825,8 +1842,10 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             active. The SCRIPT MAP route renders its (stage-4) host instead of the hub. */}
         {wsRole && <WorkspaceHub wsKey={ws} metrics={wsMetrics} />}
         {ws === WS_MAP_KEY && (
-          <div class="wp-wsmap-host" id="wp-wsmap-host">
-            <span class="wp-wsmap-note">SCRIPT MAP — this bird's-eye view arrives in the next stage.</span>
+          <div class={`wp-wsmap-host${wsMap ? ' is-live' : ''}`} id="wp-wsmap-host">
+            {wsMap
+              ? <ScriptMap model={wsMap} />
+              : <span class="wp-wsmap-note">SCRIPT MAP — reading the script…</span>}
           </div>
         )}
 
