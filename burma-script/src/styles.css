@@ -337,6 +337,8 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   margin-right: 7px; vertical-align: 1px; user-select: none;
 }
 .wp-dhl-runtag[data-kind="oncam"] { color: #7a3d1e; }
+/* SOT runs are the filled red-purple chip; the cap sits OUTSIDE the fill in the same ink. */
+.wp-dhl-runtag[data-kind="sot"] { color: #a02c62; }
 .wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#1a1a18; }   /* /animation — purple chip, BLACK text */
 .wp-dhl[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }           /* /3d — purple chip, bright YELLOW text */
 /* Redundant "DAY N" folded before its timecode chip (day-fold plugin) — hidden, not deleted. */

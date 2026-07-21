@@ -69,6 +69,9 @@ const ok = (label, fn) => { fn(); pass++; };
 
 ok('1. RUN_LABEL_KINDS contract', () => {
   assert.equal(RUN_LABEL_KINDS.oncam, 'ONCAM');
+  // Johnny 2026-07-21 (round 2): "/sot doesn't put a SOT chip in the upper left" — sot runs
+  // get the same run-identity cap as oncam.
+  assert.equal(RUN_LABEL_KINDS.sot, 'SOT');
 });
 
 ok('2. one run per contiguous oncam stretch', () => {

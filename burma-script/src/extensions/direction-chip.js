@@ -18,7 +18,7 @@ export const CHECKBOX_MARK_KINDS = ['archive'];
 // box in the 2026-07-09 re-scope and became bare bold-italic ink, which left it unlabeled at
 // a glance — Johnny 2026-07-21: "/oncam should create a little ONCAM tag like SOT and VO."
 // Decoration-only (never saved), one tag per contiguous run.
-export const RUN_LABEL_KINDS = { oncam: 'ONCAM' };
+export const RUN_LABEL_KINDS = { oncam: 'ONCAM', sot: 'SOT' };
 
 export function defaultDirectionChipAttrs(kind) {
   switch (kind) {
