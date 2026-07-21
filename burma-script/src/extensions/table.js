@@ -1491,12 +1491,18 @@ export const TableRow = Node.create({
       return {
         dom,
         contentDOM: content,
-        // Attribute flips on the row's OWN dom are chrome paint, never content: the drag system's
-        // wp-drop-before/after indicator + wp-trow-dragging classes, and our own painted attrs
-        // (data-cols/pair-id/bookmark). Left unignored, every indicator paint read as a real
-        // mutation → PM re-rendered the nodeView → the fresh dom wiped the class → the next
-        // dragover re-painted it — a teardown/flicker loop on every frame of a row drag.
-        ignoreMutation: (m) => (m.type === 'attributes' && m.target === dom)
+        // CLASS flips on the row's OWN dom are chrome paint, never content: the drag system's
+        // wp-drop-before/after indicator + wp-trow-dragging classes. Left unignored, every
+        // indicator paint read as a real mutation → PM re-rendered the nodeView → the fresh dom
+        // wiped the class → the next dragover re-painted it — a teardown/flicker loop on every
+        // frame of a row drag. ONLY class, though: Editor.jsx's paintActiveSelectionWrappers
+        // raw-writes data-pm-active-selection onto this dom from OUTSIDE PM's update cycle on
+        // every selectionUpdate; swallowing those made the DOMObserver flush treat the batch as
+        // selection-only and re-sync the native selection from stale state mid-gesture — a
+        // cross-row mouse-drag selection deterministically collapsed at the row boundary (and
+        // the select→right-click bulk menu died with it). Non-class attr flips MUST reach PM.
+        // Pinned by row-ignoremutation.test.mjs in BOTH directions.
+        ignoreMutation: (m) => (m.type === 'attributes' && m.target === dom && m.attributeName === 'class')
           || (handle && (handle === m.target || handle.contains(m.target)))
           || (addWrap && (addWrap === m.target || addWrap.contains(m.target)))
           || (mergeWrap && (mergeWrap === m.target || mergeWrap.contains(m.target)))
