@@ -64,6 +64,14 @@
   --vis-bg:    #f1e3e1;  /* visual chip */
   --vis-text:  #6e1f1a;
 
+  /* LOOSE TK — the no-slash nag (tk-detect.js paints bare TK / '(TK …)' with
+     .wp-tk-loose). SUBTLE red: muted ink + a very faint warm wash + a hairline
+     underline. A quiet note-to-self, deliberately calmer than the /pending alarm
+     (#b02318). Every light scheme reads these defaults; slate re-inks lighter. */
+  --tkl-ink:  #a03a2e;
+  --tkl-wash: rgba(160, 58, 46, .07);
+  --tkl-line: rgba(160, 58, 46, .45);
+
   --grip-grad: repeating-linear-gradient(0deg, #ddd7c8, #ddd7c8 2px, #ece7da 2px, #ece7da 4px);
   --grip-grad-note: repeating-linear-gradient(0deg, #f0e2a8, #f0e2a8 2px, #f6ecbf 2px, #f6ecbf 4px);
   --grip-grad-dark: repeating-linear-gradient(0deg, #2a2a26, #2a2a26 2px, #36352f 2px, #36352f 4px);
@@ -123,6 +131,7 @@
   --label:#9298a1; --label-2:#9197a0; --label-3:#959aa2; --label-4:#959aa2; --label-5:#969ba3; --lane-lab:#959aa2;
   --note-fill:#34321f; --note-fill-hover:#3d3a24; --note-text:#e8dca0; --note-lab:#c9b96e;
   --tk-bg:#3a3520; --tk-text:#e8d488; --vis-bg:#3a2926; --vis-text:#e0a59a;
+  --tkl-ink:#d98f7f; --tkl-wash:rgba(217, 143, 127, .10); --tkl-line:rgba(217, 143, 127, .5);
   --grip-grad: repeating-linear-gradient(0deg,#34373d,#34373d 2px,#3d4047 2px,#3d4047 4px);
   --grip-grad-dark: repeating-linear-gradient(0deg,#1f2024,#1f2024 2px,#2a2b30 2px,#2a2b30 4px);
 }
@@ -748,6 +757,252 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* a read-only share viewer must have NO path to the library — hide the standalone-door pill for them */
 html.read-only #library-pill { display: none !important; }
 
+/* ============================================================
+   WORKSPACES — masthead menu, the craft chip family, hub + focus bar.
+   Chrome cloned from the .wp-tips / .wp-share popover family: 1.5px ink
+   toggle, mono lowercase tracked label, absolute frame panel. FLAT IS LAW.
+   The cutout ROW paint lives in doctrine.css (it must load after the
+   chapter-frame rules to win ties).
+   ============================================================ */
+.wp-wsmenu { position: relative; }
+.wp-wsmenu-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.wp-wsmenu-toggle:hover { background: var(--panel); color: var(--ink); }
+.wp-wsmenu.is-open .wp-wsmenu-toggle { background: var(--ink); color: var(--frame); }
+.wp-wsmenu-glyph { font-size: 12px; line-height: 1; }
+.wp-wsmenu-body {
+  overflow: hidden; max-height: 0; opacity: 0;
+  transition: max-height .2s var(--ease), opacity .2s var(--ease);
+}
+.wp-wsmenu.is-open .wp-wsmenu-body {
+  max-height: 520px; opacity: 1;
+  position: absolute; right: 0; top: calc(100% + 7px); z-index: 30;
+  width: min(400px, 86vw);
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 11px; padding: 12px 12px 10px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.wp-wsmenu-head {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .22em; color: var(--ink); font-weight: 700;
+  padding: 0 2px 8px; margin-bottom: 5px; border-bottom: 1.5px solid var(--ink);
+}
+.wp-wsmenu-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: transparent; border: 0; border-radius: 7px; padding: 6px 7px;
+  cursor: pointer; text-align: left; font-family: var(--mono);
+}
+.wp-wsmenu-item:hover { background: var(--panel); }
+.wp-wsmenu-count {
+  margin-left: auto; font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+  color: var(--label-3); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.wp-wsmenu-item:hover .wp-wsmenu-count { color: var(--ink); }
+.wp-wsmenu-sep { height: 1px; margin: 6px 2px; background: var(--ink); opacity: .18; }
+.wp-wsmenu-maplab {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 5px; padding: 3px 9px; background: var(--face);
+}
+
+/* THE CRAFT CHIP — each workspace wears its REAL in-document chip ink (the .wp-dhl /
+   lens colourways) so the menu, the hub title and the page all speak one legend. */
+.wp-ws-chip {
+  display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+  border: 1.5px solid var(--ink); border-radius: 5px; padding: 3px 9px;
+  color: var(--ink); background: var(--face);
+}
+.wp-ws-chip.is-big { font-size: 13px; letter-spacing: .12em; border-radius: 7px; padding: 6px 14px; }
+.wp-ws-chip[data-ws="3d"]        { background: #9184c7; border-color: #6f5fb0; color: #f5e63d; }
+.wp-ws-chip[data-ws="animation"] { background: #9184c7; border-color: #6f5fb0; color: #1a1a18; }
+.wp-ws-chip[data-ws="archive"]   { background: #f2d4d4; border-color: #d79a9a; color: #7a2e2e; }
+.wp-ws-chip[data-ws="broll"]     { background: rgba(208,135,63,.16); border-color: #d0873f; color: #9a5410; }
+.wp-ws-chip[data-ws="mapdata"]   { background: rgba(156,90,60,.16); border-color: #9c5a3c; color: #6e3d24; }
+.wp-ws-chip[data-ws="factcheck"] { background: #f2d4d4; border-color: #d79a9a; color: #7a2e2e; }
+.wp-ws-chip[data-ws="vo"]        { background: rgba(47,111,176,.14); border-color: #2f6fb0; color: #24567e; }
+.wp-ws-chip[data-ws="pending"]   { background: #b02318; border-color: #8f1c13; color: #fbfaf5; }
+/* TK — the loose-end drawer: the subtle-red family of the .wp-tk-loose paint (translucent
+   wash + strong muted-red ring), read against ARCHIVE's solid pink and PENDING's alarm fill. */
+.wp-ws-chip[data-ws="tk"]        { background: rgba(160,58,46,.10); border-color: #a03a2e; color: #7c2d22; }
+
+/* WORKSPACE FOCUS BAR — the fixed way home (chapter-focus bar family). */
+.wp-wsbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 530;
+  display: flex; align-items: center; gap: 14px;
+  background: var(--frame); border-bottom: 1.5px solid var(--ink);
+  padding: 9px 16px; font-family: var(--mono);
+}
+.wp-wsbar-back {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  padding: 6px 12px; border: 1.5px solid var(--ink); border-radius: 6px;
+  background: var(--face); color: var(--ink); cursor: pointer; line-height: 1;
+}
+.wp-wsbar-back:hover { background: var(--ink); color: var(--frame); }
+.wp-wsbar-lab {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; flex: 1 1 auto;
+}
+.wp-wsbar-hint { font-size: 10px; letter-spacing: .1em; color: var(--label-3); white-space: nowrap; }
+.wp-page[data-ws] { padding-top: 56px; }
+/* The fixed library door pills (standalone #library-pill / library #sl-backbar,
+   both z-index 9999) collide with the fixed wsbar — the bar's own "‹ BACK TO
+   SCRIPT" is the way out while a workspace holds the top of the screen. */
+html:has(.wp-page[data-ws]) #library-pill,
+html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
+
+/* WORKSPACE HUB — the craft's dashboard above the editor. One chip, one stat row. */
+.wp-wshub {
+  margin: 4px 2px 18px; padding: 14px 16px 12px;
+  border: 1.5px solid var(--ink); border-radius: 11px; background: var(--face);
+  font-family: var(--mono);
+}
+.wp-wshub-title { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.wp-wshub-sub { font-size: 9px; font-weight: 700; letter-spacing: .26em; color: var(--label-3); text-transform: uppercase; }
+.wp-wshub-stats {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--label-2);
+}
+.wp-wshub-stat b { font-size: 15px; font-weight: 800; color: var(--ink); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.wp-wshub-dot { color: var(--label-3); }
+.wp-wshub-stat.is-done b { color: #2f6f57; }
+/* PENDING = the production manager's punch list — its numbers ink in the alert red. */
+.wp-wshub[data-ws-key="pending"] .wp-wshub-stat b { color: #b02318; }
+.wp-wshub-empty { margin-top: 9px; font-size: 10.5px; letter-spacing: .02em; color: var(--label); text-transform: none; }
+.wp-wshub-foot { margin-top: 9px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--label-3); opacity: .8; }
+
+/* ============================================================
+   SCRIPT MAP (ws=map) — the mission-control strip (ScriptMap.jsx).
+   The whole film as a tall color-coded spine: chapter bands, segment bars
+   sized by screen time, a cumulative minute gutter. FLAT IS LAW — solid
+   fills, 1px page seams, and the dashed UNPLANNED hollow. Segment fills are
+   FIXED light solids (chip doctrine: chips keep their ink in every scheme);
+   the chrome rides the scheme tokens.
+   ============================================================ */
+.wp-wsmap-host {
+  margin: 4px 2px 18px; padding: 22px 16px;
+  border: 1.5px dashed var(--ink); border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.wp-wsmap-host.is-live { border: 0; padding: 0; display: block; }
+.wp-wsmap-note { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--label-3); }
+
+/* While the map holds the screen the editor stays MOUNTED (collab session
+   untouched) but hidden, along with the floating reading chrome — the map is
+   the whole instrument. */
+.wp-page[data-ws="map"] .wp-rack,
+.wp-page[data-ws="map"] .wp-control,
+.wp-page[data-ws="map"] .wp-role,
+.wp-page[data-ws="map"] .wp-rail,
+.wp-page[data-ws="map"] .wp-mode { display: none; }
+
+.wp-map { font-family: var(--mono); }
+
+/* TOP STATS BAR — total minutes, planned %, hazard counts, kind legend. */
+.wp-map-stats {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 13px 16px 11px; border: 1.5px solid var(--ink); border-radius: 11px;
+  background: var(--face);
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--label-2);
+}
+.wp-map-stat { white-space: nowrap; }
+.wp-map-stat b { font-size: 16px; font-weight: 800; color: var(--ink); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.wp-map-stat.is-pending b, .wp-map-stat.is-unplanned b { color: #b02318; }
+.wp-map-dot { color: var(--label-3); }
+.wp-map-legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+.wp-map-key { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; font-weight: 700; letter-spacing: .1em; color: var(--label-2); white-space: nowrap; }
+.wp-map-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px; box-sizing: border-box; }
+.wp-map-swatch[data-kind="broll"]     { background: #eed7be !important; border-left: 3px solid #d0873f; }
+.wp-map-swatch[data-kind="archive"]   { background: #e3c6c4 !important; border-left: 3px solid #b56b6b; }
+.wp-map-swatch[data-kind="mapdata"]   { background: #cbaa98 !important; border-left: 3px solid #9c5a3c; }
+.wp-map-swatch[data-kind="3d"]        { border-left: 3px solid #f5e63d; }
+.wp-map-swatch[data-kind="unplanned"] { background: var(--face); border: 1.5px dashed var(--ink); }
+
+/* THE SPINE — chapter bands stacked top-to-bottom; right padding = minute gutter. */
+.wp-map-spine { display: flex; flex-direction: column; gap: 30px; margin-top: 22px; padding-right: 76px; }
+
+.wp-map-ch-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.wp-map-ch-ord { font-size: 9px; font-weight: 700; letter-spacing: .22em; color: var(--label-2); }
+/* Chapter title — the chapter-frame serif ceremony, scaled to a band label. */
+.wp-map-ch-title {
+  font-family: var(--ep-title-serif, Georgia, serif);
+  font-variant-caps: small-caps;
+  font-size: 19px; font-weight: 500; letter-spacing: .04em; line-height: 1.15;
+  color: var(--ink);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wp-map-ch-min { margin-left: auto; font-size: 9px; font-weight: 700; letter-spacing: .14em; color: var(--label-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wp-map-ch.is-front .wp-map-ch-title { font-family: var(--mono); font-variant-caps: normal; font-size: 9px; font-weight: 700; letter-spacing: .22em; color: var(--label-3); }
+
+/* THE SEGMENT COLUMN — bars in normal flow (1px seams), minute ticks absolute. */
+.wp-map-ch-col { position: relative; }
+.wp-map-seg {
+  display: flex; align-items: center; box-sizing: border-box;
+  width: 100%; margin: 0 0 1px; padding: 0 12px;
+  border: 0; border-radius: 3px; cursor: pointer;
+  font-family: var(--mono); overflow: hidden; text-align: left;
+  appearance: none; -webkit-appearance: none;
+}
+.wp-map-seg:hover:not(:disabled) { outline: 1.5px solid var(--ink); outline-offset: -1.5px; }
+.wp-map-seg:disabled { cursor: default; }
+.wp-map-seg-line { display: flex; align-items: baseline; gap: 10px; width: 100%; min-width: 0; }
+.wp-map-seg-kind { font-size: 8.5px; font-weight: 800; letter-spacing: .14em; white-space: nowrap; }
+.wp-map-seg-tag { margin-left: auto; font-size: 8.5px; font-weight: 500; letter-spacing: .08em; opacity: .8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* KIND PAINT — the real chip palette. Fixed light solids (scheme-stable ink);
+   a 5px kind-colour edge keeps even a thin sliver readable as its colour. */
+.wp-map-seg[data-kind="broll"]     { background: #eed7be; color: #7a4210; border-left: 5px solid #d0873f; }
+.wp-map-seg[data-kind="archive"]   { background: #e3c6c4; color: #6e2a2a; border-left: 5px solid #b56b6b; }
+.wp-map-seg[data-kind="mapdata"]   { background: #cbaa98; color: #4c2814; border-left: 5px solid #9c5a3c; }
+.wp-map-seg[data-kind="animation"] { background: #9184c7; color: #1a1a18; border-left: 5px solid #6f5fb0; }
+/* 3d = the same chip purple keyed apart by its yellow edge (the /3d chip's yellow ink) */
+.wp-map-seg[data-kind="3d"]        { background: #9184c7; color: #1a1a18; border-left: 5px solid #f5e63d; }
+/* PENDING — the stage-1 alert red, LOUD. The punch list must jump off the map. */
+.wp-map-seg[data-kind="pending"]   { background: #b02318; color: #fbfaf5; border-left: 5px solid #8f1c13; }
+/* UNPLANNED — a hollow: face bg + dashed ink walls. Reads as a hole in the plan. */
+.wp-map-seg[data-kind="unplanned"] { background: var(--face); color: var(--label); border: 1.5px dashed var(--ink); border-radius: 4px; }
+/* NEUTRAL — structural hairlines (chapter heads, spacers); wordy neutral runs
+   (narration with no said|shown split yet) render as quiet flat-gray MASS with
+   an honest "NO VISUAL LANE" tag — real screen time never hides in a hairline. */
+.wp-map-seg[data-kind="neutral"]   { background: var(--rule); color: var(--label-3); cursor: default; }
+.wp-map-seg[data-kind="neutral"]:hover:not(:disabled) { outline: none; }
+.wp-map-seg[data-kind="neutral"][data-mass="1"] {
+  /* fixed light solid like every other segment fill (FLAT — no texture) */
+  background: #dcd6c6;
+  color: #6b6658;
+  border-left: 5px solid #b5ae9c;
+  cursor: pointer;
+}
+.wp-map-seg[data-kind="neutral"][data-mass="1"]:hover:not(:disabled) { outline: 1.5px solid var(--ink); outline-offset: -1.5px; }
+
+/* MINUTE GUTTER — cumulative screen-time ticks every 2 min, in the right margin. */
+.wp-map-tick { position: absolute; left: 100%; width: 70px; height: 0; pointer-events: none; }
+.wp-map-tick i { position: absolute; left: 8px; right: 34px; top: 0; border-top: 1px solid var(--label-3); opacity: .55; }
+.wp-map-tick em {
+  position: absolute; right: 0; top: -4.5px; font-style: normal;
+  font-size: 8.5px; font-weight: 700; letter-spacing: .1em; color: var(--label-3);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+.wp-map-foot { margin-top: 20px; font-size: 8.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--label-3); }
+
+@media print {
+  /* workspace chrome is screen furniture — the filtered cutouts themselves still print */
+  .wp-wsbar, .wp-wshub, .wp-wsmenu, .wp-ws-meta { display: none !important; }
+  .wp-page[data-ws] { padding-top: 0 !important; }
+  /* THE MAP PRINTS — a one-page roadmap. Keep the mosaic ink, hide the (already
+     display:none) editor rack explicitly, shrink the strip toward one sheet. */
+  .wp-wsmap-host:not(.is-live) { display: none !important; }
+  .wp-page[data-ws="map"] .wp-rack { display: none !important; }
+  .wp-map { zoom: .52; }
+  .wp-map-seg, .wp-map-swatch, .wp-map-stats { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .wp-map-ch { break-inside: avoid; }
+}
+
 /* ---- header row ---- */
 .wp-rack-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -1234,6 +1489,22 @@ html.read-only #library-pill { display: none !important; }
   transition: background .14s var(--ease);
 }
 .wp-tk:hover { background: #ffe9a8; }
+/* LOOSE TK — tk-detect.js decorations, NOT the {tk} chip above (that surface keeps its
+   own yellow look; the plugin never stacks the two). A bare TK or a '(TK …)' parenthetical
+   "turns a little red": muted ink, a very faint warm wash, a hairline underline. Font,
+   size and cursor all inherit — the words stay ordinary prose, this is a quiet nag the
+   writer sweeps up later in the TK workspace, not the /pending alarm. */
+.wp-tk-loose {
+  color: var(--tkl-ink);
+  background: var(--tkl-wash);
+  border-radius: 2px;
+  padding: 0 1px;
+  text-decoration: underline;
+  text-decoration-color: var(--tkl-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
 /* FACT-CHECK assertion — quiet, EDITABLE prose (Johnny 2026-07-07: the boxed chip froze
    whole assertions into what read as uneditable blocks). Subtle red wash + dashed underline
    while unverified; flips green once the receipt lands (data-fc-status). Font/size/color
@@ -2143,6 +2414,67 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-src a:hover { color: var(--orange); border-color: var(--orange); }
 
 /* ============================================================
+   PENDING VISUAL PLAN (/pending) — the host CELL screams alert red until a real
+   visual plan lands. Keyed purely on the block attr's data-pending-viz (WP-13 —
+   no decorations, no plugin, nothing dispatches; the NodeViews sync the attr so
+   remote y-sync stamps repaint live). Both cell DOM shapes are covered: the
+   NodeView (.wp-tcell > .wp-tcell-content > cart) and renderHTML (.wp-tcell > cart).
+   The red is SEMANTIC alert ink — deliberately a hard value across all 6 schemes
+   (like the brand orange, it reads as hardware alert, not theme). FLAT IS LAW.
+   ============================================================ */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) {
+  background: #b02318;
+  border-radius: 11px;
+}
+/* tiny mono corner tag — the cell names its own alarm */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz])::before {
+  content: 'PENDING VISUAL PLAN';
+  position: absolute; top: 5px; right: 12px; z-index: 3;
+  font-family: var(--mono); font-size: calc(var(--chrome-size-sm) - 1px);
+  font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+  color: #fbfaf5; pointer-events: none;
+}
+/* the cart melts into the red — the CELL is the alert surface */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-cart,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-cart:hover,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-none {
+  background: transparent !important;
+  border-color: rgba(251, 250, 245, .5) !important;
+}
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-spine {
+  background: repeating-linear-gradient(0deg, #8f1c13, #8f1c13 2px, #9d2117 2px, #9d2117 4px);
+  border-color: rgba(251, 250, 245, .5);
+}
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-cap-num {
+  background: #8f1c13 !important;
+  border-color: rgba(251, 250, 245, .5);
+}
+/* EVERY word inside contrasts hard — prose, kind labels, grips, done ticks, bare cell
+   paragraphs, all of it (the whole cell is the alert, so the whole cell re-inks) */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]),
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) * {
+  color: #fbfaf5 !important;
+}
+/* inline chips ({tk} / fact-check / visual / timecode tags / direction highlights) re-ink
+   as dark-red wells with near-white text so nothing inside the alert goes unreadable */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl-runtag,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dchip,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-fc,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-visual,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tc-tag {
+  background: rgba(26, 5, 3, .32) !important;
+  border-color: rgba(251, 250, 245, .55) !important;
+}
+/* the LOOSE TK paint inside a /pending cell: the wash goes dark-well like the chips and the
+   hairline re-inks near-white — the cell's own re-ink already turns the words light. */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk-loose {
+  background: rgba(26, 5, 3, .32) !important;
+  text-decoration-color: rgba(251, 250, 245, .55) !important;
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 760px) {
@@ -2162,6 +2494,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
   .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag,
   .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill { display: none !important; }
+  .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none !important; } /* margin numbers are screen chrome */
   .wp-page { padding: 0 !important; }
   .wp-device { border: 0 !important; border-radius: 0 !important; padding: 0 !important; max-width: none !important; background: #fff !important; transform: none !important; }
   .wp-cart { border: 0 !important; border-radius: 0 !important; margin: 0 0 6pt !important; background: none !important; break-inside: avoid; page-break-inside: avoid; }
@@ -2171,11 +2504,38 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   .wp-chapter .wp-cart-body, .wp-chapter .wp-body, .wp-ch-kind, .wp-ch-tag { color: #000 !important; }
   .wp-vo .wp-body, .wp-dir .wp-body, .wp-note .wp-body, .wp-montage .wp-body, .wp-bin .wp-body, .wp-none .wp-body { color: #000 !important; font-size: 11pt !important; }
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
+  /* LOOSE TK in print: visible but calm — the wash drops, the muted-red ink + hairline stay. */
+  .wp-tk-loose { background: none !important; color: #a03a2e !important; text-decoration-color: #a03a2e !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-dir.is-done { opacity: 1 !important; }
   /* TABLE LAYER in print: no fills, keep the single hairline as black ink. */
   .wp-tcell { background: none !important; }
   .wp-tcell + .wp-tcell { border-left: 1px solid #000 !important; margin-left: 14pt !important; padding-left: 14pt !important; }
+  /* PENDING VISUAL PLAN in print: fills are stripped, so the alert survives as a bold red
+     border + the red corner label; the words go back to black ink on white. */
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) {
+    background: none !important;
+    border: 2pt solid #b02318 !important;
+    border-radius: 0 !important;
+    padding: 8pt 10pt !important;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]),
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) * {
+    color: #000 !important;
+  }
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz])::before {
+    color: #b02318 !important;
+  }
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dchip,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-fc,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-visual,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tc-tag {
+    background: none !important;
+    border-color: #000 !important;
+  }
 }
 
 /* ============================================================
@@ -2689,6 +3049,42 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 
 /* Deep-link landing flash — a brief accent ring on the bookmarked row. */
 .wp-bm-target { outline: 2px solid var(--ep-accent); outline-offset: 6px; border-radius: 6px; }
+
+/* ═══ MASTER ROW NUMBERS — always-on, whisper-quiet ══════════════════════════
+   Every top-level row carries data-rownum (a NODE DECORATION — row-numbers.js,
+   dispatches nothing); this paints it as a tiny mono index in the LEFT margin,
+   one slot further out than the split-spine/bookmark column (-26px) so the
+   gutter reads: number | grips | row. Absolutely positioned → zero layout
+   shift; pointer-events none → never a click target. Nested Palau rows carry
+   no attr, so the [data-rownum] key leaves them silent. Deliberately KEPT in
+   read mode and ?read shares — "look at row 141" is a reading affordance and
+   the read gutter is emptier (spine hidden); print hides them (black-ink PDFs
+   have their own page numbers, and the -46px offset would clip at 0 margin).
+   :not(.wp-drop-before) — the row-drag DROP HAIRLINE also paints ::before
+   (doctrine.css .wp-trow.wp-drop-before::before) and does NOT reset width/
+   opacity; without the guard this rule's 20px/.35 would leak into the hairline
+   mid-drag. While a row shows the drop line, its number simply steps aside. */
+.wp-trow[data-rownum]:not(.wp-drop-before)::before {
+  content: attr(data-rownum);
+  position: absolute;
+  left: -46px;
+  top: 4px;
+  width: 20px;
+  text-align: right;
+  font-family: var(--mono);
+  /* chrome token at half-step: reads ~9px at default SIZE, still tracks the knob */
+  font-size: calc(var(--chrome-size-sm) - 1px);
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--ink);
+  opacity: .35;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Narrow screens have no gutter to borrow — the number would clip into the page
+   edge, so it steps back to silence rather than crowding the text. */
+@media (max-width: 900px) { .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none; } }
 
 /* The bubble menu applies marks straight through dispatch (editable doesn't gate commands) —
    in READ mode it must not exist as a click target. */

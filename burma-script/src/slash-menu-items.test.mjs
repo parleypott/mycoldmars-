@@ -22,10 +22,10 @@ let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
 // --- 1. Command set is structure (4) + the director marks + list toggles, structure first ---
-ok('SLASH_ITEMS is the seventeen commands in order (structure above the tags)', () => {
+ok('SLASH_ITEMS is the nineteen commands in order (structure above the tags)', () => {
   assert.deepEqual(
     SLASH_ITEMS.map((i) => i.title),
-    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'sot', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'map-data', 'direction', 'break', 'bullet', 'number'],
+    ['chapter', 'scene', 'section', 'vo', 'archive', 'oncam', 'sot', 'factcheck', 'footnote', 'bookmark', 'animation', '3d', 'broll', 'map-data', 'direction', 'pending', 'break', 'bullet', 'number'],
   );
 });
 
@@ -71,6 +71,8 @@ ok('the shortcut aliases Johnny types resolve to their command', () => {
     ['3d animation', '3d'],
     ['on cam', 'oncam'],
     ['on cam to film', 'oncam'],
+    ['pvp', 'pending'],
+    ['visual-plan', 'pending'],
   ];
   for (const [query, title] of cases) {
     assert.ok(find(title).match(query), `alias "${query}" should match ${title}`);

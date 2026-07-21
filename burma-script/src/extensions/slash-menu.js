@@ -15,6 +15,133 @@ function el(tag, cls, attrs) {
   return n;
 }
 
+// ---------------------------------------------------------------------------
+// PENDING VISUAL PLAN (/pending). The flag lives as a block ATTR (blocks.js baseAttrs
+// `pendingViz`, WP-13) on every cartridge block in the host CELL; styles.css paints the whole
+// cell alert red via :has([data-pending-viz]). Clearing is MANUAL ONLY:
+//   (a) re-running /pending on a pending cell toggles it off,
+//   (b) deleting the cell's content kills it (the attr dies with the blocks),
+//   (c) running a VISUAL slash command in the cell clears it in the SAME transaction — the
+//       new chip IS the visual plan. That kind list is PENDING_CLEARING_KINDS below;
+//       factcheck / footnote / bookmark / oncam / sot / vo / structure inserts do NOT clear.
+
+// The direction-mark kinds that COUNT as a visual plan. Exported so the contract is pinned
+// by the headless suite (pending-viz.test.mjs) and later stages (PENDING workspace / Script
+// Map) can reuse the exact list.
+export const PENDING_CLEARING_KINDS = ['animation', '3d', 'broll', 'mapdata', 'archive', 'direction'];
+
+// A node can carry the pending flag iff its spec declares the attr — i.e. every cartridge
+// block sharing blocks.js baseAttrs. Rows/cells/paragraphs/atom chips don't qualify.
+function pendingStampable(type) {
+  return !!(type && type.spec && type.spec.attrs && 'pendingViz' in type.spec.attrs);
+}
+
+// The stampable blocks the /pending gesture addresses from `pos`: every stampable block
+// inside the INNERMOST tableCell ancestor (the host cell — in a split row, whichever cell
+// hosts the caret), or — in a bare pre-table doc — the nearest stampable ancestor block.
+function pendingTargetsAround(doc, pos) {
+  const $pos = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)));
+  for (let d = $pos.depth; d > 0; d--) {
+    if ($pos.node(d).type.name !== 'tableCell') continue;
+    const targets = [];
+    doc.nodesBetween($pos.start(d), $pos.end(d), (node, nodePos) => {
+      if (pendingStampable(node.type)) targets.push({ node, pos: nodePos });
+    });
+    return targets;
+  }
+  for (let d = $pos.depth; d > 0; d--) {
+    const node = $pos.node(d);
+    if (pendingStampable(node.type)) return [{ node, pos: $pos.before(d) }];
+  }
+  return [];
+}
+
+// Clear pendingViz on every block in the host cell, inside an EXISTING transaction (the
+// clear-on-visual path rides the mark command's own transaction — one undo, no residue).
+// Cleared to null, not false, so a cleared block serializes identically to a never-stamped one.
+export function clearPendingViz(tr, pos) {
+  let cleared = false;
+  for (const { node, pos: p } of pendingTargetsAround(tr.doc, pos)) {
+    if (!node.attrs.pendingViz) continue;
+    tr.setNodeMarkup(p, undefined, { ...node.attrs, pendingViz: null });
+    cleared = true;
+  }
+  return cleared;
+}
+
+// The kind gate for (c): only a VISUAL kind clears the flag. Exported pure so the suite can
+// prove factcheck (and friends) leave a pending cell untouched.
+export function maybeClearPendingForKind(tr, kind, pos) {
+  if (!PENDING_CLEARING_KINDS.includes(kind)) return false;
+  return clearPendingViz(tr, pos);
+}
+
+// Range flavour of the gate for the BULK menu (convert-menu applyMarkRange): a visual tag applied
+// across a multi-row selection is that selection's visual plan, so the red /pending flag lifts on
+// EVERY cell the range touched — not just the caret's. Walks the tableCells intersecting [from,to]
+// and clears each. pendingViz is an attr-only change, so clearing cells in any order is position-safe.
+export function maybeClearPendingForKindRange(tr, kind, from, to) {
+  if (!PENDING_CLEARING_KINDS.includes(kind)) return false;
+  const cellInnerPositions = [];
+  tr.doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type.name === 'tableCell') cellInnerPositions.push(pos + 1);
+  });
+  let cleared = false;
+  for (const inner of cellInnerPositions) {
+    if (clearPendingViz(tr, inner)) cleared = true;
+  }
+  return cleared;
+}
+
+// Pure (state, dispatch, range) -> boolean — ONE transaction: delete the "/pending" trigger
+// AND toggle the flag across the host cell's blocks. If the cell holds no stampable cart
+// (a bare "+"-added cell paragraph), the paragraph is WRAPPED into a fresh noneBlock (the
+// chrome-less "born" cart — the same shape retypeHostToVo's case (b) builds, minus the
+// retype) so the flag has an attr home. Exported for the headless suite.
+export function doTogglePendingViz(state, dispatch, range) {
+  const max = state.doc.content.size;
+  const from = Math.max(0, Math.min(range?.from ?? 0, max));
+  const to = Math.max(from, Math.min(range?.to ?? from, max));
+
+  const tr = state.tr;
+  tr.delete(from, to);
+  const pos = Math.min(from, tr.doc.content.size);
+
+  const targets = pendingTargetsAround(tr.doc, pos);
+  if (targets.length) {
+    // TOGGLE: any pending block in the cell → this run CLEARS; none → this run STAMPS all.
+    const pending = targets.some(({ node }) => node.attrs.pendingViz);
+    for (const { node, pos: p } of targets) {
+      tr.setNodeMarkup(p, undefined, { ...node.attrs, pendingViz: pending ? null : true });
+    }
+  } else {
+    // Bare cell paragraph — wrap it into a stamped noneBlock (mirrors retypeHostToVo (b)).
+    const noneType = state.schema.nodes.noneBlock;
+    const $pos = tr.doc.resolve(pos);
+    let wrapped = false;
+    if (noneType) {
+      for (let d = $pos.depth; d > 0; d--) {
+        const node = $pos.node(d);
+        const parent = $pos.node(d - 1);
+        if (node.type.name !== 'paragraph' || !parent || parent.type.name !== 'tableCell') continue;
+        const start = $pos.before(d);
+        const block = noneType.create({ blockId: mintBlockId(), pendingViz: true }, node);
+        tr.replaceWith(start, start + node.nodeSize, block);
+        try {
+          tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos + 1, tr.doc.content.size)), 1));
+        } catch {}
+        wrapped = true;
+        break;
+      }
+    }
+    // Nothing stampable and nothing wrappable — still dispatch so the "/pending" trigger
+    // text never strands in the script (same posture as doConvertBlockToVo).
+    if (!wrapped && !tr.docChanged) return false;
+  }
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // Set the directionMark on the current cursor position (empty selection).
 // Deletes the slash-command range first so "/archive" text is removed, then
 // stores the mark as a ProseMirror stored mark — the NEXT typed characters inherit it.
@@ -25,6 +152,9 @@ function setDirectionMark(editor, range, kind, seedText) {
     .chain()
     .focus()
     .deleteRange(range)
+    // A VISUAL kind is the visual plan — clear the cell's /pending flag in the SAME
+    // transaction (the shared chain tr), so no residue of the red survives the chip.
+    .command(({ tr }) => { maybeClearPendingForKind(tr, kind, tr.selection.from); return true; })
     .setMark('directionMark', attrs);
   // SEED TEXT (Johnny: "/3d should automatically start with this state") — some kinds open
   // with their keyword already typed INSIDE the chip (e.g. "3D "), caret after it, so he
@@ -53,8 +183,14 @@ export function triggerFillsLine(state, range) {
 function setArchiveMark(editor, range) {
   const attrs = defaultDirectionMarkAttrs('archive');
   const ownLine = episodeFlag('archiveOwnLine');
+  // archive IS a visual plan (PENDING_CLEARING_KINDS) — clear the cell's /pending flag in the
+  // SAME transaction (the shared chain tr) so no residue of the red survives the chip.
+  const clearPending = ({ tr }) => { maybeClearPendingForKind(tr, 'archive', tr.selection.from); return true; };
+  // Split onto its own small-indented line ONLY when the flag is set AND the trigger text isn't
+  // the paragraph's only content — splitting an already-empty line strands a blank paragraph
+  // above the checklist item (Johnny 2026-07-21).
   const needsSplit = ownLine && !triggerFillsLine(editor.state, range);
-  const chain = editor.chain().focus().deleteRange(range);
+  const chain = editor.chain().focus().deleteRange(range).command(clearPending);
   if (needsSplit) chain.splitBlock();
   return chain.setMark('directionMark', attrs).run();
 }
@@ -346,6 +482,17 @@ function convertBlockToVo(editor, range) {
   return done;
 }
 
+function togglePendingVisualPlan(editor, range) {
+  // READ-ONLY SHARE: the suggestion plugin never mounts in read-only, but gate the mutation
+  // here too (same posture as every other slash command's helper-level guard).
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  if (!view || !view.editable) return false;
+  const done = doTogglePendingViz(state, view.dispatch, range);
+  if (done) view.focus();
+  return done;
+}
+
 function insertStructureBlock(editor, range, typeName, opts) {
   // READ-ONLY SHARE: the suggestion plugin never mounts in read-only, but gate the mutation
   // here too so no code path can ever insert a block into a reader's frozen doc.
@@ -368,6 +515,9 @@ function makeItem(title, aliases, run, opts) {
     group: opts?.group || 'mark',
     // small right-aligned hint glyph rendered in the menu row (e.g. CH / SC).
     hint: opts?.hint || '',
+    // optional longer menu row text — the TITLE stays the typed command ("/pending"), the
+    // label is what the row READS ("pending visual plan"). Empty = row shows the title.
+    label: opts?.label || '',
     match(query) {
       const q = String(query || '').trim().toLowerCase();
       if (!q) return true;
@@ -399,6 +549,9 @@ export const SLASH_ITEMS = [
   makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),
   makeItem('map-data',  ['map', 'mapdata', 'cartography', 'carto'], (editor, range) => setDirectionMark(editor, range, 'mapdata')),
   makeItem('direction', [],               (editor, range) => setDirectionMark(editor, range, 'direction')),
+  // /pending — flag the host CELL "no visual plan yet" (alert-red fill). Toggle; cleared by
+  // any VISUAL command above (PENDING_CLEARING_KINDS) in the same transaction.
+  makeItem('pending',   ['pvp', 'visual-plan', 'pendingvisualplan'], (editor, range) => togglePendingVisualPlan(editor, range), { label: 'pending visual plan', hint: 'PVP' }),
   makeItem('break',     [],               (editor, range) => editor.chain().focus().deleteRange(range).insertContent({ type: 'directionBreak' }).run()),
   // LIST TOGGLES — discoverable backups for Cmd/Ctrl+Shift+8 / +7.
   makeItem('bullet',    ['bullets', 'ul', 'list', 'unordered'], (editor, range) => toggleSlashList(editor, range, 'bullet'),  { hint: '•' }),
@@ -468,7 +621,7 @@ function createSlashRenderer() {
       const button = el('button', 'wp-slash-item' + (index === activeIndex ? ' is-active' : ''), {
         type: 'button',
       });
-      button.textContent = item.title;
+      button.textContent = item.label || item.title;
       if (item.hint) {
         const hint = el('span', 'wp-slash-hint');
         hint.textContent = item.hint;

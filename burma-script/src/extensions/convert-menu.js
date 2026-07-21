@@ -3,7 +3,7 @@ import { Plugin } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { episodeFlag } from '../episode-config.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
-import { retypeHostToVo, bulkRetypeToVo, laneMatches } from './slash-menu.js';
+import { retypeHostToVo, bulkRetypeToVo, laneMatches, maybeClearPendingForKindRange } from './slash-menu.js';
 import { collectIntersectingRows, doDeleteRows, rowFirstBlockId } from './table.js';
 import { findRowByIdentity } from './table.js';
 
@@ -112,7 +112,15 @@ export function bulkApplyMarkRange(state, dispatch, from, to, kind, clickedRole)
   if (!ranges.length) return false;
   const mark = markType.create(defaultDirectionMarkAttrs(kind));
   const tr = state.tr;
-  for (const [f, t] of ranges) tr.addMark(f, t, mark);
+  for (const [f, t] of ranges) {
+    tr.addMark(f, t, mark);
+    // A visual tag IS the plan for every cell it lands on — lift the /pending red per matching lane
+    // sub-range, in the SAME transaction (parity with setDirectionMark's single-cell clear). Scoped
+    // to the tagged lane: a said-click clears pending only on the said/full cells it tagged; a
+    // shown-lane pending stays red. The helper iterates cells and pendingViz is attr-only, so a
+    // per-range call is position-safe.
+    maybeClearPendingForKindRange(tr, kind, f, t);
+  }
   if (dispatch) dispatch(tr);
   return true;
 }

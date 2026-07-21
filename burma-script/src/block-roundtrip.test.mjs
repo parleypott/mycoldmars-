@@ -57,8 +57,8 @@ const schema = buildSchema();
 ok('a block with flavor + chapterId + timecode/tk/trim/bold marks + a chip round-trips byte-exact', () => {
   const blockJson = {
     type: 'voBlock',
-    // baseAttrs (blockId/flavor/chapterId) + voBlock's status — the full attr set toJSON emits.
-    attrs: { blockId: 'vo_rt', flavor: 'purple', chapterId: 'ch_2', status: 'recorded' },
+    // baseAttrs (blockId/flavor/chapterId/pendingViz) + voBlock's status — the full attr set toJSON emits.
+    attrs: { blockId: 'vo_rt', flavor: 'purple', chapterId: 'ch_2', pendingViz: null, status: 'recorded' },
     content: [{
       type: 'paragraph',
       content: [
@@ -110,7 +110,7 @@ ok('chapterId round-trips on a chapter block', () => {
         type: 'tableCell', attrs: { role: 'full' },
         content: [{
           type: 'chapterBlock',
-          attrs: { blockId: 'ch_1', flavor: null, chapterId: 'chapter-7', genre: 'ground' },
+          attrs: { blockId: 'ch_1', flavor: null, chapterId: 'chapter-7', pendingViz: null, genre: 'ground' },
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'CH: GROUND 1' }] }],
         }],
       }],

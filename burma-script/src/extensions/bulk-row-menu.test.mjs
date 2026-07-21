@@ -19,10 +19,13 @@
  *   7.  VO BULK with a SAID click retypes said-lane + full-width convertible blocks only (shown-lane
  *       and non-convertible sotBlock left untouched) in one transaction.
  *   8.  READ-ONLY → the menu plugin never mounts (returns no plugins), so no bulk action can fire.
+ *   9.  pendingViz clear-on-tag is LANE-SCOPED: a SAID-click visual tag lifts the /pending red only
+ *       on the said/full cells it tagged; a shown-lane pending stays red. And the clear obeys the
+ *       KIND GATE — a non-visual tag (factcheck) tags the lane but never lifts pending.
  *
- * NOTE (pendingViz): the pending-visual-plan clear-on-tag lives on the workspaces branch, NOT on
- * this base (origin/main has no pendingViz). When lane scoping lands on workspaces, that clear must
- * be scoped to the SAME laneCellRanges the tag used — see the return notes. No test for it here.
+ * NOTE (pendingViz): the pending-visual-plan clear-on-tag is a WORKSPACES-branch feature (origin/main
+ * has no pendingViz). Now that lane scoping has merged into workspaces, the clear is scoped to the
+ * SAME laneCellRanges the tag used (convert-menu.js bulkApplyMarkRange) — proven by case 9 below.
  *
  * Run: bun src/extensions/bulk-row-menu.test.mjs  (auto-discovered by scripts/run-tests.mjs)
  */
@@ -149,6 +152,16 @@ function marksOf(doc, needle) {
     if (marks === null && node.isText && node.text.includes(needle)) marks = node.marks;
   });
   return marks || [];
+}
+
+// The pendingViz attr of the cartridge block whose text carries `needle` (only cartridge blocks
+// declare the attr — cells/rows/paragraphs don't, so this lands on the block that owns the flag).
+function pendingOf(doc, needle) {
+  let val;
+  doc.descendants((node) => {
+    if (val === undefined && node.attrs && 'pendingViz' in node.attrs && node.textContent.includes(needle)) val = node.attrs.pendingViz;
+  });
+  return val;
 }
 
 // ── 1a: SAID click tags said cells only; shown cells byte-untouched; one undo reverts ──────────
@@ -392,6 +405,57 @@ ok('read-only session mounts NO convert-menu plugin, so no bulk action can fire'
   }
   const live = ConvertMenu.config.addProseMirrorPlugins.call({ editor: null });
   assert.equal(live.length, 1, 'edit mode → the contextmenu plugin mounts');
+});
+
+// ── 6: pendingViz clear-on-tag is LANE-SCOPED (workspaces). A said click clears the /pending red
+//       ONLY on the said/full cells it tagged; a shown-lane pending stays red. This is the case the
+//       origin/main bulk-menu deferred (see the pendingViz note at the top) — it lands here now that
+//       lane scoping is on workspaces, scoped to the SAME laneCellRanges the tag used. ────────────
+const pendCell = (role, text) => ({
+  type: 'tableCell', attrs: { role },
+  content: [{
+    type: 'noneBlock', attrs: { blockId: 'pnd_' + text.replace(/\s/g, '').slice(0, 6), pendingViz: true },
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  }],
+});
+
+ok('SAID click lifts /pending only on the tagged lane; the shown lane stays pending', () => {
+  const docJson = {
+    type: 'doc',
+    content: [
+      { type: 'tableRow', attrs: { cols: 2, pairId: null }, content: [pendCell('said', 'said pend'), pendCell('shown', 'shown pend')] },
+      { type: 'tableRow', attrs: { cols: 1, pairId: null }, content: [pendCell('full', 'full pend')] },
+    ],
+  };
+  let state = makeState(docJson);
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+
+  // A SAID click with a VISUAL kind across the whole selection.
+  assert.equal(bulkApplyMarkRange(state, dispatch, from, to, 'broll', 'said'), true);
+
+  // Said lane: got the tag AND lost its /pending red (a visual tag IS the plan for that cell).
+  assert.ok(textHasMark(state.doc, 'said pend', 'broll'), 'said cell tagged broll');
+  assert.equal(pendingOf(state.doc, 'said pend'), null, 'said cell pending CLEARED — it got the plan');
+  // Shown lane: untouched — no tag, and its /pending red STAYS (its lane got no plan).
+  assert.ok(!textHasMark(state.doc, 'shown pend', 'broll'), 'shown cell NOT tagged (wrong lane)');
+  assert.equal(pendingOf(state.doc, 'shown pend'), true, 'shown cell STAYS pending — its lane got no plan');
+  // Full-width cell is in scope on ANY click → tagged AND cleared.
+  assert.ok(textHasMark(state.doc, 'full pend', 'broll'), 'full-width cell tagged');
+  assert.equal(pendingOf(state.doc, 'full pend'), null, 'full-width cell pending cleared');
+  docFrom(state.doc.toJSON()).check();
+});
+
+// ── 6b: the clear obeys the KIND GATE — a non-visual tag (factcheck) tags but never lifts pending.
+ok('a non-visual bulk tag (factcheck) tags the lane but leaves /pending red', () => {
+  const docJson = { type: 'doc', content: [{ type: 'tableRow', attrs: { cols: 1, pairId: null }, content: [pendCell('full', 'claim here')] }] };
+  let state = makeState(docJson);
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+  assert.equal(bulkApplyMarkRange(state, dispatch, from, to, 'factcheck', 'full'), true);
+  assert.ok(textHasMark(state.doc, 'claim here', 'factcheck'), 'tagged factcheck');
+  assert.equal(pendingOf(state.doc, 'claim here'), true, 'factcheck is not a visual plan — pending STAYS red');
+  docFrom(state.doc.toJSON()).check();
 });
 
 console.log(`bulk-row-menu.test.mjs: ${pass} assertions passed`);

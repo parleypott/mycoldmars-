@@ -36,7 +36,12 @@ import {
 //                 slot rec #23 asks for so a future flat-plus-attribute chapter model (rec #10) — or a
 //                 CRDT/merge layer — has a stable key to write to. Default null (unpopulated today),
 //                 round-trips via data-chapter-id, and is provably additive (existing docs get null).
-const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }, chapterId: { default: null } });
+//   • pendingViz — the /pending "PENDING VISUAL PLAN" flag: true = this cell's material has no
+//                 visual plan yet (styles.css paints the whole host cell alert red via :has()).
+//                 Cleared ONLY by explicit action (re-running /pending, deleting the content, or
+//                 running a visual slash command — slash-menu.js PENDING_CLEARING_KINDS). Default
+//                 null (additive), round-trips via data-pending-viz.
+const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }, chapterId: { default: null }, pendingViz: { default: null } });
 
 // WP-09 — EXPLICIT marks allowlist per block node, replacing ProseMirror's allow-all default. The
 // live schema registers the five Burma spans + StarterKit bold/italic/link (v3 StarterKit ships a
@@ -89,6 +94,9 @@ function syncNullableAttr(dom, name, value) {
 function syncSharedDomAttrs(dom, attrs) {
   syncNullableAttr(dom, 'data-flavor', attrs?.flavor);
   syncNullableAttr(dom, 'data-chapter-id', attrs?.chapterId);
+  // '1' when pending, attribute ABSENT when not — the CSS keys on bare [data-pending-viz]
+  // presence, and syncing here means a remote y-sync stamp/clear repaints without a rebuild.
+  syncNullableAttr(dom, 'data-pending-viz', attrs?.pendingViz ? '1' : null);
 }
 
 function appendIfChildren(head, child) {
@@ -98,6 +106,7 @@ function appendIfChildren(head, child) {
 function sharedRenderAttrs(node, attrs) {
   let out = maybeDataAttr(attrs, 'data-flavor', node.attrs.flavor);
   out = maybeDataAttr(out, 'data-chapter-id', node.attrs.chapterId);
+  out = maybeDataAttr(out, 'data-pending-viz', node.attrs.pendingViz ? '1' : null);
   return out;
 }
 

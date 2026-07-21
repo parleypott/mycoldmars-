@@ -33,6 +33,9 @@ import { ListShortcuts } from './extensions/list-shortcuts.js';
 import { VizPasteAdopt } from './extensions/viz-paste-adopt.js';
 import { FootnoteDeleteGuard } from './extensions/footnote-delete-guard.js';
 import { ChapterFocus } from './extensions/chapter-focus.js';
+import { RowNumbers } from './extensions/row-numbers.js';
+import { WorkspaceFilter } from './extensions/workspace-filter.js';
+import { TkDetect } from './extensions/tk-detect.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { LinkPopover } from './LinkPopover.jsx';
@@ -498,6 +501,19 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // Safe in read-only and collab sessions alike; the meta that drives it comes from the
       // wp-chapter-focus listener in main.jsx.
       ChapterFocus,
+      // Master row numbers — decoration-only margin numbers on every top-level row (adds NO
+      // schema, dispatches NOTHING — chapter-focus is the template; workspaces.js walkTopRows
+      // is the single enumeration truth). Safe in read-only and collab sessions alike.
+      RowNumbers,
+      // Workspace cutout filter — decoration-only plugin (adds NO schema, dispatches
+      // NOTHING on its own; chapter-focus is the template). The meta that drives it comes
+      // from the WORKSPACES menu / ?ws= deep link in main.jsx. Safe in collab sessions.
+      WorkspaceFilter,
+      // TK loose-end paint — decoration-only plugin (adds NO schema, dispatches NOTHING;
+      // row-numbers is the memo discipline). Bare TK / '(TK …)' turns subtle red; the same
+      // tk-pattern.js probe drives the TK workspace membership. Safe in read-only and
+      // collab sessions alike.
+      TkDetect,
       // Image drag/drop + paste — decoration-placeholder plugin (adds NO schema; the imageBlock
       // node it inserts already lives in BURMA_NODES). Always-on: with no files on the gesture it
       // does nothing, and in read-only sessions it only swallows file drops so the browser can

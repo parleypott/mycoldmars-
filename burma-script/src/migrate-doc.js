@@ -637,6 +637,9 @@ function sourceComparableBlocks(blocks) {
     lane: block?.lane || '',
     pairId: block?.pairId || '',
     flavor: block?.flavor || '',
+    // /pending stamp — a deliberate editorial mark. Without this a doc whose ONLY edit is a
+    // pending flag would compare byte-pristine to source and the rebuild would discard it.
+    pendingViz: !!block?.pendingViz,
     timecode: {
       tc: block?.timecode?.tc || '',
       tcOut: block?.timecode?.tcOut || '',
