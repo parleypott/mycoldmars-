@@ -320,60 +320,98 @@ export const TrimSpan = Mark.create({
 const TC_RE = /^\d{2}:\d{2}:\d{2}:\d{2}$/;
 
 // The canonical timecode-chip matcher — ONE pattern shared by the live input rule, the paste rule,
-// AND the user-initiated retro-convert. EITHER a shoot-day prefix "day N " (capturing N in group 1)
-// OR a bare-code lookbehind, then the zero-padded broadcast code (group 2). TRULY MIRRORS parser.ts's
-// TC + document-builder's TIMECODE_RE: hour is a hard \d{2}, a lookbehind rejects a longer numeric
-// run, a lookahead rejects a 5th :FF field. Each factory returns a FRESH regex LITERAL (recreated per
-// call) so the /g form's lastIndex never leaks between scans — and it stays a static literal (no
-// dynamic `new RegExp`). The input form pins the code to the caret with a trailing `$`.
-const tcChipInputRE = () => /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])\s*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)$/;
-const tcChipGlobalRE = () => /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])\s*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g;
+// AND the user-initiated retro-convert. EITHER a shoot-day prefix "day N <sep>" (capturing N in group
+// 1) OR a bare-code lookbehind, then the zero-padded broadcast code (group 2). TRULY MIRRORS
+// parser.ts's TC + document-builder's TIMECODE_RE: hour is a hard \d{2}, a lookbehind rejects a longer
+// numeric run, a lookahead rejects a 5th :FF field. Each factory returns a FRESH regex LITERAL
+// (recreated per call) so the /g form's lastIndex never leaks between scans — and it stays a static
+// literal (no dynamic `new RegExp`). The input form pins the code to the caret with a trailing `$`.
+//
+// SEPARATOR is FLEXIBLE (Johnny 2026-07-21 — "DAY 1  00:.." double-space + "DAY 1 - 00:.." dash both
+// failed to tag the day → red "DAY ?" nag): between the day digit and the code we accept ANY run of
+// whitespace and/or a hyphen/en-dash/em-dash, or nothing at all (the glued "day100:.." form). Case is
+// already free ([Dd][Aa][Yy]). `[-\s–—]*` — hyphen first in the class so it reads literal.
+const tcChipInputRE = () => /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])[-\s–—]*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)$/;
+const tcChipGlobalRE = () => /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])[-\s–—]*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g;
 // markInputRule/markPasteRule keep only the LAST capture group (the bare code) as the chip text and
 // delete the rest incl. "day N "; getAttributes lifts the day off group 1.
 const tcChipAttrs = (match) => ({ day: match[1] ? Number(match[1]) : null, tc: match[2] });
 
-// Collect every bare/day-prefixed timecode in [from,to] that is NOT already chipped. PURE — no view,
-// no dispatch — so it drives both the menu's count and the command, and is headless-testable. Scans
-// each text node so inline atoms never skew the offset math, and a code already carrying the timecode
-// mark is skipped (idempotent).
-export function collectTimecodeConversions(state, from, to) {
+// Flatten a range's inline content into a string + an offset→docPos map. Needed because a "DAY N"
+// literal and its timecode can live in SEPARATE text nodes — e.g. an already-bare chip (the code
+// carries the timecode mark, the "DAY N" before it does not), which a per-text-node scan would never
+// pair up. Inline atoms map to a single ￼ (never part of a timecode), so their positions stay
+// honest without polluting matches.
+function inlineTextMap(state, from, to) {
+  let text = '';
+  const posOf = [];
+  state.doc.nodesBetween(from, to, (node, p) => {
+    if (node.isText && node.text) {
+      for (let i = 0; i < node.text.length; i++) { text += node.text[i]; posOf.push(p + i); }
+    } else if (node.isInline) {
+      text += '￼'; posOf.push(p);
+    }
+    return true;
+  });
+  return { text, posOf };
+}
+
+// Collect the retro-convert OPERATIONS for a range: every bare/day-prefixed timecode whose CURRENT
+// state differs from the desired one. PURE (no view/dispatch) so it drives both the menu count and the
+// command, and is headless-testable. Handles THREE situations uniformly by scanning the flattened row
+// text (so a "DAY N" literal pairs with a code in another node):
+//   • unmarked timecode text            → wrap it in a chip (with day if a "DAY N" prefixes it);
+//   • an existing BARE chip (day=null)  preceded by "DAY N" → re-tag it with that day (the exact
+//                                          "still shows DAY ?" case) — dayFold hides the literal, but
+//                                          the chip needs the ACTUAL day attr for the nag to clear;
+//   • a literal "DAY N" before any code → strip it (mirrors the live input rule's prefix deletion).
+// A code already chipped with the right day and no leftover literal yields no op (idempotent).
+export function collectRowTimecodeOps(state, from, to) {
   const markType = state.schema.marks.timecode;
-  const out = [];
-  if (!markType) return out;
+  const ops = [];
+  if (!markType) return ops;
   const lo = Math.max(0, Math.min(from, to));
   const hi = Math.min(state.doc.content.size, Math.max(from, to));
-  state.doc.nodesBetween(lo, hi, (node, pos) => {
-    if (!node.isText || !node.text) return;
-    if (node.marks.some((m) => m.type === markType)) return; // already a chip — leave it
-    const re = tcChipGlobalRE();
-    let m;
-    while ((m = re.exec(node.text)) !== null) {
-      const code = m[2];
-      const codeFrom = pos + m.index + (m[0].length - code.length); // the code always trails the match
-      const codeTo = codeFrom + code.length;
-      if (codeFrom < lo || codeTo > hi) continue;
-      out.push({ prefixFrom: pos + m.index, codeFrom, codeTo, day: m[1] ? Number(m[1]) : null, tc: code });
-    }
-  });
-  return out;
+  const { text, posOf } = inlineTextMap(state, lo, hi);
+  const re = tcChipGlobalRE();
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const code = m[2];
+    const codeStartIdx = m.index + (m[0].length - code.length); // the code always trails the match
+    if (codeStartIdx + code.length > posOf.length) continue;
+    const codeFrom = posOf[codeStartIdx];
+    const codeTo = posOf[codeStartIdx + code.length - 1] + 1;
+    const prefixFrom = posOf[m.index];
+    const dayFromPrefix = m[1] ? Number(m[1]) : null;
+    const node = state.doc.nodeAt(codeFrom);
+    const existing = node && node.isText ? node.marks.find((mk) => mk.type === markType) : null;
+    // Prefer a prefix-derived day; otherwise keep whatever the existing chip already had.
+    const day = dayFromPrefix != null ? dayFromPrefix : (existing ? (existing.attrs.day ?? null) : null);
+    const hasPrefix = dayFromPrefix != null && prefixFrom < codeFrom;
+    const markChanged = !existing || (existing.attrs.day ?? null) !== day || (existing.attrs.tc || '') !== code;
+    if (!markChanged && !hasPrefix) continue; // already correct — nothing to do
+    ops.push({ codeFrom, codeTo, tc: code, day, prefixFrom: hasPrefix ? prefixFrom : null, seq: existing ? (existing.attrs.seq ?? null) : null });
+  }
+  return ops;
 }
 
 // USER-INITIATED retro-convert (COLLAB LOOP LAW: exactly ONE transaction, one undo — never an
-// auto-dispatch/normalizer). Wraps each dead timecode in [from,to] with the chip mark, mirroring the
-// live input rule: a "day N " prefix is captured as the chip's day AND stripped. Processed
-// right-to-left so each earlier (leftward) position stays valid as prefixes to its right are deleted.
-// `dispatch` omitted = a dry probe (returns whether anything WOULD convert — the menu gate).
+// auto-dispatch/normalizer). Applies every op from collectRowTimecodeOps, right-to-left so a prefix
+// deletion never shifts an earlier (leftward) op's positions. removeMark+addMark re-tags an existing
+// chip's day in place; a bare code gets the mark for the first time; a "DAY N" literal is stripped.
+// `dispatch` omitted = a dry probe (returns whether anything WOULD change — the menu gate).
 export function convertTimecodesInRange(state, from, to, dispatch) {
   const markType = state.schema.marks.timecode;
   if (!markType) return false;
-  const hits = collectTimecodeConversions(state, from, to);
-  if (!hits.length) return false;
+  const ops = collectRowTimecodeOps(state, from, to);
+  if (!ops.length) return false;
   if (!dispatch) return true;
-  hits.sort((a, b) => b.codeFrom - a.codeFrom);
+  ops.sort((a, b) => b.codeFrom - a.codeFrom);
   let tr = state.tr;
-  for (const h of hits) {
-    tr = tr.addMark(h.codeFrom, h.codeTo, markType.create({ tc: h.tc, day: h.day, seq: null }));
-    if (h.day != null && h.prefixFrom < h.codeFrom) tr = tr.delete(h.prefixFrom, h.codeFrom);
+  for (const op of ops) {
+    tr = tr.removeMark(op.codeFrom, op.codeTo, markType);
+    tr = tr.addMark(op.codeFrom, op.codeTo, markType.create({ tc: op.tc, day: op.day, seq: op.seq }));
+    if (op.prefixFrom != null && op.prefixFrom < op.codeFrom) tr = tr.delete(op.prefixFrom, op.codeFrom);
   }
   dispatch(tr.scrollIntoView());
   return true;
@@ -661,7 +699,7 @@ function findTcChipRect(view, pos) {
 // the same reaching-for-the-pen rule the DAY picker uses).
 function openTcConvertMenu(view, from, to, rect) {
   closeTcMenu();
-  const hits = collectTimecodeConversions(view.state, from, to);
+  const hits = collectRowTimecodeOps(view.state, from, to);
   if (!hits.length) return;
 
   const menu = document.createElement('div');
