@@ -33,25 +33,29 @@ function setDirectionMark(editor, range, kind, seedText) {
   return chain.run();
 }
 
-// archiveOwnLine flag (Palau opts in): /archive pops onto its OWN small-indented line. We delete
-// the "/archive" text, split the current textblock so the archive starts a fresh paragraph, then
-// store the mark so the next typed characters carry the red highlight. The paragraph-indent visual
-// is applied by the checkbox plugin's node decoration (leading-archive → .wp-archive-line), gated
-// on the same flag there too. In Burma the behavior is unchanged — archive stays an inline mark on
-// the current line.
+// archiveOwnLine flag (Burma + Palau + library scripts): /archive pops onto its OWN
+// small-indented line. We delete the "/archive" text, split the current textblock so the
+// archive starts a fresh paragraph, then store the mark so the next typed characters carry
+// the red highlight. The paragraph-indent visual is applied by the checkbox plugin's node
+// decoration (leading-archive → .wp-archive-line), gated on the same flag there too. Without
+// the flag, archive stays an inline mark on the current line.
+//
+// The split is SKIPPED when the trigger text is the paragraph's only content: deleting
+// "/archive" already leaves the caret on an empty line of its own, and splitting that would
+// strand a blank paragraph ABOVE the checklist item (Johnny 2026-07-21). Split only when
+// there is other text on the line for the archive to pop off of.
+export function triggerFillsLine(state, range) {
+  const $from = state.doc.resolve(range.from);
+  return $from.parent.isTextblock && $from.parent.content.size === range.to - range.from;
+}
+
 function setArchiveMark(editor, range) {
   const attrs = defaultDirectionMarkAttrs('archive');
-  const isPalau = episodeFlag('archiveOwnLine');
-  if (!isPalau) {
-    return editor.chain().focus().deleteRange(range).setMark('directionMark', attrs).run();
-  }
-  return editor
-    .chain()
-    .focus()
-    .deleteRange(range)
-    .splitBlock()
-    .setMark('directionMark', attrs)
-    .run();
+  const ownLine = episodeFlag('archiveOwnLine');
+  const needsSplit = ownLine && !triggerFillsLine(editor.state, range);
+  const chain = editor.chain().focus().deleteRange(range);
+  if (needsSplit) chain.splitBlock();
+  return chain.setMark('directionMark', attrs).run();
 }
 
 // ---------------------------------------------------------------------------
