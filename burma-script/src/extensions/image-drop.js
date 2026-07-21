@@ -48,6 +48,7 @@ import { Slice, Fragment } from '@tiptap/pm/model';
 import { dropPoint } from '@tiptap/pm/transform';
 import { isReadOnly } from '../read-mode.js';
 import { getEpisode } from '../episode-config.js';
+import { mintUserPairId } from './table.js';
 
 export const imageDropKey = new PluginKey('burmaImageDrop');
 
@@ -64,6 +65,18 @@ export function setImageDropCollabAnchors(adapter) { collabAnchors = adapter || 
 // broken render that would then persist into every doc revision.
 // image/gif added 2026-07-07 — animated reference GIFs; <img> plays them looping natively.
 export const SUPPORTED_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']);
+
+// VIDEO clipboard/drop support (2026-07-21) — a pasted or dropped video lands as an imageBlock
+// whose src ends in a video container, rendered as a looping <video> by the same nodeview that
+// plays gif→mp4 output (blocks.js isVideoSrc). mp4/webm play natively everywhere; mov (macOS
+// screen recordings / Finder copies, type video/quicktime) plays in Safari and any H.264-capable
+// browser. All three ride the SIGNED road only (the base64 edge fn would coerce video → png) and
+// mirror the server's SIGNABLE_MIMES video set (api/script-image-sign.js).
+export const SUPPORTED_VIDEO_MIMES = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
+export function isSupportedMediaMime(type) {
+  const t = String(type || '').toLowerCase();
+  return SUPPORTED_IMAGE_MIMES.has(t) || SUPPORTED_VIDEO_MIMES.has(t);
+}
 
 // ROUTE SPLIT — bytes travel one of two roads, both ending at the same bucket + the same
 // ~100-byte public URL in the doc:
@@ -88,17 +101,18 @@ export function pickUploadRoute(sizeBytes) {
   return Number(sizeBytes) > SIGNED_ROUTE_MIN_BYTES ? 'signed' : 'base64';
 }
 
-// Route decision for a TRANSCODED upload (gif→mp4). video/mp4 ALWAYS rides the signed
-// road regardless of size: only /api/script-image-sign speaks mp4 (its local
-// mediaStorageMeta wrapper) — the base64 edge fn's shared imageStorageMeta would coerce
-// video/mp4 → image/png, serving mp4 bytes with a png Content-Type (a permanently broken
-// render in every doc revision). Images route by size exactly as before.
+// Route decision for a media upload. ANY video/* ALWAYS rides the signed road regardless of
+// size: only /api/script-image-sign speaks video (its local mediaStorageMeta wrapper) — the
+// base64 edge fn's shared imageStorageMeta would coerce a video → image/png, serving the bytes
+// with a png Content-Type (a permanently broken render in every doc revision). This covers the
+// gif→mp4 transcode output AND direct video pastes/drops. Images route by size exactly as before.
 export function pickMediaUploadRoute(mime, sizeBytes) {
-  if (String(mime || '').toLowerCase() === 'video/mp4') return 'signed';
+  if (String(mime || '').toLowerCase().startsWith('video/')) return 'signed';
   return pickUploadRoute(sizeBytes);
 }
 
-// Pure: split a FileList/array into supported images vs everything else.
+// Pure: split a FileList/array into supported images vs everything else. (Kept image-only — the
+// existing drop path + its test rest on this exact filter.)
 export function pickImageFiles(files) {
   const images = [];
   const rejected = [];
@@ -108,6 +122,19 @@ export function pickImageFiles(files) {
     else rejected.push(f);
   }
   return { images, rejected };
+}
+
+// Pure: split a FileList/array into supported MEDIA (images ∪ videos) vs everything else.
+// The paste + drop handlers use this so a pasted/dropped video lands as its own row. Anything
+// off the allow-list (HEIC from macOS Photos, PDFs, arbitrary files) is rejected with a toast.
+export function pickMediaFiles(files) {
+  const media = [];
+  const rejected = [];
+  for (const f of Array.from(files || [])) {
+    if (isSupportedMediaMime(f?.type)) media.push(f);
+    else rejected.push(f);
+  }
+  return { media, rejected };
 }
 
 // Same shape as the seeded palau2 image ids ('image_test_1') / slash-menu's mintBlockId.
@@ -284,17 +311,19 @@ async function uploadViaSignedUrl(file, id) {
 // mirrors (not replaces) the module's authoritative shouldTranscodeGif — which re-checks
 // mime+size AND the WebCodecs capability the transcode actually needs.
 // ANY failure returns the ORIGINAL file: the gif then uploads exactly as it does today.
-async function maybeTranscodeGif(view, file, id) {
+// onLabel(text) narrates the stage — the DROP path writes it to the decoration widget, the
+// PASTE path pushes it through the media-progress event to the block's nodeview.
+async function maybeTranscodeGif(file, onLabel) {
   if (String(file.type || '').toLowerCase() !== 'image/gif' || file.size <= 2 * 1024 * 1024) return file;
   try {
     const mod = await import('./gif-transcode.js');
     if (!mod.shouldTranscodeGif(file)) return file;
-    setPlaceholderLabel(view, id, 'OPTIMIZING GIF…');
+    onLabel?.('OPTIMIZING GIF…');
     const mp4 = await mod.transcodeGifToMp4(file);
-    setPlaceholderLabel(view, id, 'UPLOADING VIDEO…');
+    onLabel?.('UPLOADING VIDEO…');
     return mp4;
   } catch {
-    setPlaceholderLabel(view, id, PLACEHOLDER_DEFAULT_LABEL);
+    onLabel?.(PLACEHOLDER_DEFAULT_LABEL);
     return file; // fall back to the plain-gif road — never block the drop on the optimizer
   }
 }
@@ -305,7 +334,7 @@ async function uploadAndInsert(view, file, id) {
   try {
     // The transcoded mp4 (when it happens) replaces the gif for the WHOLE road below:
     // route choice re-runs on the NEW mime+size, and the doc's src ends .mp4.
-    const upload = await maybeTranscodeGif(view, file, id);
+    const upload = await maybeTranscodeGif(file, (t) => setPlaceholderLabel(view, id, t));
     const road = pickMediaUploadRoute(upload.type, upload.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
     const out = await road(upload, id);
     if (out.url) url = out.url;
@@ -353,6 +382,233 @@ function startUploads(view, files, rawPos) {
     view.dispatch(addPlaceholderTr(view.state, pos, id));
     uploadAndInsert(view, file, id);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// CLIPBOARD PASTE → NEW ROW (2026-07-21). Johnny: "copy images gifs/videos and paste them and
+// have them properly copy into new rows." Unlike the DROP path above (which drops a still INTO
+// the cell it lands on, via a decoration placeholder), a PASTE inserts each media item as its
+// own FULL-WIDTH ROW at the caret — the same tableRow(cols:1) > tableCell(role:'full') > block
+// shape /chapter builds (doInsertStructureBlock). Multiple items paste as consecutive rows in
+// clipboard order.
+//
+// PLACEHOLDER MODEL — ATTR-DRIVEN (WP-13), deliberately NOT the decoration model the drop path
+// uses. The row lands IMMEDIATELY as a real imageBlock with `uploading:true` + empty src, and the
+// upload promise swaps in the final src (or an uploadError) via setNodeMarkup. Both the insert and
+// the swap are ordinary user-initiated transactions — collaborators watch the uploading row appear
+// then resolve, it survives reload (an interrupted upload renders a recoverable error card), and
+// there is NO appendTransaction (COLLAB LOOP LAW). The block is found by its stable blockId at
+// swap time, so a concurrent edit that moved it is handled and one a collaborator DELETED simply
+// aborts the swap (nothing to write into) — never a clamp to a wrong position.
+
+// Session upload registry — lives only for this tab's lifetime. `activeUploads` = ids whose bytes
+// this session is still pushing (drives the spinner vs. interrupted-after-reload fork in the
+// nodeview). `pendingFiles` keeps the original File so RETRY can re-upload without re-pasting.
+// `progressLabels` is the transcode/upload stage text, surfaced to the nodeview via an event.
+const activeUploads = new Set();
+const pendingFiles = new Map();
+const progressLabels = new Map();
+export const MEDIA_PROGRESS_EVENT = 'wp-media-progress';
+
+export function mediaUploadIsActive(id) { return activeUploads.has(id); }
+export function mediaUploadCanRetry(id) { return pendingFiles.has(id); }
+export function mediaUploadLabel(id) { return progressLabels.get(id) || ''; }
+
+function setMediaProgress(id, label) {
+  if (label == null) progressLabels.delete(id);
+  else progressLabels.set(id, label);
+  try { window.dispatchEvent(new CustomEvent(MEDIA_PROGRESS_EVENT, { detail: { id, label: label ?? '' } })); } catch {}
+}
+
+// A compact, human error for the block's error card (the raw detail can be a long http string).
+function shortMediaError(detail) {
+  const d = String(detail || '').trim();
+  if (!d) return 'upload failed';
+  return d.length > 80 ? d.slice(0, 77) + '…' : d;
+}
+
+// Find the doc position of the imageBlock carrying this blockId (null = gone). Identity, never
+// a raw position — so a swap survives concurrent edits that shifted the block.
+export function findImageBlockPos(state, id) {
+  let at = null;
+  state.doc.descendants((node, pos) => {
+    if (at != null) return false;
+    if (node.type.name === 'imageBlock' && node.attrs.blockId === id) { at = pos; return false; }
+    return undefined;
+  });
+  return at;
+}
+
+// Build a full-width media row: tableRow(cols:1, pairu_) > tableCell(role:'full') > imageBlock.
+// The pairu_ pairId marks it user-added (document-builder's Palau culler keeps it while the
+// upload is still resolving and the block has no words). Returns null if the schema lacks a
+// piece (bare pre-table doc) — the caller falls back to a top-level block insert.
+export function buildMediaRowNode(schema, { id, alt = '', kind = 'shot' }) {
+  const rowType = schema.nodes.tableRow;
+  const cellType = schema.nodes.tableCell;
+  const imgType = schema.nodes.imageBlock;
+  if (!rowType || !cellType || !imgType) return null;
+  const img = imgType.create({ blockId: id, src: '', alt, kind, uploading: true, uploadError: null });
+  return rowType.create({ cols: 1, pairId: mintUserPairId() }, cellType.create({ role: 'full' }, img));
+}
+
+// Insert one placeholder row per item, AFTER the caret's OUTERMOST tableRow (top-level structure,
+// exactly like doInsertStructureBlock) — consecutive rows preserve clipboard order. ONE
+// transaction so a single undo removes the whole paste. Returns true on success.
+export function insertPlaceholderRows(view, items) {
+  const { state } = view;
+  const schema = state.schema;
+  const $pos = state.selection.$from;
+  let rowDepth = 0;
+  for (let d = 1; d <= $pos.depth; d++) {
+    if ($pos.node(d).type.name === 'tableRow') { rowDepth = d; break; }
+  }
+  const tr = state.tr;
+  if (rowDepth > 0) {
+    let insertAt = $pos.after(rowDepth);
+    for (const it of items) {
+      const row = buildMediaRowNode(schema, it);
+      if (!row) return false;
+      tr.insert(insertAt, row);
+      insertAt += row.nodeSize;
+    }
+  } else {
+    // Bare (pre-table) doc — no row spine yet. Insert the imageBlocks at the top level; the
+    // load-time ensureTableDoc wrap turns them into rows exactly like any other bare block.
+    const imgType = schema.nodes.imageBlock;
+    if (!imgType) return false;
+    let insertAt = $pos.depth > 0 ? $pos.after(1) : Math.min($pos.pos, state.doc.content.size);
+    for (const it of items) {
+      const img = imgType.create({ blockId: it.id, src: '', alt: it.alt || '', kind: it.kind || 'shot', uploading: true, uploadError: null });
+      tr.insert(insertAt, img);
+      insertAt += img.nodeSize;
+    }
+  }
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+// Swap the imageBlock's attrs by blockId (setNodeMarkup). false = the block is gone (deleted
+// locally or by a collaborator) → the caller aborts, never clamps.
+export function swapMediaBlock(view, id, patch) {
+  const pos = findImageBlockPos(view.state, id);
+  if (pos == null) return false;
+  const node = view.state.doc.nodeAt(pos);
+  if (!node || node.type.name !== 'imageBlock') return false;
+  view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...patch }));
+  return true;
+}
+
+// Upload the bytes, then RESOLVE the placeholder block: swap in the final src, or mark it errored.
+// The swap is the resolution of the user's paste — dispatching it from the promise is fine (not a
+// loop). Failure keeps the File in pendingFiles so the block's RETRY button can re-upload.
+async function uploadAndSwap(view, file, id) {
+  let url = null;
+  let detail = '';
+  try {
+    const upload = await maybeTranscodeGif(file, (t) => setMediaProgress(id, t));
+    const road = pickMediaUploadRoute(upload.type, upload.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
+    const out = await road(upload, id);
+    if (out.url) url = out.url;
+    else detail = out.error || '';
+  } catch (e) {
+    detail = e?.message || 'network error';
+  }
+  activeUploads.delete(id);
+  setMediaProgress(id, null);
+  if (view.isDestroyed) { pendingFiles.delete(id); return; }
+
+  if (!url) {
+    // LOUD, RECOVERABLE failure — the row stays with an error card (retry keeps the bytes). Never
+    // a silent vanish. If the block was deleted meanwhile, there is nothing to mark — drop it.
+    swapMediaBlock(view, id, { uploading: false, uploadError: shortMediaError(detail) });
+    return;
+  }
+  pendingFiles.delete(id);
+  if (!swapMediaBlock(view, id, { uploading: false, uploadError: null, src: url })) {
+    // The row was removed before the upload landed (undo, or a collaborator). Bytes are orphaned
+    // in the bucket (no doc state) — acceptable. Tell Johnny so a vanished paste isn't a mystery.
+    toast('the pasted media’s row was removed before its upload finished');
+  }
+}
+
+// PASTE entry: one placeholder row per media file, in clipboard order, then kick the uploads.
+function startMediaPaste(view, files) {
+  const items = [];
+  for (const file of files) {
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
+      continue;
+    }
+    items.push({ id: mintImageBlockId(), alt: '', kind: 'shot', file });
+  }
+  if (!items.length) return;
+  // Register active BEFORE the insert so the freshly-mounted nodeview shows the spinner (not the
+  // interrupted-after-reload card). pendingFiles holds the bytes for a possible retry.
+  for (const it of items) { activeUploads.add(it.id); pendingFiles.set(it.id, it.file); setMediaProgress(it.id, PLACEHOLDER_DEFAULT_LABEL); }
+  const ok = insertPlaceholderRows(view, items.map(({ id, alt, kind }) => ({ id, alt, kind })));
+  if (!ok) {
+    for (const it of items) { activeUploads.delete(it.id); pendingFiles.delete(it.id); setMediaProgress(it.id, null); }
+    toast('could not place the pasted media — click into a row first, then paste');
+    return;
+  }
+  for (const it of items) uploadAndSwap(view, it.file, it.id);
+}
+
+// RETRY (from the block's error card) — re-upload the kept bytes. No bytes (post-reload) → no-op;
+// the card then offers only REMOVE.
+export function retryMediaUpload(view, id) {
+  if (isReadOnly() || !view.editable) return;
+  const file = pendingFiles.get(id);
+  if (!file) return;
+  if (!swapMediaBlock(view, id, { uploading: true, uploadError: null, src: '' })) { pendingFiles.delete(id); return; }
+  activeUploads.add(id);
+  setMediaProgress(id, PLACEHOLDER_DEFAULT_LABEL);
+  uploadAndSwap(view, file, id);
+}
+
+// REMOVE (from the block's error card) — delete the interrupted/failed block. When it is the lone
+// block in its full-width row, delete the whole row (a tableCell is block+ and cannot sit empty).
+export function removeMediaBlock(view, id) {
+  if (isReadOnly() || !view.editable) return;
+  const { state } = view;
+  const pos = findImageBlockPos(state, id);
+  activeUploads.delete(id); pendingFiles.delete(id); setMediaProgress(id, null);
+  if (pos == null) return;
+  const node = state.doc.nodeAt(pos);
+  if (!node) return;
+  const $pos = state.doc.resolve(pos);
+  const cell = $pos.parent;                    // the tableCell holding the imageBlock
+  const row = $pos.depth >= 1 ? $pos.node($pos.depth - 1) : null;
+  let from = pos;
+  let to = pos + node.nodeSize;
+  if (cell?.type.name === 'tableCell' && cell.childCount === 1 &&
+      row?.type.name === 'tableRow' && row.childCount === 1 && state.doc.childCount > 1) {
+    from = $pos.before($pos.depth - 1);
+    to = from + row.nodeSize;
+  }
+  view.dispatch(state.tr.delete(from, to));
+}
+
+// Collect media files from a paste event — files first (a real image/video copy populates
+// clipboardData.files), then file-kind items as a fallback (some browsers only populate items for
+// a copied image). A plain-text / HTML / ProseMirror-slice paste carries NO file here, so this
+// returns [] and the paste falls through untouched (the writing-tool paste path is sacred).
+function mediaFilesFromClipboard(event) {
+  const dt = event.clipboardData;
+  if (!dt) return [];
+  const out = [];
+  const seen = new Set();
+  const push = (f) => {
+    if (!f) return;
+    const key = `${f.name}|${f.size}|${f.type}`;
+    if (seen.has(key)) return;
+    seen.add(key); out.push(f);
+  };
+  if (dt.files && dt.files.length) for (const f of dt.files) push(f);
+  if (dt.items && dt.items.length) for (const it of dt.items) { if (it.kind === 'file') push(it.getAsFile()); }
+  const { media } = pickMediaFiles(out);
+  return media;
 }
 
 // Exported so the test mounts the EXACT production plugin on a bare EditorState.
@@ -427,33 +683,34 @@ export function buildImageDropPlugin() {
           if (!files || !files.length) return false;
           event.preventDefault(); // NEVER navigate away on a file drop, whatever the file
           if (isReadOnly() || !view.editable) return true; // read-only: swallow silently
-          const { images, rejected } = pickImageFiles(files);
-          if (!images.length) {
-            toast('only png / jpeg / webp / gif images can be dropped into the script');
+          const { media, rejected } = pickMediaFiles(files);
+          if (!media.length) {
+            toast('only png / jpeg / webp / gif images or mp4 / webm / mov videos can be dropped into the script');
             return true;
           }
           if (rejected.length) {
-            toast(`${rejected.length} file${rejected.length > 1 ? 's' : ''} skipped — only png / jpeg / webp / gif images land here`);
+            toast(`${rejected.length} file${rejected.length > 1 ? 's' : ''} skipped — only png / jpeg / webp / gif images or mp4 / webm / mov videos land here`);
           }
           const raw = view.posAtCoords({ left: event.clientX, top: event.clientY });
           if (!raw) {
-            toast('could not find a spot for that image — drop it onto a row');
+            toast('could not find a spot for that — drop it onto a row');
             return true;
           }
-          startUploads(view, images, raw.pos);
+          startUploads(view, media, raw.pos);
           return true;
         },
       },
-      // Cheap adjacent win: a screenshot on the clipboard pastes in through the exact
-      // same upload path, inserted at the caret. Text/HTML pastes (no files) fall through
-      // to PasteSanitize untouched.
+      // PASTE MEDIA → NEW ROWS. Pasted images / gifs / videos each land as their own full-width
+      // row at the caret (startMediaPaste). A paste with NO media file — plain text, HTML, a
+      // ProseMirror slice — returns false and falls through to PasteSanitize / PM UNTOUCHED. This
+      // passthrough is sacred in a writing tool, so the guard is: only hijack when
+      // mediaFilesFromClipboard actually found a supported image/video file.
       handlePaste(view, event) {
-        const files = event.clipboardData && event.clipboardData.files;
-        if (!files || !files.length) return false;
-        const { images } = pickImageFiles(files);
-        if (!images.length) return false; // not an image paste — normal paste proceeds
-        if (isReadOnly() || !view.editable) return true;
-        startUploads(view, images, view.state.selection.from);
+        const media = mediaFilesFromClipboard(event);
+        if (!media.length) return false; // not a media paste — normal paste proceeds untouched
+        if (isReadOnly() || !view.editable) return true; // read-only share: swallow, never mutate
+        event.preventDefault();
+        startMediaPaste(view, media);
         return true;
       },
     },

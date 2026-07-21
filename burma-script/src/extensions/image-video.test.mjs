@@ -69,6 +69,12 @@ ok('isVideoSrc: .mp4 (any case, with query/hash) true; rasters/garbage false', (
   assert.equal(isVideoSrc('https://x/y.mp4.png'), false);
   assert.equal(isVideoSrc(''), false);
   assert.equal(isVideoSrc(null), false);
+  // webm + mov (direct video paste/drop) join .mp4 in the fork — same trailing-extension rule.
+  assert.equal(isVideoSrc('https://x/clip.webm'), true, 'webm is a video src');
+  assert.equal(isVideoSrc('https://x/clip.MOV?token=z'), true, 'mov (any case, query tolerant)');
+  assert.equal(isVideoSrc('https://x/clip.mov#t=1'), true, 'mov hash tolerant');
+  assert.equal(isVideoSrc('https://x/y.webm.png'), false, 'must END the path');
+  assert.equal(isVideoSrc('https://x/y.mkv'), false, 'unsupported container is not a video src');
 });
 
 // ── 2: renderHTML forks video vs img (asserted on the toDOM array spec) ─────────────────
@@ -138,6 +144,10 @@ ok('pickMediaUploadRoute: video/mp4 → signed at ANY size; images route by size
   assert.equal(pickMediaUploadRoute('video/mp4', 4 * MB), 'signed');
   assert.equal(pickMediaUploadRoute('video/mp4', 100), 'signed');
   assert.equal(pickMediaUploadRoute('VIDEO/MP4', 20 * MB), 'signed', 'case-insensitive');
+  // Direct video pastes (webm / mov) take the signed road too — only the sign endpoint speaks
+  // video; the base64 route would coerce them to png.
+  assert.equal(pickMediaUploadRoute('video/webm', 100), 'signed', 'webm → signed at any size');
+  assert.equal(pickMediaUploadRoute('video/quicktime', 90 * MB), 'signed', 'mov → signed at any size');
   // Images keep the exact pickUploadRoute boundary.
   assert.equal(pickMediaUploadRoute('image/png', 4 * MB), 'base64');
   assert.equal(pickMediaUploadRoute('image/gif', SIGNED_ROUTE_MIN_BYTES), 'base64');

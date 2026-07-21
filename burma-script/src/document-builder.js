@@ -672,6 +672,11 @@ function blockToNode(b, opts) {
           // every existing image block). Crop shape guard mirrors blocks.js isValidCrop's contract.
           width: Number.isFinite(b.imageWidth) ? b.imageWidth : null,
           crop: imageCropShapeOk(b.imageCrop) ? b.imageCrop : null,
+          // Paste placeholder state — absent on every normal image (byte-identical). A block
+          // rebuilt from a doc saved mid-paste keeps uploading:true so the nodeview shows the
+          // interrupted-upload card instead of a silent empty figure.
+          uploading: !!b.imageUploading,
+          uploadError: typeof b.imageUploadError === 'string' ? b.imageUploadError : null,
           flavor: b.flavor ?? null,
         },
       };
@@ -1209,6 +1214,10 @@ function nodeToBlock(node, i) {
     // Emit width/crop ONLY when set → an untouched image block serializes byte-identical.
     if (Number.isFinite(a.width)) block.imageWidth = a.width;
     if (imageCropShapeOk(a.crop)) block.imageCrop = a.crop;
+    // Paste placeholder state emitted ONLY while a paste is unresolved — a landed image (the
+    // overwhelming steady state) carries neither, so its derived block is byte-identical.
+    if (a.uploading) block.imageUploading = true;
+    if (typeof a.uploadError === 'string' && a.uploadError) block.imageUploadError = a.uploadError;
   }
   else { block.text = text; }
   return block;
