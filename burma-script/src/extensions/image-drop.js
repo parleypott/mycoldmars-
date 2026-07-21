@@ -47,8 +47,9 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { Slice, Fragment } from '@tiptap/pm/model';
 import { dropPoint } from '@tiptap/pm/transform';
 import { isReadOnly } from '../read-mode.js';
-import { getEpisode } from '../episode-config.js';
+import { getEpisode, episodeFlag } from '../episode-config.js';
 import { mintUserPairId } from './table.js';
+import { offerMediaOrQuote, startImageQuote, parseTranscriptText, insertQuoteRow } from './transcript-drop.js';
 
 export const imageDropKey = new PluginKey('burmaImageDrop');
 
@@ -680,7 +681,20 @@ export function buildImageDropPlugin() {
       handleDOMEvents: {
         drop(view, event) {
           const files = event.dataTransfer && event.dataTransfer.files;
-          if (!files || !files.length) return false;
+          if (!files || !files.length) {
+            // NO FILES — a TEXT drag (selected transcript text). If it matches the transcript shape
+            // AND the feature is on, land it as a quote row; otherwise leave PM's default text drop
+            // untouched (return false). The writing-tool drop path stays sacred.
+            if (episodeFlag('transcriptDrop') && !isReadOnly() && view.editable) {
+              const txt = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+              const parsed = txt && parseTranscriptText(txt);
+              if (parsed) {
+                const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                if (at) { event.preventDefault(); insertQuoteRow(view, parsed, at.pos); return true; }
+              }
+            }
+            return false;
+          }
           event.preventDefault(); // NEVER navigate away on a file drop, whatever the file
           if (isReadOnly() || !view.editable) return true; // read-only: swallow silently
           const { media, rejected } = pickMediaFiles(files);
@@ -696,6 +710,19 @@ export function buildImageDropPlugin() {
             toast('could not find a spot for that — drop it onto a row');
             return true;
           }
+          // TRANSCRIPT DROP disambiguation — an image could be a still (MEDIA) or a screenshot of a
+          // transcript (QUOTE). Offer the flat choice at the drop point; MEDIA runs the untouched
+          // path below, QUOTE reads the first image with the vision endpoint and falls back to media
+          // on failure. Only a single-image drop is ambiguous; a video or a multi-file drop is media.
+          const firstIsImage = SUPPORTED_IMAGE_MIMES.has(String(media[0]?.type || '').toLowerCase());
+          if (episodeFlag('transcriptDrop') && media.length === 1 && firstIsImage) {
+            const shown = offerMediaOrQuote(view, {
+              coords: { x: event.clientX, y: event.clientY },
+              onMedia: () => startUploads(view, media, raw.pos),
+              onQuote: () => startImageQuote(view, media[0], raw.pos, () => startUploads(view, media, raw.pos)),
+            });
+            if (shown) return true;
+          }
           startUploads(view, media, raw.pos);
           return true;
         },
@@ -707,9 +734,31 @@ export function buildImageDropPlugin() {
       // mediaFilesFromClipboard actually found a supported image/video file.
       handlePaste(view, event) {
         const media = mediaFilesFromClipboard(event);
-        if (!media.length) return false; // not a media paste — normal paste proceeds untouched
+        if (!media.length) {
+          // NOT a media paste. Before falling through to the sacred writing paste path, check whether
+          // the plain-text clipboard IS a transcript soundbite (pure regex, instant). Only when it
+          // matches AND the feature is on do we hijack — a normal paste is byte-untouched.
+          if (episodeFlag('transcriptDrop') && !isReadOnly() && view.editable) {
+            const txt = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+            const parsed = txt && parseTranscriptText(txt);
+            if (parsed) { event.preventDefault(); insertQuoteRow(view, parsed, view.state.selection.from); return true; }
+          }
+          return false; // not a media/transcript paste — normal paste proceeds untouched
+        }
         if (isReadOnly() || !view.editable) return true; // read-only share: swallow, never mutate
         event.preventDefault();
+        // TRANSCRIPT DROP disambiguation on a single-image paste — MEDIA (the untouched new-row paste)
+        // or QUOTE (read it as a transcript). A video / multi-file paste is unambiguously media.
+        const firstIsImage = SUPPORTED_IMAGE_MIMES.has(String(media[0]?.type || '').toLowerCase());
+        if (episodeFlag('transcriptDrop') && media.length === 1 && firstIsImage) {
+          const caret = view.coordsAtPos(view.state.selection.from);
+          const shown = offerMediaOrQuote(view, {
+            coords: { x: caret.left, y: caret.bottom },
+            onMedia: () => startMediaPaste(view, media),
+            onQuote: () => startImageQuote(view, media[0], view.state.selection.from, () => startMediaPaste(view, media)),
+          });
+          if (shown) return true;
+        }
         startMediaPaste(view, media);
         return true;
       },

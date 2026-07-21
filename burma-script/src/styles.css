@@ -382,6 +382,15 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-slash-hint{ float:right; padding-left:14px; font-size:10px; letter-spacing:.08em; color:var(--label); }
 .wp-slash-item.is-active .wp-slash-hint{ color:var(--ink); }
 
+/* TRANSCRIPT DROP — the MEDIA / QUOTE disambiguation on a dropped/pasted image. Flat, 1.5px ink
+   border, mono caps, no shadow (inherits .wp-slash-menu). Two big targets; the keyboard hint sits
+   quiet at the right. Default is always MEDIA (Enter/Esc). */
+.wp-transcript-choice{ min-width:172px; z-index:70; }
+.wp-transcript-choice-item{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:7px 10px; }
+.wp-transcript-choice-item:hover{ background:rgba(255,91,31,.14); }
+.wp-tc-choice-label{ font-weight:700; letter-spacing:.1em; }
+.wp-tc-choice-hint{ flex:0 0 auto; font-size:10px; letter-spacing:.06em; color:var(--label); border:1.5px solid var(--ink); border-radius:4px; padding:1px 5px; opacity:.75; }
+
 /* SELECT → RIGHT-CLICK → CONVERT-TO-VIZ menu. Reuses .wp-slash-menu's flat/mono/bordered/no-shadow
    premium look; adds a small header, a colour swatch per item that previews the chip colour, and a
    min-width bump so the two-column (dot + label) rows breathe. Palau-only feature. */

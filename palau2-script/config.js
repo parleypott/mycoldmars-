@@ -48,6 +48,7 @@ export const PALAU2 = {
     dayFold: true,                     // day-fold.js — fold literal "DAY N" preceding a chip
     sequencePicker: true,              // marks.js — right-click chip menu picks SEQUENCE (not DAY)
     timecodeChips: true,               // marks.js — typed/pasted timecode self-chips + retro-convert (presentation)
+    transcriptDrop: true,             // transcript-drop.js — drop/paste a transcript soundbite → timecode chips + ON CAM quote row
     palauTimecodes: true,              // document-builder.js — 3-part/bracket timecodes, bundled-day strip, seq context
     inlineSotName: true,               // document-builder.js — SOT sequence name bold INLINE in body
     normalizeTableRows: true,          // document-builder.js — split stacked full-width rows on load
