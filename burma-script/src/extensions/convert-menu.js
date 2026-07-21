@@ -19,7 +19,11 @@ import { findRowByIdentity } from './table.js';
 //      selection (Johnny 2026-07-21: "the tag should go into the column I right clicked"). One
 //      transaction either way. VO is the one BLOCK action: it retypes every convertible block the
 //      clicked lane touches into a voBlock (shared bulkRetypeToVo), the same conversion /vo runs.
-//   2. DELETE. A destructive entry at the very bottom, hairline-separated, carrying a LIVE count of
+//   2. UTILITIES. One compact hairline-separated row folding in the killed floating BubbleMenu's
+//      survivors: TK ({tk} writing-helper span) and FC ({fc} fact-check span) as their real chips,
+//      toggled with the bubble's exact set/unset semantics but lane-scoped like the role tags; and
+//      the three paragraph-alignment tools as small square glyph buttons (exact TextAlign port).
+//   3. DELETE. A destructive entry at the very bottom, hairline-separated, carrying a LIVE count of
 //      the outermost rows the selection intersects — "DELETE 10 ROWS". Clicking removes those whole
 //      top-level rows in one transaction (one undo restores everything). The count shown always
 //      equals what actually gets deleted (both come from the same collectIntersectingRows snapshot).
@@ -45,6 +49,22 @@ export const VIZ_KINDS = [
   { label: 'MAP DATA',     kind: 'mapdata' },
   { label: 'FACT CHECK',   kind: 'factcheck' },
   { label: 'DIRECTION',    kind: 'direction' },
+];
+
+// ── UTILITY ROW — the BubbleMenu's survivors (Johnny 2026-07-21: the floating bubble "kind of
+// gets in the way — get rid of it"). What survives, folded in here: the {tk} writing-helper span,
+// the {fc} fact-check span, and the three paragraph-alignment tools ("really nice — keep").
+// What did NOT survive: Bold/Italic (he uses hotkeys), VIS (killed — the visualSpan mark stays in
+// the schema for existing docs, it just has no menu surface), MERGE/SPLIT (moved to the row's
+// column-divider affordances, table.js).
+export const UTILITY_SPANS = [
+  { label: 'TK', mark: 'tkSpan', chipClass: 'wp-tk', title: 'Mark as {TK} writing helper' },
+  { label: 'FC', mark: 'factCheckSpan', chipClass: 'wp-fc', title: 'Mark as {fc} fact-check' },
+];
+export const ALIGNMENTS = [
+  { dir: 'left', glyph: '⇤', title: 'Align left' },
+  { dir: 'center', glyph: '⇔', title: 'Align center' },
+  { dir: 'right', glyph: '⇥', title: 'Align right' },
 ];
 
 function el(tag, cls, attrs) {
@@ -133,6 +153,117 @@ function applyMarkRange(editor, kind, from, to, clickedRole) {
   return done;
 }
 
+// Is every character of the lane-scoped ranges already wearing this mark? This is the SAME
+// full-coverage rule TipTap's editor.isActive(markName) used to drive the bubble's TK/FC toggle
+// state (partial coverage counted as inactive → clicking SET the mark; full coverage → UNSET),
+// so the folded-in buttons keep the bubble's exact set/unset semantics. Pure, exported for the
+// headless suite.
+export function rangesFullyMarked(doc, ranges, markType) {
+  let total = 0;
+  let marked = 0;
+  for (const [f, t] of ranges) {
+    doc.nodesBetween(f, t, (node, pos) => {
+      if (!node.isText) return true;
+      const lo = Math.max(f, pos);
+      const hi = Math.min(t, pos + node.nodeSize);
+      if (hi <= lo) return false;
+      total += hi - lo;
+      if (markType.isInSet(node.marks)) marked += hi - lo;
+      return false;
+    });
+  }
+  return total > 0 && marked >= total;
+}
+
+// Toggle a tkSpan/factCheckSpan over the snapshot range — the bubble's applySpan/clearSpan pair
+// (setMark/unsetMark: add the mark with its DEFAULT attrs preserving sibling marks, or strip it),
+// now applied through the SAME laneCellRanges scoping as the role tags: a said-lane right-click
+// marks only said(+full) cells, a shown click only shown(+full). One transaction, one undo.
+// Pure (state, dispatch, …) -> boolean, exported for the headless suite.
+export function bulkToggleSpanRange(state, dispatch, from, to, markName, clickedRole) {
+  const markType = state.schema.marks[markName];
+  if (!markType) return false;
+  const size = state.doc.content.size;
+  const lo = Math.max(0, Math.min(from, to, size));
+  const hi = Math.max(0, Math.min(Math.max(from, to), size));
+  if (lo === hi) return false; // never mark an empty selection
+  const ranges = laneCellRanges(state.doc, lo, hi, clickedRole);
+  if (!ranges.length) return false;
+  const active = rangesFullyMarked(state.doc, ranges, markType);
+  const tr = state.tr;
+  if (active) {
+    for (const [f, t] of ranges) tr.removeMark(f, t, markType);
+  } else {
+    const mark = markType.create(); // default attrs — byte-identical to what setMark stores
+    for (const [f, t] of ranges) tr.addMark(f, t, mark);
+  }
+  if (dispatch) dispatch(tr);
+  return true;
+}
+
+function applySpanRange(editor, markName, from, to, clickedRole) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  const done = bulkToggleSpanRange(state, view.dispatch, from, to, markName, clickedRole);
+  if (done) view.focus();
+  return done;
+}
+
+// Set paragraph alignment across the snapshot range — the exact write the bubble's setTextAlign
+// buttons made: TextAlign registers a `textAlign` attr on paragraph (Editor.jsx / migrate-doc's
+// lockstep schema), and its command updates that attr on every paragraph the selection touches.
+// Same here, over the SNAPSHOT range (a collab edit mid-menu can't retarget the write), one
+// transaction. NOT lane-scoped: alignment is a paragraph-geometry tool, not a tag — the bubble
+// aligned every paragraph in the selection and this keeps that behavior byte-identical.
+// MEMORY TRAP honored: TextAlign stamps inline `text-align:left` on default paragraphs; the
+// doctrine.css centered-chrome rules beat it with !important — we only write the attr the same
+// way the extension did, so that fix is untouched. Pure, exported for the headless suite.
+export function bulkSetTextAlignRange(state, dispatch, from, to, dir) {
+  if (dir !== 'left' && dir !== 'center' && dir !== 'right') return false;
+  const size = state.doc.content.size;
+  const lo = Math.max(0, Math.min(from, to, size));
+  const hi = Math.max(0, Math.min(Math.max(from, to), size));
+  const tr = state.tr;
+  let did = false;
+  state.doc.nodesBetween(lo, hi, (node, pos) => {
+    if (node.type.name !== 'paragraph') return true;
+    if (node.attrs.textAlign !== dir) {
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, textAlign: dir });
+      did = true;
+    }
+    return false; // paragraphs nest no paragraphs
+  });
+  if (!did) return false; // every paragraph already aligned this way → calm no-op, no autosave churn
+  if (dispatch) dispatch(tr);
+  return true;
+}
+
+// Do ALL paragraphs in the range carry this alignment? Drives the align buttons' pressed paint —
+// the bubble's alignActive(dir) (editor.isActive({ textAlign: dir })) equivalent over a snapshot
+// range. Pure, exported for the headless suite.
+export function rangeAlignActive(doc, from, to, dir) {
+  const size = doc.content.size;
+  const lo = Math.max(0, Math.min(from, to, size));
+  const hi = Math.max(0, Math.min(Math.max(from, to), size));
+  let seen = 0;
+  let matched = 0;
+  doc.nodesBetween(lo, hi, (node) => {
+    if (node.type.name !== 'paragraph') return true;
+    seen++;
+    if ((node.attrs.textAlign || 'left') === dir) matched++;
+    return false;
+  });
+  return seen > 0 && matched === seen;
+}
+
+function applyAlignRange(editor, dir, from, to) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  const done = bulkSetTextAlignRange(state, view.dispatch, from, to, dir);
+  if (done) view.focus();
+  return done;
+}
+
 // VO across the snapshot range — every convertible block the CLICKED LANE touched, one transaction.
 function applyVoRange(editor, from, to, clickedRole) {
   if (isReadOnly()) return false;
@@ -189,9 +320,21 @@ function createConvertMenu(editor, x, y, clickedRole) {
   }));
   const rowCount = snapRows.length;
 
-  // The pickable entries: the tags, then (when the selection touches at least one row) the delete.
+  // The pickable entries, in Johnny's reading order: role chips first (unchanged), a hairline,
+  // ONE compact utility row (TK · FC · the three alignment squares — the bubble's survivors),
+  // a hairline, DELETE N ROWS last (unchanged). All entries stay in one flat keyboard ring.
   const entries = VIZ_KINDS.map((item) => ({ type: 'tag', item }));
+  UTILITY_SPANS.forEach((item) => entries.push({ type: 'span', item }));
+  ALIGNMENTS.forEach((item) => entries.push({ type: 'align', item }));
   if (rowCount > 0) entries.push({ type: 'delete' });
+
+  // Pressed-state paint at open (the bubble's `.active` equivalent), computed against the SAME
+  // snapshot + lane scoping the writes will use, so the paint can never promise the wrong toggle.
+  const snapLaneRanges = laneCellRanges(editor.state.doc, Math.min(from, to), Math.max(from, to), clickedRole);
+  const spanActive = (markName) => {
+    const markType = editor.state.schema.marks[markName];
+    return !!markType && rangesFullyMarked(editor.state.doc, snapLaneRanges, markType);
+  };
 
   let activeIndex = 0;
   const menu = el('div', 'wp-bulk-menu wp-convert-menu wp-slash-menu', { contenteditable: 'false', role: 'menu' });
@@ -224,6 +367,10 @@ function createConvertMenu(editor, x, y, clickedRole) {
     close();
     if (entry.type === 'delete') {
       deleteRows(editor, rowRefs);
+    } else if (entry.type === 'span') {
+      applySpanRange(editor, entry.item.mark, from, to, clickedRole);
+    } else if (entry.type === 'align') {
+      applyAlignRange(editor, entry.item.dir, from, to);
     } else if (entry.item.kind === '__vo') {
       applyVoRange(editor, from, to, clickedRole);
     } else {
@@ -232,7 +379,49 @@ function createConvertMenu(editor, x, y, clickedRole) {
     editor.view.focus();
   };
 
+  // The compact utility row (TK · FC · align squares) — created lazily when its first entry
+  // renders, hairline-separated from the role chips above and the delete below.
+  let utilRow = null;
+  const ensureUtilRow = () => {
+    if (utilRow) return utilRow;
+    menu.appendChild(el('div', 'wp-slash-sep'));
+    utilRow = el('div', 'wp-bulk-utils', { role: 'none' });
+    menu.appendChild(utilRow);
+    return utilRow;
+  };
+
   entries.forEach((entry, index) => {
+    if (entry.type === 'span') {
+      // TK / FC — the mark's REAL chip look (wp-tk yellow / wp-fc red wash), same preview-is-
+      // truth law as the role chips above.
+      const button = el('button', 'wp-convert-item wp-bulk-util wp-bulk-util-span', {
+        type: 'button', role: 'menuitem', 'data-span': entry.item.mark, title: entry.item.title,
+        'aria-label': entry.item.title,
+      });
+      const chip = el('span', 'wp-bulk-chip ' + entry.item.chipClass);
+      chip.textContent = entry.item.label;
+      button.appendChild(chip);
+      if (spanActive(entry.item.mark)) button.classList.add('is-on');
+      button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+      button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+      buttons.push(button);
+      ensureUtilRow().appendChild(button);
+      return;
+    }
+    if (entry.type === 'align') {
+      // The three alignment tools — small flat squares, the bubble's exact glyphs.
+      const button = el('button', 'wp-convert-item wp-bulk-util wp-bulk-util-align', {
+        type: 'button', role: 'menuitem', 'data-align': entry.item.dir, title: entry.item.title,
+        'aria-label': entry.item.title,
+      });
+      button.textContent = entry.item.glyph;
+      if (rangeAlignActive(editor.state.doc, from, to, entry.item.dir)) button.classList.add('is-on');
+      button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+      button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+      buttons.push(button);
+      ensureUtilRow().appendChild(button);
+      return;
+    }
     if (entry.type === 'delete') {
       // Hairline before the destructive entry, then the delete row itself (red, mono count).
       menu.appendChild(el('div', 'wp-slash-sep'));
