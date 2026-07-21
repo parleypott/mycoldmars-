@@ -359,6 +359,56 @@ ok('two facing sections expanding into one gap CLAMP at the midpoint', () => {
   assert.equal(A.belowExpanded && B.aboveExpanded, true);
 });
 
+// ── 7b. ASYMMETRIC midpoint clamp — the two branches the symmetric case above skips ──
+// When two facing sections push into ONE shared gap and their requests overlap, the clamp
+// has THREE branches: both greedy → even ceil/floor split (covered above); OR exactly one
+// side modest → that side keeps EXACTLY its request and the greedy side takes the WHOLE
+// remainder. Those asymmetric branches are load-bearing: without them the even split would
+// hand the modest side rows it never asked for (and could double-claim a row it now shares
+// with the greedy side). Same 4-row gap as above (G=4, half=2) so the even split would be 2/2.
+const docGapAsym = docFrom({
+  type: 'doc',
+  content: [
+    row([vo('g1', 'x')]),
+    row([broll('g2', 'A1')]),
+    row([broll('g3', 'A2')]),
+    row([vo('g4', 'c1')]),
+    row([vo('g5', 'c2')]),
+    row([vo('g6', 'c3')]),
+    row([vo('g7', 'c4')]),
+    row([broll('g8', 'B1')]),
+  ],
+});
+// Every gap row is claimed by exactly one facing section — never zero (unrevealed) and never
+// both (overlap/double-context). This is the invariant the clamp exists to hold.
+const claimsOnce = (by) => ['g4', 'g5', 'g6', 'g7'].map(
+  (k) => (by[k].contextAbove ? 1 : 0) + (by[k].contextBelow ? 1 : 0),
+);
+
+ok('asymmetric midpoint: MODEST A (asks 1) keeps its one row; greedy B takes the remainder', () => {
+  // A below:1, B above:99 → A reveals ONLY g4; B reveals g5,g6,g7. NOT the even 2/2 split.
+  const exp = new Map([['g2', { above: 0, below: 1 }], ['g8', { above: 99, below: 0 }]]);
+  const res = classifyRows(docGapAsym, 'broll', null, exp);
+  const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
+  assert.equal(by.g4.contextBelow, true, 'A took exactly its one requested row');
+  assert.equal(by.g4.contextAbove, false, 'g4 is A-only, not shared with B');
+  assert.equal(by.g5.contextAbove && by.g6.contextAbove && by.g7.contextAbove, true, 'B took the whole remainder');
+  assert.equal(by.g5.contextBelow || by.g6.contextBelow, false, 'no overlap — the even split would have given g5 to A');
+  assert.deepEqual(claimsOnce(by), [1, 1, 1, 1], 'gap fully consumed, each row claimed exactly once');
+});
+
+ok('asymmetric midpoint: greedy A takes the remainder; MODEST B (asks 1) keeps its one row', () => {
+  // A below:99, B above:1 → A reveals g4,g5,g6; B reveals ONLY g7. NOT the even 2/2 split.
+  const exp = new Map([['g2', { above: 0, below: 99 }], ['g8', { above: 1, below: 0 }]]);
+  const res = classifyRows(docGapAsym, 'broll', null, exp);
+  const by = Object.fromEntries(res.rows.map((r) => [r.firstBlockId, r]));
+  assert.equal(by.g7.contextAbove, true, 'B took exactly its one requested row');
+  assert.equal(by.g7.contextBelow, false, 'g7 is B-only, not shared with A');
+  assert.equal(by.g4.contextBelow && by.g5.contextBelow && by.g6.contextBelow, true, 'A took the whole remainder');
+  assert.equal(by.g6.contextAbove || by.g5.contextAbove, false, 'no overlap — the even split would have given g6 to B');
+  assert.deepEqual(claimsOnce(by), [1, 1, 1, 1], 'gap fully consumed, each row claimed exactly once');
+});
+
 // ── 8. PLUGIN FLOW (real EditorState transactions) ───────────────────────────
 ok('plugin: meta enters, doc change reclassifies (sticky), selection maps, meta null exits', () => {
   const plugin = createWorkspaceFilterPlugin();
