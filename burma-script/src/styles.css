@@ -2181,6 +2181,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
   .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag,
   .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill { display: none !important; }
+  .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none !important; } /* margin numbers are screen chrome */
   .wp-page { padding: 0 !important; }
   .wp-device { border: 0 !important; border-radius: 0 !important; padding: 0 !important; max-width: none !important; background: #fff !important; transform: none !important; }
   .wp-cart { border: 0 !important; border-radius: 0 !important; margin: 0 0 6pt !important; background: none !important; break-inside: avoid; page-break-inside: avoid; }
@@ -2671,6 +2672,42 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 
 /* Deep-link landing flash — a brief accent ring on the bookmarked row. */
 .wp-bm-target { outline: 2px solid var(--ep-accent); outline-offset: 6px; border-radius: 6px; }
+
+/* ═══ MASTER ROW NUMBERS — always-on, whisper-quiet ══════════════════════════
+   Every top-level row carries data-rownum (a NODE DECORATION — row-numbers.js,
+   dispatches nothing); this paints it as a tiny mono index in the LEFT margin,
+   one slot further out than the split-spine/bookmark column (-26px) so the
+   gutter reads: number | grips | row. Absolutely positioned → zero layout
+   shift; pointer-events none → never a click target. Nested Palau rows carry
+   no attr, so the [data-rownum] key leaves them silent. Deliberately KEPT in
+   read mode and ?read shares — "look at row 141" is a reading affordance and
+   the read gutter is emptier (spine hidden); print hides them (black-ink PDFs
+   have their own page numbers, and the -46px offset would clip at 0 margin).
+   :not(.wp-drop-before) — the row-drag DROP HAIRLINE also paints ::before
+   (doctrine.css .wp-trow.wp-drop-before::before) and does NOT reset width/
+   opacity; without the guard this rule's 20px/.35 would leak into the hairline
+   mid-drag. While a row shows the drop line, its number simply steps aside. */
+.wp-trow[data-rownum]:not(.wp-drop-before)::before {
+  content: attr(data-rownum);
+  position: absolute;
+  left: -46px;
+  top: 4px;
+  width: 20px;
+  text-align: right;
+  font-family: var(--mono);
+  /* chrome token at half-step: reads ~9px at default SIZE, still tracks the knob */
+  font-size: calc(var(--chrome-size-sm) - 1px);
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--ink);
+  opacity: .35;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Narrow screens have no gutter to borrow — the number would clip into the page
+   edge, so it steps back to silence rather than crowding the text. */
+@media (max-width: 900px) { .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none; } }
 
 /* The bubble menu applies marks straight through dispatch (editable doesn't gate commands) —
    in READ mode it must not exist as a click target. */
