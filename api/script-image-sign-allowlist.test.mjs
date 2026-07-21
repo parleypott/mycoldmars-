@@ -46,24 +46,28 @@ async function t(name, fn) {
 }
 
 /* ---- the pure allowlist mirrors the client media map exactly ---- */
-await t('SIGNABLE_MIMES is exactly the client map + video/mp4', async () => {
-  // SUPPORTED_IMAGE_MIMES in burma-script/src/extensions/image-drop.js — kept literal here so a
-  // drift on either side goes red (the extension module is too heavy to import headlessly).
-  const clientMap = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
-  assert.deepEqual([...SIGNABLE_MIMES].sort(), [...clientMap, 'video/mp4'].sort());
+await t('SIGNABLE_MIMES is exactly the client image map + the video set', async () => {
+  // SUPPORTED_IMAGE_MIMES + SUPPORTED_VIDEO_MIMES in burma-script/src/extensions/image-drop.js —
+  // kept literal here so a drift on either side goes red (the extension module is too heavy to
+  // import headlessly).
+  const clientImages = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+  const clientVideos = ['video/mp4', 'video/webm', 'video/quicktime'];
+  assert.deepEqual([...SIGNABLE_MIMES].sort(), [...clientImages, ...clientVideos].sort());
 });
 
-await t('isSignableMime: trims + lowercases, refuses everything off-map', async () => {
+await t('isSignableMime: trims + lowercases, accepts the video set, refuses everything off-map', async () => {
   assert.equal(isSignableMime('  IMAGE/PNG '), true);
   assert.equal(isSignableMime('video/mp4'), true);
-  for (const bad of ['text/html', 'image/svg+xml', 'application/pdf', 'video/webm', 'video/quicktime', '', null, undefined]) {
+  assert.equal(isSignableMime('VIDEO/WEBM'), true, 'webm allowed (direct paste)');
+  assert.equal(isSignableMime(' video/quicktime '), true, 'mov allowed (direct paste)');
+  for (const bad of ['text/html', 'image/svg+xml', 'application/pdf', 'video/avi', 'video/x-matroska', '', null, undefined]) {
     assert.equal(isSignableMime(bad), false, `must refuse ${JSON.stringify(bad)}`);
   }
 });
 
 /* ---- handler: off-map mime → 415, no signed URL ever minted ---- */
 await t('handler 415-refuses a junk mimeType BEFORE minting a token', async () => {
-  for (const bad of ['text/html', 'application/pdf', 'video/webm', '']) {
+  for (const bad of ['text/html', 'application/pdf', 'video/avi', '']) {
     const res = await handler(post({ project: 'burma', block_id: 'b1', mimeType: bad, sizeBytes: 1024 }));
     assert.equal(res.status, 415, `expected 415 for ${JSON.stringify(bad)}`);
     const out = await res.json();
@@ -84,8 +88,9 @@ await t('handler 413-refuses over-cap sizeBytes before minting', async () => {
 });
 
 /* ---- the happy road is untouched (gif + the transcoded mp4 both still sign) ---- */
-await t('handler still signs the real roads: image/gif and video/mp4', async () => {
-  for (const [mime, ext] of [['image/gif', 'gif'], ['video/mp4', 'mp4'], ['IMAGE/JPG', 'jpg']]) {
+await t('handler still signs the real roads: image/gif, the video set, and jpg', async () => {
+  const roads = [['image/gif', 'gif'], ['video/mp4', 'mp4'], ['video/webm', 'webm'], ['video/quicktime', 'mov'], ['IMAGE/JPG', 'jpg']];
+  for (const [mime, ext] of roads) {
     const res = await handler(post({ project: 'burma', block_id: 'b1', mimeType: mime, sizeBytes: 78 * 1024 * 1024 }));
     assert.equal(res.status, 200, `expected 200 for ${mime}`);
     const out = await res.json();
@@ -94,7 +99,7 @@ await t('handler still signs the real roads: image/gif and video/mp4', async () 
     assert.ok(out.path.endsWith('.' + ext), `path extension derives from the normalized mime (${mime} → .${ext})`);
     assert.ok(out.publicUrl.includes('/object/public/script-images/'), 'publicUrl shape unchanged');
   }
-  assert.equal(signCalls, 3);
+  assert.equal(signCalls, roads.length);
 });
 
 console.log(`script-image-sign-allowlist: ${passed} passed${process.exitCode ? ' (with failures)' : ''}`);
