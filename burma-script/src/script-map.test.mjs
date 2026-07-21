@@ -138,6 +138,31 @@ ok('no shown lane at all → neutral (chapter heads, notes, bare VO rows)', () =
   assert.equal(kindOf(row([vo('v', 'a full-width narration row with no visual lane')])), 'neutral');
 });
 
+// ── 2b. TK IS INVISIBLE TO THE MAP ───────────────────────────────────────────
+// TK is a loose-end DRAWER (workspaces.js), never a VISUAL_KIND — the map classifies
+// a TK row by its actual picture, exactly as if the TK text weren't there. A bare TK
+// in the shown lane is still an unplanned hole; a TK riding alongside a real chip
+// stays that chip's kind; a full-width "(TK …)" note with no visual lane is neutral.
+ok('TK text never becomes a plan — bare TK in a shown lane is still unplanned', () => {
+  assert.equal(kindOf(splitRow([vo('v', 'said words')], [bin('tk1', txt('(TK musician\'s name)'))])), 'unplanned',
+    'the parenthetical TK swoop is prose, not a visual plan');
+  assert.equal(kindOf(splitRow([vo('v', 'said words')], [bin('tk2', txt('cutaway TK before lock'))])), 'unplanned',
+    'a bare TK stray does not fill the hole');
+});
+
+ok('TK riding alongside a real chip classifies by the chip, not by TK-ness', () => {
+  const r = splitRow(
+    [vo('v', 'said words')],
+    [bin('tk3', dhl('broll', 'monastery exteriors'), txt(' — score by (TK composer)'))],
+  );
+  assert.equal(kindOf(r), 'broll', 'the visual content wins; TK adds no coverage of its own');
+});
+
+ok('a full-width TK-only note with no visual lane is neutral', () => {
+  assert.equal(kindOf(row([bin('tk4', txt('need a stat here TK'))])), 'neutral',
+    'TK does not conjure a shown lane');
+});
+
 // ── 3 + 4 + 6. CHAPTERS, PROPORTIONING, TOTALS ───────────────────────────────
 // 10 words per vo body → clean arithmetic below.
 const TEN = 'one two three four five six seven eight nine ten';
