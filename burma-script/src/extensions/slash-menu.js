@@ -6,6 +6,7 @@ import { defaultDirectionMarkAttrs } from './direction-chip.js';
 import { episodeFlag } from '../episode-config.js';
 import { mintUserPairId, insertBookmark } from './table.js';
 import { insertFcFootnote } from './footnote.js';
+import { toggleListPreservingStyle } from './list-style-preserve.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -303,16 +304,13 @@ export function bulkRetypeToVo(state, dispatch, from, to) {
 
 // /bullet + /number — delete the slash trigger then toggle the host block into a list. These are
 // the discoverable, un-hijackable backups for Cmd/Ctrl+Shift+8 / +7 (a chord the OS steals can't
-// be fixed in JS). One chain = one undo. toggleBulletList / toggleOrderedList are StarterKit
-// RawCommands, always chainable. Read-mode gated (the slash plugin never mounts read-only, but
-// keep the write path honest).
+// be fixed in JS). One chain = one undo. STYLE-PRESERVING via the shared helper (list-style-
+// preserve.js), same as the keymap path — an armed b-roll (or any directionMark) line keeps its
+// role styling through the wrap instead of falling back to plain. Read-mode + the editable write
+// gate are checked inside the helper (the slash plugin never mounts read-only, but keep it honest).
 function toggleSlashList(editor, range, kind) {
-  if (isReadOnly()) return false;
-  const view = editor.view;
-  if (!view || !view.editable) return false;
-  const chain = editor.chain().focus().deleteRange(range);
-  const done = kind === 'ordered' ? chain.toggleOrderedList().run() : chain.toggleBulletList().run();
-  if (done) view.focus();
+  const done = toggleListPreservingStyle(editor, kind, range);
+  if (done) editor.view.focus();
   return done;
 }
 

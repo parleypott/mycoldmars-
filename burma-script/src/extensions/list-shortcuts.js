@@ -14,21 +14,17 @@
 // doesn't need the chord. This rebind still guarantees the shortcut works whenever the event does
 // reach the page in edit mode.
 import { Extension } from '@tiptap/core';
-import { isReadOnly } from '../read-mode.js';
+import { toggleListPreservingStyle } from './list-style-preserve.js';
 
 export const ListShortcuts = Extension.create({
   name: 'listShortcuts',
   priority: 1001,
 
   addKeyboardShortcuts() {
-    const toggle = (kind) => () => {
-      if (isReadOnly()) return false;
-      const view = this.editor.view;
-      if (!view || !view.editable) return false; // editable is the real write gate, not just isReadOnly
-      return kind === 'ordered'
-        ? this.editor.chain().focus().toggleOrderedList().run()
-        : this.editor.chain().focus().toggleBulletList().run();
-    };
+    // STYLE-PRESERVING (list-style-preserve.js): the wrap keeps the caret's role style so an
+    // armed b-roll (or any directionMark) line stays styled after Cmd/Ctrl+Shift+8/7. Read-mode
+    // and the editable write-gate are checked inside the shared helper.
+    const toggle = (kind) => () => toggleListPreservingStyle(this.editor, kind);
     return {
       'Mod-Shift-8': toggle('bullet'),
       'Mod-Shift-7': toggle('ordered'),
