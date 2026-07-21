@@ -23,6 +23,9 @@ import { idbDeleteDoc } from './recovery-store.js';
 import { restoreSnapshot, restoreDoc } from './restore.js';
 import { getEpisode } from './episode-config.js';
 import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStorageKey } from './roles.js';
+import { WORKSPACE_ROLES, workspaceRole, scanWorkspace, workspaceMetrics } from './workspaces.js';
+import { workspaceFilterKey } from './extensions/workspace-filter.js';
+import { WS_MAP_KEY, parseWsFlag, setWsInHash, setWsInSearch } from './ws-route.js';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 import { ShareToggle } from './ShareToggle.jsx';
@@ -1219,6 +1222,123 @@ function CloudHistoryPanel({ getEditor = null }) {
   );
 }
 
+// ── WORKSPACES — the per-craft cutout views (menu + hub + routing). ─────────────────────
+// The masthead WORKSPACES menu opens a craft's workspace: the SAME editor, filtered to that
+// craft's sections rendered as floating cutout cards (extensions/workspace-filter.js — the
+// decoration-only paint). State rides the hash-query channel (#slug?ws=<key>, ws-route.js)
+// so a workspace is a shareable deep link; in-session switching is replaceState only —
+// no reload, no remount, collab session untouched.
+
+// Rewrite the address bar to carry (or drop) the ws flag WITHOUT navigating. Slugged
+// pages (#burma, library #<slug>) carry it in the hash-query; a hashless standalone door
+// carries it in the search. The search copy is always scrubbed when the hash wins, so a
+// stale ?ws= can never shadow the live hash flag (parse order is search-first).
+function writeWsFlag(key) {
+  try {
+    const { pathname, search, hash } = window.location;
+    if (hash && hash.length > 1) {
+      history.replaceState(null, '', pathname + setWsInSearch(search, null) + setWsInHash(hash, key));
+    } else {
+      history.replaceState(null, '', pathname + setWsInSearch(search, key) + (hash || ''));
+    }
+  } catch {}
+}
+
+// One count line per craft: "5 SECTIONS · 214 ROWS" — live from scanWorkspace, computed
+// LAZILY when the menu opens (never per keystroke; a 200-row doc scans in microseconds).
+function wsCountLabel(c) {
+  if (!c) return '—';
+  if (!c.rows) return 'NO ROWS YET';
+  return `${c.sections} SECTION${c.sections === 1 ? '' : 'S'} · ${c.rows} ROW${c.rows === 1 ? '' : 'S'}`;
+}
+
+function WorkspacesMenu({ getDoc, onPick }) {
+  const [open, setOpen] = useState(false);
+  const [counts, setCounts] = useState({});
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (!next) return;
+    // Recompute on OPEN only — the menu is a glance, not a live meter.
+    try {
+      const doc = getDoc();
+      if (!doc) return;
+      const c = {};
+      for (const r of WORKSPACE_ROLES) {
+        const sections = scanWorkspace(doc, r.key);
+        c[r.key] = { sections: sections.length, rows: sections.reduce((n, s) => n + s.rowCount, 0) };
+      }
+      setCounts(c);
+    } catch {}
+  };
+  const pick = (key) => { setOpen(false); onPick(key); };
+  return (
+    <div class={`wp-wsmenu${open ? ' is-open' : ''}`}>
+      <button
+        class="wp-wsmenu-toggle"
+        aria-expanded={open}
+        onClick={toggle}
+        title={open ? 'Close the workspaces menu' : 'Open a craft workspace — the script filtered to one team’s work'}
+      >
+        <span class="wp-wsmenu-glyph" aria-hidden="true">▦</span>
+        <span class="wp-wsmenu-lab">workspaces</span>
+      </button>
+      <div class="wp-wsmenu-body" aria-hidden={!open}>
+        <div class="wp-wsmenu-head">CRAFT WORKSPACES</div>
+        {WORKSPACE_ROLES.map((r) => (
+          <button key={r.key} class="wp-wsmenu-item" onClick={() => pick(r.key)} title={`Open the ${r.label} workspace`}>
+            <span class="wp-ws-chip" data-ws={r.key}>{r.label}</span>
+            <span class="wp-wsmenu-count">{wsCountLabel(counts[r.key])}</span>
+          </button>
+        ))}
+        <div class="wp-wsmenu-sep" />
+        <button class="wp-wsmenu-item is-map" onClick={() => pick(WS_MAP_KEY)} title="Bird's-eye map of the whole script">
+          <span class="wp-wsmenu-maplab">SCRIPT MAP</span>
+          <span class="wp-wsmenu-count">WHOLE SCRIPT</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The hub above the editor while a craft workspace is active: the craft's chip, big, then
+// one mono stat row. Metrics ride the SAME debounced/idle pipeline as telemetry — App
+// recomputes them in an effect keyed on the telemetry state, so no second full-doc walk
+// ever lands on the keystroke path. PENDING reads as the production manager's punch list:
+// its counts ink in the alert red (CSS, keyed on data-ws-key).
+function WorkspaceHub({ wsKey, metrics }) {
+  const role = workspaceRole(wsKey);
+  if (!role) return null;
+  const m = metrics || { timedWords: 0, minutes: 0, sectionCount: 0, rowCount: 0 };
+  return (
+    <section class="wp-wshub" data-ws-key={wsKey} aria-label={`${role.label} workspace`}>
+      <div class="wp-wshub-title">
+        <span class="wp-ws-chip is-big" data-ws={wsKey}>{role.label}</span>
+        <span class="wp-wshub-sub">WORKSPACE</span>
+      </div>
+      <div class="wp-wshub-stats">
+        <span class="wp-wshub-stat"><b>{(m.timedWords || 0).toLocaleString()}</b> TIMED WORDS</span>
+        <span class="wp-wshub-dot" aria-hidden="true">·</span>
+        <span class="wp-wshub-stat"><b>{(m.minutes || 0).toFixed(1)}</b> MIN @130</span>
+        <span class="wp-wshub-dot" aria-hidden="true">·</span>
+        <span class="wp-wshub-stat"><b>{m.sectionCount || 0}</b> SECTION{m.sectionCount === 1 ? '' : 'S'}</span>
+        <span class="wp-wshub-dot" aria-hidden="true">·</span>
+        <span class="wp-wshub-stat"><b>{m.rowCount || 0}</b> ROW{m.rowCount === 1 ? '' : 'S'}</span>
+        {wsKey === 'archive' && (
+          <>
+            <span class="wp-wshub-dot" aria-hidden="true">·</span>
+            <span class="wp-wshub-stat is-done"><b>DONE {m.done || 0}/{m.total || 0}</b></span>
+          </>
+        )}
+      </div>
+      {m.rowCount === 0 && (
+        <div class="wp-wshub-empty">no rows carry this craft yet — tag some work in the master script and it gathers here.</div>
+      )}
+      <div class="wp-wshub-foot">direction text not counted as time</div>
+    </section>
+  );
+}
+
 // ── READ / EDIT MODE SWITCH — the sticky top-center toggle (Johnny: "a sticky button that
 // allows one to toggle between edit mode and read mode, and it starts in read mode"). Two flat
 // segments, TE-hardware register: the active one is inked. Fixed, so it rides every scroll.
@@ -1282,6 +1402,15 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const [chFocus, setChFocus] = useState(null);
   const chScroll = useRef(0);       // scroll position to come back to — the "seamless" return
   const everFocused = useRef(false); // guards the restore effect from firing on plain mount
+  // WORKSPACES — the active workspace key (null = master script). 'map' = the SCRIPT MAP
+  // route (stage 4's non-editor view; the filter plugin ignores it by design).
+  const [ws, setWs] = useState(null);
+  const wsRef = useRef(null);        // mirror for handlers that must not re-subscribe on ws
+  wsRef.current = ws;
+  const [wsMetrics, setWsMetrics] = useState(null);
+  const wsScroll = useRef(0);
+  const everWs = useRef(false);
+  const wsRole = ws ? workspaceRole(ws) : null;
 
   useEffect(() => {
     document.title = `${EPISODE.wordmark} · ${DOC_TITLE}`;
@@ -1352,9 +1481,11 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
 
     let saveTimer = 0;
     const onScroll = () => {
-      // Never overwrite the reading position while in chapter-focus — that scrolls to 0 then
-      // restores its pre-focus spot on exit; the page carries data-chfocus while focused.
-      if (document.querySelector('.wp-page')?.hasAttribute('data-chfocus')) return;
+      // Never overwrite the reading position while in chapter-focus OR a workspace — both
+      // scroll to 0 then restore their pre-entry spot on exit; the page carries
+      // data-chfocus / data-ws while they hold the screen.
+      const page = document.querySelector('.wp-page');
+      if (page?.hasAttribute('data-chfocus') || page?.hasAttribute('data-ws')) return;
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
         try { localStorage.setItem(key, String(Math.round(window.scrollY))); } catch {}
@@ -1408,6 +1539,123 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [chFocus, exitChapterFocus]);
+
+  // ── WORKSPACES — enter / exit / ESC / jump / deep link ─────────────────────────────
+  // Entering a CRAFT workspace feeds the key into the filter plugin as a transaction meta
+  // (decoration-only, no doc change, no reload — the chapter-focus pattern) and rewrites
+  // the hash-query via replaceState. 'map' skips the plugin (stage 4 owns that view).
+  // Never in a ?read share: the menu isn't mounted and the deep link is ignored (v1).
+  const enterWorkspace = useCallback((key) => {
+    if (readOnly) return;
+    const role = workspaceRole(key);
+    if (!role && key !== WS_MAP_KEY) return;
+    const ed = editorRef.current;
+    if (role) {
+      if (!ed) return;
+      try { ed.view.dispatch(ed.state.tr.setMeta(workspaceFilterKey, { key })); } catch { return; }
+    } else if (ed) {
+      // Switching straight from a craft workspace to the map clears the cutout paint.
+      try { ed.view.dispatch(ed.state.tr.setMeta(workspaceFilterKey, null)); } catch {}
+    }
+    if (!wsRef.current) wsScroll.current = window.scrollY; // remember the master position once
+    setWs(key);
+    writeWsFlag(key);
+  }, [readOnly]);
+
+  const exitWorkspace = useCallback(() => {
+    const ed = editorRef.current;
+    try { ed?.view.dispatch(ed.state.tr.setMeta(workspaceFilterKey, null)); } catch {}
+    setWs(null);
+    setWsMetrics(null);
+    writeWsFlag(null);
+  }, []);
+
+  // Scroll choreography — same dance as chapter focus: enter at the top, exit restores
+  // the exact master position on the next frame (after the hidden rows re-render).
+  useEffect(() => {
+    if (ws) { everWs.current = true; window.scrollTo(0, 0); return undefined; }
+    if (!everWs.current) return undefined;
+    const id = requestAnimationFrame(() => window.scrollTo(0, wsScroll.current || 0));
+    return () => cancelAnimationFrame(id);
+  }, [ws]);
+
+  // ESC exits the workspace — chapter focus (if somehow active) and floating menus win first.
+  useEffect(() => {
+    if (!ws) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (chFocus) return; // chapter focus owns its own Esc
+      if (document.querySelector('.wp-rowmenu, .wp-addrows-menu, .wp-slash-menu, .wp-convert-menu, .wp-find')) return;
+      exitWorkspace();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [ws, chFocus, exitWorkspace]);
+
+  // SECTION PILL JUMP (wp-ws-jump from the filter's meta pill): exit the workspace and
+  // scroll the MASTER to that section's first row — resolved by firstBlockId AT CLICK
+  // TIME via the DOM (the ?bm= deep-link pattern), never a stale index. The rAF seek
+  // waits out the re-render that brings the hidden rows back.
+  useEffect(() => {
+    const onJump = (e) => {
+      const id = e.detail && e.detail.blockId;
+      everWs.current = false; // suppress the scroll-restore — the jump owns the landing
+      exitWorkspace();
+      if (!id) return;
+      let tries = 0;
+      const seek = () => {
+        tries += 1;
+        let node = null;
+        try {
+          const esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/["\\]/g, '');
+          node = document.querySelector(`[data-block-id="${esc}"]`);
+        } catch {}
+        if (node) {
+          const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+          node.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+          const row = node.closest('.wp-trow') || node;
+          row.classList.add('wp-bm-target');
+          setTimeout(() => { try { row.classList.remove('wp-bm-target'); } catch {} }, 2600);
+          return;
+        }
+        if (tries < 30) requestAnimationFrame(seek);
+      };
+      requestAnimationFrame(seek);
+    };
+    window.addEventListener('wp-ws-jump', onJump);
+    return () => window.removeEventListener('wp-ws-jump', onJump);
+  }, [exitWorkspace]);
+
+  // DEEP LINK — #slug?ws=<key> (search or hash-query). Enter once the editor is ready;
+  // a collab room that syncs later just repaints the already-active filter (the plugin
+  // rebuilds on every doc change). Ignored in ?read shares for v1.
+  useEffect(() => {
+    if (readOnly) return undefined;
+    let target = null;
+    try { target = parseWsFlag(window.location.search, window.location.hash); } catch {}
+    if (!target) return undefined;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (editorRef.current) {
+        clearInterval(timer);
+        enterWorkspace(target);
+        return;
+      }
+      if (tries > 75) clearInterval(timer);
+    }, 400);
+    return () => clearInterval(timer);
+  }, [readOnly, enterWorkspace]);
+
+  // HUB METRICS — recomputed on the telemetry cadence (Editor.jsx already debounces +
+  // idle-schedules the telemetry walk; this effect keys on that state landing), plus once
+  // on entry. NO work while no workspace is active, and never on the keystroke path.
+  useEffect(() => {
+    if (!wsRole) return;
+    const ed = editorRef.current;
+    if (!ed) return;
+    try { setWsMetrics(workspaceMetrics(ed.state.doc, ws)); } catch {}
+  }, [tel, ws, wsRole]);
 
   // BOOKMARK DEEP LINK — poll for the ⚑ row (it can render late: collab sync, cloud seed),
   // then center + flash it once. Gives up quietly after ~30s.
@@ -1501,7 +1749,17 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       data-readonly={readOnly ? '' : undefined}
       data-mode={!readOnly && editUi ? 'edit' : 'read'}
       data-chfocus={chFocus ? '' : undefined}
+      data-ws={ws || undefined}
     >
+      {ws && !chFocus && (
+        <div class="wp-wsbar" role="region" aria-label="workspace">
+          <button class="wp-wsbar-back" onClick={exitWorkspace} title="Back to the full script (Esc)">‹ BACK TO SCRIPT</button>
+          <span class="wp-wsbar-lab">
+            {wsRole ? `WORKSPACE · ${wsRole.label}` : 'SCRIPT MAP'}
+          </span>
+          <span class="wp-wsbar-hint">ESC TO EXIT</span>
+        </div>
+      )}
       {chFocus && (
         <div class="wp-chfocus-bar" role="region" aria-label="chapter focus">
           <button class="wp-chfocus-back" onClick={exitChapterFocus} title="Back to the full script (Esc)">‹ BACK TO SCRIPT</button>
@@ -1533,6 +1791,13 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             <span class="wp-masthead-tag">{readOnly ? 'SCRIPT · SHARED' : 'SCRIPT · DRAFT'}</span>
             {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader. */}
             {!readOnly && <TipsToggle />}
+            {/* WORKSPACES — gated exactly like the other masthead popovers (owner chrome). */}
+            {!readOnly && (
+              <WorkspacesMenu
+                getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
+                onPick={enterWorkspace}
+              />
+            )}
             {!readOnly && <ShareToggle project={EPISODE.id} />}
             <ShortcutsOverlay />{/* ⌘/ help card — read-only chrome, works on ?read shares too */}
           </div>
@@ -1555,6 +1820,15 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             {words.toLocaleString()} WORDS · {blocks} BLOCKS · <span class="wp-tel-sot">{String(done).padStart(2, '0')}/{String(sot).padStart(2, '0')} SOT</span> · DRAFT
           </div>
         </header>
+
+        {/* WORKSPACE HUB — the craft's dashboard, above the editor while a workspace is
+            active. The SCRIPT MAP route renders its (stage-4) host instead of the hub. */}
+        {wsRole && <WorkspaceHub wsKey={ws} metrics={wsMetrics} />}
+        {ws === WS_MAP_KEY && (
+          <div class="wp-wsmap-host" id="wp-wsmap-host">
+            <span class="wp-wsmap-note">SCRIPT MAP — this bird's-eye view arrives in the next stage.</span>
+          </div>
+        )}
 
         {/* the cartridge rack = the live editor. PRE-SCRIPT zone (masthead → setup NOTE
             boxes → ▸ SCRIPT BEGINS) is built INSIDE the doc: the leading scaffold bins now

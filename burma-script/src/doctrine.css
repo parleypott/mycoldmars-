@@ -504,3 +504,129 @@
 }
 .wp-chframe-first .wp-chapter:hover .wp-ch-focus { opacity: .85; }
 .wp-chframe-first .wp-chapter .wp-ch-focus:hover { opacity: 1; }
+
+/* ───────────────────────── WORKSPACE CUTOUTS ─────────────────────────
+   The per-craft workspace view (extensions/workspace-filter.js). Each craft
+   section renders as a FLOATING CUTOUT CARD: member rows carry the face
+   background inside 1.5px ink card walls, the section's outer rows round the
+   corners, and the page background shows through the generous gaps between
+   cards. The single row hugging each card edge stays as a GHOST — faded to
+   atmosphere, feathered by a mask, untouchable. FLAT — the cutout reads
+   through bg contrast + the ink hairline, never a shadow.
+   Lives in doctrine.css (loads last) so the card paint wins over the
+   chapter-frame rules above on shared rows. */
+
+/* hidden rows AND bare top-level strays (trailing paragraph, scriptStart) */
+.wp-ws-hidden { display: none; }
+
+/* the card face — member rows (sticky "left" rows included) */
+.wp-trow.wp-ws-member {
+  background: var(--face);
+  border-left: 1.5px solid var(--ink);
+  border-right: 1.5px solid var(--ink);
+  padding-left: 22px;
+  padding-right: 22px;
+}
+/* a member row that is also a chapter-frame row: the card wall replaces the
+   frame rail; the frame's own fill/radius/margins stand down inside a cutout */
+.wp-trow.wp-ws-member.wp-chframe {
+  background: var(--face);
+  border-left: 1.5px solid var(--ink);
+  border-right: 1.5px solid var(--ink);
+  border-top: 0;
+  border-radius: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+/* card corners — the section's outer rows (placed AFTER the chframe reset so
+   the radius/margins win on a first/last row that is also a chframe row) */
+.wp-trow.wp-ws-first {
+  border-top: 1.5px solid var(--ink);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  padding-top: 12px;
+  margin-top: 8px;
+}
+.wp-trow.wp-ws-last {
+  border-bottom: 1.5px solid var(--ink);
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+/* GHOSTS — the context whisper hugging each card edge. No card chrome, ~quarter
+   ink, feathered by a vertical mask, and dead to the pointer: atmosphere, not
+   surface. is-above sits above a card and fades downward INTO the content;
+   is-below fades out; a row pinched between two cards feathers from both edges. */
+.wp-trow.wp-ws-ghost {
+  background: transparent;
+  border: 0;
+  opacity: .25;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wp-trow.wp-ws-ghost.is-above {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 88%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 88%);
+}
+.wp-trow.wp-ws-ghost.is-below {
+  -webkit-mask-image: linear-gradient(to bottom, #000 12%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 12%, transparent 100%);
+  margin-bottom: 30px; /* clean page-bg air after the fade — the cards must FLOAT */
+}
+.wp-trow.wp-ws-ghost.is-above.is-below {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 100%);
+}
+
+/* STICKY ROWS — still on the card after their craft surface was edited away.
+   A quiet mono tag names the state; the row itself stays fully editable. */
+.wp-trow.wp-ws-left::after {
+  content: 'left this workspace';
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  z-index: 3;
+  height: auto;
+  background: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--label-3);
+  pointer-events: none;
+}
+
+/* SECTION META PILL — floats above each cutout's top-left ("CH 03 — THE
+   CROSSING · ROWS 171–191"). A widget decoration in normal flow, so the pill
+   provides the breathing room between cards; clicking it jumps the master. */
+.wp-ws-meta {
+  display: flex;
+  justify-content: flex-start;
+  margin: 44px 0 6px;
+  padding: 0 2px;
+}
+.wp-ws-meta:first-child { margin-top: 10px; }
+.wp-ws-meta-pill {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--frame);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 5px 13px;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wp-ws-meta-pill:hover { background: var(--ink); color: var(--frame); }
