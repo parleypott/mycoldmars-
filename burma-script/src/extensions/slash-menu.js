@@ -259,6 +259,48 @@ export function doConvertBlockToVo(state, dispatch, range) {
   return true;
 }
 
+// BULK /vo across a SELECTION — the "VO" entry of the right-click bulk menu (convert-menu.js).
+// Retypes EVERY convertible block the selection touches to a voBlock in ONE transaction (one undo
+// reverts the lot). "Convertible" is the exact same set /vo honours per block: a VO_CONVERTIBLE
+// cart (noneBlock/binBlock/oncamBlock/montageBlock) OR a bare cell paragraph (a "+"-added row with
+// no cart wrapper). A block carrying structure or producer data (chapter/scene/SOT/broll/image, or
+// an already-VO block) is left untouched — VO bulk never silently retypes those. Targets are
+// collected first (one entry per outermost convertible unit — the walk stops descending once it
+// claims a block), then retyped HIGH→LOW so the bare-paragraph wraps (which grow the doc by the
+// voBlock's open/close tokens) never invalidate an earlier, still-unprocessed target's position.
+// Pure (state, dispatch, from, to) -> boolean (true iff at least one block was retyped). Exported
+// for the headless suite and shared with the bulk menu.
+export function bulkRetypeToVo(state, dispatch, from, to) {
+  if (!state.schema.nodes.voBlock) return false;
+  const max = state.doc.content.size;
+  const lo = Math.max(0, Math.min(from, to, max));
+  const hi = Math.max(0, Math.min(Math.max(from, to), max));
+
+  // One target position (a spot INSIDE the block, where retypeHostToVo's ancestor walk starts) per
+  // outermost convertible unit intersecting [lo,hi]. return false halts descent so a paragraph
+  // inside a claimed cart is never also claimed on its own.
+  const targets = [];
+  state.doc.nodesBetween(lo, hi, (node, pos, parent) => {
+    if (VO_CONVERTIBLE.includes(node.type.name)) { targets.push(pos + 1); return false; }
+    if (node.type.name === 'paragraph' && parent && parent.type.name === 'tableCell') {
+      targets.push(pos + 1);
+      return false;
+    }
+    return true;
+  });
+  if (!targets.length) return false;
+
+  const tr = state.tr;
+  let changed = false;
+  // High→low: a wrap at a later position can't shift an earlier target's coordinates.
+  for (let i = targets.length - 1; i >= 0; i--) {
+    if (retypeHostToVo(tr, state.schema, targets[i])) changed = true;
+  }
+  if (!changed) return false;
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // /bullet + /number — delete the slash trigger then toggle the host block into a list. These are
 // the discoverable, un-hijackable backups for Cmd/Ctrl+Shift+8 / +7 (a chord the OS steals can't
 // be fixed in JS). One chain = one undo. toggleBulletList / toggleOrderedList are StarterKit
