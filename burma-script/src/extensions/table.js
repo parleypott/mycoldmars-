@@ -1491,7 +1491,13 @@ export const TableRow = Node.create({
       return {
         dom,
         contentDOM: content,
-        ignoreMutation: (m) => (handle && (handle === m.target || handle.contains(m.target)))
+        // Attribute flips on the row's OWN dom are chrome paint, never content: the drag system's
+        // wp-drop-before/after indicator + wp-trow-dragging classes, and our own painted attrs
+        // (data-cols/pair-id/bookmark). Left unignored, every indicator paint read as a real
+        // mutation → PM re-rendered the nodeView → the fresh dom wiped the class → the next
+        // dragover re-painted it — a teardown/flicker loop on every frame of a row drag.
+        ignoreMutation: (m) => (m.type === 'attributes' && m.target === dom)
+          || (handle && (handle === m.target || handle.contains(m.target)))
           || (addWrap && (addWrap === m.target || addWrap.contains(m.target)))
           || (mergeWrap && (mergeWrap === m.target || mergeWrap.contains(m.target)))
           || (splitWrap && (splitWrap === m.target || splitWrap.contains(m.target)))

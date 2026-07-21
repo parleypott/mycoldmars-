@@ -423,25 +423,26 @@
 }
 
 /* ───────────────────────── DRAG-TO-REORDER ROWS ─────────────────────────
-   A ⇕ grip in each row's far-left gutter; grab it to drag the whole row. Flat,
-   faint by default, the ONE accent when reached for. (Only emitted when
-   rowDragReorder is on.) Distinct glyph from the block ⠿ grip — two identical
-   grips made users grab the wrong drag system. The hit target is the FULL row
-   height of the gutter strip (was a 20×22 sliver), so the grab lands. */
+   A 3-bar grip in each row's far-left gutter — since the ⊞ split/merge spine
+   died (its job moved to the column-divider chips), the grip owns that slot:
+   left -26px, INSIDE the device card. The old -50px put it outside the card
+   at everyday window widths (covered by the reading-controls panel — "the
+   grip doesn't even work") and collided with the -46px margin row numbers.
+   Flat, faint by default, the ONE accent when reached for; full-row-height
+   hit strip so the grab lands. (Only emitted when rowDragReorder is on.)
+   Distinct from the block ⠿ grip — two identical grips made users grab the
+   wrong drag system. */
 .wp-row-drag {
   position: absolute;
-  left: -50px;
+  left: -26px;
   top: 0;
   bottom: 0;
-  width: 26px;
+  width: 22px;
   height: auto;
   min-height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1;
   color: var(--lane-lab);
   opacity: 0;
   cursor: grab;

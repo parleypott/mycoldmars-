@@ -1161,30 +1161,11 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
 .wp-trow.wp-ws-ghost .wp-row-drag { display: none; }
 
 /* ---- ROW DRAG GRIP — the ONLY way a row moves ------------------------------
-   Far-left margin, the (dead) ⊞ spine's old slot. Three quiet bars, mono/flat,
-   cursor:grab; reveals on row hover like every other margin affordance. In-cell
-   drags are structurally dead (TableRow draggable:false + the capture-phase
-   dragstart guard in table.js) — grab HERE or the row does not move. */
-.wp-row-drag {
-  position: absolute;
-  left: -26px;
-  top: 2px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--lane-lab);
-  opacity: 0;
-  cursor: grab;
-  border-radius: 4px;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: opacity .14s var(--ease), color .14s var(--ease);
-}
-.wp-trow:hover .wp-row-drag { opacity: .55; }
-.wp-row-drag:hover { opacity: 1; color: var(--orange); }   /* the ONE orange accent */
-.wp-row-drag:active { cursor: grabbing; }
+   Styled in doctrine.css (.wp-row-drag, loads last): far-left margin, the
+   (dead) ⊞ spine's old -26px slot, three quiet bars, cursor:grab, row-hover
+   reveal. In-cell drags are structurally dead (TableRow draggable:false + the
+   capture-phase dragstart guard in table.js) — grab THERE or the row does not
+   move. */
 
 /* ---- CELL = a flex column slot --------------------------------------------- */
 .wp-tcell { flex: 1 1 0; min-width: 0; display: block; position: relative; }
