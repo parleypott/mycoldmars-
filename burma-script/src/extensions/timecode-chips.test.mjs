@@ -164,4 +164,51 @@ ok('plain prose with no timecodes is a no-op', () => {
   assert.equal(convertTimecodesInRange(state, 0, state.doc.content.size, () => { throw new Error('should not dispatch'); }), false);
 });
 
+// ── WHOLE-SCRIPT CONVERT: multi-row doc, ONE transaction, every dead code chipped ────────────────
+// A doc with the same shape as a fresh table script (several tableRows, each a voBlock paragraph),
+// mixing plain codes, day-prefixed codes, and a broll run in a bullet. `convertTimecodesInRange`
+// over the WHOLE doc must chip them all in ONE transaction — this is the "convert every timecode in
+// the whole script" one-click path. Also pins the block-boundary fix: a "DAY N" at a row's start must
+// keep its day even though the previous row's text ends in a letter (no gluing across the boundary).
+const broll = (text) => ({ type: 'text', text, marks: [{ type: 'directionMark', attrs: { kind: 'broll', status: 'unchecked' } }] });
+function multiRowDoc() {
+  const row = (content) => ({ type: 'tableRow', attrs: { cols: 1, pairId: null }, content: [{ type: 'tableCell', attrs: { role: 'full' }, content }] });
+  return PMNode.fromJSON(schema, { type: 'doc', content: [
+    row([{ type: 'voBlock', attrs: { blockId: 'b1', status: 'todo' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'cut here 00:01:02:03 more' }] }] }]),
+    // The middle row STARTS with "DAY 2" and the previous row ends in a letter ("more") — the block
+    // boundary must not let the 'e' defeat the day-branch lookbehind.
+    row([{ type: 'voBlock', attrs: { blockId: 'b2', status: 'todo' }, content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [broll('DAY 2 00:03:48:02')] }] }] }] }]),
+    row([{ type: 'voBlock', attrs: { blockId: 'b3', status: 'todo' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'DAY 3 - 00:09:44:16' }] }] }]),
+  ] });
+}
+
+ok('whole-script convert chips EVERY dead code across rows/lists/broll in ONE transaction, days intact', () => {
+  setEpisode(episode({ timecodeChips: true, palauTimecodes: true, dayFold: true }));
+  let state = EditorState.create({ schema, doc: multiRowDoc() });
+  const before = state.tr; // capture step count baseline
+  assert.equal(convertTimecodesInRange(state, 0, state.doc.content.size, (tr) => {
+    // ONE transaction — the retro-convert never dispatches more than once.
+    assert.ok(tr.docChanged, 'the single transaction changes the doc');
+    state = state.apply(tr);
+  }), true);
+  const runs = timecodeRuns(state.doc).sort((a, b) => a.tc.localeCompare(b.tc));
+  assert.deepEqual(runs.map((r) => ({ day: r.day, tc: r.tc })), [
+    { day: null, tc: '00:01:02:03' }, // bare, no day
+    { day: 2, tc: '00:03:48:02' },    // broll-in-bullet, day kept ACROSS the block boundary (the fix)
+    { day: 3, tc: '00:09:44:16' },    // dash form
+  ], 'all three chipped with correct days');
+  // Idempotent: a second whole-doc pass finds nothing to do.
+  assert.equal(convertTimecodesInRange(state, 0, state.doc.content.size, () => { throw new Error('should not re-dispatch'); }), false);
+  void before;
+});
+
+ok('block-boundary separator: a row-starting "DAY N" is NOT robbed of its day by the previous row', () => {
+  setEpisode(episode({ timecodeChips: true }));
+  const state = EditorState.create({ schema, doc: multiRowDoc() });
+  const ops = collectRowTimecodeOps(state, 0, state.doc.content.size);
+  const mid = ops.find((o) => o.tc === '00:03:48:02');
+  assert.ok(mid, 'the middle code is collected');
+  assert.equal(mid.day, 2, 'its day survives the cross-row flatten (regression guard for the glue bug)');
+});
+
 console.log(`\ntimecode-chips.test.mjs — ${pass} checks passed`);

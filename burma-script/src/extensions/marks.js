@@ -342,10 +342,23 @@ const tcChipAttrs = (match) => ({ day: match[1] ? Number(match[1]) : null, tc: m
 // carries the timecode mark, the "DAY N" before it does not), which a per-text-node scan would never
 // pair up. Inline atoms map to a single ￼ (never part of a timecode), so their positions stay
 // honest without polluting matches.
+//
+// BLOCK BOUNDARIES get a '\n' separator (whole-script scans cross many textblocks). Without it the
+// last char of one block glues to the first of the next in the flat string — e.g. a row ending "…here"
+// followed by a row starting "DAY 2 00:…" flattens to "…hereDAY 2 00:…", and the day-branch's
+// `(?<![A-Za-z])` lookbehind then sees the 'e' and REFUSES the day, silently dropping it (the code
+// still chips, but bare). '\n' can never be part of a timecode/day match (the code is contiguous
+// digits+colons; \s in the day-branch would only ever pair a code with a "DAY N" in the SAME block —
+// a boundary '\n' can't fabricate a cross-block pairing that a real caret-typed line wouldn't). Its
+// mapped position is the block's own pos; matches never start ON it, so that position is inert.
 function inlineTextMap(state, from, to) {
   let text = '';
   const posOf = [];
   state.doc.nodesBetween(from, to, (node, p) => {
+    if (node.isTextblock && text.length) {
+      // Separate each textblock from the previous flattened content so cross-block chars never glue.
+      text += '\n'; posOf.push(p);
+    }
     if (node.isText && node.text) {
       for (let i = 0; i < node.text.length; i++) { text += node.text[i]; posOf.push(p + i); }
     } else if (node.isInline) {
@@ -692,15 +705,25 @@ function findTcChipRect(view, pos) {
   } catch { return null; }
 }
 
-// The RETRO-CONVERT menu — one item, offered when a right-click lands on plain text whose row still
-// holds dead timecodes (see the contextmenu handler). Reuses the .wp-blockmenu chrome + the single
-// open-menu machinery (openTcMenuEl / closeTcMenu) so only one tc menu is ever live. Picking it runs
-// convertTimecodesInRange as ONE transaction (arming EDIT mode first if the surface is only-read —
-// the same reaching-for-the-pen rule the DAY picker uses).
+// The RETRO-CONVERT menu — offered when a right-click lands on plain text while the doc still holds
+// dead (never-chipped) timecodes (see the contextmenu handler). Two items, each only when it has work:
+//   • "Convert N timecode(s) on this row"     — the clicked row's dead codes.
+//   • "Convert all N timecodes in script"     — every dead code in the WHOLE doc, ONE transaction, one
+//                                               undo. This is how Johnny converts a script that predates
+//                                               the timecodeChips ship in a single click, without going
+//                                               row-by-row. Shown whenever the doc holds MORE than the
+//                                               row already offers (docHits > rowHits), so a single-row
+//                                               doc shows just the row item — never a redundant pair.
+// Reuses the .wp-blockmenu chrome + the single open-menu machinery (openTcMenuEl / closeTcMenu) so only
+// one tc menu is ever live. Each pick runs convertTimecodesInRange as ONE transaction (arming EDIT mode
+// first if the surface is only-read — the same reaching-for-the-pen rule the DAY picker uses).
 function openTcConvertMenu(view, from, to, rect) {
   closeTcMenu();
-  const hits = collectRowTimecodeOps(view.state, from, to);
-  if (!hits.length) return;
+  const rowHits = collectRowTimecodeOps(view.state, from, to).length;
+  const docFrom = 0;
+  const docTo = view.state.doc.content.size;
+  const docHits = collectRowTimecodeOps(view.state, docFrom, docTo).length;
+  if (!rowHits && !docHits) return;
 
   const menu = document.createElement('div');
   menu.className = 'wp-blockmenu wp-tcmenu';
@@ -712,22 +735,28 @@ function openTcConvertMenu(view, from, to, rect) {
   head.textContent = 'Timecodes';
   menu.appendChild(head);
 
-  const n = hits.length;
-  const item = document.createElement('button');
-  item.type = 'button';
-  item.className = 'wp-bm-item';
-  item.textContent = `Convert ${n} timecode${n === 1 ? '' : 's'} on this row`;
-  item.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    // Arm EDIT if the surface is only-read (setEditMode flips view.editable synchronously); a
-    // structural block (?read share, unsynced collab) stays non-editable and we simply do nothing.
-    if (!view.editable) { try { setEditMode(true); } catch {} }
-    if (view.editable) convertTimecodesInRange(view.state, from, to, (tr) => view.dispatch(tr));
-    closeTcMenu();
-    view.focus();
-  });
-  makeItemKeyActivatable(item);
-  menu.appendChild(item);
+  // A pick funnels through here: arm EDIT if the surface is only-read (setEditMode flips view.editable
+  // synchronously); a structural block (?read share, unsynced collab) stays non-editable → do nothing.
+  const addConvertItem = (label, rangeFrom, rangeTo) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'wp-bm-item';
+    item.textContent = label;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!view.editable) { try { setEditMode(true); } catch {} }
+      if (view.editable) convertTimecodesInRange(view.state, rangeFrom, rangeTo, (tr) => view.dispatch(tr));
+      closeTcMenu();
+      view.focus();
+    });
+    makeItemKeyActivatable(item);
+    menu.appendChild(item);
+  };
+
+  if (rowHits) addConvertItem(`Convert ${rowHits} timecode${rowHits === 1 ? '' : 's'} on this row`, from, to);
+  // Only offer the whole-script sweep when it reaches codes the row item wouldn't (docHits > rowHits).
+  // rowHits === 0 (right-click on plain text with no code on THIS row) still surfaces it via docHits > 0.
+  if (docHits > rowHits) addConvertItem(`Convert all ${docHits} timecode${docHits === 1 ? '' : 's'} in script`, docFrom, docTo);
 
   document.body.appendChild(menu);
   menu.style.position = 'fixed';
@@ -900,10 +929,13 @@ export const TimecodeMark = Mark.create({
               return true;
             }
             // RETRO-CONVERT (the "still doesn't render" fix): a right-click on PLAIN TEXT — not a
-            // chip — whose row still holds DEAD, never-chipped timecodes offers a one-shot convert.
-            // Only when chips are enabled (else this episode never chips) and the selection is EMPTY:
-            // a non-empty selection belongs to the ConvertMenu (viz kinds), which runs after this
-            // plugin. Target the paragraph UNDER THE POINTER (right-click doesn't move the caret).
+            // chip — offers a one-shot convert whenever DEAD, never-chipped timecodes remain anywhere
+            // in the doc (this row and/or the whole script). Only when chips are enabled (else this
+            // episode never chips) and the selection is EMPTY: a non-empty selection belongs to the
+            // ConvertMenu (viz kinds), which runs after this plugin. Target the paragraph UNDER THE
+            // POINTER (right-click doesn't move the caret) for the per-row item; the doc scan is
+            // whole-range. The gate fires if EITHER has work so a script full of dead codes surfaces
+            // the whole-script sweep even when the clicked row itself has none.
             if (!episodeFlag('timecodeChips') || !view.state.selection.empty) return false;
             const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
             if (!at) return false;
@@ -912,7 +944,9 @@ export const TimecodeMark = Mark.create({
             if (!$p.parent.isTextblock) return false;
             const paraFrom = $p.start();
             const paraTo = $p.end();
-            if (!convertTimecodesInRange(view.state, paraFrom, paraTo, null)) return false; // dry probe
+            const rowHasCodes = convertTimecodesInRange(view.state, paraFrom, paraTo, null); // dry probe
+            const docHasCodes = convertTimecodesInRange(view.state, 0, view.state.doc.content.size, null);
+            if (!rowHasCodes && !docHasCodes) return false;
             event.preventDefault();
             const r = { left: event.clientX, top: event.clientY, bottom: event.clientY, right: event.clientX };
             openTcConvertMenu(view, paraFrom, paraTo, r);
