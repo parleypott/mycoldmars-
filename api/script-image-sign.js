@@ -27,7 +27,7 @@ import { checkAccess } from './_lib/access.js';
 import { withSentry } from './_lib/sentry.js';
 import { imageStorageMeta } from './_lib/image-storage.js';
 import { readJsonBody } from './_lib/read-json-body.js';
-import { buildImagePath } from './script-image-upload.js';
+import { buildImagePath, buildHashImagePath, isContentHash, storageObjectExists } from './script-image-upload.js';
 
 export const config = { runtime: 'edge' };
 
@@ -114,7 +114,26 @@ export default withSentry(async function handler(req) {
   }
 
   const { mime, ext } = mediaStorageMeta(body.mimeType);
-  const path = buildImagePath(body.project, body.block_id, ext, Date.now().toString(36));
+
+  // DEDUPE (mirrors script-image-upload): a SHA-256 of the bytes routes to a content-addressed path.
+  // If that object already exists, we return its public URL with deduped:true and NO uploadUrl — the
+  // client skips the PUT entirely, so a 60MB reference GIF re-used across scripts moves ZERO bytes the
+  // second time. No hash → the original stamped never-overwrite path, byte-for-byte as before.
+  const hash = String(body.contentHash || '').toLowerCase();
+  const deduping = isContentHash(hash);
+  const path = deduping
+    ? buildHashImagePath(hash, ext)
+    : buildImagePath(body.project, body.block_id, ext, Date.now().toString(36));
+
+  if (deduping && await storageObjectExists(SUPABASE_URL, SUPABASE_KEY, BUCKET, path)) {
+    return j(200, {
+      ok: true,
+      path,
+      publicUrl: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`,
+      mime,
+      deduped: true,
+    });
+  }
 
   let signed;
   try {

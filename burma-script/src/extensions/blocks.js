@@ -1107,6 +1107,60 @@ export function isMotionSrc(src) {
   return isVideoSrc(src) || /\.gif$/i.test(String(src || '').split(/[?#]/, 1)[0]);
 }
 
+// ── INLINE IMAGE TRANSFORM (Supabase render endpoint) ───────────────────────────────────
+// The rack renders reference STILLS inline at a BOUNDED width via Supabase's on-the-fly image
+// transform endpoint (/render/image/public/…), which also auto-negotiates WebP off the browser's
+// Accept header. A pasted screenshot is a ~1MB PNG; served through the transform at column width it
+// lands ~30-50KB (a 20-30× cut), so a 300-still Nile script downloads ~12MB inline instead of
+// ~300MB. FULL RES is always one click away — the lightbox and the DOWNLOAD button read the RAW
+// a.src, never the transform, so nothing about crop fidelity, downloads, or exports changes.
+//
+// Only OUR public storage URLs are rewritten (…/storage/v1/object/public/<bucket>/<path>); bundled
+// /palau2/img/* paths, foreign hosts, data:, and already-query-stringed/signed URLs pass through
+// untouched. Videos are NEVER transformed (the endpoint is image-only). If a transformed URL ever
+// fails to load the nodeview self-heals to the original AND disables transforms for the rest of the
+// session (feature-detect once, cache the verdict) — a project with transforms turned off still works.
+const STORAGE_PUBLIC_MARKER = '/storage/v1/object/public/';
+const STORAGE_RENDER_MARKER = '/storage/v1/render/image/public/';
+export const INLINE_WIDTH_LADDER = [480, 768, 1080, 1440];
+
+// Snap a target CSS width (× DPR, capped ×2) UP to the nearest ladder rung so the CDN caches a small
+// fixed set of variants instead of one per pixel width. Past the top rung the lightbox serves full res.
+export function pickInlineWidth(boxWidthPx, dpr = 1) {
+  const factor = Math.min(Math.max(Number(dpr) || 1, 1), 2);
+  const target = Math.max(1, Math.round((Number(boxWidthPx) || 720) * factor));
+  for (const w of INLINE_WIDTH_LADDER) if (w >= target) return w;
+  return INLINE_WIDTH_LADDER[INLINE_WIDTH_LADDER.length - 1];
+}
+
+// Rewrite an eligible public storage URL to its bounded transform variant. Returns the input
+// UNCHANGED for anything unsafe to transform (video, foreign host, bundled path, already-query'd).
+// Pure + exported so the eligibility boundary is a locked test.
+export function supabaseInlineSrc(src, width, quality = 78) {
+  const s = String(src || '');
+  if (isVideoSrc(s)) return s;                       // endpoint is image-only
+  const i = s.indexOf(STORAGE_PUBLIC_MARKER);
+  if (i < 0) return s;                                // bundled / relative / foreign — leave it
+  const rest = s.slice(i + STORAGE_PUBLIC_MARKER.length); // "<bucket>/<path>"
+  if (!rest || rest.includes('?') || rest.includes('#')) return s; // don't touch signed/query URLs
+  const w = Math.round(Number(width) || 0);
+  if (!(w > 0)) return s;
+  const q = Math.min(100, Math.max(1, Math.round(Number(quality) || 78)));
+  return `${s.slice(0, i)}${STORAGE_RENDER_MARKER}${rest}?width=${w}&quality=${q}`;
+}
+
+// Pure: is this src pointing at the transform endpoint? Used by the nodeview's error handler to tell
+// a failed TRANSFORM (fall back to original) from a genuinely broken original (leave it broken).
+export function isRenderTransformSrc(src) {
+  return String(src || '').includes(STORAGE_RENDER_MARKER);
+}
+
+// Session verdict — flips false the first time any transform URL errors, then every inline image
+// falls back to its raw original. Module-scoped so the whole rack shares one feature-detect result.
+let inlineTransformsOk = true;
+export function inlineTransformsEnabled() { return inlineTransformsOk; }
+export function disableInlineTransforms() { inlineTransformsOk = false; }
+
 // Pure: the download filename STEM, from the caption (alt). Sanitized to a filesystem-safe
 // slug (word chars + dashes), stripped of leading/trailing dashes, capped at 60 chars, with
 // an always-nonempty fallback so a download can never land as a bare ".ext".
@@ -1349,13 +1403,35 @@ export const ImageBlock = Node.create({
       boxEl.appendChild(cropWrap);
       dom.appendChild(boxEl);
 
+      // Bounded inline src for the CURRENT image attrs: the Supabase transform variant sized to the
+      // box (× DPR), or the raw src when transforms are off/ineligible/video. The lightbox + download
+      // never call this — they always read the full-res a.src.
+      const inlineSrcFor = (a) => {
+        if (!inlineTransformsOk || isVideoSrc(a.src)) return a.src || '';
+        const measured = boxEl.getBoundingClientRect().width;
+        const boxW = measured > 0 ? measured : (Number.isFinite(a.width) ? a.width : 720);
+        const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+        return supabaseInlineSrc(a.src, pickInlineWidth(boxW, dpr));
+      };
+
       const makeMediaEl = (a) => {
         if (isVideoSrc(a.src)) {
           const v = el('video', 'wp-image-img', { ...VIDEO_LOOP_ATTRS });
           v.muted = true; v.autoplay = true; v.loop = true; v.playsInline = true;
           return v;
         }
-        return el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
+        const img = el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
+        // FEATURE-DETECT ONCE: a failed TRANSFORM url (not a broken original) → turn transforms off
+        // for the session and repaint this image at full res. The guard on isRenderTransformSrc stops
+        // any loop — once src is the raw original, a further error is a truly broken image, left as-is.
+        img.addEventListener('error', () => {
+          const orig = attrs.src || '';
+          if (orig && isRenderTransformSrc(img.getAttribute('src')) && img.getAttribute('src') !== orig) {
+            inlineTransformsOk = false;
+            img.src = orig;
+          }
+        });
+        return img;
       };
       let media = makeMediaEl(attrs);
       cropWrap.appendChild(media);
@@ -1409,7 +1485,7 @@ export const ImageBlock = Node.create({
           media.addEventListener('load', onMediaReady);
           media.addEventListener('loadedmetadata', onMediaReady);
         }
-        media.src = a.src || '';
+        media.src = media.tagName === 'IMG' ? inlineSrcFor(a) : (a.src || '');
         if (media.tagName === 'IMG') media.alt = a.alt || '';
         else media.setAttribute('aria-label', a.alt || '');
         dom.setAttribute('data-kind', a.kind || 'shot');

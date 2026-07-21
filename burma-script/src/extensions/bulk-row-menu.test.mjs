@@ -1,19 +1,31 @@
 /*
  * bulk-row-menu.test.mjs — the SELECT → RIGHT-CLICK bulk menu (extensions/convert-menu.js) and the
- * two transactions it drives: bulk-tag across a multi-row selection, and bulk-delete of the
- * outermost rows a selection touches.
+ * transactions it drives: bulk-tag across a multi-row selection (LANE-SCOPED to the clicked column),
+ * bulk-VO retype (also lane-scoped), and bulk-delete of the outermost rows a selection touches.
  *
  * Proves (EditorState-level, no DOM — same harness style as delete-row.test.mjs):
- *   1. BULK TAG across 3 rows lands directionMark on ALL three rows' text in ONE transaction;
- *      one undo reverts every mark byte-exact.
- *   2. BULK TAG crosses the said|shown tableCell boundary — both cells of a split row get the mark.
- *   3. DELETE-N — a selection touching 3 of 5 rows deletes EXACTLY those 3 outermost rows in one
- *      transaction; the count collectIntersectingRows reports equals the deletions; one undo restores
- *      byte-exact; neighbours keep every word.
- *   4. A nested Palau row (tableRow > tableCell > tableRow) counts + deletes as its OUTERMOST row.
- *   5. VO BULK retypes convertible blocks ONLY (noneBlock/montageBlock → voBlock; a sotBlock is left
- *      untouched) in one transaction.
- *   6. READ-ONLY → the menu plugin never mounts (returns no plugins), so no bulk action can fire.
+ *   1a. BULK TAG with a SAID click lands directionMark ONLY on said-cell text across every split
+ *       row; the shown-cell text is left byte-untouched (no mark); one undo reverts byte-exact.
+ *   1b. Same with a SHOWN click — only shown cells marked, said cells untouched.
+ *   2.  A full-width (single-lane) row in the selection ALWAYS takes the tag under either lane click.
+ *   3.  A FULL-cell click (or an unresolved lane) has no column preference → whole selection tagged,
+ *       both said and shown — the documented full-width-click choice / pre-scope back-compat.
+ *   4.  BULK TAG across 3 full-width rows lands the mark on all three in ONE transaction (one undo).
+ *   5.  DELETE-N — a selection touching 3 of 5 rows deletes EXACTLY those 3 outermost rows in one
+ *       transaction; the count collectIntersectingRows reports equals the deletions; one undo
+ *       restores byte-exact; neighbours keep every word.
+ *   6.  A nested Palau row (tableRow > tableCell > tableRow) counts + deletes as its OUTERMOST row,
+ *       AND a said-click scopes the tag to the INNER said cell only (recursion-safe lane scoping).
+ *   7.  VO BULK with a SAID click retypes said-lane + full-width convertible blocks only (shown-lane
+ *       and non-convertible sotBlock left untouched) in one transaction.
+ *   8.  READ-ONLY → the menu plugin never mounts (returns no plugins), so no bulk action can fire.
+ *   9.  pendingViz clear-on-tag is LANE-SCOPED: a SAID-click visual tag lifts the /pending red only
+ *       on the said/full cells it tagged; a shown-lane pending stays red. And the clear obeys the
+ *       KIND GATE — a non-visual tag (factcheck) tags the lane but never lifts pending.
+ *
+ * NOTE (pendingViz): the pending-visual-plan clear-on-tag is a WORKSPACES-branch feature (origin/main
+ * has no pendingViz). Now that lane scoping has merged into workspaces, the clear is scoped to the
+ * SAME laneCellRanges the tag used (convert-menu.js bulkApplyMarkRange) — proven by case 9 below.
  *
  * Run: bun src/extensions/bulk-row-menu.test.mjs  (auto-discovered by scripts/run-tests.mjs)
  */
@@ -31,7 +43,7 @@ import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
 import { DirectionMark, defaultDirectionMarkAttrs } from './direction-chip.js';
-import { ConvertMenu } from './convert-menu.js';
+import { ConvertMenu, bulkApplyMarkRange } from './convert-menu.js';
 import { __setReadOnlyForTest } from '../read-mode.js';
 import { setEpisode } from '../episode-config.js';
 import { BURMA } from '../../config.js';
@@ -70,12 +82,15 @@ const row = (text, blockType = 'noneBlock') => ({
   }],
 });
 
-// A two-cell split row: said(left) + shown(right).
-const splitRow = (left, right) => ({
+// A two-cell split row: said(left) + shown(right), each a noneBlock of its text.
+const splitRow = (left, right) => splitTypedRow(left, 'noneBlock', right, 'noneBlock');
+
+// A two-cell split row with explicit block types per lane (for VO scoping tests).
+const splitTypedRow = (left, leftType, right, rightType) => ({
   type: 'tableRow', attrs: { cols: 2, pairId: null },
   content: [
-    { type: 'tableCell', attrs: { role: 'said' }, content: [{ type: 'noneBlock', attrs: { blockId: 'blk_L' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: left }] }] }] },
-    { type: 'tableCell', attrs: { role: 'shown' }, content: [{ type: 'noneBlock', attrs: { blockId: 'blk_R' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: right }] }] }] },
+    { type: 'tableCell', attrs: { role: 'said' }, content: [{ type: leftType, attrs: { blockId: 'blk_L_' + left.slice(0, 3).replace(/\s/g, '') }, content: [{ type: 'paragraph', content: [{ type: 'text', text: left }] }] }] },
+    { type: 'tableCell', attrs: { role: 'shown' }, content: [{ type: rightType, attrs: { blockId: 'blk_R_' + right.slice(0, 3).replace(/\s/g, '') }, content: [{ type: 'paragraph', content: [{ type: 'text', text: right }] }] }] },
   ],
 });
 
@@ -119,16 +134,8 @@ function fullTextSpan(doc) {
 }
 
 const markType = schema.marks.directionMark;
-// setMark over a non-empty selection IS tr.addMark(from,to,mark) under the hood — the exact call the
-// menu's editor.chain().setMark makes. Testing the transaction directly proves the cross-row /
-// cross-cell reach without standing up a DOM editor.
-function bulkTag(state, dispatch, from, to, kind) {
-  const attrs = defaultDirectionMarkAttrs(kind);
-  const tr = state.tr.addMark(from, to, markType.create(attrs));
-  if (dispatch) dispatch(tr);
-  return true;
-}
 
+// Does the text node carrying `needle` carry a directionMark of `kind`?
 function textHasMark(doc, needle, kind) {
   let has = false;
   doc.descendants((node) => {
@@ -138,40 +145,136 @@ function textHasMark(doc, needle, kind) {
   return has;
 }
 
-// ── 1: bulk tag across 3 rows, one transaction, one undo reverts ───────────────────────────
-ok('bulk tag lands directionMark on all 3 rows in one tr; one undo reverts', () => {
+// The marks array of the text node carrying `needle` (byte-untouched proof for the OTHER lane).
+function marksOf(doc, needle) {
+  let marks = null;
+  doc.descendants((node) => {
+    if (marks === null && node.isText && node.text.includes(needle)) marks = node.marks;
+  });
+  return marks || [];
+}
+
+// The pendingViz attr of the cartridge block whose text carries `needle` (only cartridge blocks
+// declare the attr — cells/rows/paragraphs don't, so this lands on the block that owns the flag).
+function pendingOf(doc, needle) {
+  let val;
+  doc.descendants((node) => {
+    if (val === undefined && node.attrs && 'pendingViz' in node.attrs && node.textContent.includes(needle)) val = node.attrs.pendingViz;
+  });
+  return val;
+}
+
+// ── 1a: SAID click tags said cells only; shown cells byte-untouched; one undo reverts ──────────
+ok('SAID click lays directionMark only on said cells; shown text untouched; one undo reverts', () => {
+  const docJson = { type: 'doc', content: [
+    splitRow('said one', 'shown one'),
+    splitRow('said two', 'shown two'),
+    splitRow('said three', 'shown three'),
+  ] };
+  let state = makeState(docJson);
+  const before = clone(state.doc.toJSON());
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+
+  assert.equal(bulkApplyMarkRange(state, dispatch, from, to, '3d', 'said'), true);
+  assert.ok(textHasMark(state.doc, 'said one', '3d'), 'said row 1 tagged');
+  assert.ok(textHasMark(state.doc, 'said two', '3d'), 'said row 2 tagged');
+  assert.ok(textHasMark(state.doc, 'said three', '3d'), 'said row 3 tagged');
+  assert.ok(!textHasMark(state.doc, 'shown one', '3d'), 'shown row 1 NOT tagged');
+  assert.ok(!textHasMark(state.doc, 'shown two', '3d'), 'shown row 2 NOT tagged');
+  assert.ok(!textHasMark(state.doc, 'shown three', '3d'), 'shown row 3 NOT tagged');
+  assert.deepEqual(marksOf(state.doc, 'shown one'), [], 'shown text carries NO marks — byte-untouched');
+
+  docFrom(state.doc.toJSON()).check();
+  undo(state, dispatch);
+  assert.deepEqual(clone(state.doc.toJSON()), before, 'one undo reverts the said-lane marks byte-exact');
+});
+
+// ── 1b: SHOWN click tags shown cells only; said cells byte-untouched ──────────────────────────
+ok('SHOWN click lays directionMark only on shown cells; said text untouched', () => {
+  const docJson = { type: 'doc', content: [
+    splitRow('said one', 'shown one'),
+    splitRow('said two', 'shown two'),
+  ] };
+  let state = makeState(docJson);
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+
+  assert.equal(bulkApplyMarkRange(state, dispatch, from, to, 'sot', 'shown'), true);
+  assert.ok(textHasMark(state.doc, 'shown one', 'sot'), 'shown row 1 tagged');
+  assert.ok(textHasMark(state.doc, 'shown two', 'sot'), 'shown row 2 tagged');
+  assert.ok(!textHasMark(state.doc, 'said one', 'sot'), 'said row 1 NOT tagged');
+  assert.deepEqual(marksOf(state.doc, 'said two'), [], 'said text carries NO marks — byte-untouched');
+  docFrom(state.doc.toJSON()).check();
+});
+
+// ── 2: a full-width (single-lane) row always takes the tag under either lane click ────────────
+ok('a full-width row in the selection is tagged under BOTH a said click and a shown click', () => {
+  const docJson = { type: 'doc', content: [
+    splitRow('said x', 'shown x'),
+    row('full width line'),
+  ] };
+  // SAID click
+  let state = makeState(docJson);
+  let dispatch = (tr) => { state = state.apply(tr); };
+  let span = fullTextSpan(state.doc);
+  bulkApplyMarkRange(state, dispatch, span.from, span.to, 'oncam', 'said');
+  assert.ok(textHasMark(state.doc, 'full width line', 'oncam'), 'full-width row tagged on said click');
+  assert.ok(textHasMark(state.doc, 'said x', 'oncam'), 'said cell tagged');
+  assert.ok(!textHasMark(state.doc, 'shown x', 'oncam'), 'shown cell not tagged');
+
+  // SHOWN click — the same full-width row still takes it.
+  state = makeState(docJson);
+  dispatch = (tr) => { state = state.apply(tr); };
+  span = fullTextSpan(state.doc);
+  bulkApplyMarkRange(state, dispatch, span.from, span.to, 'oncam', 'shown');
+  assert.ok(textHasMark(state.doc, 'full width line', 'oncam'), 'full-width row tagged on shown click');
+  assert.ok(textHasMark(state.doc, 'shown x', 'oncam'), 'shown cell tagged');
+  assert.ok(!textHasMark(state.doc, 'said x', 'oncam'), 'said cell not tagged');
+  docFrom(state.doc.toJSON()).check();
+});
+
+// ── 3: a FULL-cell click (or unresolved lane) tags the WHOLE selection — both lanes ───────────
+ok('a full-cell click (and a null/unresolved lane) tags both said and shown — the whole selection', () => {
+  const docJson = { type: 'doc', content: [splitRow('said y', 'shown y')] };
+
+  // clickedRole === 'full' → no lane preference → whole selection.
+  let state = makeState(docJson);
+  let dispatch = (tr) => { state = state.apply(tr); };
+  let span = fullTextSpan(state.doc);
+  bulkApplyMarkRange(state, dispatch, span.from, span.to, 'archive', 'full');
+  assert.ok(textHasMark(state.doc, 'said y', 'archive'), 'said cell tagged on full click');
+  assert.ok(textHasMark(state.doc, 'shown y', 'archive'), 'shown cell tagged on full click');
+
+  // clickedRole omitted (unresolved posAtCoords) → same whole-selection back-compat.
+  state = makeState(docJson);
+  dispatch = (tr) => { state = state.apply(tr); };
+  span = fullTextSpan(state.doc);
+  bulkApplyMarkRange(state, dispatch, span.from, span.to, 'archive');
+  assert.ok(textHasMark(state.doc, 'said y', 'archive'), 'said cell tagged with no clickedRole');
+  assert.ok(textHasMark(state.doc, 'shown y', 'archive'), 'shown cell tagged with no clickedRole');
+  docFrom(state.doc.toJSON()).check();
+});
+
+// ── 4: bulk tag across 3 full-width rows, one transaction, one undo reverts ────────────────────
+ok('bulk tag lands directionMark on all 3 full-width rows in one tr; one undo reverts', () => {
   const docJson = { type: 'doc', content: [row('alpha words'), row('beta words'), row('gamma words')] };
   let state = makeState(docJson);
   const before = clone(state.doc.toJSON());
   const dispatch = (tr) => { state = state.apply(tr); };
   const { from, to } = fullTextSpan(state.doc);
 
-  bulkTag(state, dispatch, from, to, '3d');
+  bulkApplyMarkRange(state, dispatch, from, to, '3d', 'said');
   assert.ok(textHasMark(state.doc, 'alpha', '3d'), 'row 1 tagged');
   assert.ok(textHasMark(state.doc, 'beta', '3d'), 'row 2 tagged');
   assert.ok(textHasMark(state.doc, 'gamma', '3d'), 'row 3 tagged');
 
-  const reparsed = docFrom(state.doc.toJSON());
-  reparsed.check();
-
+  docFrom(state.doc.toJSON()).check();
   undo(state, dispatch);
   assert.deepEqual(clone(state.doc.toJSON()), before, 'one undo reverts every mark byte-exact');
 });
 
-// ── 2: bulk tag crosses the said|shown cell boundary ───────────────────────────────────────
-ok('bulk tag crosses the said|shown tableCell boundary — both cells marked', () => {
-  const docJson = { type: 'doc', content: [splitRow('left words', 'right words')] };
-  let state = makeState(docJson);
-  const dispatch = (tr) => { state = state.apply(tr); };
-  const { from, to } = fullTextSpan(state.doc);
-
-  bulkTag(state, dispatch, from, to, 'sot');
-  assert.ok(textHasMark(state.doc, 'left', 'sot'), 'said cell marked');
-  assert.ok(textHasMark(state.doc, 'right', 'sot'), 'shown cell marked — mark did NOT stop at the cell edge');
-  docFrom(state.doc.toJSON()).check();
-});
-
-// ── 3: delete 3 of 5 rows; count matches; one undo restores byte-exact ─────────────────────
+// ── 5: delete 3 of 5 rows; count matches; one undo restores byte-exact ─────────────────────
 ok('delete-N removes exactly the touched outermost rows; count matches; one undo restores', () => {
   const docJson = { type: 'doc', content: [row('r0'), row('r1'), row('r2'), row('r3'), row('r4')] };
   let state = makeState(docJson);
@@ -200,7 +303,7 @@ ok('delete-N removes exactly the touched outermost rows; count matches; one undo
   assert.deepEqual(clone(state.doc.toJSON()), before, 'one undo brings all 3 rows back byte-exact');
 });
 
-// ── 3b: delete-ALL guard — never an empty doc ──────────────────────────────────────────────
+// ── 5b: delete-ALL guard — never an empty doc ──────────────────────────────────────────────
 ok('deleting every touched row when the selection spans the whole doc leaves one fresh empty row', () => {
   const docJson = { type: 'doc', content: [row('only a'), row('only b')] };
   let state = makeState(docJson);
@@ -218,13 +321,23 @@ ok('deleting every touched row when the selection spans the whole doc leaves one
   docFrom(state.doc.toJSON()).check();
 });
 
-// ── 4: nested Palau row counts + deletes as its outermost wrapper ───────────────────────────
-ok('a nested Palau row resolves to its OUTERMOST row for both count and delete', () => {
+// ── 6: nested Palau row — deletes as its wrapper AND scopes the tag to its inner said cell ─────
+ok('a nested Palau row deletes as its OUTERMOST wrapper, and a said click scopes to its inner said cell', () => {
   const docJson = { type: 'doc', content: [row('top'), nestedRow('inner left', 'inner right')] };
-  let state = makeState(docJson);
-  const dispatch = (tr) => { state = state.apply(tr); };
 
-  // Put the selection deep inside the nested row's left cell.
+  // LANE SCOPING through the wrapper cell: said click marks 'inner left' only, not 'inner right'.
+  let state = makeState(docJson);
+  let dispatch = (tr) => { state = state.apply(tr); };
+  const { from: sFrom, to: sTo } = fullTextSpan(state.doc);
+  bulkApplyMarkRange(state, dispatch, sFrom, sTo, 'sot', 'said');
+  assert.ok(textHasMark(state.doc, 'inner left', 'sot'), 'inner said cell tagged through the wrapper');
+  assert.ok(!textHasMark(state.doc, 'inner right', 'sot'), 'inner shown cell NOT tagged — wrapper is transparent, leaf role wins');
+  assert.ok(textHasMark(state.doc, 'top', 'sot'), 'the sibling full-width row still takes the tag');
+  docFrom(state.doc.toJSON()).check();
+
+  // Count + delete still resolves to the outermost wrapper row.
+  state = makeState(docJson);
+  dispatch = (tr) => { state = state.apply(tr); };
   const wrapperPos = rowPos(state.doc, 1);
   const from = wrapperPos + 6; // well inside the nested structure
   const rows = collectIntersectingRows(state.doc, from, from);
@@ -238,26 +351,50 @@ ok('a nested Palau row resolves to its OUTERMOST row for both count and delete',
   docFrom(state.doc.toJSON()).check();
 });
 
-// ── 5: VO bulk retypes convertible blocks only ─────────────────────────────────────────────
-ok('VO bulk retypes convertible blocks (none/montage) only; a sotBlock is left untouched', () => {
+// ── 7: VO bulk with a SAID click retypes said-lane + full convertible blocks only ─────────────
+ok('VO bulk (said click) retypes said-lane + full convertible blocks only; shown lane + sot untouched', () => {
   const docJson = {
     type: 'doc',
-    content: [row('spoken a', 'noneBlock'), row('a quote', 'sotBlock'), row('spoken b', 'montageBlock')],
+    content: [
+      splitTypedRow('say a', 'noneBlock', 'show a', 'noneBlock'),
+      row('full a', 'montageBlock'),
+      splitTypedRow('say b', 'sotBlock', 'show b', 'noneBlock'),
+    ],
   };
   let state = makeState(docJson);
   const dispatch = (tr) => { state = state.apply(tr); };
   const { from, to } = fullTextSpan(state.doc);
 
-  assert.equal(bulkRetypeToVo(state, dispatch, from, to), true, 'at least one block converted');
-  const blockType = (n) => state.doc.child(n).child(0).child(0).type.name;
-  assert.equal(blockType(0), 'voBlock', 'noneBlock → voBlock');
-  assert.equal(blockType(1), 'sotBlock', 'sotBlock is NOT convertible — left as-is');
-  assert.equal(blockType(2), 'voBlock', 'montageBlock → voBlock');
-  assert.equal(state.doc.child(0).child(0).child(0).textContent, 'spoken a', 'text survives the retype');
+  assert.equal(bulkRetypeToVo(state, dispatch, from, to, 'said'), true, 'at least one block converted');
+  // Row 0: said noneBlock → voBlock, shown noneBlock stays.
+  assert.equal(state.doc.child(0).child(0).child(0).type.name, 'voBlock', 'said noneBlock → voBlock');
+  assert.equal(state.doc.child(0).child(1).child(0).type.name, 'noneBlock', 'shown noneBlock left as-is (wrong lane)');
+  // Row 1: full-width montageBlock → voBlock (full always in scope).
+  assert.equal(state.doc.child(1).child(0).child(0).type.name, 'voBlock', 'full-width montageBlock → voBlock');
+  // Row 2: said sotBlock is not convertible; shown noneBlock is the wrong lane.
+  assert.equal(state.doc.child(2).child(0).child(0).type.name, 'sotBlock', 'said sotBlock is not convertible — untouched');
+  assert.equal(state.doc.child(2).child(1).child(0).type.name, 'noneBlock', 'shown noneBlock left as-is (wrong lane)');
+  assert.equal(state.doc.child(0).child(0).child(0).textContent, 'say a', 'text survives the retype');
   docFrom(state.doc.toJSON()).check();
 });
 
-// ── 6: read-only → the bulk menu plugin never mounts ───────────────────────────────────────
+// ── 7b: VO bulk unscoped (no click role) still converts every lane's convertible blocks ────────
+ok('VO bulk with no clickedRole converts convertible blocks in every lane (back-compat)', () => {
+  const docJson = {
+    type: 'doc',
+    content: [splitTypedRow('say a', 'noneBlock', 'show a', 'montageBlock')],
+  };
+  let state = makeState(docJson);
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+
+  assert.equal(bulkRetypeToVo(state, dispatch, from, to), true, 'converted');
+  assert.equal(state.doc.child(0).child(0).child(0).type.name, 'voBlock', 'said noneBlock → voBlock');
+  assert.equal(state.doc.child(0).child(1).child(0).type.name, 'voBlock', 'shown montageBlock → voBlock');
+  docFrom(state.doc.toJSON()).check();
+});
+
+// ── 8: read-only → the bulk menu plugin never mounts ───────────────────────────────────────
 ok('read-only session mounts NO convert-menu plugin, so no bulk action can fire', () => {
   __setReadOnlyForTest(true);
   try {
@@ -268,6 +405,57 @@ ok('read-only session mounts NO convert-menu plugin, so no bulk action can fire'
   }
   const live = ConvertMenu.config.addProseMirrorPlugins.call({ editor: null });
   assert.equal(live.length, 1, 'edit mode → the contextmenu plugin mounts');
+});
+
+// ── 6: pendingViz clear-on-tag is LANE-SCOPED (workspaces). A said click clears the /pending red
+//       ONLY on the said/full cells it tagged; a shown-lane pending stays red. This is the case the
+//       origin/main bulk-menu deferred (see the pendingViz note at the top) — it lands here now that
+//       lane scoping is on workspaces, scoped to the SAME laneCellRanges the tag used. ────────────
+const pendCell = (role, text) => ({
+  type: 'tableCell', attrs: { role },
+  content: [{
+    type: 'noneBlock', attrs: { blockId: 'pnd_' + text.replace(/\s/g, '').slice(0, 6), pendingViz: true },
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  }],
+});
+
+ok('SAID click lifts /pending only on the tagged lane; the shown lane stays pending', () => {
+  const docJson = {
+    type: 'doc',
+    content: [
+      { type: 'tableRow', attrs: { cols: 2, pairId: null }, content: [pendCell('said', 'said pend'), pendCell('shown', 'shown pend')] },
+      { type: 'tableRow', attrs: { cols: 1, pairId: null }, content: [pendCell('full', 'full pend')] },
+    ],
+  };
+  let state = makeState(docJson);
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+
+  // A SAID click with a VISUAL kind across the whole selection.
+  assert.equal(bulkApplyMarkRange(state, dispatch, from, to, 'broll', 'said'), true);
+
+  // Said lane: got the tag AND lost its /pending red (a visual tag IS the plan for that cell).
+  assert.ok(textHasMark(state.doc, 'said pend', 'broll'), 'said cell tagged broll');
+  assert.equal(pendingOf(state.doc, 'said pend'), null, 'said cell pending CLEARED — it got the plan');
+  // Shown lane: untouched — no tag, and its /pending red STAYS (its lane got no plan).
+  assert.ok(!textHasMark(state.doc, 'shown pend', 'broll'), 'shown cell NOT tagged (wrong lane)');
+  assert.equal(pendingOf(state.doc, 'shown pend'), true, 'shown cell STAYS pending — its lane got no plan');
+  // Full-width cell is in scope on ANY click → tagged AND cleared.
+  assert.ok(textHasMark(state.doc, 'full pend', 'broll'), 'full-width cell tagged');
+  assert.equal(pendingOf(state.doc, 'full pend'), null, 'full-width cell pending cleared');
+  docFrom(state.doc.toJSON()).check();
+});
+
+// ── 6b: the clear obeys the KIND GATE — a non-visual tag (factcheck) tags but never lifts pending.
+ok('a non-visual bulk tag (factcheck) tags the lane but leaves /pending red', () => {
+  const docJson = { type: 'doc', content: [{ type: 'tableRow', attrs: { cols: 1, pairId: null }, content: [pendCell('full', 'claim here')] }] };
+  let state = makeState(docJson);
+  const dispatch = (tr) => { state = state.apply(tr); };
+  const { from, to } = fullTextSpan(state.doc);
+  assert.equal(bulkApplyMarkRange(state, dispatch, from, to, 'factcheck', 'full'), true);
+  assert.ok(textHasMark(state.doc, 'claim here', 'factcheck'), 'tagged factcheck');
+  assert.equal(pendingOf(state.doc, 'claim here'), true, 'factcheck is not a visual plan — pending STAYS red');
+  docFrom(state.doc.toJSON()).check();
 });
 
 console.log(`bulk-row-menu.test.mjs: ${pass} assertions passed`);

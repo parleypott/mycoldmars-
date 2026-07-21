@@ -396,31 +396,55 @@ export function doConvertBlockToVo(state, dispatch, range) {
   return true;
 }
 
+// LANE SCOPE — shared by the bulk mark apply (convert-menu.js) and the bulk VO retype below.
+// The right-click bulk menu tags only the COLUMN the pointer was over (Johnny 2026-07-21: "I just
+// want the tag to go into the column I right clicked"). `clickedRole` is the role of the tableCell
+// under the pointer ('said' | 'shown' | 'full'), or null when it couldn't be resolved.
+//   • a SAID click  → said-lane cells + full-width cells (single-lane rows always take the tag)
+//   • a SHOWN click → shown-lane cells + full-width cells
+//   • a FULL click (a full-width cell has no lane preference) OR an unresolved lane (null) → EVERY
+//     cell, i.e. the pre-lane-scope whole-selection behaviour. Passing no clickedRole is therefore
+//     a back-compatible "apply everywhere".
+export function laneMatches(cellRole, clickedRole) {
+  if (clickedRole == null || clickedRole === 'full') return true;
+  return cellRole === clickedRole || cellRole === 'full';
+}
+
+// The role of the tableCell that directly hosts a target block (its nodesBetween parent). A block
+// living straight in the doc (no table spine) is treated as full-width so it always converts.
+function hostCellRole(parent) {
+  return parent && parent.type.name === 'tableCell' ? (parent.attrs?.role || 'full') : 'full';
+}
+
 // BULK /vo across a SELECTION — the "VO" entry of the right-click bulk menu (convert-menu.js).
-// Retypes EVERY convertible block the selection touches to a voBlock in ONE transaction (one undo
-// reverts the lot). "Convertible" is the exact same set /vo honours per block: a VO_CONVERTIBLE
-// cart (noneBlock/binBlock/oncamBlock/montageBlock) OR a bare cell paragraph (a "+"-added row with
-// no cart wrapper). A block carrying structure or producer data (chapter/scene/SOT/broll/image, or
-// an already-VO block) is left untouched — VO bulk never silently retypes those. Targets are
-// collected first (one entry per outermost convertible unit — the walk stops descending once it
-// claims a block), then retyped HIGH→LOW so the bare-paragraph wraps (which grow the doc by the
-// voBlock's open/close tokens) never invalidate an earlier, still-unprocessed target's position.
-// Pure (state, dispatch, from, to) -> boolean (true iff at least one block was retyped). Exported
-// for the headless suite and shared with the bulk menu.
-export function bulkRetypeToVo(state, dispatch, from, to) {
+// Retypes the convertible blocks the selection touches IN THE CLICKED LANE to a voBlock in ONE
+// transaction (one undo reverts the lot). "Convertible" is the exact same set /vo honours per block:
+// a VO_CONVERTIBLE cart (noneBlock/binBlock/oncamBlock/montageBlock) OR a bare cell paragraph (a
+// "+"-added row with no cart wrapper). A block carrying structure or producer data (chapter/scene/
+// SOT/broll/image, or an already-VO block) is left untouched — VO bulk never silently retypes those.
+// `clickedRole` scopes which lane's blocks convert (see laneMatches); omit it to convert every lane
+// (whole-selection back-compat). Targets are collected first (one entry per outermost convertible
+// unit — the walk stops descending once it claims a block), then retyped HIGH→LOW so the bare-
+// paragraph wraps (which grow the doc by the voBlock's open/close tokens) never invalidate an
+// earlier, still-unprocessed target's position. Pure (state, dispatch, from, to, clickedRole) ->
+// boolean (true iff at least one block was retyped). Exported for the headless suite and the menu.
+export function bulkRetypeToVo(state, dispatch, from, to, clickedRole) {
   if (!state.schema.nodes.voBlock) return false;
   const max = state.doc.content.size;
   const lo = Math.max(0, Math.min(from, to, max));
   const hi = Math.max(0, Math.min(Math.max(from, to), max));
 
   // One target position (a spot INSIDE the block, where retypeHostToVo's ancestor walk starts) per
-  // outermost convertible unit intersecting [lo,hi]. return false halts descent so a paragraph
-  // inside a claimed cart is never also claimed on its own.
+  // outermost convertible unit intersecting [lo,hi] WHOSE host cell is in the clicked lane. return
+  // false halts descent so a paragraph inside a claimed cart is never also claimed on its own.
   const targets = [];
   state.doc.nodesBetween(lo, hi, (node, pos, parent) => {
-    if (VO_CONVERTIBLE.includes(node.type.name)) { targets.push(pos + 1); return false; }
+    if (VO_CONVERTIBLE.includes(node.type.name)) {
+      if (laneMatches(hostCellRole(parent), clickedRole)) targets.push(pos + 1);
+      return false;
+    }
     if (node.type.name === 'paragraph' && parent && parent.type.name === 'tableCell') {
-      targets.push(pos + 1);
+      if (laneMatches(hostCellRole(parent), clickedRole)) targets.push(pos + 1);
       return false;
     }
     return true;

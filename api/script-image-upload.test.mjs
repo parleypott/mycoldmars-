@@ -29,6 +29,8 @@ const {
   safeSlug,
   base64DecodedBytes,
   buildImagePath,
+  buildHashImagePath,
+  isContentHash,
   MAX_DECODED_BYTES,
 } = await import('./script-image-upload.js');
 
@@ -39,10 +41,15 @@ const t = async (name, fn) => { try { await fn(); pass++; } catch (e) { fail++; 
 const realFetch = globalThis.fetch;
 let lastUpload = null;
 let storageStatus = 200;
+let infoStatus = 400;      // dedupe existence probe: 400 = object absent (Supabase's missing code)
+let infoCalls = 0;
 globalThis.fetch = async (url, init) => {
-  lastUpload = { url: String(url), init: init || {} };
+  const u = String(url);
+  if (u.includes('/object/info/')) { infoCalls++; return new Response(infoStatus === 200 ? '{}' : 'missing', { status: infoStatus }); }
+  lastUpload = { url: u, init: init || {} };
   return new Response(storageStatus === 200 ? '{}' : 'boom', { status: storageStatus });
 };
+const HASH = 'a'.repeat(64); // a valid lowercase-hex SHA-256
 
 const post = (body, headers) => new Request('http://localhost/api/script-image-upload', {
   method: 'POST',
@@ -168,6 +175,57 @@ await t('storage 500 → handler 502 storage_upload_failed', async () => {
   const out = await res.json();
   assert.strictEqual(out.error, 'storage_upload_failed');
   storageStatus = 200;
+});
+
+// ── CONTENT-HASH DEDUPE ───────────────────────────────────────────────────────
+await t('isContentHash: exactly 64 lowercase hex is a hash; anything else is not', () => {
+  assert.ok(isContentHash(HASH));
+  assert.ok(isContentHash('0123456789abcdef'.repeat(4)));
+  assert.ok(isContentHash(HASH.toUpperCase()), 'uppercase normalized to lowercase, then matches');
+  assert.ok(!isContentHash('a'.repeat(63)), 'too short');
+  assert.ok(!isContentHash('a'.repeat(65)), 'too long');
+  assert.ok(!isContentHash('g'.repeat(64)), 'non-hex');
+  assert.ok(!isContentHash(''), 'empty');
+  assert.ok(!isContentHash(undefined), 'undefined');
+});
+await t('buildHashImagePath: content-addressed, project-independent scripts/_ca/<hash>.<ext>', () => {
+  assert.strictEqual(buildHashImagePath(HASH, 'png'), `scripts/_ca/${HASH}.png`);
+  assert.strictEqual(buildHashImagePath(HASH.toUpperCase(), 'webp'), `scripts/_ca/${HASH}.webp`);
+});
+await t('dedupe HIT: existing object → deduped url, ZERO upload bytes moved', async () => {
+  infoStatus = 200; infoCalls = 0; lastUpload = null;
+  const res = await handler(post({ project: 'nile', block_id: 'image_x', dataBase64: PNG_B64, contentHash: HASH }));
+  assert.strictEqual(res.status, 200);
+  const out = await res.json();
+  assert.strictEqual(out.deduped, true);
+  assert.strictEqual(out.path, `scripts/_ca/${HASH}.png`);
+  assert.match(out.url, new RegExp(`/object/public/script-images/scripts/_ca/${HASH}\\.png$`));
+  assert.strictEqual(infoCalls, 1, 'existence probed once');
+  assert.strictEqual(lastUpload, null, 'no PUT/POST of bytes on a dedupe hit');
+});
+await t('dedupe MISS: absent object → uploads to the content-addressed path', async () => {
+  infoStatus = 400; lastUpload = null;
+  const res = await handler(post({ project: 'nile', block_id: 'image_y', dataBase64: PNG_B64, contentHash: HASH }));
+  assert.strictEqual(res.status, 200);
+  const out = await res.json();
+  assert.ok(!out.deduped, 'not a dedupe hit');
+  assert.strictEqual(out.path, `scripts/_ca/${HASH}.png`);
+  assert.ok(lastUpload && lastUpload.url.includes(`/script-images/scripts/_ca/${HASH}.png`), 'bytes uploaded to the hash path');
+});
+await t('no contentHash → legacy stamped path, dedupe machinery untouched', async () => {
+  infoCalls = 0; lastUpload = null; storageStatus = 200;
+  const res = await handler(post({ project: 'nile', block_id: 'image_z', dataBase64: PNG_B64 }));
+  const out = await res.json();
+  assert.match(out.path, /^scripts\/nile\/image_z-[a-z0-9]+\.png$/);
+  assert.ok(!out.path.includes('_ca'), 'not content-addressed');
+  assert.strictEqual(infoCalls, 0, 'no existence probe without a hash');
+});
+await t('invalid contentHash (bad length) is ignored → stamped path, no probe', async () => {
+  infoCalls = 0;
+  const res = await handler(post({ project: 'nile', block_id: 'image_w', dataBase64: PNG_B64, contentHash: 'nope' }));
+  const out = await res.json();
+  assert.ok(!out.path.includes('_ca'));
+  assert.strictEqual(infoCalls, 0);
 });
 
 globalThis.fetch = realFetch;

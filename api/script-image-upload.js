@@ -79,6 +79,32 @@ export function buildImagePath(project, blockId, ext, stamp) {
   return `scripts/${proj}/${blk}-${stamp}.${ext}`;
 }
 
+// CONTENT-ADDRESSED path (dedupe). When the client sends a SHA-256 of the file bytes, the object is
+// named by that hash under a project-INDEPENDENT prefix, so an identical drop — same file re-pasted,
+// or the SAME reference used in the Nile script AND the Burma script — resolves to the SAME object
+// and is stored ONCE. This STRENGTHENS the never-clobber law the stamped path bought: identical
+// content → identical path (a historical revision restore renders the same bytes it always did),
+// different content → different hash → different path (never overwritten). Legacy stamped uploads
+// under scripts/<project>/ are untouched; this prefix is additive for NEW hash-bearing uploads only.
+const HASH_RE = /^[a-f0-9]{64}$/;
+export function isContentHash(h) { return HASH_RE.test(String(h || '').toLowerCase()); }
+export function buildHashImagePath(hash, ext) {
+  return `scripts/_ca/${String(hash).toLowerCase()}.${ext}`;
+}
+
+// EXISTENCE PROBE for dedupe — the authed object-info endpoint (origin, not the CDN edge, so a
+// freshly-uploaded twin is seen immediately). 200 = the object is already stored → reuse its URL and
+// skip the upload entirely. Anything else (incl. Supabase's 400-for-missing) → treat as absent and
+// upload. NEVER throws — a probe failure degrades to "upload anyway", never blocks the drop.
+export async function storageObjectExists(supabaseUrl, key, bucket, path) {
+  try {
+    const res = await fetch(`${supabaseUrl}/storage/v1/object/info/public/${bucket}/${path}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return j(405, { error: 'Method not allowed' });
@@ -110,7 +136,17 @@ export default async function handler(req) {
   // shared image allow-list. ext + mime always agree (both from one normalize).
   const { mime: mimeType, ext } = imageStorageMeta(body.mimeType);
 
-  const path = buildImagePath(body.project, body.block_id, ext, Date.now().toString(36));
+  // DEDUPE: a content hash routes to a content-addressed path; if that object already exists we
+  // return its public URL WITHOUT re-uploading the bytes. No hash → the original stamped path.
+  const hash = String(body.contentHash || '').toLowerCase();
+  const deduping = isContentHash(hash);
+  const path = deduping
+    ? buildHashImagePath(hash, ext)
+    : buildImagePath(body.project, body.block_id, ext, Date.now().toString(36));
+
+  if (deduping && await storageObjectExists(SUPABASE_URL, SUPABASE_KEY, BUCKET, path)) {
+    return j(200, { ok: true, url: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`, path, deduped: true });
+  }
 
   // Decode base64 → bytes (Edge runtime — no Buffer global)
   let bin;

@@ -71,9 +71,20 @@ const PAL = {
 // ─── Skins (basemap) ───
 // Earthen = outdoors recolored + de-noised (the original look).
 // Satellite = pure imagery, no labels/roads — recolor & hillshade don't apply.
+// The sat-* profiles are the SAME satellite style with a raster grade
+// (contrast/brightness/saturation): raw imagery blows the Sahara out to
+// near-white, so the graded profiles pull it back. Switching between two
+// satellite profiles is instant paint work — no style reload.
+const SAT_STYLE = 'mapbox://styles/mapbox/satellite-v9';
 const SKINS = {
-  earthen:   { label: 'Earthen',   style: 'mapbox://styles/mapbox/outdoors-v12', earthen: true },
-  satellite: { label: 'Satellite', style: 'mapbox://styles/mapbox/satellite-v9', earthen: false },
+  earthen:     { label: 'Earthen', style: 'mapbox://styles/mapbox/outdoors-v12', earthen: true },
+  satellite:   { label: 'Sat',     style: SAT_STYLE, earthen: false, sat: true, grade: null },
+  'sat-soft':  { label: 'Soft',    style: SAT_STYLE, earthen: false, sat: true,
+                 grade: { 'raster-contrast': -0.3, 'raster-brightness-max': 0.88, 'raster-saturation': -0.12 } },
+  'sat-muted': { label: 'Muted',   style: SAT_STYLE, earthen: false, sat: true,
+                 grade: { 'raster-contrast': -0.38, 'raster-brightness-max': 0.8, 'raster-saturation': -0.45 } },
+  'sat-dusk':  { label: 'Dusk',    style: SAT_STYLE, earthen: false, sat: true,
+                 grade: { 'raster-contrast': -0.18, 'raster-brightness-max': 0.6, 'raster-saturation': -0.28 } },
 };
 const SKIN_LS_KEY = 'mapkeys_skin_v1';
 let currentSkin = (() => {
@@ -83,11 +94,37 @@ let currentSkin = (() => {
   } catch { return 'earthen'; }
 })();
 
+// Apply the current skin's raster grade to the satellite imagery layer.
+// Neutral values are always included so flipping back to raw Sat resets a
+// previous profile's grade.
+function applySatGrade() {
+  const skin = SKINS[currentSkin];
+  if (!skin || !skin.sat) return;
+  const rasterLayer = map.getStyle().layers.find(l => l.type === 'raster' && !l.id.startsWith('mk-'));
+  if (!rasterLayer) return;
+  const grade = {
+    'raster-contrast': 0,
+    'raster-brightness-max': 1,
+    'raster-saturation': 0,
+    ...(skin.grade || {}),
+  };
+  for (const [prop, val] of Object.entries(grade)) {
+    try { map.setPaintProperty(rasterLayer.id, prop, val); } catch (_) {}
+  }
+}
+
 function setSkin(name) {
   if (!SKINS[name] || name === currentSkin) return;
+  const prev = SKINS[currentSkin];
   currentSkin = name;
   try { localStorage.setItem(SKIN_LS_KEY, name); } catch {}
   syncSkinButtons();
+  // Satellite profile → satellite profile: same style, just regrade the
+  // raster in place. Everything else pays the full style reload.
+  if (prev && prev.sat && SKINS[name].sat) {
+    applySatGrade();
+    return;
+  }
   // setStyle wipes all sources/layers; the style.load handler rebuilds
   // overlays, routes, and shapes on top of the new skin.
   map.setStyle(SKINS[name].style);
@@ -202,6 +239,9 @@ map.on('style.load', () => {
       },
     }, firstSymbol);
   }
+
+  // ── Satellite profiles — grade the imagery (no-op on earthen)
+  applySatGrade();
 
   // ── Recolor base style toward earthen minimal
   const recolor = SKINS[currentSkin].earthen ? [
