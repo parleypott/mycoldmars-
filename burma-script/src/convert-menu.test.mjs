@@ -14,17 +14,18 @@ let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
 // The convert menu offers the Make VO block action FIRST (kind '__vo', routed through the shared
-// retypeHostToVo — not a mark), then exactly the seven viz kinds Johnny named. Every MARK kind it
+// retypeHostToVo — not a mark), then exactly the viz kinds Johnny named — including SOT
+// (added 2026-07-21: the /sot kind existed but never made it into this menu). Every MARK kind it
 // applies must be one directionMark already understands — otherwise a converted run would carry an
 // attr the mark can't render, breaking parity with the slash menu.
-ok('VIZ_KINDS is Make VO + the seven viz kinds in order', () => {
+ok('VIZ_KINDS is Make VO + the viz kinds in order', () => {
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.kind),
-    ['__vo', 'animation', '3d', 'broll', 'mapdata', 'archive', 'oncam', 'factcheck', 'direction'],
+    ['__vo', 'animation', '3d', 'broll', 'mapdata', 'archive', 'oncam', 'sot', 'factcheck', 'direction'],
   );
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.label),
-    ['Make VO', 'Animation', '3d', 'B-roll', 'Map data', 'Archive', 'On cam', 'Fact-check', 'Direction'],
+    ['Make VO', 'Animation', '3d', 'B-roll', 'Map data', 'Archive', 'On cam', 'SOT', 'Fact-check', 'Direction'],
   );
 });
 
@@ -38,6 +39,7 @@ ok('each VIZ_KIND maps to a valid default directionMark status', () => {
     broll: 'unchecked',
     archive: 'needed',
     oncam: 'static',
+    sot: 'static',
     factcheck: 'todo',
     direction: 'default',
   };

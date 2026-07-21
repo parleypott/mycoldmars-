@@ -16,7 +16,7 @@ import { retypeHostToVo } from './slash-menu.js';
 // sequence menu (marks.js) and the browser's native menu both stay intact. It also bails when the
 // click lands on an existing chip, so order-of-plugin-registration can't let it steal the tc menu.
 
-// The seven convertible viz kinds, in Johnny's stated order. label = what the menu shows; kind =
+// The convertible viz kinds, in Johnny's stated order. label = what the menu shows; kind =
 // the directionMark kind. Every kind here is a key defaultDirectionMarkAttrs already understands, so
 // the status default (archive→needed, factcheck→todo, …) stays in lockstep with the slash menu.
 export const VIZ_KINDS = [
@@ -29,6 +29,7 @@ export const VIZ_KINDS = [
   { label: 'Map data',   kind: 'mapdata' },
   { label: 'Archive',    kind: 'archive' },
   { label: 'On cam',     kind: 'oncam' },
+  { label: 'SOT',        kind: 'sot' },
   { label: 'Fact-check', kind: 'factcheck' },
   { label: 'Direction',  kind: 'direction' },
 ];
