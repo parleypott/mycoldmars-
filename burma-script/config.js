@@ -37,6 +37,12 @@ export const BURMA = {
     // and the RED "DAY ?" nag stays tied to palauTimecodes (main.jsx [data-daytc]), so Burma's
     // chips read as quiet brackets. Fixes "day-timecodes don't render into tags" on Burma.
     timecodeChips: true,
+    // TRANSCRIPT DROP (2026-07-21) — drop/paste a transcript soundbite (a screenshot of the
+    // Interpreter/Trint panel, or plain text copied from it) and it lands as a quote row: timecode
+    // CHIPS + an ON CAM run (reclassifiable to SOT via the convert menu). Presentation/insertion
+    // only — adds ZERO schema (reuses noneBlock + the timecode + oncam marks) and never reinterprets
+    // the saved doc. The IMAGE road calls /api/script-quote-extract (checkAccess-gated vision).
+    transcriptDrop: true,
     // COLLAB (Phase 1) — real-time co-editing via Liveblocks + Yjs (room `script-burma`). NOT a
     // data-touching flag: the saved doc's shape/content is untouched (spike-proven lossless
     // round-trip); it only changes WHO can hold the pen at once. The save engine stays as the
