@@ -678,3 +678,99 @@
 .wp-ws-collapse { color: var(--label-3); }
 .wp-ws-expand:hover,
 .wp-ws-collapse:hover { color: var(--ink); border-color: var(--ink); background: var(--face-hover); }
+
+/* ─────────────────── PER-WORKSPACE ROW CHECK-OFF ───────────────────
+   Johnny: "when they finish an animation they check it off — a soft green
+   border and grays within it and puts a check in the center." View-local,
+   per-person state (extensions/ws-checkoff.js) — it never touches the master
+   script, so it lives ENTIRELY in this paint. Every member card face carries a
+   quiet check control; a checked row goes DONE: a soft green inset frame, its
+   content grayed but readable, and a clean green ✓ medallion at its centre.
+   FLAT — the green frame is an inset OUTLINE (a real line, no depth shadow) so
+   toggling never shifts layout; the calm ~200ms ease has no bounce. */
+
+/* THE CHECK CONTROL — a widget child of the position:relative .wp-trow, floated
+   over the card. Absolute, so it sits outside the row's cell grid entirely and
+   never disturbs layout. z-index above the card wall + the grayed content. */
+.wp-ws-check {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 5px;                 /* honest, generous hit target around a small glyph */
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+/* UNCHECKED — a quiet hollow ring at the row's right edge, brightening on hover. */
+.wp-ws-check-glyph {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--label-2);
+  background: transparent;
+  color: transparent;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: .3;
+  transition: opacity 200ms ease, border-color 200ms ease,
+              background-color 200ms ease, color 200ms ease, width 200ms ease, height 200ms ease;
+}
+/* the ring wakes a touch when the row is hovered, fully on the control itself */
+.wp-trow.wp-ws-member:hover .wp-ws-check .wp-ws-check-glyph { opacity: .62; }
+.wp-ws-check:hover .wp-ws-check-glyph { opacity: 1; border-color: var(--ws-done); }
+
+/* CHECKED — the control becomes the centred medallion: opaque frame disc, green
+   ring, green ✓. left:50% centres it over the card regardless of row height. */
+.wp-ws-check.is-done {
+  right: auto;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 6px;
+}
+.wp-ws-check.is-done .wp-ws-check-glyph {
+  width: 32px;
+  height: 32px;
+  border-width: 2px;
+  border-color: var(--ws-done);
+  /* opaque disc so it punches a clean stamp over the grayed content behind it */
+  background: var(--frame);
+  color: var(--ws-done-strong);
+  opacity: 1;
+  font-size: 17px;
+  font-weight: 800;
+}
+.wp-ws-check.is-done:hover .wp-ws-check-glyph { border-color: var(--ws-done-strong); }
+
+/* THE DONE ROW — soft green inset frame (outline: a flat line, no layout shift,
+   no shadow) drawn just inside the ink card wall; content grayed but readable. */
+.wp-trow.wp-ws-member.wp-ws-done {
+  outline: 1.5px solid var(--ws-done);
+  outline-offset: -1.5px;
+  transition: outline-color 200ms ease;
+}
+/* Gray the CELLS (the row's content lives in .wp-trow-cells > .wp-tcell), never the
+   check widget — it is a sibling of the cells, so the medallion stays crisp and legible
+   over the muted content beneath it. `> .wp-tcell` on the OUTERMOST cells only, so a
+   Palau nested said|shown pair doesn't fade twice. */
+.wp-trow.wp-ws-done > .wp-trow-cells > .wp-tcell {
+  opacity: .46;
+  filter: saturate(.7);
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+/* HUB STAT — the view-local "DONE n/m" (or "CHECKED n/m" in archive, to sit apart
+   from archive's mark-based DONE). Muted, and green once anything is checked. */
+.wp-wshub-checked b { font-variant-numeric: tabular-nums; }
+.wp-wshub-checked.has-done { color: var(--ws-done-strong); }

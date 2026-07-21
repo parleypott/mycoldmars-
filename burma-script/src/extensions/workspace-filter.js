@@ -38,13 +38,14 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { workspaceRole, rowIsMember, walkRows } from '../workspaces.js';
+import { pruneChecked } from './ws-checkoff.js';
 
 export const workspaceFilterKey = new PluginKey('wpWorkspaceFilter');
 
 // Each expand click reveals up to this many more context rows on that side.
 export const EXPAND_STEP = 3;
 
-const EMPTY = { wsKey: null, snapshot: null, expansions: null, decorations: DecorationSet.empty };
+const EMPTY = { wsKey: null, snapshot: null, expansions: null, checked: null, decorations: DecorationSet.empty };
 
 // Pill title clamp — the chapter title is already word-clamped at 72 by workspaces.js;
 // the pill is a one-line chip, so clamp tighter (word boundary, then an ellipsis).
@@ -314,14 +315,57 @@ function bottomBarWidget(section) {
   );
 }
 
+// THE CHECK CONTROL — one per member/left row (the card faces the editor sees). It is a
+// direct-user affordance that toggles this row's VIEW-LOCAL "done" state; the click
+// dispatches a decoration-only meta (no doc change, so no collab echo — COLLAB LOOP LAW).
+// Anchored INSIDE the row (pos+1, before the first cell) so it becomes a child of the
+// position:relative .wp-trow and CSS can float it — a quiet ring at the row's right edge
+// when open, a centered green ✓ medallion when done. The KEY carries the done-state so PM
+// only rebuilds this widget's DOM when the check flips (checkbox-key doctrine), never per
+// membership recompute. A row with no firstBlockId can't persist a check, so it gets none.
+function checkControlWidget(row, isDone) {
+  const id = row.firstBlockId;
+  if (!id) return null;
+  const key = `wscheck:${id}:${isDone ? 1 : 0}`;
+  return Decoration.widget(
+    row.pos + 1,
+    (view) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wp-ws-check' + (isDone ? ' is-done' : '');
+      btn.setAttribute('aria-pressed', isDone ? 'true' : 'false');
+      btn.title = isDone
+        ? 'Checked off in your workspace — click to undo (does not change the script)'
+        : 'Check this row off in your workspace (does not change the script)';
+      const glyph = document.createElement('span');
+      glyph.className = 'wp-ws-check-glyph';
+      glyph.textContent = isDone ? '✓' : '';
+      btn.appendChild(glyph);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dispatchWs(view, { toggleCheck: { id } });
+        // Nudge the hub's DONE count to recompute (a decoration-only user gesture — the
+        // hub reads the plugin's checked set off the now-current editor state).
+        try { window.dispatchEvent(new CustomEvent('wp-ws-checkchange')); } catch {}
+      });
+      return btn;
+    },
+    { side: -1, key, ignoreSelection: true, stopEvent: () => true },
+  );
+}
+
 // Exported for the headless suite — the full decoration set + carried snapshot.
 // Node-decoration classes ride in the spec ({ wsCls }) so tests read them without
 // poking prosemirror-view internals; the DOM contract is the class list.
-export function buildWorkspaceDecorations(doc, roleKey, snapshot = null, expansions = null) {
+// `checked` (Set<firstBlockId>, view-local) adds wp-ws-done to a done member/left row and
+// swaps its check widget to the medallion — purely paint, never a doc change.
+export function buildWorkspaceDecorations(doc, roleKey, snapshot = null, expansions = null, checked = null) {
   const res = classifyRows(doc, roleKey, snapshot, expansions);
   if (!res.rows.length && !workspaceRole(roleKey)) {
     return { decorations: DecorationSet.empty, snapshot: null, sections: [] };
   }
+  const isDone = (r) => !!(checked && r.firstBlockId && checked.has(r.firstBlockId));
   const decos = [];
   const byPos = new Map(res.rows.map((r) => [r.pos, r]));
   doc.forEach((child, pos) => {
@@ -341,6 +385,7 @@ export function buildWorkspaceDecorations(doc, roleKey, snapshot = null, expansi
       if (r.last) cls += ' wp-ws-last';
       if (r.bodyTop) cls += ' wp-ws-bodytop';
       if (r.bodyBot) cls += ' wp-ws-bodybot';
+      if (isDone(r)) cls += ' wp-ws-done';
     } else if (r.context) {
       cls = 'wp-ws-context';
       if (r.contextAbove) cls += ' is-above';
@@ -352,6 +397,12 @@ export function buildWorkspaceDecorations(doc, roleKey, snapshot = null, expansi
     }
     decos.push(Decoration.node(pos, pos + child.nodeSize, { class: cls }, { wsCls: cls }));
   });
+  // The per-row check control rides on every member/left card face.
+  for (const r of res.rows) {
+    if (!(r.member || r.left)) continue;
+    const w = checkControlWidget(r, isDone(r));
+    if (w) decos.push(w);
+  }
   for (const s of res.sections) {
     decos.push(topBarWidget(s));
     if (s.belowCount > 0 || s.belowExpanded) decos.push(bottomBarWidget(s));
@@ -398,7 +449,12 @@ function applyExpansion(prevExp, meta) {
   return m;
 }
 
-export function createWorkspaceFilterPlugin() {
+// `store` (optional) persists the view-local check-off set: { load(wsKey) => Set,
+// save(wsKey, Set) }. Absent (the headless suite's default), checks live only in plugin
+// state for the session. Both sides are wrapped so a store throw can never break apply().
+export function createWorkspaceFilterPlugin(store = null) {
+  const loadChecked = (k) => { try { return (store && store.load && store.load(k)) || new Set(); } catch { return new Set(); } };
+  const saveChecked = (k, s) => { try { if (store && store.save) store.save(k, s); } catch {} };
   return new Plugin({
     key: workspaceFilterKey,
     state: {
@@ -411,17 +467,34 @@ export function createWorkspaceFilterPlugin() {
           if (meta && (meta.expand || meta.collapse)) {
             if (!prev.wsKey) return prev;
             const expansions = applyExpansion(prev.expansions, meta);
-            const built = buildWorkspaceDecorations(tr.doc, prev.wsKey, prev.snapshot, expansions);
-            return { wsKey: prev.wsKey, snapshot: built.snapshot, expansions, decorations: built.decorations };
+            const built = buildWorkspaceDecorations(tr.doc, prev.wsKey, prev.snapshot, expansions, prev.checked);
+            return { wsKey: prev.wsKey, snapshot: built.snapshot, expansions, checked: prev.checked, decorations: built.decorations };
+          }
+          // TOGGLE CHECK — a direct user click on a row's check control. Flip this row's
+          // view-local done state, persist it, repaint. Decoration-only: the doc, the
+          // snapshot and the expansions are all untouched (the check is not the script).
+          if (meta && meta.toggleCheck && meta.toggleCheck.id) {
+            if (!prev.wsKey) return prev;
+            const id = meta.toggleCheck.id;
+            const checked = new Set(prev.checked || []);
+            if (checked.has(id)) checked.delete(id); else checked.add(id);
+            saveChecked(prev.wsKey, checked);
+            const built = buildWorkspaceDecorations(tr.doc, prev.wsKey, prev.snapshot, prev.expansions, checked);
+            return { wsKey: prev.wsKey, snapshot: built.snapshot, expansions: prev.expansions, checked, decorations: built.decorations };
           }
           // Enter / switch / exit. Entering (even the same key again) takes a FRESH
           // snapshot AND fresh expansions — re-entry is exactly when sticky "left" rows
-          // drop out and every card returns to its clean standalone state.
+          // drop out and every card returns to its clean standalone state. Checks, by
+          // contrast, are DURABLE: load them from storage and PRUNE any whose row is gone.
           const wsKey = (meta && meta.key) || null;
           if (!wsKey || !workspaceRole(wsKey)) return EMPTY;
           const expansions = new Map();
-          const built = buildWorkspaceDecorations(tr.doc, wsKey, null, expansions);
-          return { wsKey, snapshot: built.snapshot, expansions, decorations: built.decorations };
+          const liveIds = new Set(walkRows(tr.doc).map((r) => r.firstBlockId).filter(Boolean));
+          const loaded = loadChecked(wsKey);
+          const checked = pruneChecked(loaded, liveIds);
+          if (checked !== loaded) saveChecked(wsKey, checked); // persist the prune
+          const built = buildWorkspaceDecorations(tr.doc, wsKey, null, expansions, checked);
+          return { wsKey, snapshot: built.snapshot, expansions, checked, decorations: built.decorations };
         }
         if (!prev.wsKey) return prev;
         if (!tr.docChanged) {
@@ -431,9 +504,9 @@ export function createWorkspaceFilterPlugin() {
         }
         // Any doc change (local keystroke OR remote y-sync) recomputes membership so
         // the cutouts, context reveals and sticky rows track the live doc. Expansions
-        // carry through the visit (keyed by section identity, tolerant of stale ids).
-        const built = buildWorkspaceDecorations(tr.doc, prev.wsKey, prev.snapshot, prev.expansions);
-        return { wsKey: prev.wsKey, snapshot: built.snapshot, expansions: prev.expansions, decorations: built.decorations };
+        // and checks carry through the visit (both keyed by row identity, stale-tolerant).
+        const built = buildWorkspaceDecorations(tr.doc, prev.wsKey, prev.snapshot, prev.expansions, prev.checked);
+        return { wsKey: prev.wsKey, snapshot: built.snapshot, expansions: prev.expansions, checked: prev.checked, decorations: built.decorations };
       },
     },
     props: {
@@ -446,6 +519,11 @@ export function createWorkspaceFilterPlugin() {
 
 export const WorkspaceFilter = Extension.create({
   name: 'workspaceFilter',
+  // The check-off store ({ load, save }) is injected by the app (Editor.jsx), bound to the
+  // active episode's storage namespace. Left null (the headless suite), checks are session-only.
+  addOptions() {
+    return { checkStore: null };
+  },
   // MOD-A FENCE (chapter-focus doctrine): with the other rows merely display:none'd,
   // a native select-all inside a cutout would grab the ENTIRE doc — one keystroke
   // could replace every hidden section. While a workspace has the screen, Cmd/Ctrl+A
@@ -471,6 +549,6 @@ export const WorkspaceFilter = Extension.create({
     };
   },
   addProseMirrorPlugins() {
-    return [createWorkspaceFilterPlugin()];
+    return [createWorkspaceFilterPlugin(this.options.checkStore)];
   },
 });

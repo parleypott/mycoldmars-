@@ -39,6 +39,7 @@ import {
   classifyRows, buildWorkspaceDecorations, sectionLabel, EXPAND_STEP,
   createWorkspaceFilterPlugin, workspaceFilterKey,
 } from './workspace-filter.js';
+import { countCheckedMembers } from './ws-checkoff.js';
 import { doDeleteRows } from './table.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
@@ -274,10 +275,12 @@ ok('sections carry master indices, chapter attribution, firstBlockId anchor, hon
   assert.equal(s.belowCount, 1);
   assert.equal(s.aboveExpanded, false);
   assert.equal(s.belowExpanded, false);
-  // exactly one TOP-BAR widget per section; a BOTTOM-BAR too (it has a below button)
+  // exactly one TOP-BAR widget per section; a BOTTOM-BAR too (it has a below button).
+  // (Filter to the section BARS by key — per-member-row check controls are widgets too.)
   const built = buildWorkspaceDecorations(docCh, 'broll', null);
-  const widgets = built.decorations.find().filter((d) => d.from === d.to);
-  assert.equal(widgets.length, 2, 'one top bar + one bottom bar for the one section');
+  const barWidgets = built.decorations.find()
+    .filter((d) => d.from === d.to && /^ws(top|bot):/.test((d.spec && d.spec.key) || ''));
+  assert.equal(barWidgets.length, 2, 'one top bar + one bottom bar for the one section');
 });
 
 ok('doc8 default reveal counts are honest and clamped to EXPAND_STEP', () => {
@@ -523,6 +526,117 @@ ok('plugin: a bulk DELETE N ROWS of member rows rebuilds decorations without cra
     classifyRows(state.doc, 'broll', ps.snapshot).rows.filter((r) => r.member || r.left).map((r) => r.firstBlockId).sort(),
     ['b7'], 'the two deleted members are gone; b7 survives as the lone section');
   assert.doesNotThrow(() => ps.decorations.find(0, state.doc.content.size), 'rebuilt DecorationSet is consistent with the new doc');
+});
+
+// ── 9. CHECK-OFF (view-local per-workspace row "done") ───────────────────────
+// An in-memory store stub standing in for localStorage; keyed by wsKey (the plugin passes
+// prev.wsKey), so it doubles as the per-workspace isolation proof.
+const makeStore = (seed) => {
+  const mem = new Map(seed || []);
+  return {
+    mem,
+    load: (k) => new Set(mem.get(k) || []),
+    save: (k, s) => { mem.set(k, [...s]); },
+  };
+};
+const hasDone = (ps, present = true) =>
+  assert.equal(ps.decorations.find().some((d) => d.spec && /\bwp-ws-done\b/.test(d.spec.wsCls || '')), present);
+
+ok('check: toggle adds wp-ws-done + persists; toggle again removes + persists empty', () => {
+  const store = makeStore();
+  const plugin = createWorkspaceFilterPlugin(store);
+  let state = EditorState.create({ doc: doc8, plugins: [plugin] });
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  let ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.checked.size, 0, 'no checks on entry');
+  hasDone(ps, false);
+
+  // CHECK b2 (a broll member)
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { toggleCheck: { id: 'b2' } }));
+  ps = workspaceFilterKey.getState(state);
+  assert.deepEqual([...ps.checked], ['b2'], 'b2 now checked in plugin state');
+  assert.deepEqual(store.mem.get('broll'), ['b2'], 'persisted to the broll store key');
+  hasDone(ps, true);
+  assert.equal(countCheckedMembers(state.doc, 'broll', ps.checked), 1, 'hub count n = 1');
+  // NO doc change — the check never mutates the script
+  assert.equal(state.doc.eq(doc8), true, 'document is byte-identical (decoration-only)');
+
+  // UNCHECK b2
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { toggleCheck: { id: 'b2' } }));
+  ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.checked.size, 0, 'b2 unchecked');
+  assert.deepEqual(store.mem.get('broll'), [], 'empty set persisted');
+  hasDone(ps, false);
+  assert.equal(countCheckedMembers(state.doc, 'broll', ps.checked), 0);
+});
+
+ok('check: prune on entry drops a ghost id, keeps a present (even non-member) row', () => {
+  // seed: b2 (a real broll member) + b1 (a real row, but a VO — not a broll member) + a ghost
+  const store = makeStore([['broll', ['b2', 'b1', 'ghost_gone']]]);
+  const plugin = createWorkspaceFilterPlugin(store);
+  let state = EditorState.create({ doc: doc8, plugins: [plugin] });
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  const ps = workspaceFilterKey.getState(state);
+  // ghost (no such row) pruned; b1 kept though it is NOT a broll member (prune is by row
+  // EXISTENCE, not membership — a row that merely lost the craft tag keeps its check).
+  assert.deepEqual([...ps.checked].sort(), ['b1', 'b2']);
+  assert.deepEqual(store.mem.get('broll').sort(), ['b1', 'b2'], 'the prune was persisted');
+  // n counts only checked MEMBERS in view → b2 (b1 is a non-member VO row)
+  assert.equal(countCheckedMembers(state.doc, 'broll', ps.checked), 1);
+});
+
+ok('check: per-workspace isolation — a check in broll is invisible to 3d, restored on return', () => {
+  const store = makeStore();
+  const plugin = createWorkspaceFilterPlugin(store);
+  let state = EditorState.create({ doc: doc8, plugins: [plugin] });
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { toggleCheck: { id: 'b2' } }));
+  assert.deepEqual(store.mem.get('broll'), ['b2']);
+
+  // switch to a DIFFERENT craft — its own (empty) set, broll's check untouched
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: '3d' }));
+  let ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.checked.size, 0, '3d carries its own empty check set');
+  assert.deepEqual(store.mem.get('broll'), ['b2'], 'broll storage is undisturbed');
+
+  // back to broll — the check reloads
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  ps = workspaceFilterKey.getState(state);
+  assert.deepEqual([...ps.checked], ['b2'], 'broll check restored on return');
+});
+
+ok('check: coexists with expansion + sticky, survives doc change and selection; clears on exit', () => {
+  const store = makeStore();
+  const plugin = createWorkspaceFilterPlugin(store);
+  let state = EditorState.create({ doc: doc8, plugins: [plugin] });
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { toggleCheck: { id: 'b2' } }));
+
+  // EXPAND still works, and the check rides through it
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { expand: { id: 'b2', side: 'below' } }));
+  let ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.expansions.get('b2').below, EXPAND_STEP, 'expansion machinery unaffected');
+  assert.equal(ps.checked.has('b2'), true, 'check survives an expand');
+
+  // SELECTION-ONLY reuses the same set object (check + expansion decorations intact)
+  const selState = state.apply(state.tr.setSelection(TextSelection.atStart(state.doc)));
+  assert.equal(workspaceFilterKey.getState(selState).decorations, ps.decorations, 'selection maps, no rebuild');
+  state = selState;
+
+  // DOC CHANGE: insert text into b7 (a different member) — b2's check persists.
+  // Position inside b7's paragraph: tableRow → tableCell → brollBlock → paragraph = 4 opens.
+  const r7 = classifyRows(state.doc, 'broll', null).rows.find((r) => r.firstBlockId === 'b7');
+  state = state.apply(state.tr.insertText('x', r7.pos + 4));
+  ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.checked.has('b2'), true, 'check survives a doc change');
+  hasDone(ps, true);
+
+  // EXIT clears everything back to EMPTY (storage keeps the durable check for next time)
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, null));
+  ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.wsKey, null);
+  assert.equal(ps.checked, null, 'exit returns EMPTY (checked null)');
+  assert.deepEqual(store.mem.get('broll'), ['b2'], 'the durable check remains in storage after exit');
 });
 
 console.log(`workspace-filter: ${pass} passed, 0 failed`);
