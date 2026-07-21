@@ -3,7 +3,7 @@ import { Plugin } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { episodeFlag } from '../episode-config.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
-import { retypeHostToVo, bulkRetypeToVo } from './slash-menu.js';
+import { retypeHostToVo, bulkRetypeToVo, laneMatches } from './slash-menu.js';
 import { collectIntersectingRows, doDeleteRows, rowFirstBlockId } from './table.js';
 import { findRowByIdentity } from './table.js';
 
@@ -13,9 +13,12 @@ import { findRowByIdentity } from './table.js';
 //
 //   1. TAGS. Every role tag Johnny uses, each shown as its REAL chip (same colours the doc renders:
 //      3d = purple + yellow, sot = red-purple italic, oncam = warm italic ink, …). Clicking a tag
-//      bulk-applies it across the WHOLE selection in one transaction — "load all of these rows up
-//      with 3D ANIMATION". VO is the one BLOCK action: it retypes every convertible block the
-//      selection touches into a voBlock (shared bulkRetypeToVo), the same conversion /vo runs.
+//      bulk-applies it across the selection — but SCOPED TO THE COLUMN Johnny right-clicked in: a
+//      said-lane click lays the tag only into said (+ full-width) cells, a shown-lane click only
+//      into shown (+ full-width) cells; a full-width click has no lane preference and tags the whole
+//      selection (Johnny 2026-07-21: "the tag should go into the column I right clicked"). One
+//      transaction either way. VO is the one BLOCK action: it retypes every convertible block the
+//      clicked lane touches into a voBlock (shared bulkRetypeToVo), the same conversion /vo runs.
 //   2. DELETE. A destructive entry at the very bottom, hairline-separated, carrying a LIVE count of
 //      the outermost rows the selection intersects — "DELETE 10 ROWS". Clicking removes those whole
 //      top-level rows in one transaction (one undo restores everything). The count shown always
@@ -51,26 +54,82 @@ function el(tag, cls, attrs) {
   return n;
 }
 
-// Apply the chosen viz kind across a specific [from,to] range. Uses the shared default-attrs helper
-// so a bulk-applied run is byte-identical to one the slash menu would produce for that kind. Passed
-// the SNAPSHOT range captured when the menu opened (not the live selection) so what the chip preview
-// promised is exactly what lands — a remote collab edit mid-menu can't retarget the apply.
-function applyMarkRange(editor, kind, from, to) {
-  if (isReadOnly()) return false;
-  if (from === to) return false; // never mark an empty selection
-  return editor
-    .chain()
-    .focus()
-    .setTextSelection({ from, to })
-    .setMark('directionMark', defaultDirectionMarkAttrs(kind))
-    .run();
+// The role of the tableCell under the pointer at right-click time ('said' | 'shown' | 'full'), or
+// null when the click resolves to no cell. Walks UP from the resolved doc position to the NEAREST
+// enclosing tableCell, so a nested Palau row (wrapper cell > inner said|shown cells) reports the
+// INNER leaf cell's own role — the lane the pointer is actually over — not the wrapper's 'full'.
+// This is what scopes every bulk tag to the column Johnny right-clicked (2026-07-21).
+function clickedCellRole(view, x, y) {
+  const coords = view.posAtCoords({ left: x, top: y });
+  if (!coords) return null;
+  const size = view.state.doc.content.size;
+  const $pos = view.state.doc.resolve(Math.max(0, Math.min(coords.pos, size)));
+  for (let d = $pos.depth; d > 0; d--) {
+    if ($pos.node(d).type.name === 'tableCell') return $pos.node(d).attrs?.role || 'full';
+  }
+  return null;
 }
 
-// VO across the snapshot range — every convertible block the selection touched, one transaction.
-function applyVoRange(editor, from, to) {
+// The [from,to] sub-ranges of a selection that fall inside cells matching the clicked lane. Walks
+// every LEAF tableCell (a cell holding no nested tableRow) intersecting the selection and keeps the
+// intersection for cells whose role passes laneMatches. Wrapper cells (Palau's nested-row shape) are
+// transparent — we descend through them to the inner said|shown cells and scope by THOSE, so lane
+// scoping is recursion-safe. Each returned range is a cell's inner content clipped to [from,to].
+function laneCellRanges(doc, from, to, clickedRole) {
+  const ranges = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type.name !== 'tableCell') return true;
+    let hasNestedRow = false;
+    node.forEach((child) => { if (child.type.name === 'tableRow') hasNestedRow = true; });
+    if (hasNestedRow) return true; // wrapper cell — descend to the leaf said|shown|full cells
+    if (laneMatches(node.attrs?.role || 'full', clickedRole)) {
+      const f = Math.max(from, pos + 1);
+      const t = Math.min(to, pos + node.nodeSize - 1);
+      if (t > f) ranges.push([f, t]);
+    }
+    return false; // leaf cell — nothing deeper to scope
+  });
+  return ranges;
+}
+
+// Apply the chosen viz kind across the clicked lane's slice of a specific [from,to] range, in ONE
+// transaction (one undo). Uses the shared default-attrs helper so a bulk-applied run is byte-
+// identical to one the slash menu would produce for that kind; setMark over a non-empty range is
+// exactly tr.addMark(from,to,mark) (see the test's equivalence note), so we addMark each matching
+// lane sub-range directly. `clickedRole` scopes which cells receive the tag (see laneMatches) — a
+// said click never touches the shown column, and vice-versa. Passed the SNAPSHOT range captured
+// when the menu opened (not the live selection) so what the chip preview promised is exactly what
+// lands — a remote collab edit mid-menu can't retarget the apply. Pure (state, dispatch, …) ->
+// boolean; exported for the headless suite.
+export function bulkApplyMarkRange(state, dispatch, from, to, kind, clickedRole) {
+  const markType = state.schema.marks.directionMark;
+  if (!markType) return false;
+  const size = state.doc.content.size;
+  const lo = Math.max(0, Math.min(from, to, size));
+  const hi = Math.max(0, Math.min(Math.max(from, to), size));
+  if (lo === hi) return false; // never mark an empty selection
+  const ranges = laneCellRanges(state.doc, lo, hi, clickedRole);
+  if (!ranges.length) return false;
+  const mark = markType.create(defaultDirectionMarkAttrs(kind));
+  const tr = state.tr;
+  for (const [f, t] of ranges) tr.addMark(f, t, mark);
+  if (dispatch) dispatch(tr);
+  return true;
+}
+
+function applyMarkRange(editor, kind, from, to, clickedRole) {
   if (isReadOnly()) return false;
   const { state, view } = editor;
-  return bulkRetypeToVo(state, view.dispatch, from, to);
+  const done = bulkApplyMarkRange(state, view.dispatch, from, to, kind, clickedRole);
+  if (done) view.focus();
+  return done;
+}
+
+// VO across the snapshot range — every convertible block the CLICKED LANE touched, one transaction.
+function applyVoRange(editor, from, to, clickedRole) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  return bulkRetypeToVo(state, view.dispatch, from, to, clickedRole);
 }
 
 // Delete the outermost rows captured when the menu opened. Rows are re-resolved by IDENTITY (node
@@ -110,7 +169,7 @@ function pluralRows(n) {
 
 // A single live menu instance. Rendered into <body>, positioned near the pointer, closed on Escape,
 // pick, or any click/scroll/resize away from it. Fully keyboard-driven (Up/Down/Home/End/Enter/Esc).
-function createConvertMenu(editor, x, y) {
+function createConvertMenu(editor, x, y, clickedRole) {
   // Snapshot the selection + the rows it touches AT OPEN. Every action below uses this snapshot so
   // the tag preview, the delete count, and the actual writes can never disagree with each other.
   const { from, to } = editor.state.selection;
@@ -158,9 +217,9 @@ function createConvertMenu(editor, x, y) {
     if (entry.type === 'delete') {
       deleteRows(editor, rowRefs);
     } else if (entry.item.kind === '__vo') {
-      applyVoRange(editor, from, to);
+      applyVoRange(editor, from, to, clickedRole);
     } else {
-      applyMarkRange(editor, entry.item.kind, from, to);
+      applyMarkRange(editor, entry.item.kind, from, to, clickedRole);
     }
     editor.view.focus();
   };
@@ -262,9 +321,13 @@ export const ConvertMenu = Extension.create({
                 : null;
               if (onChip) return false;
 
+              // Capture WHICH LANE the pointer is over, at click time, so every bulk tag scopes to
+              // that column (said vs shown) — the fix for "lay VO tags into the left column not both".
+              const clickedRole = clickedCellRole(view, event.clientX, event.clientY);
+
               event.preventDefault();
               closeOpenConvertMenu();
-              openConvertMenu = createConvertMenu(this.editor, event.clientX, event.clientY);
+              openConvertMenu = createConvertMenu(this.editor, event.clientX, event.clientY, clickedRole);
               return true;
             },
           },
