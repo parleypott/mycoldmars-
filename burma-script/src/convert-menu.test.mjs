@@ -13,19 +13,18 @@ import { VIZ_KINDS } from './extensions/convert-menu.js';
 let pass = 0;
 function ok(label, fn) { fn(); pass++; }
 
-// The convert menu offers the Make VO block action FIRST (kind '__vo', routed through the shared
-// retypeHostToVo — not a mark), then exactly the viz kinds Johnny named — including SOT
-// (added 2026-07-21: the /sot kind existed but never made it into this menu). Every MARK kind it
-// applies must be one directionMark already understands — otherwise a converted run would carry an
-// attr the mark can't render, breaking parity with the slash menu.
-ok('VIZ_KINDS is Make VO + the viz kinds in order', () => {
+// The bulk menu offers the VO block action FIRST (kind '__vo', routed through the shared
+// bulkRetypeToVo — not a mark), then every role tag Johnny named IN HIS ORDER, including the new
+// 'sot' soundbite chip. Every MARK kind it applies must be one directionMark already understands —
+// otherwise a bulk-applied run would carry an attr the mark can't render, breaking parity with /.
+ok('VIZ_KINDS is VO + Johnny\'s role tags in order (incl. sot)', () => {
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.kind),
-    ['__vo', 'animation', '3d', 'broll', 'mapdata', 'archive', 'oncam', 'sot', 'factcheck', 'direction'],
+    ['__vo', 'oncam', 'sot', '3d', 'animation', 'archive', 'broll', 'mapdata', 'factcheck', 'direction'],
   );
   assert.deepEqual(
     VIZ_KINDS.map((v) => v.label),
-    ['Make VO', 'Animation', '3d', 'B-roll', 'Map data', 'Archive', 'On cam', 'SOT', 'Fact-check', 'Direction'],
+    ['VO', 'ON CAM', 'SOT', '3D ANIMATION', 'ANIMATION', 'ARCHIVE', 'B-ROLL', 'MAP DATA', 'FACT CHECK', 'DIRECTION'],
   );
 });
 

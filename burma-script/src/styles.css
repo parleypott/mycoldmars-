@@ -375,6 +375,23 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* row menu: the destructive entry reads warm red, filled on hover like every other item */
 .wp-rowmenu .wp-slash-item.is-danger .wp-convert-label{ color:#b0431f; }
 .wp-rowmenu .wp-slash-item.is-danger.is-active .wp-convert-label{ color:#7e2c12; }
+
+/* SELECT → RIGHT-CLICK → BULK ROW MENU. Same flat/mono/no-shadow slash-menu chrome; each tag row
+   previews the REAL chip (colours inherited from .wp-dhl[data-kind] above) so the menu shows exactly
+   what a click lands. A touch more min-width so the widest chip (3D ANIMATION) never crowds the edge. */
+.wp-bulk-menu{ min-width:196px; }
+.wp-bulk-item{ padding:4px 8px; }
+/* The chip preview sits in the menu's mono voice at chip scale; per-kind colour comes from .wp-dhl. */
+.wp-bulk-chip{ display:inline-block; font-size:11px; line-height:1.35; letter-spacing:.02em; }
+/* VO is a block action, not a directionMark — its own dark cap chip, echoing the block's VO corner tag. */
+.wp-bulk-chip-vo{
+  padding:3px 10px; border-radius:5px; font-weight:700;
+  background:var(--ep-cap, #3a382f); color:var(--face, #f4efe4); border:1.5px solid var(--ep-cap, #3a382f);
+}
+/* The destructive entry: warm red, hairline-separated at the bottom, mono count — filled on hover
+   like every other row (matching the left-margin row menu's is-danger treatment). */
+.wp-bulk-menu .wp-bulk-delete.is-danger .wp-convert-label{ color:#b0431f; letter-spacing:.06em; }
+.wp-bulk-menu .wp-bulk-delete.is-danger.is-active .wp-convert-label{ color:#7e2c12; }
 .wp-convert-dot[data-kind="__vo"]{ background:var(--ep-cap, #3a382f); border-color:var(--ep-cap, #3a382f); }
 .wp-convert-dot[data-kind="archive"]{ background:#f2d4d4; border-color:#d79a9a; }
 .wp-convert-dot[data-kind="oncam"]{ background:#f4c2b0; border-color:#d97a52; }

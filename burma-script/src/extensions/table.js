@@ -646,6 +646,96 @@ export function doDeleteRow(state, dispatch, rowPos) {
   return true;
 }
 
+// The distinct OUTERMOST tableRows a selection range touches — the unit the bulk row menu
+// (extensions/convert-menu.js) both COUNTS ("DELETE 10 ROWS") and DELETES. "Outermost" means a
+// top-level row (a direct doc child): Palau nests said|shown rows inside a full-width row's cell,
+// and a selection landing in a nested row must resolve to its WRAPPER, never the child — so this
+// only ever walks the doc's direct children and never descends. A collapsed caret counts the one
+// row it sits in; a span counts every row it overlaps. The [start,end) test is deliberately
+// half-open at the row's trailing boundary so a selection ENDING exactly at a row's edge (or a
+// caret parked on the boundary between two rows) doesn't over-count the row it never entered.
+// Pure (doc, from, to) -> [{ pos, node }] in document order. Exported for the headless suite.
+export function collectIntersectingRows(doc, from, to) {
+  const lo = Math.min(from, to);
+  const hi = Math.max(from, to);
+  const rows = [];
+  let pos = 0;
+  for (let i = 0; i < doc.childCount; i++) {
+    const node = doc.child(i);
+    const start = pos;
+    const end = pos + node.nodeSize;
+    if (node.type.name === 'tableRow') {
+      // Overlap of [lo,hi] with the row's span [start,end]. For a collapsed caret (lo===hi) the
+      // half-open test still catches the containing row because start < lo < end there.
+      const overlaps = start < hi && end > lo;
+      if (overlaps) rows.push({ pos: start, node });
+    }
+    pos = end;
+  }
+  return rows;
+}
+
+// Delete a set of OUTERMOST rows (positions from collectIntersectingRows) in ONE transaction, so a
+// single undo restores every one of them byte-exact. Mirrors doDeleteRow's laws at bulk scale:
+//   • LAST-ROWS GUARD — if the set is EVERY top-level row, the doc would be left empty and
+//     schema-invalid, so after the deletes a fresh empty full-width row (pairu_ keep-me marker) is
+//     inserted, exactly like the single-row guard. The writer always keeps a line to type into.
+//   • ONE TRANSACTION — deletes run high→low so each row's captured position stays valid as earlier
+//     spans are removed (no position mapping needed); a lone tr means a lone undo step.
+//   • COLLAB LOOP LAW — only this user-initiated transaction is dispatched; nothing auto-fires.
+//   • SCROLL LAW — like doDeleteRow, NEVER scrollIntoView on a delete: the writer is acting where
+//     they can already see, and the deliberate scroll-snap fix (blocks.js) proved a forced scroll
+//     here yanks the viewport. The caret is placed sensibly instead so the next keystroke lands
+//     where the rows were.
+// Rejects (returns false, dispatches nothing) if ANY position isn't a live top-level tableRow, so a
+// stale/garbage set can never delete the wrong band. Pure (state, dispatch, rowPositions) -> boolean.
+export function doDeleteRows(state, dispatch, rowPositions) {
+  const { schema, doc } = state;
+  if (!Array.isArray(rowPositions) || rowPositions.length === 0) return false;
+  const positions = [...new Set(rowPositions)].sort((a, b) => a - b);
+  const rows = [];
+  for (const p of positions) {
+    if (typeof p !== 'number' || p < 0 || p > doc.content.size) return false;
+    const node = doc.nodeAt(p);
+    if (!node || node.type.name !== 'tableRow') return false;
+    // Top-level only: the position just BEFORE a doc-child resolves at depth 0. A nested Palau row
+    // resolves deeper, so this refuses to bulk-delete an inner row through the outermost path.
+    if (doc.resolve(p).depth !== 0) return false;
+    rows.push({ pos: p, size: node.nodeSize });
+  }
+  const deletingAll = rows.length === doc.childCount;
+  const tr = state.tr;
+  if (deletingAll) {
+    // Deleting EVERY top-level row would leave a schema-invalid empty doc (content is 'block+',
+    // which auto-fills a stray paragraph on a bare delete). REPLACE the whole span with one fresh
+    // empty full-width row in a single step instead — same guard doDeleteRow uses for the last row.
+    const cellType = schema.nodes.tableCell;
+    const rowType = schema.nodes.tableRow;
+    if (!cellType || !rowType) return false;
+    const fresh = rowType.create(
+      { cols: 1, pairId: mintUserPairId() },
+      cellType.create({ role: 'full' }, emptyParagraph(schema)),
+    );
+    tr.replaceWith(0, doc.content.size, fresh);
+    try { tr.setSelection(TextSelection.create(tr.doc, Math.min(3, tr.doc.content.size))); } catch {}
+    if (dispatch) dispatch(tr);
+    return true;
+  }
+  // High→low so each remaining captured position is untouched by the deletes before it.
+  for (let i = rows.length - 1; i >= 0; i--) {
+    tr.delete(rows[i].pos, rows[i].pos + rows[i].size);
+  }
+  {
+    // Caret to the top edge of where the first deleted row was — the natural "next line".
+    try {
+      const caret = Math.min(rows[0].pos, tr.doc.content.size);
+      tr.setSelection(TextSelection.near(tr.doc.resolve(caret), 1));
+    } catch {}
+  }
+  if (dispatch) dispatch(tr);
+  return true;
+}
+
 // TAB CELL-HOP (Johnny: "when im in a table and i hit tab, it should bring me to the next
 // row… left column tab brings me to right, right column tab brings me to the left column in
 // the row below. shift tab goes the opposite way"). Spreadsheet Tab: caret hops cell → cell
