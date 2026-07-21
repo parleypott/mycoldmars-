@@ -2108,6 +2108,60 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-src a:hover { color: var(--orange); border-color: var(--orange); }
 
 /* ============================================================
+   PENDING VISUAL PLAN (/pending) — the host CELL screams alert red until a real
+   visual plan lands. Keyed purely on the block attr's data-pending-viz (WP-13 —
+   no decorations, no plugin, nothing dispatches; the NodeViews sync the attr so
+   remote y-sync stamps repaint live). Both cell DOM shapes are covered: the
+   NodeView (.wp-tcell > .wp-tcell-content > cart) and renderHTML (.wp-tcell > cart).
+   The red is SEMANTIC alert ink — deliberately a hard value across all 6 schemes
+   (like the brand orange, it reads as hardware alert, not theme). FLAT IS LAW.
+   ============================================================ */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) {
+  background: #b02318;
+  border-radius: 11px;
+}
+/* tiny mono corner tag — the cell names its own alarm */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz])::before {
+  content: 'PENDING VISUAL PLAN';
+  position: absolute; top: 5px; right: 12px; z-index: 3;
+  font-family: var(--mono); font-size: calc(var(--chrome-size-sm) - 1px);
+  font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+  color: #fbfaf5; pointer-events: none;
+}
+/* the cart melts into the red — the CELL is the alert surface */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-cart,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-cart:hover,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-none {
+  background: transparent !important;
+  border-color: rgba(251, 250, 245, .5) !important;
+}
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-spine {
+  background: repeating-linear-gradient(0deg, #8f1c13, #8f1c13 2px, #9d2117 2px, #9d2117 4px);
+  border-color: rgba(251, 250, 245, .5);
+}
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-cap-num {
+  background: #8f1c13 !important;
+  border-color: rgba(251, 250, 245, .5);
+}
+/* EVERY word inside contrasts hard — prose, kind labels, grips, done ticks, bare cell
+   paragraphs, all of it (the whole cell is the alert, so the whole cell re-inks) */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]),
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) * {
+  color: #fbfaf5 !important;
+}
+/* inline chips ({tk} / fact-check / visual / timecode tags / direction highlights) re-ink
+   as dark-red wells with near-white text so nothing inside the alert goes unreadable */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dchip,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-fc,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-visual,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tc-tag {
+  background: rgba(26, 5, 3, .32) !important;
+  border-color: rgba(251, 250, 245, .55) !important;
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 760px) {
@@ -2141,6 +2195,31 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   /* TABLE LAYER in print: no fills, keep the single hairline as black ink. */
   .wp-tcell { background: none !important; }
   .wp-tcell + .wp-tcell { border-left: 1px solid #000 !important; margin-left: 14pt !important; padding-left: 14pt !important; }
+  /* PENDING VISUAL PLAN in print: fills are stripped, so the alert survives as a bold red
+     border + the red corner label; the words go back to black ink on white. */
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) {
+    background: none !important;
+    border: 2pt solid #b02318 !important;
+    border-radius: 0 !important;
+    padding: 8pt 10pt !important;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]),
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) * {
+    color: #000 !important;
+  }
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz])::before {
+    color: #b02318 !important;
+  }
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dchip,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-fc,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-visual,
+  .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tc-tag {
+    background: none !important;
+    border-color: #000 !important;
+  }
 }
 
 /* ============================================================

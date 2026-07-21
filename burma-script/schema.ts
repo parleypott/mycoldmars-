@@ -55,6 +55,7 @@ export interface Block {
   voStatus?: VOStatus;       // VO only
   spans?: InlineSpan[];      // inline {TK}/[visual]/factcheck objects within text
   flavor?: string;          // additive per-block color flavor (default null); null = today's flat look
+  pendingViz?: boolean;     // /pending — PENDING VISUAL PLAN flag; emitted only when true (additive)
   // edit direction
   timecode?: Timecode;       // SOT / B-roll
   speaker?: string;          // SOT: "Jack" / "JH" / "Drew"

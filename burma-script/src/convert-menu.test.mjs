@@ -78,7 +78,7 @@ ok('every converted viz run round-trips through the live schema', () => {
           attrs: { role: 'full' },
           content: [{
             type: 'oncamBlock',
-            attrs: { blockId: 'dir_1', flavor: null, chapterId: null },
+            attrs: { blockId: 'dir_1', flavor: null, chapterId: null, pendingViz: null },
             content: [{
               type: 'paragraph',
               content: [

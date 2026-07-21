@@ -549,6 +549,15 @@ export function reclassifyChapter(b) {
 // (kept, editable, round-tripping), but the script must OPEN on the masthead then CH 01, not
 // on instructions-to-self. We tag them so the BIN node renders a quiet collapsed strip.
 function blockToNode(b, opts) {
+  const node = blockToTypedNode(b, opts);
+  // pendingViz (/pending — PENDING VISUAL PLAN) rides EVERY cartridge type uniformly, so it is
+  // merged here centrally instead of per-case: nodeToBlock emits it only when true, and this
+  // restores it on the way back. Absent → untouched (byte-identical for every existing doc).
+  if (b.pendingViz && node.attrs) node.attrs = { ...node.attrs, pendingViz: true };
+  return node;
+}
+
+function blockToTypedNode(b, opts) {
   const id = b.id;
   // Reclassify over-eager CHAPTER labels BEFORE the switch so demoted ones flow into the
   // right node branch (oncam / scene) and pick up colour instead of a dark divider bar.
@@ -1191,6 +1200,8 @@ function nodeToBlock(node, i) {
   if (node.type === 'noteBlock') type = a.kind || 'note';
   const block = { id, type: type || 'bin' };
   if (a.flavor) block.flavor = a.flavor;
+  // Emit ONLY when set (like flavor) so an unstamped doc's blocks array stays byte-identical.
+  if (a.pendingViz) block.pendingViz = true;
   if (node.type === 'chapterBlock') { block.title = text; block.genre = a.genre; }
   else if (node.type === 'sceneBlock') { block.title = text; }
   else if (node.type === 'sotBlock' || node.type === 'brollBlock') {
