@@ -31,6 +31,7 @@ import { ScriptMap } from './ScriptMap.jsx';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 import { ShareToggle } from './ShareToggle.jsx';
+import { stickyHeaderVisible } from './sticky-header.js';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
 // palau-script/main.jsx) which calls setEpisode(...) BEFORE dynamically importing this
@@ -1254,7 +1255,12 @@ function wsCountLabel(c) {
   return `${c.sections} SECTION${c.sections === 1 ? '' : 'S'} · ${c.rows} ROW${c.rows === 1 ? '' : 'S'}`;
 }
 
-function WorkspacesMenu({ getDoc, onPick }) {
+// `placement` — 'masthead' (default) or 'sticky' (the slim scrolled-away strip). Same component,
+// same state and handlers in both slots; the variant class only lets CSS nudge the popover to the
+// right host. State that matters (the SELECTED workspace) lives in App via onPick, so a second
+// mount here can never desync — only the local open/closed toggle differs per slot, and the two
+// slots are never on screen together (masthead visible ⇔ strip hidden).
+function WorkspacesMenu({ getDoc, onPick, placement = 'masthead' }) {
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState({});
   const toggle = () => {
@@ -1275,7 +1281,7 @@ function WorkspacesMenu({ getDoc, onPick }) {
   };
   const pick = (key) => { setOpen(false); onPick(key); };
   return (
-    <div class={`wp-wsmenu${open ? ' is-open' : ''}`}>
+    <div class={`wp-wsmenu wp-wsmenu--${placement}${open ? ' is-open' : ''}`}>
       <button
         class="wp-wsmenu-toggle"
         aria-expanded={open}
@@ -1299,6 +1305,44 @@ function WorkspacesMenu({ getDoc, onPick }) {
           <span class="wp-wsmenu-count">WHOLE SCRIPT</span>
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── STICKY HEADER — a slim strip that keeps the workspaces menu (and share) reachable once the
+// real masthead has scrolled off. It appears ONLY when the masthead leaves the viewport
+// (IntersectionObserver on .wp-masthead — no scroll listener, so no jank and no feedback loop:
+// the strip lives at the very top and never touches the masthead's own intersection) and yields
+// the top edge back whenever a workspace view or chapter-focus owns it (their bars are z-530; the
+// strip is z-460, UNDER the centered READ/EDIT toggle at z-470 which floats above it, clear of the
+// strip's end-hugged controls). The whole strip is absent in a ?read share. The one show/hide rule
+// is stickyHeaderVisible() (sticky-header.js), tested headless. The workspaces menu and share are
+// the SAME components as the masthead — a second placement, not a fork; the selected-workspace
+// state lives in App, so nothing here can desync.
+function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project }) {
+  const [mastheadVisible, setMastheadVisible] = useState(true);
+  useEffect(() => {
+    // A ?read share never mounts the owner masthead controls, so there's nothing to observe.
+    if (readOnly) return undefined;
+    const el = document.querySelector('.wp-masthead');
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(
+      (entries) => { const e = entries[0]; if (e) setMastheadVisible(e.isIntersecting); },
+      { root: null, threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [readOnly]);
+
+  // Owner chrome only — a ?read viewer gets no strip at all (matches the masthead popovers).
+  if (readOnly) return null;
+  const show = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive: !!ws, chFocusActive: !!chFocus });
+  return (
+    <div class="wp-stickyhead" data-show={show ? '' : undefined} aria-hidden={!show}>
+      <span class="wp-stickyhead-title" title={title}>{title}</span>
+      <span class="wp-stickyhead-spacer" />
+      <WorkspacesMenu getDoc={getDoc} onPick={onPick} placement="sticky" />
+      <ShareToggle project={project} />
     </div>
   );
 }
@@ -1787,6 +1831,19 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
         </div>
       )}
       {!readOnly && <ModeToggle edit={editUi} />}
+      {/* STICKY HEADER — carries workspaces + share once the masthead scrolls away (owner only;
+          yields to the wsbar/chfocus bar). Reuses the SAME menu/share components as the masthead. */}
+      {!readOnly && (
+        <StickyHeader
+          title={DOC_TITLE}
+          readOnly={readOnly}
+          ws={ws}
+          chFocus={chFocus}
+          getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
+          onPick={enterWorkspace}
+          project={EPISODE.id}
+        />
+      )}
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
       <OutlineRail items={tel?.outline} hidden={outlineOpen} />
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and

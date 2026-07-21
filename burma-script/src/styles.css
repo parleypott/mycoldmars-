@@ -2495,7 +2495,8 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   .wp-screw, .wp-rack-head, .wp-rack-foot, .wp-outline, .wp-spine, .wp-grip, .wp-cap-num,
   .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta,
   .wp-row-add, .wp-addrows-menu, .wp-row-spine, .wp-row-drag,
-  .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill { display: none !important; }
+  .wp-mode, .wp-chfocus-bar, .wp-row-bm, .wp-ch-focus, .wp-save-pill, .wp-version-pill,
+  .wp-stickyhead { display: none !important; }
   .wp-trow[data-rownum]:not(.wp-drop-before)::before { display: none !important; } /* margin numbers are screen chrome */
   .wp-page { padding: 0 !important; }
   .wp-device { border: 0 !important; border-radius: 0 !important; padding: 0 !important; max-width: none !important; background: #fff !important; transform: none !important; }
@@ -2979,6 +2980,47 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    adds no resting clutter. A real ?read SHARE still can't drag — armEditForRowGrip refuses. */
 .wp-page[data-mode="read"] .wp-done { pointer-events: none; }
 .wp-page[data-mode="read"] .wp-editor-content { caret-color: transparent; }
+
+/* ═══ STICKY HEADER — the slim strip that carries the script title + workspaces + share once
+   the masthead has scrolled away (main.jsx StickyHeader, IntersectionObserver-driven; shown only
+   via the [data-show] attribute). Flat: frame paper, a 1.5px ink bottom hairline, no shadow, no
+   bevel. It rides the scheme tokens because it lives inside .wp-page. It sits at z-460 — UNDER the
+   centered READ/EDIT toggle (.wp-mode, z-470) so that toggle floats above it and stays clickable;
+   the strip's own controls hug the two ends, leaving the center clear for the toggle. It's absent
+   in ?read shares (StickyHeader returns null) and yields to the wsbar / chfocus bar (z-530), which
+   only appear while ws/chapter-focus are active — states in which stickyHeaderVisible() is false.
+   A hard save/conflict banner (z-1000, top:0) is the one thing allowed to win the top over it — a
+   critical failure signal should never be covered. ════════════════════════════════════════════ */
+.wp-stickyhead {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 460;
+  display: none; align-items: center; gap: 12px;
+  min-height: 40px; padding: 6px 16px;
+  /* Clear the fixed library/standalone door pill (top-left, x≈14–113, z-8500) that stays put on
+     scroll: it floats above the strip and remains the way back to the library, so we inset the
+     strip's own content to start just past it rather than hiding the title underneath. */
+  padding-left: 124px;
+  background: var(--frame); border-bottom: 1.5px solid var(--ink);
+  font-family: var(--mono);
+}
+.wp-stickyhead[data-show] { display: flex; }
+/* The workspaces/share popovers collapse to max-height:0 when closed but, left in flow, their
+   wide panel content would inflate the container's width and shove the visible toggle inward. In
+   this flex strip (a grow-spacer exposes that intrinsic width) we take the CLOSED body out of flow
+   so the container hugs its toggle and the right cluster pins tight to the edge; the open state
+   already sets its own absolute placement. Scoped to the strip — the masthead layout is untouched. */
+.wp-stickyhead .wp-wsmenu-body,
+.wp-stickyhead .wp-share-body { position: absolute; }
+/* The script name — the masthead treatment scaled down to chrome size; truncates with an ellipsis
+   so a long title never crowds the controls. max-width keeps it well clear of the centered toggle. */
+.wp-stickyhead-title {
+  font-family: var(--mono); font-size: var(--chrome-size); font-weight: 700;
+  letter-spacing: .01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; max-width: 38%;
+}
+.wp-stickyhead-spacer { flex: 1 1 auto; min-width: 12px; }
+/* The workspaces menu + share reuse their masthead toggle styling verbatim; the popovers drop
+   downward from inside the strip (top: calc(100% + 7px)) exactly as they do from the masthead. */
 
 /* ═══ CHAPTER FOCUS — one chapter, full screen, seamless return ═════════════════
    The ⛶ on a chapter cartridge. All page chrome folds away, every row outside the
