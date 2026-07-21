@@ -209,6 +209,18 @@ function findDropTargetForDrag(view, ref, clientY) {
 // never Dropcursor's red line inviting a corrupting drop into a gap.
 const rowDragKey = new PluginKey('wpRowDrag');
 
+// THE ONLY SANCTIONED DRAG INITIATORS inside the editor: the row grip (.wp-row-drag) and the
+// block cartridge grip (blocks.js's [data-drag-handle] .wp-grip). Johnny 2026-07-21: "under no
+// circumstances do I want the row to break out of the two column experience… I should be able to
+// click anywhere within the cell and drag and all it does is highlight." So ANY native dragstart
+// whose target is inside a row but NOT on a grip is an accident — a selected-text drag, an <img>
+// drag, a browser-invented drag — and gets preventDefault'd before ProseMirror or the browser can
+// turn it into a structure-mutating drop. Pure predicate, exported for the headless suite.
+export function dragSourceSanctioned(target) {
+  return !!(target && typeof target.closest === 'function'
+    && target.closest('.wp-row-drag, [data-drag-handle], .wp-grip'));
+}
+
 // Edge autoscroll: dragover fires continuously, so a small per-event nudge near the viewport
 // edges lets a row travel the full length of a 260-row doc without dropping the grip.
 const AUTOSCROLL_EDGE = 80;
@@ -233,6 +245,19 @@ function rowDragPlugin() {
       },
     },
     view(editorView) {
+      // FIX 1 (Johnny 2026-07-21, "two broken things"): pointer-down + drag INSIDE any cell must
+      // do text selection ONLY. Capture-phase, so it runs BEFORE the grips' own target-phase
+      // dragstart listeners (which we exempt via dragSourceSanctioned) and before ProseMirror's
+      // bubble-phase dragstart could arm view.dragging with a slice that a drop could then nest
+      // somewhere illegal. Belt-and-braces with TableRow's spec draggable:false below — that kills
+      // PM's own row-drag arming; this kills the browser's native selected-text/img drag vector.
+      const onDragstartCapture = (e) => {
+        const t = e.target;
+        if (dragSourceSanctioned(t)) return;   // the grips keep their native drags
+        if (!(t && typeof t.closest === 'function' && t.closest('[data-trow]'))) return;
+        e.preventDefault();
+        e.stopPropagation();
+      };
       const onDragover = (e) => {
         if (!draggingRow) return;
         e.preventDefault();      // preventDefault on dragover is what makes the drop legal here
@@ -257,10 +282,12 @@ function rowDragPlugin() {
         const t = findDropTargetForDrag(editorView, ref, e.clientY);
         if (t) moveRow(editorView.state, editorView.dispatch, t.fromPos, t.targetPos, t.before);
       };
+      editorView.dom.addEventListener('dragstart', onDragstartCapture, true);
       editorView.dom.addEventListener('dragover', onDragover, true);
       editorView.dom.addEventListener('drop', onDrop, true);
       return {
         destroy() {
+          editorView.dom.removeEventListener('dragstart', onDragstartCapture, true);
           editorView.dom.removeEventListener('dragover', onDragover, true);
           editorView.dom.removeEventListener('drop', onDrop, true);
           clearDropIndicator();
@@ -1144,7 +1171,15 @@ export const TableRow = Node.create({
   name: 'tableRow',
   group: 'block',
   content: 'tableCell+',
-  draggable: true,
+  // STRUCTURAL LAW (Johnny 2026-07-21): a row may NEVER leave the two-column experience through a
+  // drag. spec draggable:true was the unpair vector — ProseMirror arms a native node drag on any
+  // mousedown that resolves to a draggable node (row padding, cell gaps, cartridge chrome), and
+  // its OWN drop handler will happily nest the dragged tableRow inside another row's cell (the
+  // schema allows tableRow in tableCell content — Palau's nested shape), leaving it unpaired and
+  // misaligned. draggable:false closes that entire machinery for rows. The ONLY reorder path left
+  // is the far-left grip → rowDragPlugin → moveRow, which preserves cols/pairing BY CONSTRUCTION
+  // (same-parent boundaries only, immutable-node reinsert).
+  draggable: false,
   addAttributes() {
     return {
       cols: { default: 1 },
@@ -1327,7 +1362,13 @@ export const TableRow = Node.create({
       let handle = null;
       if (rowDragEnabled() && !isReadOnly()) {
         handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
-        handle.textContent = '⇕';
+        // A proper grippy icon (the old ⇕ text glyph was vestigial — unstyled, mid-flow, dead).
+        // Three quiet horizontal bars, crisp SVG like the bookmark ribbon; deliberately NOT the
+        // block grip's ⠿ dots — two identical grips is how users grabbed the wrong drag before.
+        handle.innerHTML =
+          '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">'
+          + '<path d="M1.5 2.5h9M1.5 6h9M1.5 9.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>'
+          + '</svg>';
 
         // Arm edit BEFORE the browser starts the native drag (mousedown precedes dragstart). The
         // flip is synchronous, so by dragstart view.editable is true and the reorder writes cleanly.
