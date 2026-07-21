@@ -40,18 +40,22 @@ const BUCKET = 'script-images';
 // a clean 413 with the limit named, not a mystery storage failure.
 export const MAX_SIGNED_BYTES = 100 * 1024 * 1024;
 
-// MP4 ALLOWANCE — LOCAL to this endpoint, deliberately NOT in the shared image-storage
-// ALLOWED map. The script tool transcodes big animated GIFs to looping mp4s in the
-// browser (gif-transcode.js) and this signed road is the ONLY one that may store them.
-// imageStorageMeta is shared with the QSS upload endpoints (qss-image-upload, qss-cast,
-// qss-scene-illustrate, qss-explorer) — widening THAT map would silently open every QSS
-// bucket to video. video/mp4 is a pure media type the browser plays in a <video>, never
-// renders as a document, so the stored-content-type-injection concern the shared
-// allowlist guards is untouched. Everything else defers to imageStorageMeta unchanged.
+// VIDEO ALLOWANCE — LOCAL to this endpoint, deliberately NOT in the shared image-storage
+// ALLOWED map. Two video sources ride this signed road: the browser gif→mp4 transcode
+// (gif-transcode.js) AND direct video pastes/drops (image-drop.js — mp4/webm/mov clipboard
+// files). This signed road is the ONLY one that may store video; the base64 edge route
+// (script-image-upload) stays image-only because its shared imageStorageMeta would coerce
+// video → png. imageStorageMeta is shared with the QSS upload endpoints (qss-image-upload,
+// qss-cast, qss-scene-illustrate, qss-explorer) — widening THAT map would silently open every
+// QSS bucket to video. Every VIDEO_TYPES entry is a pure media type the browser plays in a
+// <video>, never renders as a document, so the stored-content-type-injection concern the
+// shared allowlist guards is untouched. Everything else defers to imageStorageMeta unchanged.
 // Exported so the QSS-map-stays-image-only contract is a locked test.
+// quicktime → .mov keeps the container extension so isVideoSrc (blocks.js) can fork on it.
+const VIDEO_TYPES = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
 export function mediaStorageMeta(rawMime) {
   const mime = String(rawMime ?? '').trim().toLowerCase();
-  if (mime === 'video/mp4') return { mime: 'video/mp4', ext: 'mp4' };
+  if (VIDEO_TYPES[mime]) return { mime, ext: VIDEO_TYPES[mime] };
   return imageStorageMeta(rawMime);
 }
 
@@ -66,7 +70,7 @@ export function mediaStorageMeta(rawMime) {
 // entirely instead of politely re-labeling it. Exported (with the set) for tests.
 export const SIGNABLE_MIMES = new Set([
   'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', // client SUPPORTED_IMAGE_MIMES
-  'video/mp4',                                                       // gif→mp4 transcode output (local allowance)
+  'video/mp4', 'video/webm', 'video/quicktime',                      // gif→mp4 transcode + direct video paste/drop
 ]);
 export function isSignableMime(rawMime) {
   return SIGNABLE_MIMES.has(String(rawMime ?? '').trim().toLowerCase());

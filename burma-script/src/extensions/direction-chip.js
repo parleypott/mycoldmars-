@@ -13,6 +13,13 @@ export const DIRECTION_CHIP_KINDS = ['archive', 'oncam', 'sot', 'factcheck', 'an
 // chip to ON-CAMERA SPEECH (bold-italic text, no box), so only archive keeps the ☐/☑ widget.
 export const CHECKBOX_MARK_KINDS = ['archive'];
 
+// RUN-LABEL kinds — marks whose runs open with a small non-editable identity tag, the same
+// furniture the VO cartridge cap ("VO") and SOT cap ("SOT") give their blocks. oncam lost its
+// box in the 2026-07-09 re-scope and became bare bold-italic ink, which left it unlabeled at
+// a glance — Johnny 2026-07-21: "/oncam should create a little ONCAM tag like SOT and VO."
+// Decoration-only (never saved), one tag per contiguous run.
+export const RUN_LABEL_KINDS = { oncam: 'ONCAM' };
+
 export function defaultDirectionChipAttrs(kind) {
   switch (kind) {
     case 'archive':
@@ -101,12 +108,12 @@ function editArchivePath(editor, getPos) {
 // it started as. (The same-kind merge guard below is kept general so re-adding a second checkbox
 // kind later can't accidentally fuse two adjacent runs of different kinds into one checkbox.)
 
-export function findCheckboxMarkRuns(doc, markType) {
+export function findCheckboxMarkRuns(doc, markType, kinds = CHECKBOX_MARK_KINDS) {
   const runs = [];
   doc.descendants((node, pos) => {
     if (!node.isText) return;
     const mark = node.marks.find(
-      (m) => m.type === markType && CHECKBOX_MARK_KINDS.includes(m.attrs.kind),
+      (m) => m.type === markType && kinds.includes(m.attrs.kind),
     );
     if (!mark) return;
     const from = pos;
@@ -193,6 +200,29 @@ function buildCheckboxDecorations(state) {
     }
   });
 
+  // RUN LABELS — a small non-editable identity tag ("ONCAM") at the head of each labeled run,
+  // mirroring the VO/SOT cartridge caps. Same stable-key discipline as the checkboxes so remote
+  // y-sync transactions never thrash the tag DOM.
+  const labelKinds = Object.keys(RUN_LABEL_KINDS);
+  if (labelKinds.length) {
+    findCheckboxMarkRuns(state.doc, markType, labelKinds).forEach(({ from, kind }) => {
+      decos.push(
+        Decoration.widget(
+          from,
+          () => {
+            const tag = document.createElement('span');
+            tag.setAttribute('contenteditable', 'false');
+            tag.className = 'wp-dhl-runtag';
+            tag.setAttribute('data-kind', kind);
+            tag.textContent = RUN_LABEL_KINDS[kind];
+            return tag;
+          },
+          { side: -1, key: `dhltag:${from}:${kind}` },
+        ),
+      );
+    });
+  }
+
   return DecorationSet.create(state.doc, decos);
 }
 
@@ -249,6 +279,14 @@ function buildPlaceholderDecorations(state) {
         cb.setAttribute('data-dhl-placeholder-cb', '');
         cb.textContent = status === 'found' ? '☑' : '☐';
         wrap.appendChild(cb);
+      }
+      // a RUN_LABEL_KIND (oncam) leads with its identity tag exactly like a real run does.
+      if (RUN_LABEL_KINDS[kind]) {
+        const tag = document.createElement('span');
+        tag.className = 'wp-dhl-runtag';
+        tag.setAttribute('data-kind', kind);
+        tag.textContent = RUN_LABEL_KINDS[kind];
+        wrap.appendChild(tag);
       }
       const box = document.createElement('span');
       box.className = 'wp-dhl wp-dhl-placeholder';

@@ -62,6 +62,7 @@ const NEW_STYLE_FEATURES = {
   archiveOwnLine: true,   // /archive pops its own indented checkable line
   dayFold: true,          // fold a redundant literal "DAY N" before a timecode chip
   sequencePicker: true,   // chip right-click picks SEQUENCE (doc-derived), not DAY
+  timecodeChips: true,    // typed/pasted timecode self-chips + right-click retro-convert (presentation)
   palauTimecodes: true,   // 3-part/bracket timecode chips, bundled-day strip
   inlineSotName: true,    // SOT speaker/sequence name bold inline at head of quote
 };

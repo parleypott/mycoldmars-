@@ -32,7 +32,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import {
-  doTogglePendingViz, maybeClearPendingForKind, PENDING_CLEARING_KINDS,
+  doTogglePendingViz, maybeClearPendingForKind, maybeClearPendingForKindRange, PENDING_CLEARING_KINDS,
 } from './slash-menu.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
@@ -269,6 +269,40 @@ ok('every visual kind clears the host cell; factcheck/oncam/sot leave it byte-id
     assert.equal(tr.docChanged, false, `${kind} leaves the doc untouched`);
     assert.deepEqual(clone(state.apply(tr).doc.toJSON()), before, `${kind}: doc byte-identical`);
   }
+});
+
+// ── 8. BULK CLEAR-ON-VISUAL — a bulk tag over a MULTI-CELL selection lifts /pending on every
+//    cell it touched, not just the caret's (convert-menu applyMarkRange → maybeClearPendingForKindRange).
+ok('a visual bulk tag over a 2-row selection clears pending on BOTH touched cells; factcheck clears none', () => {
+  const twoPendingRows = {
+    type: 'doc',
+    content: [
+      row([vo('vo_1', 'First narration', { pendingViz: true })]),
+      row([vo('vo_2', 'Second narration', { pendingViz: true })]),
+    ],
+  };
+
+  // A visual kind sweeping the whole selection lifts red on every intersected cell in one tr.
+  let state = makeState(twoPendingRows, 4);
+  const from = findText(state.doc, 'First narration').from;
+  const to = findText(state.doc, 'Second narration').to;
+  let tr = state.tr;
+  assert.equal(maybeClearPendingForKindRange(tr, 'broll', from, to), true, 'broll clears across the range');
+  state = state.apply(tr);
+  assert.deepEqual(pendingMap(state.doc), [
+    { type: 'voBlock', pendingViz: null },
+    { type: 'voBlock', pendingViz: null },
+  ], 'BOTH rows the selection touched are cleared in the same transaction');
+
+  // A non-visual bulk kind (factcheck) is not a plan — it must leave both cells red, doc byte-identical.
+  let s2 = makeState(twoPendingRows, 4);
+  const before = clone(s2.doc.toJSON());
+  const f2 = findText(s2.doc, 'First narration').from;
+  const t2 = findText(s2.doc, 'Second narration').to;
+  const tr2 = s2.tr;
+  assert.equal(maybeClearPendingForKindRange(tr2, 'factcheck', f2, t2), false, 'factcheck must NOT clear');
+  assert.equal(tr2.docChanged, false, 'factcheck leaves the doc untouched');
+  assert.deepEqual(clone(s2.apply(tr2).doc.toJSON()), before, 'factcheck: doc byte-identical across the range');
 });
 
 console.log(`pending-viz.test.mjs: ${pass} assertions passed`);

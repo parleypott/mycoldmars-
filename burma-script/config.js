@@ -31,6 +31,12 @@ export const BURMA = {
   features: {
     chipChrome: true, chapterFrames: true, dayFold: true,
     rowDragReorder: true, convertMenu: true, archiveOwnLine: true,
+    // timecodeChips: PRESENTATION only — a typed/pasted timecode self-chips + the right-click
+    // retro-convert for dead codes. This is NOT the data-touching `palauTimecodes` (which stays
+    // OFF for Burma, gated in document-builder): chip rendering never reinterprets the saved doc,
+    // and the RED "DAY ?" nag stays tied to palauTimecodes (main.jsx [data-daytc]), so Burma's
+    // chips read as quiet brackets. Fixes "day-timecodes don't render into tags" on Burma.
+    timecodeChips: true,
     // COLLAB (Phase 1) — real-time co-editing via Liveblocks + Yjs (room `script-burma`). NOT a
     // data-touching flag: the saved doc's shape/content is untouched (spike-proven lossless
     // round-trip); it only changes WHO can hold the pen at once. The save engine stays as the

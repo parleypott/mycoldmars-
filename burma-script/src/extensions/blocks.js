@@ -17,6 +17,13 @@ import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 import { blockHeadControlWritable } from './block-write-guard.js';
 import { DirectionChip, DirectionBreak } from './direction-chip.js';
 import { FcFootnote } from './footnote.js';
+// Paste-placeholder session state (image-drop.js owns the upload lifecycle). blocks.js does not
+// import anything back into image-drop.js, so there is no cycle. In a non-collab / headless mount
+// these resolve to their safe defaults (no active upload, no retryable bytes).
+import {
+  mediaUploadIsActive, mediaUploadCanRetry, mediaUploadLabel,
+  retryMediaUpload, removeMediaBlock, MEDIA_PROGRESS_EVENT,
+} from './image-drop.js';
 
 // WP-13 — reconstruction data lives in ATTRIBUTES, never in derived/decoration state, so a block
 // carries everything it needs to rebuild itself through a JSON (and clipboard) round-trip.
@@ -1088,7 +1095,9 @@ export const BinBlock = Node.create({
 export function isVideoSrc(src) {
   const s = String(src || '').trim();
   if (!s) return false;
-  return /\.mp4$/i.test(s.split(/[?#]/, 1)[0]);
+  // mp4 (gif→mp4 transcode + direct paste), webm + mov (direct video paste/drop). Query-string /
+  // hash tolerant; matches ONLY a real trailing container extension (…/y.mp4.png stays an image).
+  return /\.(mp4|webm|mov)$/i.test(s.split(/[?#]/, 1)[0]);
 }
 
 // Pure: does this src get the "⇩ DOWNLOAD MP4" promise (motion) vs a plain "⇩ DOWNLOAD"?
@@ -1112,7 +1121,8 @@ export function mediaDownloadBase(alt) {
 // when the real type is actually known. Only reaches 'bin' when both signals are absent.
 const DOWNLOAD_MIME_EXT = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/gif': 'gif',
-  'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg', 'video/mp4': 'mp4',
+  'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
 };
 export function mediaDownloadExt(src, mimeType) {
   const fromPath = (String(src || '').split(/[?#]/, 1)[0].match(/\.(\w{2,4})$/) || [])[1];
@@ -1281,16 +1291,34 @@ export const ImageBlock = Node.create({
       // Normalized crop rect {x,y,w,h} 0..1 (double-click to crop). null = uncropped. Object
       // survives PM-JSON; also emitted as data-crop in renderHTML for HTML export fidelity.
       crop: { default: null },
+      // CLIPBOARD PASTE placeholder state (WP-13, attr-driven — NOT a decoration). When Johnny
+      // pastes media it lands IMMEDIATELY as a real row with uploading:true + empty src; the
+      // upload promise swaps in the final src (and uploading:false) when the bytes land, or sets
+      // uploadError on failure. Both default to the resting state, so every EXISTING image block
+      // serializes byte-identical (docToBlocks emits them only when set). A block that reloads
+      // still uploading:true has an interrupted upload — the nodeview renders it as a recoverable
+      // error (the in-flight promise didn't survive the reload).
+      uploading: { default: false },
+      uploadError: { default: null },
     };
   },
   parseHTML() { return [{ tag: 'figure[data-image]' }]; },
   renderHTML({ node }) {
     const a = node.attrs;
-    const children = [
-      isVideoSrc(a.src)
-        ? ['video', { src: a.src || '', class: 'wp-image-img', 'aria-label': a.alt || '', ...VIDEO_LOOP_ATTRS }]
-        : ['img', { src: a.src || '', alt: a.alt || '', loading: 'lazy' }],
-    ];
+    const pending = (a.uploading || a.uploadError) && !a.src;
+    const children = [];
+    if (pending) {
+      // No media element while a paste is in flight / failed — an empty src would render a broken
+      // media icon into every export. A quiet status line stands in until the real src lands.
+      children.push(['div', { class: 'wp-media-status', contenteditable: 'false' },
+        a.uploadError ? String(a.uploadError) : 'uploading…']);
+    } else {
+      children.push(
+        isVideoSrc(a.src)
+          ? ['video', { src: a.src || '', class: 'wp-image-img', 'aria-label': a.alt || '', ...VIDEO_LOOP_ATTRS }]
+          : ['img', { src: a.src || '', alt: a.alt || '', loading: 'lazy' }],
+      );
+    }
     if (a.alt) children.push(['figcaption', { class: 'wp-image-caption' }, a.alt]);
     // NOT a .wp-cart: an image is a quiet figure (no spine, no counter, no flex-row chrome) —
     // calm doctrine styling lives on .wp-image in styles.css.
@@ -1298,6 +1326,8 @@ export const ImageBlock = Node.create({
       'data-image': '', 'data-kind': a.kind || 'shot',
       'data-block-id': a.blockId || '', class: 'wp-image',
     };
+    if (a.uploading) figAttrs['data-uploading'] = '1';
+    if (a.uploadError) figAttrs['data-error'] = '1';
     if (Number.isFinite(a.width)) figAttrs.style = `width:${a.width}px`;
     if (isValidCrop(a.crop)) figAttrs['data-crop'] = JSON.stringify(a.crop);
     return ['figure', mergeAttributes(sharedRenderAttrs(node, figAttrs)), ...children];
@@ -1415,6 +1445,34 @@ export const ImageBlock = Node.create({
         handlesEl.appendChild(el('span', 'wp-image-handle wp-image-handle-' + h, { 'data-h': h }));
       }
       boxEl.appendChild(handlesEl);
+
+      // ── PASTE PLACEHOLDER / ERROR overlay (attr-driven). Covers the box while a pasted
+      // media upload is in flight, and stands in with a retry/remove card if it failed (or was
+      // interrupted by a reload). Purely presentational — the retry/remove BUTTONS dispatch real
+      // transactions through image-drop.js so a failed paste is never a silent vanish.
+      const blockId = attrs.blockId || '';
+      const statusEl = el('div', 'wp-media-status', { contenteditable: 'false', hidden: '' });
+      const statusSpin = el('span', 'wp-media-status-spin');
+      const statusLabel = el('span', 'wp-media-status-label');
+      const statusRow = el('div', 'wp-media-status-row');
+      statusRow.appendChild(statusSpin); statusRow.appendChild(statusLabel);
+      const statusActions = el('div', 'wp-media-status-actions');
+      const retryBtn = el('button', 'wp-media-status-btn wp-media-status-retry', { type: 'button' });
+      retryBtn.textContent = 'RETRY';
+      const removeBtn = el('button', 'wp-media-status-btn wp-media-status-remove', { type: 'button' });
+      removeBtn.textContent = 'REMOVE';
+      statusActions.appendChild(retryBtn); statusActions.appendChild(removeBtn);
+      statusEl.appendChild(statusRow); statusEl.appendChild(statusActions);
+      boxEl.appendChild(statusEl);
+      retryBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (blockId) retryMediaUpload(editor.view, blockId); });
+      removeBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (blockId) removeMediaBlock(editor.view, blockId); });
+      // While active, the transcode/upload narrates its stage (OPTIMIZING → UPLOADING) via a
+      // window event — the label lives in image-drop's session map, not in the doc.
+      const onProgress = (e) => {
+        if (!e?.detail || e.detail.id !== blockId) return;
+        if (attrs.uploading && mediaUploadIsActive(blockId)) statusLabel.textContent = e.detail.label || 'UPLOADING…';
+      };
+      window.addEventListener(MEDIA_PROGRESS_EVENT, onProgress);
 
       const maxBoxWidth = () => {
         try {
@@ -1610,10 +1668,27 @@ export const ImageBlock = Node.create({
         attrs = a;
         if (!cropping && !dragging) paint(a);   // don't stomp a live drag/crop with a peer echo
         dom.classList.toggle('wp-image--editable', canEdit());
-        badge.hidden = (a.kind || 'shot') !== 'inspo';
+        // PASTE PLACEHOLDER / ERROR state. `active` = an upload this session is still driving;
+        // `interrupted` = uploading:true survived a reload (the promise did not) → recoverable.
+        const active = !!a.uploading && mediaUploadIsActive(blockId);
+        const interrupted = !!a.uploading && !active;
+        const errored = !a.uploading && !!a.uploadError;
+        const pending = !!a.uploading || errored;
+        dom.classList.toggle('wp-image--pending', pending);
+        dom.classList.toggle('wp-image--error', errored || interrupted);
+        statusEl.hidden = !pending;
+        statusSpin.hidden = !active;
+        if (active) statusLabel.textContent = mediaUploadLabel(blockId) || 'UPLOADING…';
+        else if (interrupted) statusLabel.textContent = 'UPLOAD INTERRUPTED';
+        else if (errored) statusLabel.textContent = String(a.uploadError || 'UPLOAD FAILED');
+        statusActions.hidden = active || !pending;   // no actions mid-flight; retry/remove once settled
+        // Retry needs the original bytes (kept in-session); after a reload they are gone → remove only.
+        retryBtn.hidden = !(interrupted || errored) || !mediaUploadCanRetry(blockId) || !canEdit();
+        removeBtn.hidden = !(interrupted || errored) || !canEdit();
+        badge.hidden = pending || (a.kind || 'shot') !== 'inspo';
         cap.textContent = a.alt || '';
-        cap.hidden = editing || !a.alt;
-        capStrip.hidden = editing || !!a.alt || !canEdit();
+        cap.hidden = editing || !a.alt || pending;
+        capStrip.hidden = editing || !!a.alt || !canEdit() || pending;
         capInput.hidden = !editing;
       };
 
@@ -1664,6 +1739,7 @@ export const ImageBlock = Node.create({
           if (handlesEl.contains(t)) return true;
           if (toolsEl.contains(t)) return true;
           if (cropUi.contains(t)) return true;
+          if (statusEl.contains(t)) return true;
           return false;
         },
         update(updated) {
@@ -1675,6 +1751,7 @@ export const ImageBlock = Node.create({
         destroy() {
           try { if (ro) ro.disconnect(); } catch {}
           document.removeEventListener('keydown', onCropKey, true);
+          window.removeEventListener(MEDIA_PROGRESS_EVENT, onProgress);
         },
       };
     };

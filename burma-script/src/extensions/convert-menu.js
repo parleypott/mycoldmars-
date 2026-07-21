@@ -3,34 +3,45 @@ import { Plugin } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { episodeFlag } from '../episode-config.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
-import { retypeHostToVo } from './slash-menu.js';
+import { retypeHostToVo, bulkRetypeToVo, maybeClearPendingForKindRange } from './slash-menu.js';
+import { collectIntersectingRows, doDeleteRows, rowFirstBlockId } from './table.js';
+import { findRowByIdentity } from './table.js';
 
-// ── SELECT → RIGHT-CLICK → CONVERT-TO-VIZ ────────────────────────────────────────────────────
-// Palau only. Select a run of text, right-click, and get a premium floating menu that converts the
-// WHOLE selection into a viz chip (highlighted directionMark run). Picking a kind applies
-// setMark('directionMark', <default attrs for kind>) across the selection — the same mark the slash
-// menu stores, so a converted run reads/toggles/round-trips identically to a /-typed one (archive &
-// oncam get their leading ☐ checkbox, factcheck/animation/3d/broll/direction get their coloured run).
+// ── SELECT → RIGHT-CLICK → BULK ROW MENU ─────────────────────────────────────────────────────────
+// Highlight a run of text — anywhere from a few words to a span crossing many rows — right-click,
+// and get one premium floating menu that does two jobs at once:
+//
+//   1. TAGS. Every role tag Johnny uses, each shown as its REAL chip (same colours the doc renders:
+//      3d = purple + yellow, sot = red-purple italic, oncam = warm italic ink, …). Clicking a tag
+//      bulk-applies it across the WHOLE selection in one transaction — "load all of these rows up
+//      with 3D ANIMATION". VO is the one BLOCK action: it retypes every convertible block the
+//      selection touches into a voBlock (shared bulkRetypeToVo), the same conversion /vo runs.
+//   2. DELETE. A destructive entry at the very bottom, hairline-separated, carrying a LIVE count of
+//      the outermost rows the selection intersects — "DELETE 10 ROWS". Clicking removes those whole
+//      top-level rows in one transaction (one undo restores everything). The count shown always
+//      equals what actually gets deleted (both come from the same collectIntersectingRows snapshot).
 //
 // It NEVER hijacks right-click when the selection is empty — the timecode chip's own right-click
 // sequence menu (marks.js) and the browser's native menu both stay intact. It also bails when the
 // click lands on an existing chip, so order-of-plugin-registration can't let it steal the tc menu.
+// Read-mode gated at every layer (the plugin doesn't even mount read-only). Gated on the
+// `convertMenu` feature flag so an episode that hasn't opted in keeps its native right-click.
 
-// The seven convertible viz kinds, in Johnny's stated order. label = what the menu shows; kind =
-// the directionMark kind. Every kind here is a key defaultDirectionMarkAttrs already understands, so
-// the status default (archive→needed, factcheck→todo, …) stays in lockstep with the slash menu.
+// The bulk tag list, in Johnny's stated order. label = the chip text the menu shows; kind = the
+// directionMark kind (or '__vo', the one BLOCK action). Every MARK kind here is one
+// defaultDirectionMarkAttrs already understands, so a bulk-applied run is byte-identical to a
+// /-typed one. 'sot' is the interview-soundbite chip (red-purple italic) added in the 2026-07 pass.
 export const VIZ_KINDS = [
-  // BLOCK ACTION (not a mark): retypes the block hosting the selection to VO narration —
-  // the same conversion /vo runs (shared retypeHostToVo, incl. the bare-cell-paragraph wrap).
-  { label: 'Make VO',    kind: '__vo' },
-  { label: 'Animation',  kind: 'animation' },
-  { label: '3d',         kind: '3d' },
-  { label: 'B-roll',     kind: 'broll' },
-  { label: 'Map data',   kind: 'mapdata' },
-  { label: 'Archive',    kind: 'archive' },
-  { label: 'On cam',     kind: 'oncam' },
-  { label: 'Fact-check', kind: 'factcheck' },
-  { label: 'Direction',  kind: 'direction' },
+  { label: 'VO',           kind: '__vo' },   // BLOCK action — retypes convertible blocks to voBlock
+  { label: 'ON CAM',       kind: 'oncam' },
+  { label: 'SOT',          kind: 'sot' },
+  { label: '3D ANIMATION', kind: '3d' },
+  { label: 'ANIMATION',    kind: 'animation' },
+  { label: 'ARCHIVE',      kind: 'archive' },
+  { label: 'B-ROLL',       kind: 'broll' },
+  { label: 'MAP DATA',     kind: 'mapdata' },
+  { label: 'FACT CHECK',   kind: 'factcheck' },
+  { label: 'DIRECTION',    kind: 'direction' },
 ];
 
 function el(tag, cls, attrs) {
@@ -40,37 +51,86 @@ function el(tag, cls, attrs) {
   return n;
 }
 
-// Apply the chosen viz kind across the CURRENT (non-empty) selection. Uses the shared default-attrs
-// helper so a converted run is byte-identical to one the slash menu would produce for that kind.
-function convertSelection(editor, kind) {
+// Apply the chosen viz kind across a specific [from,to] range. Uses the shared default-attrs helper
+// so a bulk-applied run is byte-identical to one the slash menu would produce for that kind. Passed
+// the SNAPSHOT range captured when the menu opened (not the live selection) so what the chip preview
+// promised is exactly what lands — a remote collab edit mid-menu can't retarget the apply.
+function applyMarkRange(editor, kind, from, to) {
   if (isReadOnly()) return false;
-  const { from, to } = editor.state.selection;
-  if (from === to) return false; // never convert an empty selection
+  if (from === to) return false; // never mark an empty selection
   return editor
     .chain()
     .focus()
     .setTextSelection({ from, to })
+    // A visual tag IS the plan for every cell it lands on — lift the /pending red across the whole
+    // range in the same transaction (parity with setDirectionMark's single-cell clear).
+    .command(({ tr }) => { maybeClearPendingForKindRange(tr, kind, from, to); return true; })
     .setMark('directionMark', defaultDirectionMarkAttrs(kind))
     .run();
 }
 
-// Retype the block hosting the selection to VO — the menu's one BLOCK action. One transaction,
-// same undo semantics as /vo. No-ops (returns false) when the host isn't a convertible prose
-// cart or a bare cell paragraph — a chapter/SOT is never silently retyped.
-function convertBlockToVo(editor) {
+// VO across the snapshot range — every convertible block the selection touched, one transaction.
+function applyVoRange(editor, from, to) {
   if (isReadOnly()) return false;
   const { state, view } = editor;
-  const tr = state.tr;
-  if (!retypeHostToVo(tr, state.schema, state.selection.from)) return false;
-  view.dispatch(tr.scrollIntoView());
-  return true;
+  return bulkRetypeToVo(state, view.dispatch, from, to);
+}
+
+// Delete the outermost rows captured when the menu opened. Rows are re-resolved by IDENTITY (node
+// ref → first-block id → pairId) against the CURRENT doc, so a remote collab edit that shifted
+// positions while the menu was open still deletes the right band (mirrors table.js's row-drag
+// re-resolution). Survivors are deleted even if a captured row already vanished remotely.
+function deleteRows(editor, rowRefs) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  const positions = rowRefs
+    .map((ref) => findRowByIdentity(state.doc, ref))
+    .filter((p) => p != null);
+  if (!positions.length) return false;
+  return doDeleteRows(state, view.dispatch, positions);
+}
+
+// Render a real chip preview for a tag. A directionMark kind reuses the doc's own .wp-dhl[data-kind]
+// styling, so the menu previews EXACTLY what the tag will look like once applied. VO isn't a mark
+// (no .wp-dhl kind), so it gets its own small dark cap chip that reads like the block's VO corner tag.
+function chipFor(item) {
+  if (item.kind === '__vo') {
+    const chip = el('span', 'wp-bulk-chip wp-bulk-chip-vo');
+    chip.textContent = item.label;
+    return chip;
+  }
+  const chip = el('span', 'wp-bulk-chip wp-dhl', {
+    'data-kind': item.kind,
+    'data-status': defaultDirectionMarkAttrs(item.kind).status,
+  });
+  chip.textContent = item.label;
+  return chip;
+}
+
+function pluralRows(n) {
+  return `DELETE ${n} ROW${n === 1 ? '' : 'S'}`;
 }
 
 // A single live menu instance. Rendered into <body>, positioned near the pointer, closed on Escape,
 // pick, or any click/scroll/resize away from it. Fully keyboard-driven (Up/Down/Home/End/Enter/Esc).
 function createConvertMenu(editor, x, y) {
+  // Snapshot the selection + the rows it touches AT OPEN. Every action below uses this snapshot so
+  // the tag preview, the delete count, and the actual writes can never disagree with each other.
+  const { from, to } = editor.state.selection;
+  const snapRows = collectIntersectingRows(editor.state.doc, from, to);
+  const rowRefs = snapRows.map(({ node }) => ({
+    node,
+    blockId: rowFirstBlockId(node),
+    pairId: node.attrs?.pairId || null,
+  }));
+  const rowCount = snapRows.length;
+
+  // The pickable entries: the tags, then (when the selection touches at least one row) the delete.
+  const entries = VIZ_KINDS.map((item) => ({ type: 'tag', item }));
+  if (rowCount > 0) entries.push({ type: 'delete' });
+
   let activeIndex = 0;
-  const menu = el('div', 'wp-convert-menu wp-slash-menu', { contenteditable: 'false', role: 'menu' });
+  const menu = el('div', 'wp-bulk-menu wp-convert-menu wp-slash-menu', { contenteditable: 'false', role: 'menu' });
 
   const buttons = [];
 
@@ -95,27 +155,44 @@ function createConvertMenu(editor, x, y) {
   };
 
   const pick = (index) => {
-    const item = VIZ_KINDS[index];
-    if (!item) return;
+    const entry = entries[index];
+    if (!entry) return;
     close();
-    if (item.kind === '__vo') convertBlockToVo(editor);
-    else convertSelection(editor, item.kind);
+    if (entry.type === 'delete') {
+      deleteRows(editor, rowRefs);
+    } else if (entry.item.kind === '__vo') {
+      applyVoRange(editor, from, to);
+    } else {
+      applyMarkRange(editor, entry.item.kind, from, to);
+    }
     editor.view.focus();
   };
 
-  VIZ_KINDS.forEach((item, index) => {
-    const button = el('button', 'wp-convert-item wp-slash-item', {
+  entries.forEach((entry, index) => {
+    if (entry.type === 'delete') {
+      // Hairline before the destructive entry, then the delete row itself (red, mono count).
+      menu.appendChild(el('div', 'wp-slash-sep'));
+      const button = el('button', 'wp-convert-item wp-slash-item wp-bulk-delete is-danger', {
+        type: 'button',
+        role: 'menuitem',
+        'data-action': 'delete-rows',
+      });
+      const label = el('span', 'wp-convert-label');
+      label.textContent = pluralRows(rowCount);
+      button.appendChild(label);
+      button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+      button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+      buttons.push(button);
+      menu.appendChild(button);
+      return;
+    }
+    const item = entry.item;
+    const button = el('button', 'wp-convert-item wp-slash-item wp-bulk-item', {
       type: 'button',
       role: 'menuitem',
       'data-kind': item.kind,
     });
-    // A tiny swatch that reads the same colour token the real chip uses (data-kind on .wp-dhl),
-    // so the menu previews exactly what the conversion will look like.
-    const dot = el('span', 'wp-convert-dot', { 'data-kind': item.kind });
-    const label = el('span', 'wp-convert-label');
-    label.textContent = item.label;
-    button.appendChild(dot);
-    button.appendChild(label);
+    button.appendChild(chipFor(item));
     button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
     button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
     buttons.push(button);
@@ -136,10 +213,10 @@ function createConvertMenu(editor, x, y) {
 
   onKey = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); close(); if (returnFocus && returnFocus.focus) returnFocus.focus(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = (activeIndex + 1) % VIZ_KINDS.length; paintActive(); buttons[activeIndex].focus(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = (activeIndex - 1 + VIZ_KINDS.length) % VIZ_KINDS.length; paintActive(); buttons[activeIndex].focus(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = (activeIndex + 1) % entries.length; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = (activeIndex - 1 + entries.length) % entries.length; paintActive(); buttons[activeIndex].focus(); }
     else if (e.key === 'Home') { e.preventDefault(); activeIndex = 0; paintActive(); buttons[0].focus(); }
-    else if (e.key === 'End') { e.preventDefault(); activeIndex = VIZ_KINDS.length - 1; paintActive(); buttons[activeIndex].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); activeIndex = entries.length - 1; paintActive(); buttons[activeIndex].focus(); }
     else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); pick(activeIndex); }
   };
   onDocDown = (e) => { if (!menu.contains(e.target)) close(); };
@@ -173,11 +250,11 @@ export const ConvertMenu = Extension.create({
         props: {
           handleDOMEvents: {
             contextmenu: (view, event) => {
-              // Gated on the `convertMenu` feature flag (Palau opts in): Burma keeps its
-              // native right-click untouched.
+              // Gated on the `convertMenu` feature flag (Palau + Burma opt in): an episode that
+              // hasn't opted in keeps its native right-click untouched.
               if (!episodeFlag('convertMenu')) return false;
               if (isReadOnly()) return false;
-              // Only convert a real, non-empty text selection. Empty selection → let the timecode
+              // Only open on a real, non-empty text selection. Empty selection → let the timecode
               // chip's sequence menu and the browser's native menu run as before.
               const { from, to } = view.state.selection;
               if (from === to) return false;

@@ -32,6 +32,7 @@ import {
   classifyRows, buildWorkspaceDecorations, sectionLabel,
   createWorkspaceFilterPlugin, workspaceFilterKey,
 } from './workspace-filter.js';
+import { doDeleteRows } from './table.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
@@ -311,6 +312,33 @@ ok('plugin: sticky survives a real in-place edit (surface removed, row kept)', (
   const ps = workspaceFilterKey.getState(state);
   const by = Object.fromEntries(classifyRows(state.doc, 'broll', ps.snapshot).rows.map((r) => [r.firstBlockId, r]));
   assert.equal(by.b2.left, true, 'row stays on the card wearing wp-ws-left');
+});
+
+// PLUGIN FLOW — a BULK delete (the select→right-click "DELETE N ROWS" path, doDeleteRows) that
+// removes SEVERAL member rows in one transaction must not crash the workspace decorations: the
+// apply() rebuilds the DecorationSet from the post-delete doc rather than mapping a stale set onto
+// vanished positions. (Cross-lineage check: main's bulk-row menu × workspaces' cutout decorations.)
+ok('plugin: a bulk DELETE N ROWS of member rows rebuilds decorations without crashing', () => {
+  const plugin = createWorkspaceFilterPlugin();
+  let state = EditorState.create({ doc: doc8, plugins: [plugin] });
+  state = state.apply(state.tr.setMeta(workspaceFilterKey, { key: 'broll' }));
+  assert.deepEqual(
+    classifyRows(state.doc, 'broll', null).rows.filter((r) => r.member).map((r) => r.firstBlockId).sort(),
+    ['b2', 'b3', 'b7'], 'three broll members before the delete');
+
+  // Delete TWO member rows (b2 + b3) in ONE transaction via the real bulk-menu delete.
+  const rows = classifyRows(state.doc, 'broll', null).rows;
+  let bulkTr = null;
+  const dispatched = doDeleteRows(state, (tr) => { bulkTr = tr; }, [rows[1].pos, rows[2].pos]);
+  assert.equal(dispatched, true, 'bulk delete produced a transaction');
+  assert.doesNotThrow(() => { state = state.apply(bulkTr); }, 'workspace decorations rebuild across a multi-row delete');
+
+  const ps = workspaceFilterKey.getState(state);
+  assert.equal(ps.wsKey, 'broll', 'still in the broll workspace after the bulk delete');
+  assert.deepEqual(
+    classifyRows(state.doc, 'broll', ps.snapshot).rows.filter((r) => r.member || r.left).map((r) => r.firstBlockId).sort(),
+    ['b7'], 'the two deleted members are gone; b7 survives as the lone section');
+  assert.doesNotThrow(() => ps.decorations.find(0, state.doc.content.size), 'rebuilt DecorationSet is consistent with the new doc');
 });
 
 console.log(`workspace-filter: ${pass} passed, 0 failed`);

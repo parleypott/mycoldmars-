@@ -6,6 +6,7 @@ import { defaultDirectionMarkAttrs } from './direction-chip.js';
 import { episodeFlag } from '../episode-config.js';
 import { mintUserPairId, insertBookmark } from './table.js';
 import { insertFcFootnote } from './footnote.js';
+import { toggleListPreservingStyle } from './list-style-preserve.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -73,6 +74,23 @@ export function clearPendingViz(tr, pos) {
 export function maybeClearPendingForKind(tr, kind, pos) {
   if (!PENDING_CLEARING_KINDS.includes(kind)) return false;
   return clearPendingViz(tr, pos);
+}
+
+// Range flavour of the gate for the BULK menu (convert-menu applyMarkRange): a visual tag applied
+// across a multi-row selection is that selection's visual plan, so the red /pending flag lifts on
+// EVERY cell the range touched — not just the caret's. Walks the tableCells intersecting [from,to]
+// and clears each. pendingViz is an attr-only change, so clearing cells in any order is position-safe.
+export function maybeClearPendingForKindRange(tr, kind, from, to) {
+  if (!PENDING_CLEARING_KINDS.includes(kind)) return false;
+  const cellInnerPositions = [];
+  tr.doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type.name === 'tableCell') cellInnerPositions.push(pos + 1);
+  });
+  let cleared = false;
+  for (const inner of cellInnerPositions) {
+    if (clearPendingViz(tr, inner)) cleared = true;
+  }
+  return cleared;
 }
 
 // Pure (state, dispatch, range) -> boolean — ONE transaction: delete the "/pending" trigger
@@ -146,28 +164,35 @@ function setDirectionMark(editor, range, kind, seedText) {
   return chain.run();
 }
 
-// archiveOwnLine flag (Palau opts in): /archive pops onto its OWN small-indented line. We delete
-// the "/archive" text, split the current textblock so the archive starts a fresh paragraph, then
-// store the mark so the next typed characters carry the red highlight. The paragraph-indent visual
-// is applied by the checkbox plugin's node decoration (leading-archive → .wp-archive-line), gated
-// on the same flag there too. In Burma the behavior is unchanged — archive stays an inline mark on
-// the current line.
+// archiveOwnLine flag (Burma + Palau + library scripts): /archive pops onto its OWN
+// small-indented line. We delete the "/archive" text, split the current textblock so the
+// archive starts a fresh paragraph, then store the mark so the next typed characters carry
+// the red highlight. The paragraph-indent visual is applied by the checkbox plugin's node
+// decoration (leading-archive → .wp-archive-line), gated on the same flag there too. Without
+// the flag, archive stays an inline mark on the current line.
+//
+// The split is SKIPPED when the trigger text is the paragraph's only content: deleting
+// "/archive" already leaves the caret on an empty line of its own, and splitting that would
+// strand a blank paragraph ABOVE the checklist item (Johnny 2026-07-21). Split only when
+// there is other text on the line for the archive to pop off of.
+export function triggerFillsLine(state, range) {
+  const $from = state.doc.resolve(range.from);
+  return $from.parent.isTextblock && $from.parent.content.size === range.to - range.from;
+}
+
 function setArchiveMark(editor, range) {
   const attrs = defaultDirectionMarkAttrs('archive');
-  const isPalau = episodeFlag('archiveOwnLine');
-  // archive IS a visual plan (PENDING_CLEARING_KINDS) — clear /pending in the same transaction.
+  const ownLine = episodeFlag('archiveOwnLine');
+  // archive IS a visual plan (PENDING_CLEARING_KINDS) — clear the cell's /pending flag in the
+  // SAME transaction (the shared chain tr) so no residue of the red survives the chip.
   const clearPending = ({ tr }) => { maybeClearPendingForKind(tr, 'archive', tr.selection.from); return true; };
-  if (!isPalau) {
-    return editor.chain().focus().deleteRange(range).command(clearPending).setMark('directionMark', attrs).run();
-  }
-  return editor
-    .chain()
-    .focus()
-    .deleteRange(range)
-    .command(clearPending)
-    .splitBlock()
-    .setMark('directionMark', attrs)
-    .run();
+  // Split onto its own small-indented line ONLY when the flag is set AND the trigger text isn't
+  // the paragraph's only content — splitting an already-empty line strands a blank paragraph
+  // above the checklist item (Johnny 2026-07-21).
+  const needsSplit = ownLine && !triggerFillsLine(editor.state, range);
+  const chain = editor.chain().focus().deleteRange(range).command(clearPending);
+  if (needsSplit) chain.splitBlock();
+  return chain.setMark('directionMark', attrs).run();
 }
 
 // ---------------------------------------------------------------------------
@@ -371,18 +396,57 @@ export function doConvertBlockToVo(state, dispatch, range) {
   return true;
 }
 
+// BULK /vo across a SELECTION — the "VO" entry of the right-click bulk menu (convert-menu.js).
+// Retypes EVERY convertible block the selection touches to a voBlock in ONE transaction (one undo
+// reverts the lot). "Convertible" is the exact same set /vo honours per block: a VO_CONVERTIBLE
+// cart (noneBlock/binBlock/oncamBlock/montageBlock) OR a bare cell paragraph (a "+"-added row with
+// no cart wrapper). A block carrying structure or producer data (chapter/scene/SOT/broll/image, or
+// an already-VO block) is left untouched — VO bulk never silently retypes those. Targets are
+// collected first (one entry per outermost convertible unit — the walk stops descending once it
+// claims a block), then retyped HIGH→LOW so the bare-paragraph wraps (which grow the doc by the
+// voBlock's open/close tokens) never invalidate an earlier, still-unprocessed target's position.
+// Pure (state, dispatch, from, to) -> boolean (true iff at least one block was retyped). Exported
+// for the headless suite and shared with the bulk menu.
+export function bulkRetypeToVo(state, dispatch, from, to) {
+  if (!state.schema.nodes.voBlock) return false;
+  const max = state.doc.content.size;
+  const lo = Math.max(0, Math.min(from, to, max));
+  const hi = Math.max(0, Math.min(Math.max(from, to), max));
+
+  // One target position (a spot INSIDE the block, where retypeHostToVo's ancestor walk starts) per
+  // outermost convertible unit intersecting [lo,hi]. return false halts descent so a paragraph
+  // inside a claimed cart is never also claimed on its own.
+  const targets = [];
+  state.doc.nodesBetween(lo, hi, (node, pos, parent) => {
+    if (VO_CONVERTIBLE.includes(node.type.name)) { targets.push(pos + 1); return false; }
+    if (node.type.name === 'paragraph' && parent && parent.type.name === 'tableCell') {
+      targets.push(pos + 1);
+      return false;
+    }
+    return true;
+  });
+  if (!targets.length) return false;
+
+  const tr = state.tr;
+  let changed = false;
+  // High→low: a wrap at a later position can't shift an earlier target's coordinates.
+  for (let i = targets.length - 1; i >= 0; i--) {
+    if (retypeHostToVo(tr, state.schema, targets[i])) changed = true;
+  }
+  if (!changed) return false;
+  if (dispatch) dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // /bullet + /number — delete the slash trigger then toggle the host block into a list. These are
 // the discoverable, un-hijackable backups for Cmd/Ctrl+Shift+8 / +7 (a chord the OS steals can't
-// be fixed in JS). One chain = one undo. toggleBulletList / toggleOrderedList are StarterKit
-// RawCommands, always chainable. Read-mode gated (the slash plugin never mounts read-only, but
-// keep the write path honest).
+// be fixed in JS). One chain = one undo. STYLE-PRESERVING via the shared helper (list-style-
+// preserve.js), same as the keymap path — an armed b-roll (or any directionMark) line keeps its
+// role styling through the wrap instead of falling back to plain. Read-mode + the editable write
+// gate are checked inside the helper (the slash plugin never mounts read-only, but keep it honest).
 function toggleSlashList(editor, range, kind) {
-  if (isReadOnly()) return false;
-  const view = editor.view;
-  if (!view || !view.editable) return false;
-  const chain = editor.chain().focus().deleteRange(range);
-  const done = kind === 'ordered' ? chain.toggleOrderedList().run() : chain.toggleBulletList().run();
-  if (done) view.focus();
+  const done = toggleListPreservingStyle(editor, kind, range);
+  if (done) editor.view.focus();
   return done;
 }
 

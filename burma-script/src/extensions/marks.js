@@ -319,6 +319,104 @@ export const TrimSpan = Mark.create({
 // manually-typed code must be in the same form the parser routes, or it'd chip but never become a SOT.
 const TC_RE = /^\d{2}:\d{2}:\d{2}:\d{2}$/;
 
+// The canonical timecode-chip matcher — ONE pattern shared by the live input rule, the paste rule,
+// AND the user-initiated retro-convert. EITHER a shoot-day prefix "day N <sep>" (capturing N in group
+// 1) OR a bare-code lookbehind, then the zero-padded broadcast code (group 2). TRULY MIRRORS
+// parser.ts's TC + document-builder's TIMECODE_RE: hour is a hard \d{2}, a lookbehind rejects a longer
+// numeric run, a lookahead rejects a 5th :FF field. Each factory returns a FRESH regex LITERAL
+// (recreated per call) so the /g form's lastIndex never leaks between scans — and it stays a static
+// literal (no dynamic `new RegExp`). The input form pins the code to the caret with a trailing `$`.
+//
+// SEPARATOR is FLEXIBLE (Johnny 2026-07-21 — "DAY 1  00:.." double-space + "DAY 1 - 00:.." dash both
+// failed to tag the day → red "DAY ?" nag): between the day digit and the code we accept ANY run of
+// whitespace and/or a hyphen/en-dash/em-dash, or nothing at all (the glued "day100:.." form). Case is
+// already free ([Dd][Aa][Yy]). `[-\s–—]*` — hyphen first in the class so it reads literal.
+const tcChipInputRE = () => /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])[-\s–—]*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)$/;
+const tcChipGlobalRE = () => /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])[-\s–—]*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g;
+// markInputRule/markPasteRule keep only the LAST capture group (the bare code) as the chip text and
+// delete the rest incl. "day N "; getAttributes lifts the day off group 1.
+const tcChipAttrs = (match) => ({ day: match[1] ? Number(match[1]) : null, tc: match[2] });
+
+// Flatten a range's inline content into a string + an offset→docPos map. Needed because a "DAY N"
+// literal and its timecode can live in SEPARATE text nodes — e.g. an already-bare chip (the code
+// carries the timecode mark, the "DAY N" before it does not), which a per-text-node scan would never
+// pair up. Inline atoms map to a single ￼ (never part of a timecode), so their positions stay
+// honest without polluting matches.
+function inlineTextMap(state, from, to) {
+  let text = '';
+  const posOf = [];
+  state.doc.nodesBetween(from, to, (node, p) => {
+    if (node.isText && node.text) {
+      for (let i = 0; i < node.text.length; i++) { text += node.text[i]; posOf.push(p + i); }
+    } else if (node.isInline) {
+      text += '￼'; posOf.push(p);
+    }
+    return true;
+  });
+  return { text, posOf };
+}
+
+// Collect the retro-convert OPERATIONS for a range: every bare/day-prefixed timecode whose CURRENT
+// state differs from the desired one. PURE (no view/dispatch) so it drives both the menu count and the
+// command, and is headless-testable. Handles THREE situations uniformly by scanning the flattened row
+// text (so a "DAY N" literal pairs with a code in another node):
+//   • unmarked timecode text            → wrap it in a chip (with day if a "DAY N" prefixes it);
+//   • an existing BARE chip (day=null)  preceded by "DAY N" → re-tag it with that day (the exact
+//                                          "still shows DAY ?" case) — dayFold hides the literal, but
+//                                          the chip needs the ACTUAL day attr for the nag to clear;
+//   • a literal "DAY N" before any code → strip it (mirrors the live input rule's prefix deletion).
+// A code already chipped with the right day and no leftover literal yields no op (idempotent).
+export function collectRowTimecodeOps(state, from, to) {
+  const markType = state.schema.marks.timecode;
+  const ops = [];
+  if (!markType) return ops;
+  const lo = Math.max(0, Math.min(from, to));
+  const hi = Math.min(state.doc.content.size, Math.max(from, to));
+  const { text, posOf } = inlineTextMap(state, lo, hi);
+  const re = tcChipGlobalRE();
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const code = m[2];
+    const codeStartIdx = m.index + (m[0].length - code.length); // the code always trails the match
+    if (codeStartIdx + code.length > posOf.length) continue;
+    const codeFrom = posOf[codeStartIdx];
+    const codeTo = posOf[codeStartIdx + code.length - 1] + 1;
+    const prefixFrom = posOf[m.index];
+    const dayFromPrefix = m[1] ? Number(m[1]) : null;
+    const node = state.doc.nodeAt(codeFrom);
+    const existing = node && node.isText ? node.marks.find((mk) => mk.type === markType) : null;
+    // Prefer a prefix-derived day; otherwise keep whatever the existing chip already had.
+    const day = dayFromPrefix != null ? dayFromPrefix : (existing ? (existing.attrs.day ?? null) : null);
+    const hasPrefix = dayFromPrefix != null && prefixFrom < codeFrom;
+    const markChanged = !existing || (existing.attrs.day ?? null) !== day || (existing.attrs.tc || '') !== code;
+    if (!markChanged && !hasPrefix) continue; // already correct — nothing to do
+    ops.push({ codeFrom, codeTo, tc: code, day, prefixFrom: hasPrefix ? prefixFrom : null, seq: existing ? (existing.attrs.seq ?? null) : null });
+  }
+  return ops;
+}
+
+// USER-INITIATED retro-convert (COLLAB LOOP LAW: exactly ONE transaction, one undo — never an
+// auto-dispatch/normalizer). Applies every op from collectRowTimecodeOps, right-to-left so a prefix
+// deletion never shifts an earlier (leftward) op's positions. removeMark+addMark re-tags an existing
+// chip's day in place; a bare code gets the mark for the first time; a "DAY N" literal is stripped.
+// `dispatch` omitted = a dry probe (returns whether anything WOULD change — the menu gate).
+export function convertTimecodesInRange(state, from, to, dispatch) {
+  const markType = state.schema.marks.timecode;
+  if (!markType) return false;
+  const ops = collectRowTimecodeOps(state, from, to);
+  if (!ops.length) return false;
+  if (!dispatch) return true;
+  ops.sort((a, b) => b.codeFrom - a.codeFrom);
+  let tr = state.tr;
+  for (const op of ops) {
+    tr = tr.removeMark(op.codeFrom, op.codeTo, markType);
+    tr = tr.addMark(op.codeFrom, op.codeTo, markType.create({ tc: op.tc, day: op.day, seq: op.seq }));
+    if (op.prefixFrom != null && op.prefixFrom < op.codeFrom) tr = tr.delete(op.prefixFrom, op.codeFrom);
+  }
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // Copy a timecode chip's code to the clipboard + flash + toast. Shared by the mouse (mousedown) and
 // keyboard (Enter/Space on a focused chip) paths so both do EXACTLY the same primary action.
 // PREMIERE PRO paste format = HH:MM:SS:FF. A 3-part broadcast code "00:04:30" must copy as
@@ -594,6 +692,63 @@ function findTcChipRect(view, pos) {
   } catch { return null; }
 }
 
+// The RETRO-CONVERT menu — one item, offered when a right-click lands on plain text whose row still
+// holds dead timecodes (see the contextmenu handler). Reuses the .wp-blockmenu chrome + the single
+// open-menu machinery (openTcMenuEl / closeTcMenu) so only one tc menu is ever live. Picking it runs
+// convertTimecodesInRange as ONE transaction (arming EDIT mode first if the surface is only-read —
+// the same reaching-for-the-pen rule the DAY picker uses).
+function openTcConvertMenu(view, from, to, rect) {
+  closeTcMenu();
+  const hits = collectRowTimecodeOps(view.state, from, to);
+  if (!hits.length) return;
+
+  const menu = document.createElement('div');
+  menu.className = 'wp-blockmenu wp-tcmenu';
+  menu.setAttribute('contenteditable', 'false');
+  menu.setAttribute('role', 'menu');
+
+  const head = document.createElement('div');
+  head.className = 'wp-bm-head';
+  head.textContent = 'Timecodes';
+  menu.appendChild(head);
+
+  const n = hits.length;
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'wp-bm-item';
+  item.textContent = `Convert ${n} timecode${n === 1 ? '' : 's'} on this row`;
+  item.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    // Arm EDIT if the surface is only-read (setEditMode flips view.editable synchronously); a
+    // structural block (?read share, unsynced collab) stays non-editable and we simply do nothing.
+    if (!view.editable) { try { setEditMode(true); } catch {} }
+    if (view.editable) convertTimecodesInRange(view.state, from, to, (tr) => view.dispatch(tr));
+    closeTcMenu();
+    view.focus();
+  });
+  makeItemKeyActivatable(item);
+  menu.appendChild(item);
+
+  document.body.appendChild(menu);
+  menu.style.position = 'fixed';
+  const place = () => {
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${rect.left}px`;
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) menu.style.left = `${Math.max(8, window.innerWidth - r.width - 8)}px`;
+    if (r.bottom > window.innerHeight - 8) menu.style.top = `${Math.max(8, rect.top - r.height - 4)}px`;
+  };
+  place();
+
+  openTcMenuEl = menu;
+  openTcReposition = place;
+  openTcReturnFocus = (typeof document !== 'undefined') ? document.activeElement : null;
+  window.addEventListener('scroll', place, true);
+  window.addEventListener('resize', place);
+  openTcKeydown = attachMenuKeynav(menu, closeTcMenu);
+  setTimeout(() => document.addEventListener('mousedown', onTcDocDown, true), 0);
+}
+
 export const TimecodeMark = Mark.create({
   name: 'timecode',
   inclusive: false,
@@ -672,36 +827,26 @@ export const TimecodeMark = Mark.create({
   // ("2:02:01:07") self-chipped in the editor but never routed as a SOT in the parser. \d{2} closes
   // that divergence; the three sites (parser TC, builder TIMECODE_RE, these rules) now agree.
   addInputRules() {
-    // On day-based scripts (palauTimecodes) a shoot-day-prefixed timecode self-chips AND captures its
-    // DAY: "Day 1 00:02:06:21" — and every variation "day 1 …", "DAY1 …", or fully glued "day100:…" —
-    // collapses into ONE chip tagged day=1 ("DAY 1 · 00:02:06:21"). The glued case splits correctly
-    // because the timecode's hour is a hard \d{2}, so "day1" + "00:02:06:21" is the only valid parse.
+    // CHIP RENDERING IS A PRESENTATION FEATURE, gated on `timecodeChips` — split from the heavy,
+    // data-touching document-builder `palauTimecodes` parsing (which reinterprets Burma's already-saved
+    // doc on load and stays Palau-only). Turning `timecodeChips` ON for Burma/Palau/Palau2/library is
+    // what makes a typed timecode chip in ALL of them; OFF → no chipping at all.
     //
     // ONE combined rule (day-branch OR bare-branch), never a separate day rule alongside the bare one:
-    // paste rules run as INDEPENDENT sequential transactions, so a second (bare) rule would re-scan the
-    // collapsed code and re-mark it with empty attrs, CLOBBERING day back to null. markInputRule keeps
-    // only the LAST capture group (the bare code) as the chip text and deletes the rest incl. "Day 1 ";
-    // getAttributes lifts day off group 1. The day branch drops the bare rule's (?<!\d) guard (it
-    // consumes the day digit itself) so the glued form chips. User-typed → one tr → collab-safe.
-    if (episodeFlag('palauTimecodes')) {
-      return [markInputRule({
-        find: /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])\s*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)$/,
-        type: this.type,
-        getAttributes: (match) => ({ day: match[1] ? Number(match[1]) : null, tc: match[2] }),
-      })];
-    }
-    // Burma (palauTimecodes off): bare no-day interview codes only — unchanged.
-    return [markInputRule({ find: /((?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d))$/, type: this.type })];
+    // a shoot-day-prefixed timecode self-chips AND captures its DAY — "Day 1 00:02:06:21" and every
+    // variation ("day 1 …", "DAY1 …", fully glued "day100:…") collapses into ONE chip tagged day=1
+    // ("DAY 1 · 00:02:06:21"); a bare "00:02:06:21" chips with day=null. The glued case splits
+    // correctly because the hour is a hard \d{2}. Day capture is presentation-only (it tags a NEWLY
+    // typed code — it does NOT reinterpret the saved doc), so it is safe on Burma. The RED "DAY ?" nag
+    // stays gated on `palauTimecodes` (main.jsx's [data-daytc]), so Burma's chips read as quiet
+    // brackets, not nags. User-typed → one tr → collab-safe.
+    if (!episodeFlag('timecodeChips')) return [];
+    return [markInputRule({ find: tcChipInputRE(), type: this.type, getAttributes: tcChipAttrs })];
   },
   addPasteRules() {
-    if (episodeFlag('palauTimecodes')) {
-      return [markPasteRule({
-        find: /(?:(?<![A-Za-z])[Dd][Aa][Yy]\s*([1-9])\s*|(?<!\d)(?<!\d:))(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g,
-        type: this.type,
-        getAttributes: (match) => ({ day: match[1] ? Number(match[1]) : null, tc: match[2] }),
-      })];
-    }
-    return [markPasteRule({ find: /((?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d))/g, type: this.type })];
+    // Same gate as the input rule — so a PLAIN-TEXT paste of "day 1 00:11:17:19" chips on the spot.
+    if (!episodeFlag('timecodeChips')) return [];
+    return [markPasteRule({ find: tcChipGlobalRE(), type: this.type, getAttributes: tcChipAttrs })];
   },
   // Left-click a timecode chip → copy it (flash + toast), exactly like the SOT LCD. Right-click →
   // the DAY / edit-timecode menu (the left-click guard keeps copy on button 0 only).
@@ -746,12 +891,31 @@ export const TimecodeMark = Mark.create({
             // reaching-for-the-pen rule the chapter ⛶ uses).
             if (isReadOnly()) return false;
             const target = chipFromEvent(event);
-            if (!target) return false;
+            if (target) {
+              event.preventDefault();
+              const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+              const pos = coords ? coords.pos : view.posAtDOM(target, 0);
+              if (typeof pos !== 'number' || pos < 0) return false;
+              openTimecodeMenu(view, pos, target.getBoundingClientRect());
+              return true;
+            }
+            // RETRO-CONVERT (the "still doesn't render" fix): a right-click on PLAIN TEXT — not a
+            // chip — whose row still holds DEAD, never-chipped timecodes offers a one-shot convert.
+            // Only when chips are enabled (else this episode never chips) and the selection is EMPTY:
+            // a non-empty selection belongs to the ConvertMenu (viz kinds), which runs after this
+            // plugin. Target the paragraph UNDER THE POINTER (right-click doesn't move the caret).
+            if (!episodeFlag('timecodeChips') || !view.state.selection.empty) return false;
+            const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            if (!at) return false;
+            let $p;
+            try { $p = view.state.doc.resolve(at.pos); } catch { return false; }
+            if (!$p.parent.isTextblock) return false;
+            const paraFrom = $p.start();
+            const paraTo = $p.end();
+            if (!convertTimecodesInRange(view.state, paraFrom, paraTo, null)) return false; // dry probe
             event.preventDefault();
-            const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            const pos = coords ? coords.pos : view.posAtDOM(target, 0);
-            if (typeof pos !== 'number' || pos < 0) return false;
-            openTimecodeMenu(view, pos, target.getBoundingClientRect());
+            const r = { left: event.clientX, top: event.clientY, bottom: event.clientY, right: event.clientX };
+            openTcConvertMenu(view, paraFrom, paraTo, r);
             return true;
           },
         },

@@ -81,6 +81,9 @@ const bin = (id, ...inline) => block('binBlock', id, [para(...inline)]);
 const note = (id, ...inline) => block('noteBlock', id, [para(...inline)], { kind: 'note' });
 const broll = (id, text) => block('brollBlock', id, [para(txt(text))]);
 const chapterBlk = (id, title) => block('chapterBlock', id, [para(txt(title))], { genre: 'other' });
+// imageBlock (media-paste lineage) is an ATOM — no content, attrs only. baseAttrs (incl. pendingViz)
+// ride it exactly like every cartridge block, so it can be a /pending member.
+const image = (id, extra) => ({ type: 'imageBlock', attrs: { blockId: id, src: 'blob:x', kind: 'shot', ...(extra || {}) } });
 
 // ── 1. REGISTRY ──────────────────────────────────────────────────────────────
 ok('WORKSPACE_ROLES: order, labels, lens tints, pending red', () => {
@@ -163,6 +166,53 @@ ok('membership per role: chips, legacy surfaces, vo blocks, pending attr', () =>
   assert.deepEqual(members('pending'), [7]);
   assert.deepEqual(members('archive'), [8]);
   assert.deepEqual(members('mapdata'), [9]);
+});
+
+// imageBlock (media-paste) crosses lineages here: main's new atom node vs. workspaces' scan.
+// It joins a workspace the SAME two ways any row does — by carrying a craft chip, or by the
+// pendingViz attr riding the atom — and is NEVER mistaken for a brollBlock by type alone.
+ok('imageBlock rows join workspaces by chip + pending attr, never by type', () => {
+  // A media-paste image row whose caption block carries a broll chip is a B-ROLL member.
+  const withChip = docFrom({
+    type: 'doc',
+    content: [row([image('img_1'), bin('bin_cap', dhl('broll', 'static', 'archival harbor footage'))])],
+  });
+  assert.equal(rowIsMember(withChip.child(0), 'broll'), true, 'an image row carrying a broll chip is a B-ROLL member');
+
+  // pendingViz rides the imageBlock atom (baseAttrs), so a /pending-stamped image cell is a member
+  // (and its data-pending-viz paints the cell red — same attr the CSS keys on).
+  const pendingImg = docFrom({ type: 'doc', content: [row([image('img_2', { pendingViz: true })])] });
+  assert.equal(rowIsMember(pendingImg.child(0), 'pending'), true, 'pendingViz on the imageBlock makes its row a PENDING member');
+
+  // A bare imageBlock — no chip, no pending — belongs to nothing; it is not a brollBlock.
+  const bare = docFrom({ type: 'doc', content: [row([image('img_3')])] });
+  assert.equal(rowIsMember(bare.child(0), 'broll'), false, 'a bare imageBlock is NOT a broll member (imageBlock ≠ brollBlock)');
+  assert.equal(rowIsMember(bare.child(0), 'pending'), false, 'an unstamped imageBlock row is not a pending member');
+});
+
+// A timecode chip (main's timecodeChips lineage) is the `timecode` MARK — not listed as a surface
+// by any WORKSPACE_ROLE. So it is transparent to membership: a row's timecode never makes it a
+// craft member, and a craft-member row's timecode just rides the cutout and renders normally.
+ok('timecode chips are transparent to workspace membership (ride cutouts, never gate them)', () => {
+  const tc = (code, day) => txt(code, [{ type: 'timecode', attrs: { tc: code, day: day ?? null } }]);
+
+  // A vo row whose only inline chip is a timecode is a member ONLY of vo (its block), of nothing else.
+  const tcRow = docFrom({
+    type: 'doc',
+    content: [row([block('voBlock', 'vo_tc', [para(txt('cut at '), tc('00:11:17:19', 1))], { status: 'todo' })])],
+  });
+  for (const role of WORKSPACE_ROLES) {
+    if (role.key === 'vo') continue; // it IS a voBlock — vo membership is expected and correct
+    assert.equal(rowIsMember(tcRow.child(0), role.key), false, `a timecode chip does not make a row a "${role.key}" member`);
+  }
+  assert.equal(rowIsMember(tcRow.child(0), 'vo'), true, 'the row is a vo member by its voBlock, never by the timecode');
+
+  // A B-ROLL member row that also carries a timecode chip stays a B-ROLL member — the chip rides along.
+  const brollPlusTc = docFrom({
+    type: 'doc',
+    content: [row([bin('bin_tc', dhl('broll', 'static', 'harbor exteriors'), txt(' '), tc('00:20:18:16', 2))])],
+  });
+  assert.equal(rowIsMember(brollPlusTc.child(0), 'broll'), true, 'a broll chip beside a timecode chip is still a B-ROLL member');
 });
 
 ok('rowIsMember accepts a role entry or its key; unknown keys are never members', () => {

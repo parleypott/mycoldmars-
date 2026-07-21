@@ -319,6 +319,15 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   font-style: italic;   /* speech: someone is talking on camera */
   color: #7a3d1e;        /* warm on-camera ink — not a warning red */
 }
+/* Run-identity tag ("ONCAM") decorated at the head of each labeled run — the same little-cap
+   furniture as the VO/SOT cartridge tags, in the run's own ink. Decoration-only, never saved. */
+.wp-dhl-runtag {
+  display: inline-block; font-family: var(--mono); font-size: var(--chrome-size-sm, 9px);
+  letter-spacing: .18em; text-transform: uppercase; font-weight: 700; font-style: normal;
+  line-height: 1; border: 1.5px solid currentColor; border-radius: 4px; padding: 2px 5px 1px;
+  margin-right: 7px; vertical-align: 1px; user-select: none;
+}
+.wp-dhl-runtag[data-kind="oncam"] { color: #7a3d1e; }
 .wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#1a1a18; }   /* /animation — purple chip, BLACK text */
 .wp-dhl[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }           /* /3d — purple chip, bright YELLOW text */
 /* Redundant "DAY N" folded before its timecode chip (day-fold plugin) — hidden, not deleted. */
@@ -375,6 +384,23 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* row menu: the destructive entry reads warm red, filled on hover like every other item */
 .wp-rowmenu .wp-slash-item.is-danger .wp-convert-label{ color:#b0431f; }
 .wp-rowmenu .wp-slash-item.is-danger.is-active .wp-convert-label{ color:#7e2c12; }
+
+/* SELECT → RIGHT-CLICK → BULK ROW MENU. Same flat/mono/no-shadow slash-menu chrome; each tag row
+   previews the REAL chip (colours inherited from .wp-dhl[data-kind] above) so the menu shows exactly
+   what a click lands. A touch more min-width so the widest chip (3D ANIMATION) never crowds the edge. */
+.wp-bulk-menu{ min-width:196px; }
+.wp-bulk-item{ padding:4px 8px; }
+/* The chip preview sits in the menu's mono voice at chip scale; per-kind colour comes from .wp-dhl. */
+.wp-bulk-chip{ display:inline-block; font-size:11px; line-height:1.35; letter-spacing:.02em; }
+/* VO is a block action, not a directionMark — its own dark cap chip, echoing the block's VO corner tag. */
+.wp-bulk-chip-vo{
+  padding:3px 10px; border-radius:5px; font-weight:700;
+  background:var(--ep-cap, #3a382f); color:var(--face, #f4efe4); border:1.5px solid var(--ep-cap, #3a382f);
+}
+/* The destructive entry: warm red, hairline-separated at the bottom, mono count — filled on hover
+   like every other row (matching the left-margin row menu's is-danger treatment). */
+.wp-bulk-menu .wp-bulk-delete.is-danger .wp-convert-label{ color:#b0431f; letter-spacing:.06em; }
+.wp-bulk-menu .wp-bulk-delete.is-danger.is-active .wp-convert-label{ color:#7e2c12; }
 .wp-convert-dot[data-kind="__vo"]{ background:var(--ep-cap, #3a382f); border-color:var(--ep-cap, #3a382f); }
 .wp-convert-dot[data-kind="archive"]{ background:#f2d4d4; border-color:#d79a9a; }
 .wp-convert-dot[data-kind="oncam"]{ background:#f4c2b0; border-color:#d97a52; }
@@ -2395,6 +2421,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 /* inline chips ({tk} / fact-check / visual / timecode tags / direction highlights) re-ink
    as dark-red wells with near-white text so nothing inside the alert goes unreadable */
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl-runtag,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dchip,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-fc,
@@ -2670,6 +2697,68 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 /* In edit mode the cursor is a move/select affordance, not zoom (zoom is the read-mode click). */
 .ProseMirror[contenteditable="true"] .wp-image .wp-image-img { cursor: default; }
 .wp-image.wp-image-resizing { user-select: none; }
+
+/* PASTE PLACEHOLDER / ERROR (blocks.js nodeview, attr-driven). While a pasted media upload is in
+   flight — or if it failed / was interrupted by a reload — the box shows a flat status card
+   instead of a broken empty media element. FLAT doctrine: dashed outline, mono caps, one ink;
+   the error state borrows the accent ink, no fill, no shadow. */
+.wp-image--pending .wp-image-img { display: none; }
+.wp-image--pending .wp-image-box {
+  width: 100%;
+  min-height: 96px;
+  border: 1.5px dashed var(--ink);
+  border-radius: 11px;
+  opacity: .85;
+}
+.wp-image--error .wp-image-box { border-color: var(--ep-accent, #d23b2c); opacity: 1; }
+.wp-media-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  text-align: center;
+}
+.wp-media-status-row { display: inline-flex; align-items: center; gap: 8px; }
+.wp-media-status-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ep-kind-label);
+}
+.wp-image--error .wp-media-status-label { color: var(--ep-accent, #d23b2c); }
+.wp-media-status-spin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  border-top-color: transparent;
+  opacity: .6;
+  animation: wp-media-status-spin 0.8s linear infinite;
+}
+@keyframes wp-media-status-spin { to { transform: rotate(360deg); } }
+.wp-media-status-actions { display: inline-flex; gap: 8px; }
+.wp-media-status-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.wp-media-status-btn:hover { background: var(--ink); color: var(--paper, #fff); }
+.wp-media-status-retry { border-color: var(--ep-accent, #d23b2c); color: var(--ep-accent, #d23b2c); }
+.wp-media-status-retry:hover { background: var(--ep-accent, #d23b2c); color: var(--paper, #fff); }
 
 /* INLINE TOOLS — small fullscreen + download, top-right, reveal on hover/selection. */
 .wp-image .wp-image-tools {
