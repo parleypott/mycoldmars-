@@ -33,6 +33,12 @@
   /* TABLE LAYER — flat google-docs rows. The single hairline a split row shows,
      plus the two faint lane tints. All warm/cream, all flat — never a gridline. */
   --rule:      #cdc6b4;  /* the ONE hairline between split columns */
+  /* WORKSPACE CHECK-OFF green — the per-person "row done" medallion + soft border. The
+     check-green (#3BC773) family, muted + desaturated toward the cream page so it reads
+     "completed", never neon. --ws-done = the soft frame/ring; --ws-done-strong = the ✓ ink
+     (deeper, clears AA on the frame). Overridden brighter for the dark slate scheme below. */
+  --ws-done:        #4c9d67;  /* soft muted green — row border + medallion ring */
+  --ws-done-strong: #2f7f4c;  /* deeper green — the ✓ glyph / hover ink */
   --said-tint: transparent;            /* LEFT / narration-VO lane — paper, no tint */
   --shown-tint: transparent;           /* RIGHT / visual lane — paper, no tint */
   --lane-lab:  #6c685f;  /* column lane label (SAID / SHOWN) — L2: AA 4.5:1 on face */
@@ -132,6 +138,8 @@
   --note-fill:#34321f; --note-fill-hover:#3d3a24; --note-text:#e8dca0; --note-lab:#c9b96e;
   --tk-bg:#3a3520; --tk-text:#e8d488; --vis-bg:#3a2926; --vis-text:#e0a59a;
   --tkl-ink:#d98f7f; --tkl-wash:rgba(217, 143, 127, .10); --tkl-line:rgba(217, 143, 127, .5);
+  /* check-off green, lifted for the dark face so it stays clearly green, never murky */
+  --ws-done:#57c187; --ws-done-strong:#7ad6a0;
   --grip-grad: repeating-linear-gradient(0deg,#34373d,#34373d 2px,#3d4047 2px,#3d4047 4px);
   --grip-grad-dark: repeating-linear-gradient(0deg,#1f2024,#1f2024 2px,#2a2b30 2px,#2a2b30 4px);
 }

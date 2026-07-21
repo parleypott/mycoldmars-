@@ -25,6 +25,7 @@ import { getEpisode } from './episode-config.js';
 import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStorageKey } from './roles.js';
 import { WORKSPACE_ROLES, workspaceRole, scanWorkspace, workspaceMetrics } from './workspaces.js';
 import { workspaceFilterKey } from './extensions/workspace-filter.js';
+import { countCheckedMembers } from './extensions/ws-checkoff.js';
 import { WS_MAP_KEY, parseWsFlag, setWsInHash, setWsInSearch } from './ws-route.js';
 import { mapModel } from './script-map.js';
 import { ScriptMap } from './ScriptMap.jsx';
@@ -1352,10 +1353,15 @@ function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project })
 // recomputes them in an effect keyed on the telemetry state, so no second full-doc walk
 // ever lands on the keystroke path. PENDING reads as the production manager's punch list:
 // its counts ink in the alert red (CSS, keyed on data-ws-key).
-function WorkspaceHub({ wsKey, metrics }) {
+function WorkspaceHub({ wsKey, metrics, doneCount = 0 }) {
   const role = workspaceRole(wsKey);
   if (!role) return null;
   const m = metrics || { timedWords: 0, minutes: 0, sectionCount: 0, rowCount: 0 };
+  // VIEW-LOCAL CHECK-OFF stat — n checked member rows of m. Archive already shows a
+  // MARK-based "DONE" (☑ archive chips), so there we label this one "CHECKED" to keep the
+  // two unambiguous; everywhere else "DONE n/m" is plain. Muted green once anything is done.
+  const checkLabel = wsKey === 'archive' ? 'CHECKED' : 'DONE';
+  const checkTotal = m.rowCount || 0;
   return (
     <section class="wp-wshub" data-ws-key={wsKey} aria-label={`${role.label} workspace`}>
       <div class="wp-wshub-title">
@@ -1374,6 +1380,14 @@ function WorkspaceHub({ wsKey, metrics }) {
           <>
             <span class="wp-wshub-dot" aria-hidden="true">·</span>
             <span class="wp-wshub-stat is-done"><b>DONE {m.done || 0}/{m.total || 0}</b></span>
+          </>
+        )}
+        {checkTotal > 0 && (
+          <>
+            <span class="wp-wshub-dot" aria-hidden="true">·</span>
+            <span class={`wp-wshub-stat wp-wshub-checked${doneCount > 0 ? ' has-done' : ''}`}>
+              <b>{checkLabel} {doneCount}/{checkTotal}</b>
+            </span>
           </>
         )}
       </div>
@@ -1454,6 +1468,10 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const wsRef = useRef(null);        // mirror for handlers that must not re-subscribe on ws
   wsRef.current = ws;
   const [wsMetrics, setWsMetrics] = useState(null);
+  // View-local CHECK-OFF count (n = checked member rows in view); the hub pairs it with
+  // wsMetrics.rowCount (m) as "DONE n/m". Kept separate from wsMetrics because a check
+  // toggle changes n without a doc/telemetry change (so the metrics effect won't refire).
+  const [wsDone, setWsDone] = useState(0);
   const wsScroll = useRef(0);
   const everWs = useRef(false);
   const wsRole = ws ? workspaceRole(ws) : null;
@@ -1616,6 +1634,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     try { ed?.view.dispatch(ed.state.tr.setMeta(workspaceFilterKey, null)); } catch {}
     setWs(null);
     setWsMetrics(null);
+    setWsDone(0);
     writeWsFlag(null);
   }, []);
 
@@ -1704,7 +1723,29 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     const ed = editorRef.current;
     if (!ed) return;
     try { setWsMetrics(workspaceMetrics(ed.state.doc, ws)); } catch {}
+    // n = checked member rows now in view — read off the filter plugin's live checked set
+    // (loaded from storage on entry, updated on each toggle). Covers entry + doc changes.
+    try {
+      const pst = workspaceFilterKey.getState(ed.state);
+      setWsDone(countCheckedMembers(ed.state.doc, ws, pst && pst.checked));
+    } catch {}
   }, [tel, ws, wsRole]);
+
+  // CHECK-OFF live update — a row check/uncheck fires wp-ws-checkchange (a decoration-only
+  // user gesture, no doc change, so the telemetry-keyed effect above never sees it). Recompute
+  // just n off the plugin's now-current checked set. Cheap: one row walk at Burma scale.
+  useEffect(() => {
+    const onCheckChange = () => {
+      const ed = editorRef.current;
+      if (!ed || !wsRef.current) return;
+      try {
+        const pst = workspaceFilterKey.getState(ed.state);
+        setWsDone(countCheckedMembers(ed.state.doc, wsRef.current, pst && pst.checked));
+      } catch {}
+    };
+    window.addEventListener('wp-ws-checkchange', onCheckChange);
+    return () => window.removeEventListener('wp-ws-checkchange', onCheckChange);
+  }, []);
 
   // SCRIPT MAP MODEL — same cadence discipline as the hub metrics: recomputed only
   // while the map holds the screen, keyed on the telemetry debounce/idle state
@@ -1897,7 +1938,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
 
         {/* WORKSPACE HUB — the craft's dashboard, above the editor while a workspace is
             active. The SCRIPT MAP route renders its (stage-4) host instead of the hub. */}
-        {wsRole && <WorkspaceHub wsKey={ws} metrics={wsMetrics} />}
+        {wsRole && <WorkspaceHub wsKey={ws} metrics={wsMetrics} doneCount={wsDone} />}
         {ws === WS_MAP_KEY && (
           <div class={`wp-wsmap-host${wsMap ? ' is-live' : ''}`} id="wp-wsmap-host">
             {wsMap

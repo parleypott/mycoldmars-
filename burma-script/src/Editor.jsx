@@ -35,6 +35,7 @@ import { FootnoteDeleteGuard } from './extensions/footnote-delete-guard.js';
 import { ChapterFocus } from './extensions/chapter-focus.js';
 import { RowNumbers } from './extensions/row-numbers.js';
 import { WorkspaceFilter } from './extensions/workspace-filter.js';
+import { readChecked, writeChecked } from './extensions/ws-checkoff.js';
 import { TkDetect } from './extensions/tk-detect.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
@@ -508,7 +509,16 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       // Workspace cutout filter — decoration-only plugin (adds NO schema, dispatches
       // NOTHING on its own; chapter-focus is the template). The meta that drives it comes
       // from the WORKSPACES menu / ?ws= deep link in main.jsx. Safe in collab sessions.
-      WorkspaceFilter,
+      // checkStore persists the per-person, per-workspace row CHECK-OFF to localStorage,
+      // resolved LIVE off the active episode's storage namespace (never frozen at init, so
+      // an episode switch points it at the new project's own keys). View-local: the checks
+      // never touch the doc or a collab transaction.
+      WorkspaceFilter.configure({
+        checkStore: {
+          load: (wsKey) => readChecked(getEpisodeStorage(), wsKey),
+          save: (wsKey, set) => writeChecked(getEpisodeStorage(), wsKey, set),
+        },
+      }),
       // TK loose-end paint — decoration-only plugin (adds NO schema, dispatches NOTHING;
       // row-numbers is the memo discipline). Bare TK / '(TK …)' turns subtle red; the same
       // tk-pattern.js probe drives the TK workspace membership. Safe in read-only and
