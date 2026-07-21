@@ -47,6 +47,7 @@ export const PALAU2 = {
     archiveOwnLine: true,              // slash-menu.js + direction-chip.js — /archive pops its own indented line
     dayFold: true,                     // day-fold.js — fold literal "DAY N" preceding a chip
     sequencePicker: true,              // marks.js — right-click chip menu picks SEQUENCE (not DAY)
+    timecodeChips: true,               // marks.js — typed/pasted timecode self-chips + retro-convert (presentation)
     palauTimecodes: true,              // document-builder.js — 3-part/bracket timecodes, bundled-day strip, seq context
     inlineSotName: true,               // document-builder.js — SOT sequence name bold INLINE in body
     normalizeTableRows: true,          // document-builder.js — split stacked full-width rows on load
