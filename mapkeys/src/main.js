@@ -358,8 +358,19 @@ const state = {
 };
 
 // Debug handle — lets a console (or headless CDP verification) inspect the
-// live editor without exposing anything in the UI.
-window.__mapkeys = { map, state };
+// live editor without exposing anything in the UI. The fns kit exists so an
+// assistant session can repair or extend a LIVE editor in place (paint +
+// panel + save) instead of racing the 1.5s cloud autosave with server-side
+// writes — last-write-wins means the open tab always wins that race.
+window.__mapkeys = {
+  map,
+  state,
+  fns: {
+    addCountry, saveLayers, renderShapesPanel, renderLayersPanel,
+    ensureShapeOnMap, redrawShape, backfillShapeIntoKeyframes,
+    ensureBordersOnMap, applyBordersToMap, applySatGrade,
+  },
+};
 
 // Backwards-compat shim: code that referenced state.route as "the current
 // route" now reads the active layer (or first visible layer).
