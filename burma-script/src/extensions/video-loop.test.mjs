@@ -84,6 +84,33 @@ ok('videoLoopSeekTarget: degenerate trimOut ≤ trimIn is ignored (never a zero-
   assert.equal(videoLoopSeekTarget(1, 3, 2), 3);   // trimIn alone still applies
 });
 
+// THE BUSY-SEEK GUARD — a persisted trimIn at/past the real clip's end (pasted data-attrs from
+// a longer video, a future src swap to a shorter clip) must NOT loop forever: without the
+// duration clamp the engine seeks forward → browser clamps to the end → native loop wraps to
+// 0 → seek forward again, 20+ times/sec on a frozen frame. With duration known, an
+// unenforceable window is treated as ABSENT (return null, whole window ignored).
+ok('videoLoopSeekTarget: trimIn ≥ duration → window treated as absent (no perpetual seek)', () => {
+  // the live repro: <figure data-trim-in="20" data-trim-out="25"> pasted around an 8s mp4
+  assert.equal(videoLoopSeekTarget(0.0, 20, 25, 8), null);   // native wrap to 0 → engine must NOT seek to 20
+  assert.equal(videoLoopSeekTarget(7.99, 20, 25, 8), null);  // pinned at the end → leave alone
+  assert.equal(videoLoopSeekTarget(4.0, 20, 25, 8), null);   // mid-clip → plays through
+  // trimIn inside the last min-window sliver is equally unenforceable
+  assert.equal(videoLoopSeekTarget(0.0, 8 - VIDEO_TRIM_MIN_WINDOW / 2, null, 8), null);
+  assert.equal(videoLoopSeekTarget(0.0, 8, null, 8), null);  // exactly at the end
+  // and the clamp drops the WHOLE window: garbage out < in must not resurrect a [0, out] loop
+  assert.equal(videoLoopSeekTarget(4.0, 20, 3, 8), null);
+});
+
+ok('videoLoopSeekTarget: duration clamp leaves valid windows + unknown durations alone', () => {
+  assert.equal(videoLoopSeekTarget(0.0, 1.5, 4.0, 8), 1.5);  // valid window unchanged
+  assert.equal(videoLoopSeekTarget(4.0, 1.5, 4.0, 8), 1.5);
+  assert.equal(videoLoopSeekTarget(2.2, 1.5, 4.0, 8), null);
+  assert.equal(videoLoopSeekTarget(0.0, 2, 25, 8), 2);       // out past end is benign: [2, native end]
+  assert.equal(videoLoopSeekTarget(0.0, 20, 25, NaN), 20);   // metadata not loaded → no clamp (as before)
+  assert.equal(videoLoopSeekTarget(0.0, 20, 25, 0), 20);     // zero/garbage duration → no clamp
+  assert.equal(videoLoopSeekTarget(0.0, 20, 25, undefined), 20);
+});
+
 ok('normalizeVideoRate: 1× collapses to null; clamps; garbage → null', () => {
   assert.equal(normalizeVideoRate(1), null);
   assert.equal(normalizeVideoRate('1'), null);

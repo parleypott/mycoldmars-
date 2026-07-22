@@ -1327,8 +1327,16 @@ export function normalizeVideoTrim(trimIn, trimOut, duration) {
 // (DOM-only — COLLAB LOOP LAW: playback state NEVER becomes a transaction).
 //   current ≥ trimOut → wrap to trimIn.   current < trimIn → jump forward to trimIn
 //   (covers the native `loop` wrap to 0 when trimIn > 0).   No trim set → never seek.
-export function videoLoopSeekTarget(current, trimIn, trimOut) {
-  const a = Number.isFinite(trimIn) && trimIn > 0 ? trimIn : 0;
+// `duration` (optional, seconds) is the ACTUAL media length when known: a persisted trimIn at or
+// past the end of the real clip (pasted markup from a longer video, a future src swap to a shorter
+// one) is unenforceable — seeking to it clamps at the end, the native loop wraps to 0, and the
+// engine would seek forward again, forever (a 20+ seeks/sec busy loop on a frozen frame). When
+// trimIn leaves less than the minimum playable window before the end, the whole trim window is
+// treated as absent. Unknown duration (metadata not loaded yet) → no clamp, same as before.
+export function videoLoopSeekTarget(current, trimIn, trimOut, duration) {
+  let a = Number.isFinite(trimIn) && trimIn > 0 ? trimIn : 0;
+  const dur = Number.isFinite(duration) && duration > 0 ? duration : null;
+  if (dur != null && a >= dur - VIDEO_TRIM_MIN_WINDOW) { a = 0; trimOut = null; }
   const rawOut = Number(trimOut);
   const b = Number.isFinite(rawOut) && rawOut > a ? rawOut : Infinity;
   if (a === 0 && b === Infinity) return null;
@@ -1683,7 +1691,7 @@ export const ImageBlock = Node.create({
       let scrubbing = false;
       const onTimeUpdate = () => {
         if (scrubbing || media.tagName !== 'VIDEO') return;
-        const seek = videoLoopSeekTarget(media.currentTime, attrs.trimIn, attrs.trimOut);
+        const seek = videoLoopSeekTarget(media.currentTime, attrs.trimIn, attrs.trimOut, media.duration);
         if (seek != null) { try { media.currentTime = seek; } catch {} }
       };
       // Apply the persisted dials to the live element (mount, attr update, remote echo).
@@ -1692,7 +1700,7 @@ export const ImageBlock = Node.create({
         const rate = Number.isFinite(a.playbackRate) && a.playbackRate > 0 ? a.playbackRate : 1;
         try { if (media.playbackRate !== rate) media.playbackRate = rate; } catch {}
         if (!scrubbing) {
-          const seek = videoLoopSeekTarget(media.currentTime, a.trimIn, a.trimOut);
+          const seek = videoLoopSeekTarget(media.currentTime, a.trimIn, a.trimOut, media.duration);
           if (seek != null) { try { media.currentTime = seek; } catch {} }
         }
       };
