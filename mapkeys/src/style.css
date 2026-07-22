@@ -284,9 +284,34 @@ html, body {
   letter-spacing: 0.2em;
   color: rgba(255, 250, 240, 0.6);
 }
-#frame169-btn.active {
+#frame169-btn.active,
+#frame-guides-btn.active {
   background: var(--ink);
   color: var(--paper);
+}
+/* Center guides — Photoshop-cyan hairlines crossing at the frame's center */
+#frame169 .fg-v, #frame169 .fg-h { display: none; }
+#frame169.guides .fg-v {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: #00e8ff;
+  opacity: 0.75;
+}
+#frame169.guides .fg-h {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-0.5px);
+  background: #00e8ff;
+  opacity: 0.75;
 }
 
 /* ─── Borders hub — world-border toggles + styling, opened from the topbar ─── */

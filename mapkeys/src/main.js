@@ -345,6 +345,7 @@ const state = {
   activeLayerId: null,    // which layer the route-style controls bind to
   borders: normalizeBorders(null),  // BORDERS hub: { primary, secondary } world-border styling
   frame169: false,        // 16:9 compose frame + render crop (persisted per project)
+  frameGuides: false,     // cyan center-cross guides inside the 16:9 frame
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
   activeShapeId: null,    // selected shape (or null)
@@ -2390,6 +2391,7 @@ function getProjectSnapshot() {
       secondary: { ...state.borders.secondary },
     },
     frame169: !!state.frame169,
+    frameGuides: !!state.frameGuides,
     camera: {
       center: [c.lng, c.lat],
       zoom: map.getZoom(),
@@ -2538,6 +2540,7 @@ function hydrateSnapshotIntoState(parsed) {
   state.overlays = (Array.isArray(parsed.overlays) ? parsed.overlays : []).map(hydrateOverlay).filter(Boolean);
   state.borders = normalizeBorders(parsed.borders);
   state.frame169 = parsed.frame169 === true;
+  state.frameGuides = parsed.frameGuides === true;
 
   state.keyframes = (Array.isArray(parsed.keyframes) ? parsed.keyframes : []).map(k => ({
     ...k,
@@ -4348,8 +4351,11 @@ function frame169Rect() {
 function syncFrame169() {
   const el = document.getElementById('frame169');
   const btn = document.getElementById('frame169-btn');
+  const gBtn = document.getElementById('frame-guides-btn');
   if (btn) btn.classList.toggle('active', !!state.frame169);
+  if (gBtn) gBtn.classList.toggle('active', !!state.frameGuides);
   if (!el) return;
+  el.classList.toggle('guides', !!state.frameGuides);
   if (!state.frame169) { el.classList.add('hidden'); return; }
   const mapRect = map.getContainer().getBoundingClientRect();
   const r = frame169Rect();
@@ -4362,6 +4368,12 @@ function syncFrame169() {
 
 document.getElementById('frame169-btn').addEventListener('click', () => {
   state.frame169 = !state.frame169;
+  syncFrame169();
+  saveLayers();
+});
+document.getElementById('frame-guides-btn').addEventListener('click', () => {
+  state.frameGuides = !state.frameGuides;
+  if (state.frameGuides && !state.frame169) state.frame169 = true; // guides live in the frame
   syncFrame169();
   saveLayers();
 });
