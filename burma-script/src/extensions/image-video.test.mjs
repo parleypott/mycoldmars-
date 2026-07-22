@@ -148,8 +148,10 @@ ok('pickMediaUploadRoute: video/mp4 → signed at ANY size; images route by size
   // video; the base64 route would coerce them to png.
   assert.equal(pickMediaUploadRoute('video/webm', 100), 'signed', 'webm → signed at any size');
   assert.equal(pickMediaUploadRoute('video/quicktime', 90 * MB), 'signed', 'mov → signed at any size');
-  // Images keep the exact pickUploadRoute boundary.
-  assert.equal(pickMediaUploadRoute('image/png', 4 * MB), 'base64');
+  // Images keep the exact pickUploadRoute (envelope-based) boundary. A small still stays base64;
+  // a 4MB photo's ~5.5MB base64 body is over the platform ceiling → signed (the 413 fix).
+  assert.equal(pickMediaUploadRoute('image/png', 1 * MB), 'base64');
+  assert.equal(pickMediaUploadRoute('image/png', 4 * MB), 'signed');
   assert.equal(pickMediaUploadRoute('image/gif', SIGNED_ROUTE_MIN_BYTES), 'base64');
   assert.equal(pickMediaUploadRoute('image/gif', SIGNED_ROUTE_MIN_BYTES + 1), 'signed');
 });

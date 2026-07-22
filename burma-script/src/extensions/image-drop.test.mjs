@@ -41,6 +41,7 @@ import {
   resolveDropPos, addPlaceholderTr, removePlaceholderTr, findPlaceholderPos,
   insertImageTr, buildImageDropPlugin, SUPPORTED_IMAGE_MIMES,
   pickUploadRoute, SIGNED_ROUTE_MIN_BYTES,
+  base64EnvelopeBytes, MAX_BASE64_BODY_BYTES,
 } from './image-drop.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
@@ -159,23 +160,33 @@ ok('pickImageFiles keeps png/jpeg/webp/gif, rejects HEIC and non-images', () => 
   assert.deepEqual(pickImageFiles(null), { images: [], rejected: [] });
 });
 
-// ── 1b: pickUploadRoute — the size boundary that big-GIF drag-drop rests on ───────────────
-ok('pickUploadRoute sends >6MB to the signed road, ≤6MB to base64', () => {
+// ── 1b: pickUploadRoute — routes by the WIRE ENVELOPE, not raw bytes (the 413 fix) ─────────
+ok('base64EnvelopeBytes models base64 4/3 inflation + JSON wrapper', () => {
+  // A 3MB file → 4MB of base64 (ceil(n/3)*4) + the fixed wrapper. The wrapper never under-counts.
+  assert.equal(base64EnvelopeBytes(3 * 1024 * 1024), Math.ceil((3 * 1024 * 1024) / 3) * 4 + 512);
+  assert.ok(base64EnvelopeBytes(0) === 512, 'empty file is just the wrapper');
+  // The envelope is ALWAYS larger than the raw bytes — that gap is the whole bug.
+  assert.ok(base64EnvelopeBytes(4.5 * 1024 * 1024) > 4.5 * 1024 * 1024);
+});
+ok('pickUploadRoute keys on the envelope: a ~4.5MB photo goes SIGNED, not base64 (413 fix)', () => {
   const MB = 1024 * 1024;
-  assert.equal(SIGNED_ROUTE_MIN_BYTES, 6 * MB, 'threshold constant unchanged');
+  // The derived boundary: the largest RAW file whose base64 envelope still fits the body ceiling.
+  assert.ok(base64EnvelopeBytes(SIGNED_ROUTE_MIN_BYTES) <= MAX_BASE64_BODY_BYTES, 'boundary fits');
+  assert.ok(base64EnvelopeBytes(SIGNED_ROUTE_MIN_BYTES + 1) > MAX_BASE64_BODY_BYTES, 'one over spills');
   // Small stills stay on the proven base64 edge route.
   assert.equal(pickUploadRoute(0), 'base64');
   assert.equal(pickUploadRoute(200 * 1024), 'base64');
-  assert.equal(pickUploadRoute(5 * MB), 'base64');
-  // BOUNDARY: exactly 6MB is NOT "strictly larger" → still base64 (the comparator is `>`,
-  // matching the base64 route's 8MB decoded ceiling with headroom). Flip `>`→`>=` and this
-  // one goes RED.
-  assert.equal(pickUploadRoute(6 * MB), 'base64');
-  // One byte over → signed road. Flip `>`→`<` and this goes RED.
-  assert.equal(pickUploadRoute(6 * MB + 1), 'signed');
+  assert.equal(pickUploadRoute(2 * MB), 'base64');
+  // THE REGRESSION: a 4.5MB photo's base64 body is ~6MB — over the platform gate → must go SIGNED.
+  // Under the old raw-6MB comparator this took base64 and 413'd. This assertion is the fix.
+  assert.equal(pickUploadRoute(4.5 * MB), 'signed');
+  assert.equal(pickUploadRoute(5 * MB), 'signed');
+  // BOUNDARY: exactly at the derived threshold rides base64; one byte over spills to signed.
+  assert.equal(pickUploadRoute(SIGNED_ROUTE_MIN_BYTES), 'base64');
+  assert.equal(pickUploadRoute(SIGNED_ROUTE_MIN_BYTES + 1), 'signed');
   // A real 20MB animated GIF — the whole reason the signed endpoint exists — MUST go signed.
   assert.equal(pickUploadRoute(20 * MB), 'signed');
-  // Non-numeric junk coerces via Number(): NaN > x is false → base64 (safe default).
+  // Non-numeric junk coerces to 0 → the wrapper-only envelope is under the ceiling → base64.
   assert.equal(pickUploadRoute(undefined), 'base64');
 });
 

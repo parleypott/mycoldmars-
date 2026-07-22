@@ -85,21 +85,43 @@ export function isSupportedMediaMime(type) {
 //   • big files (a 20MB reference GIF) → /api/script-image-sign mints a signed URL and the
 //     browser PUTs the bytes STRAIGHT to Supabase storage — the edge fn's ~4.5MB body
 //     ceiling never sees them.
-// 6MB keeps clear headroom under the base64 route's platform limits.
-export const SIGNED_ROUTE_MIN_BYTES = 6 * 1024 * 1024;
+//
+// ROUTE BY THE WIRE ENVELOPE, NOT THE RAW BYTES (Johnny 2026-07-22, "adding images fails —
+// http 413 — the picture was NOT added"). The base64 road doesn't send the file; it sends a
+// JSON body carrying the bytes as base64 — which inflates by 4/3 — plus the block_id / mimeType
+// / 64-char contentHash wrapper. A 4.5MB photo is only 4.5MB on disk but ~6MB on the wire, and
+// the platform (Vercel) rejects a request BODY over ~4.5MB with a 413 BEFORE the function even
+// runs. The old comparator gated on RAW size at 6MB, so every ~3.3–6MB photo took the base64
+// road and 413'd. We now gate on the REAL envelope size at a conservative 3.5MB (≈1MB under the
+// platform ceiling) — anything larger takes the signed road, which never base64-inflates.
+export const MAX_BASE64_BODY_BYTES = Math.floor(3.5 * 1024 * 1024);
+// Fixed JSON-wrapper allowance around the base64 payload (keys + project id + block_id +
+// mimeType + 64-hex contentHash + braces/quotes/commas). 512 is deliberately generous so the
+// estimate never UNDER-counts the envelope and lets a near-ceiling body slip onto the base64 road.
+export const BASE64_ENVELOPE_OVERHEAD = 512;
+// Exact wire size of the base64 edge-fn JSON body for a file of `sizeBytes`: base64 is
+// ceil(n/3)*4 chars, plus the fixed wrapper above.
+export function base64EnvelopeBytes(sizeBytes) {
+  const n = Math.max(0, Number(sizeBytes) || 0);
+  return Math.ceil(n / 3) * 4 + BASE64_ENVELOPE_OVERHEAD;
+}
+// The largest RAW file whose base64 envelope still fits under MAX_BASE64_BODY_BYTES — the
+// DERIVED base64/​signed boundary (was a hardcoded 6MB). Files at/under this ride base64; larger
+// → signed. Kept as an exported constant so the boundary stays a locked, testable contract.
+export const SIGNED_ROUTE_MIN_BYTES = Math.floor((MAX_BASE64_BODY_BYTES - BASE64_ENVELOPE_OVERHEAD) / 4) * 3;
 // Hard client ceiling — matches MAX_SIGNED_BYTES on /api/script-image-sign. Rejecting here
 // gives an instant, named toast instead of a slow round-trip to a 413.
 // 100MB (was 25MB): Johnny's real MapKeys reference GIFs run 60MB+ — a 61MB one PUT to the
 // bucket in ~4s, verified 2026-07-07. Storage is the cheap part; a silent size wall is not.
 export const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 
-// Pure route decision. Files AT/UNDER SIGNED_ROUTE_MIN_BYTES ride the base64 edge route
-// (the proven small-file path); anything strictly larger mints a signed URL and PUTs the
-// raw bytes browser→Supabase, dodging the edge fn's body ceiling. Exported so the boundary
-// is a locked contract — the whole big-GIF feature rests on a 20MB file taking the signed
-// road; a silent flip of this comparator would send it back through the edge fn and 413.
+// Pure route decision, keyed on the base64 wire ENVELOPE (not the raw byte count). A file whose
+// envelope could exceed the platform body ceiling mints a signed URL and PUTs the raw bytes
+// browser→Supabase, dodging the ceiling entirely; everything smaller stays on the proven base64
+// edge route. Exported so the boundary is a locked contract — the whole big-GIF feature rests on
+// a 20MB file taking the signed road, AND a 4.5MB photo must too.
 export function pickUploadRoute(sizeBytes) {
-  return Number(sizeBytes) > SIGNED_ROUTE_MIN_BYTES ? 'signed' : 'base64';
+  return base64EnvelopeBytes(sizeBytes) > MAX_BASE64_BODY_BYTES ? 'signed' : 'base64';
 }
 
 // Route decision for a media upload. ANY video/* ALWAYS rides the signed road regardless of
@@ -292,7 +314,36 @@ async function uploadViaBase64(file, id) {
   });
   const out = await res.json().catch(() => null);
   if (res.ok && out && out.ok && out.url) return { url: out.url };
-  return { error: (out && out.error) || `http ${res.status}` };
+  // status rides along so runMediaUpload can tell a body-too-large 413 (retry via the signed
+  // road) apart from a real failure (surface it). A platform-level 413 rejects the body BEFORE
+  // the function runs, so `out` is often null — read the raw status, not just out.error.
+  return { error: (out && out.error) || `http ${res.status}`, status: res.status };
+}
+
+// Did the base64 edge road fail because the request BODY was too large (the platform's ~4.5MB
+// gate, or the function's decoded-bytes 413)? Either way the SAME bytes belong on the signed road.
+function isPayloadTooLarge(out) {
+  if (!out) return false;
+  if (out.status === 413) return true;
+  const e = String(out.error || '');
+  return /\b413\b/.test(e) || /image_too_large|payload.*too.*large|too.*large/i.test(e);
+}
+
+// Run a media upload, SELF-HEALING past a base64-road 413. The envelope-aware route decision
+// already keeps a near-ceiling file off the base64 road, but a body limit can shift (a platform
+// change, an unusually incompressible file, an estimate that came up short) — so if the base64
+// edge fn 413s anyway, we AUTOMATICALLY re-run the exact same bytes down the signed road before
+// surfacing anything. The caller only ever shows a failure toast when BOTH roads fail. Dedupe
+// (contentHash) is intact on both roads, so a fallback never double-stores.
+export async function runMediaUpload(upload, id) {
+  if (pickMediaUploadRoute(upload.type, upload.size) === 'signed') {
+    return uploadViaSignedUrl(upload, id);
+  }
+  const out = await uploadViaBase64(upload, id);
+  if (out.url || !isPayloadTooLarge(out)) return out;
+  // The base64 body hit the ceiling despite the route estimate — heal onto the signed road. Its
+  // result wins: a success returns the url; a second failure surfaces the signed road's error.
+  return uploadViaSignedUrl(upload, id);
 }
 
 // Big-file road: mint a signed URL (auth + mime coercion + path minting server-side), then
@@ -358,8 +409,7 @@ async function uploadAndInsert(view, file, id) {
     // The transcoded mp4 (when it happens) replaces the gif for the WHOLE road below:
     // route choice re-runs on the NEW mime+size, and the doc's src ends .mp4.
     const upload = await maybeTranscodeGif(file, (t) => setPlaceholderLabel(view, id, t));
-    const road = pickMediaUploadRoute(upload.type, upload.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
-    const out = await road(upload, id);
+    const out = await runMediaUpload(upload, id);
     if (out.url) url = out.url;
     else detail = out.error || '';
   } catch (e) {
@@ -530,8 +580,7 @@ async function uploadAndSwap(view, file, id) {
   let detail = '';
   try {
     const upload = await maybeTranscodeGif(file, (t) => setMediaProgress(id, t));
-    const road = pickMediaUploadRoute(upload.type, upload.size) === 'signed' ? uploadViaSignedUrl : uploadViaBase64;
-    const out = await road(upload, id);
+    const out = await runMediaUpload(upload, id);
     if (out.url) url = out.url;
     else detail = out.error || '';
   } catch (e) {
