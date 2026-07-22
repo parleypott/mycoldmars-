@@ -10,7 +10,7 @@
 // flat repeating-linear-gradient texture and is the only gradient allowed.
 
 import { Node, mergeAttributes } from '@tiptap/core';
-import { TextSelection as PMTextSelection } from '@tiptap/pm/state';
+import { TextSelection as PMTextSelection, NodeSelection as PMNodeSelection } from '@tiptap/pm/state';
 import { isReadOnly } from '../read-mode.js';
 import { getEpisode, episodeFlag } from '../episode-config.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
@@ -415,6 +415,61 @@ function openBlockMenu(editor, getPos, anchor) {
   openMenuEl = menu;
   openMenuReposition = place;
   openMenuReturnFocus = anchor;
+  window.addEventListener('scroll', place, true);
+  window.addEventListener('resize', place);
+  openMenuKeydown = attachMenuKeynav(menu, closeBlockMenu);
+  setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
+}
+
+// DELETE ONE MEDIA NODE (image / gif / video). Deterministic fallback for the right-click
+// "DELETE IMAGE" entry — the timecode lesson: gestures (click-to-select then Backspace) can miss,
+// a button never does. Routes through a NodeSelection + deleteSelection so an image alone in a
+// tableCell (content 'block+') is removed cleanly instead of via a raw range delete that could
+// strand an empty cell. Gated on the live editable flag (read-only share defense in depth).
+function deleteMediaNode(editor, getPos) {
+  if (!editor.view.editable) return;
+  const pos = typeof getPos === 'function' ? getPos() : getPos;
+  if (typeof pos !== 'number') return;
+  const { state, view } = editor;
+  const node = state.doc.nodeAt(pos);
+  if (!node || node.type.name !== 'imageBlock') return;
+  const savedY = window.scrollY;   // mirror deleteBlock: never let the delete snap the viewport
+  try {
+    const tr = state.tr.setSelection(PMNodeSelection.create(state.doc, pos)).deleteSelection();
+    view.dispatch(tr);
+  } catch {
+    try { view.dispatch(state.tr.delete(pos, pos + node.nodeSize)); } catch {}
+  }
+  view.focus();
+  window.scrollTo(window.scrollX, savedY);
+  requestAnimationFrame(() => window.scrollTo(window.scrollX, savedY));
+}
+
+// RIGHT-CLICK CONTEXT ENTRY for a media node: a one-item floating menu ("DELETE IMAGE"). Reuses
+// the block-menu open/close singletons (one menu at a time, outside-click + Esc to close, repin on
+// scroll/resize) so it can't collide with the grip block menu or the row menu. Anchored at the
+// cursor, since an atom image has no grip. Edit-only; a read-only share keeps the native menu.
+function openImageContextMenu(editor, getPos, x, y) {
+  closeBlockMenu();
+  const menu = el('div', 'wp-blockmenu', { contenteditable: 'false', role: 'menu' });
+  const del = el('button', 'wp-bm-item wp-bm-del', { type: 'button' });
+  del.textContent = 'DELETE IMAGE';
+  del.addEventListener('mousedown', (e) => { e.preventDefault(); deleteMediaNode(editor, getPos); closeBlockMenu(); });
+  makeItemKeyActivatable(del);
+  menu.appendChild(del);
+
+  document.body.appendChild(menu);
+  menu.style.position = 'fixed';
+  const place = () => {
+    // Clamp into the viewport so a right-click near an edge still shows the whole item.
+    const w = menu.offsetWidth || 160, h = menu.offsetHeight || 40;
+    menu.style.top = `${Math.min(y, window.innerHeight - h - 4)}px`;
+    menu.style.left = `${Math.min(x, window.innerWidth - w - 4)}px`;
+  };
+  place();
+  openMenuEl = menu;
+  openMenuReposition = place;
+  openMenuReturnFocus = null;
   window.addEventListener('scroll', place, true);
   window.addEventListener('resize', place);
   openMenuKeydown = attachMenuKeynav(menu, closeBlockMenu);
@@ -1747,6 +1802,19 @@ export const ImageBlock = Node.create({
         if (!canEdit()) return;
         e.preventDefault(); e.stopPropagation();
         enterCropMode();
+      });
+
+      // RIGHT-CLICK → "DELETE IMAGE" (deterministic delete that never depends on the click-to-select
+      // gesture landing first). Edit-only; a read-only share keeps the browser's native menu. Also
+      // selects the node so the tight frame confirms WHICH image is about to go.
+      dom.addEventListener('contextmenu', (e) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
+        try {
+          const pos = getPos();
+          if (typeof pos === 'number') editor.view.dispatch(editor.state.tr.setSelection(PMNodeSelection.create(editor.state.doc, pos)));
+        } catch {}
+        openImageContextMenu(editor, getPos, e.clientX, e.clientY);
       });
 
       // Recompute px-exact crop when the column/lane resizes (responsive). Pure DOM.

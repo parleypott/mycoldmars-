@@ -2851,7 +2851,16 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   gap: 10px;
   padding: 12px;
   text-align: center;
+  /* At rest the layer itself must not intercept clicks meant for the image beneath it — only its
+     interactive buttons do. A stylesheet `display:flex` OVERRIDES the [hidden] attribute's UA
+     display:none, so without this the hidden overlay stayed laid out over the whole box (inset:0)
+     and ate every click on the media — the image/gif could never be node-selected (2026-07-22). */
+  pointer-events: none;
 }
+/* Belt to the pointer-events suspender: a hidden status layer is removed from layout entirely, so it
+   can never be the hit-test target over the media. */
+.wp-media-status[hidden] { display: none; }
+.wp-media-status-btn { pointer-events: auto; }
 .wp-media-status-row { display: inline-flex; align-items: center; gap: 8px; }
 .wp-media-status-label {
   font-family: var(--mono);
