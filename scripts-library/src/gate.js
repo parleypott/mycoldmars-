@@ -175,12 +175,16 @@ function wireGateForms() {
 }
 
 /**
- * Bring auth online, then resolve once the app is allowed to mount.
- * Returns a promise that resolves when: Supabase is unconfigured (open mode),
- * OR the user is already signed in, OR they sign in via the gate. The gate
- * stays visible until sign-in; boot() awaits this before mounting the library.
+ * Bring auth online WITHOUT showing any UI, and report what we found.
+ * Returns 'open' (auth unconfigured — Palau posture), 'user' (a live signed-in
+ * session), or 'guest' (auth configured, nobody signed in). Installs the /api/*
+ * fetch interceptor + engine identity seam either way — both are no-ops for a
+ * guest (no token → no Authorization header; null user id → engine fails safe).
+ * This is the shared first half of ensureUnlocked, split out so boot.jsx can
+ * route a signed-out visitor down the GUEST read-only path instead of walling
+ * every route behind the sign-in screen.
  */
-export async function ensureUnlocked() {
+export async function detectSession() {
   installApiFetchInterceptor();
 
   // IDENTITY SEAM for the engine (same-user false-conflict fix): mirror the signed-in user's auth id
@@ -195,11 +199,23 @@ export async function ensureUnlocked() {
   });
 
   // Open mode — no auth configured. Mount immediately.
-  if (!authRequired()) { hideGate(); return; }
+  if (!authRequired()) { hideGate(); return 'open'; }
 
   await bootstrap();
 
-  if (currentUser()) { hideGate(); return; }
+  if (currentUser()) { hideGate(); return 'user'; }
+  return 'guest';
+}
+
+/**
+ * Bring auth online, then resolve once the app is allowed to mount.
+ * Returns a promise that resolves when: Supabase is unconfigured (open mode),
+ * OR the user is already signed in, OR they sign in via the gate. The gate
+ * stays visible until sign-in; boot() awaits this before mounting the library.
+ */
+export async function ensureUnlocked() {
+  const session = await detectSession();
+  if (session !== 'guest') return;
 
   // Not signed in — show the gate and wait for a successful sign-in.
   showGate();
@@ -207,6 +223,20 @@ export async function ensureUnlocked() {
     const unsub = onAuthChange((user) => {
       if (user) { unsub(); hideGate(); resolve(); }
     });
+  });
+}
+
+/**
+ * GUEST → sign-in affordance (private page button / guest pill). Shows the gate over the current
+ * page; a successful sign-in RELOADS in place, so boot re-runs with the session and the SAME #slug —
+ * the visitor lands back on the script they were looking at, now with their real (edit) access.
+ */
+export function requestSignIn() {
+  showGate();
+  const unsub = onAuthChange((user) => {
+    if (!user) return;
+    unsub();
+    try { window.location.reload(); } catch {}
   });
 }
 

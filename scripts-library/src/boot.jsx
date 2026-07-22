@@ -19,7 +19,8 @@
 
 import { seedIfAbsent, findBySlug, touchProject, renameProject } from './project-store.js';
 import { configForProject } from './config-for-project.js';
-import { ensureUnlocked } from './gate.js';
+import { ensureUnlocked, detectSession, requestSignIn } from './gate.js';
+import { resolvePublicProject, rowForGuest, mountPrivateScriptPage, injectGuestSignInPill } from './guest.js';
 import { armSentry } from '../../burma-script/src/sentry-boot.js';
 
 const RESERVED_LIBRARY = new Set(['', 'library', 'home']);
@@ -236,15 +237,58 @@ async function applyRouteFromUrl() {
   }
 }
 
+// ── GUEST PATH (Google-Docs link sharing) ────────────────────────────────────
+// A signed-OUT visitor on a PROJECT link opens the script READ-ONLY with no login. Contract:
+//   • the engine is FORCE-latched read-only BEFORE it imports — bare #slug and #slug?read are
+//     identical for a guest (the whole existing ?read surface applies: no saves, no collab join,
+//     owner chrome hidden; roles/workspaces/check-off still work)
+//   • slug resolution is SCOPED (resolvePublicProject → /api/script-projects?slug=) — a guest
+//     boot NEVER fetches the project list, so the library index can't leak
+//   • unknown / private / trashed slug → the calm "this script is private" page, NEVER the library
+//   • ZERO cloud writes: no touchProject cloud echo, no presence heartbeat, no rename wiring;
+//     the guest chrome is a "Sign in" pill instead of the '< Library' backbar
+async function openProjectAsGuest(slug) {
+  mountedMode = slug; // the reconciler treats this route as mounted (hash edits → reload → re-boot)
+  showLoadingVeil('Opening…');
+  const pub = await resolvePublicProject(slug);
+  if (!pub) {
+    hideLoadingVeil();
+    return mountPrivateScriptPage(requestSignIn);
+  }
+  try {
+    // ORDER IS LOAD-BEARING: latch read-only, then select the episode, THEN import the engine —
+    // read-mode/episode state must be final before main.jsx's module-level consumers evaluate.
+    const { forceReadOnly } = await import('../../burma-script/src/read-mode.js');
+    forceReadOnly();
+    const { setEpisode } = await import('../../burma-script/src/episode-config.js');
+    setEpisode(configForProject(rowForGuest(pub)));
+    await import('../../burma-script/src/main.jsx');
+    injectGuestSignInPill(requestSignIn);
+  } finally {
+    setTimeout(hideLoadingVeil, 120);
+  }
+}
+
 seedIfAbsent();
 window.addEventListener('hashchange', applyRouteFromUrl);
 window.addEventListener('popstate', applyRouteFromUrl);
 
-// Gate FIRST — show the sign-in screen (or unlock immediately if already signed
-// in / auth unconfigured), THEN route into the library or a project. The engine
-// only mounts behind a valid session, and the fetch interceptor is installed so
-// /api/admin-users receives the caller's JWT for the ADMIN_EMAILS check.
-ensureUnlocked().then(() => applyRouteFromUrl());
+// Gate FIRST — but the gate now has a GUEST-shaped hole in it, scoped to project links:
+//   • signed in / auth unconfigured → exactly the old flow (edit access, library, everything)
+//   • signed OUT + library route     → the sign-in wall, exactly as before
+//   • signed OUT + project slug      → the guest read-only path above (no login anywhere)
+// The fetch interceptor is installed by detectSession either way, so a signed-in session's
+// /api/* calls carry the JWT and a guest's carry nothing.
+(async () => {
+  const session = await detectSession();
+  if (session === 'guest') {
+    const slug = currentSlug();
+    if (!isLibraryRoute(slug)) return openProjectAsGuest(slug);
+    await ensureUnlocked(); // library route stays walled — resolves after sign-in
+    return applyRouteFromUrl();
+  }
+  return applyRouteFromUrl();
+})();
 
 // Error monitoring — lazy chunk after first paint, clean no-op without VITE_SENTRY_DSN.
 // One shot per page load is enough to tag correctly: a route CHANGE reloads the page

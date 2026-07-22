@@ -283,6 +283,28 @@
 .sl-gate-fallback { margin-top: 14px; text-align: left; font-size: 12px; }
 .sl-gate-fallback summary { cursor: pointer; opacity: 0.7; }
 
+/* ── guest chrome (Google-Docs link sharing) ── */
+/* the guest's stand-in for the '< Library' backbar: same pill, same spot, but it opens the
+   sign-in gate — a guest gets NO affordance that routes into the library index. */
+.sl-guest-signin { cursor: pointer; }
+
+/* the calm "this script is private" page (sharing off / unknown link) — gate aesthetic, no wall */
+.sl-private {
+  position: fixed; inset: 0; z-index: 8500;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--frame, #efeadd);
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  padding: 24px;
+}
+.sl-private-inner {
+  width: 100%; max-width: 420px;
+  background: var(--paper, #f7f3e8);
+  border: 1.5px solid var(--ink, #1f1d18);
+  border-radius: 12px; padding: 32px 28px; text-align: center;
+}
+.sl-private-title { font-size: 24px; margin: 6px 0 4px; letter-spacing: -0.01em; color: var(--ink, #1f1d18); }
+.sl-private-sub { font-size: 13px; color: var(--ink, #1f1d18); opacity: 0.7; margin: 0 0 18px; line-height: 1.5; }
+
 /* Avatar in the header */
 .sl-account-slot { position: absolute; top: 18px; right: 20px; }
 .sl-avatar {
