@@ -67,7 +67,7 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const schema = getSchema([
   StarterKit.configure({
     heading: false, blockquote: false, codeBlock: false, code: false,
-    horizontalRule: false, strike: false, dropcursor: false, gapcursor: false,
+    horizontalRule: false, dropcursor: false, gapcursor: false,
   }),
   Dropcursor.configure({ color: '#d23b2c', width: 2 }),
   Gapcursor,

@@ -494,7 +494,6 @@ function buildSchema() {
       // with a list the live editor produced fails this gate's read-back and fires wp-save-failed.
       heading: false, blockquote: false, codeBlock: false, code: false,
       horizontalRule: false,
-      strike: false,
       dropcursor: false, gapcursor: false,
       // WP-12 — mirror Editor.jsx's history config. History is a plugin (not schema), so getSchema
       // ignores it — but keeping the StarterKit config byte-identical to Editor.jsx honors this

@@ -51,7 +51,6 @@ ok('schema accepts inline directionChip and round-trips attrs', () => {
     StarterKit.configure({
       heading: false, blockquote: false, codeBlock: false, code: false,
       horizontalRule: false,
-      strike: false,
       dropcursor: false, gapcursor: false,
     }),
     Dropcursor.configure({ color: '#d23b2c', width: 2 }),

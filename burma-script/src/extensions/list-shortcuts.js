@@ -41,6 +41,14 @@ export const ListShortcuts = Extension.create({
         }
         return true;
       },
+      // STRIKETHROUGH (Johnny 2026-07-22: "command shift X doesn't strike thru"). The Strike
+      // mark was schema-disabled until today; now enabled (Editor.jsx + migrate-doc mirror in
+      // lockstep) and the chord is guaranteed here at priority 1001 like the list chords, so
+      // no keymap reshuffle or extension-version default change can ever drop it.
+      'Mod-Shift-x': () => {
+        if (!this.editor.isEditable) return false;
+        return this.editor.chain().focus().toggleStrike().run();
+      },
     };
   },
 });

@@ -50,7 +50,7 @@ function buildSchema() {
   return getSchema([
     StarterKit.configure({
       heading: false, blockquote: false, codeBlock: false, code: false,
-      horizontalRule: false, strike: false, dropcursor: false, gapcursor: false,
+      horizontalRule: false, dropcursor: false, gapcursor: false,
       history: { depth: 100, newGroupDelay: 750 },
     }),
     Dropcursor.configure({ color: '#d23b2c', width: 2 }),
@@ -83,7 +83,7 @@ const keymapChords = (ext) => {
 const schemaStripped = getSchema([
   StarterKit.configure({
     heading: false, blockquote: false, codeBlock: false, code: false,
-    horizontalRule: false, strike: false, dropcursor: false, gapcursor: false,
+    horizontalRule: false, dropcursor: false, gapcursor: false,
     history: { depth: 100, newGroupDelay: 750 },
   }),
   Dropcursor.configure({ color: '#d23b2c', width: 2 }),

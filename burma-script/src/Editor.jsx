@@ -453,7 +453,6 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
         // MUST stay identical to the mirror schema in migrate-doc.js or saved docs containing a
         // list fail the read-back invariant and fire wp-save-failed.
         horizontalRule: false,
-        strike: false,
         // We own dropcursor/gapcursor below so we can Swiss-red the dropcursor.
         dropcursor: false, gapcursor: false,
         // WP-12 — undo history tuning. depth 100 (not "infinite") caps the in-memory step stack;

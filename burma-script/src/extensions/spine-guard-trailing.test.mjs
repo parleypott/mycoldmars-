@@ -37,7 +37,7 @@ const ok = (label, fn) => { fn(); pass++; console.log('  ✓ ' + label); };
 const schema = getSchema([
   StarterKit.configure({
     heading: false, blockquote: false, codeBlock: false, code: false,
-    horizontalRule: false, strike: false, dropcursor: false, gapcursor: false,
+    horizontalRule: false, dropcursor: false, gapcursor: false,
   }),
   ...BURMA_TABLE_NODES, ...BURMA_NODES, ...BURMA_MARKS,
 ]);
