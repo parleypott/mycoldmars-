@@ -14,6 +14,7 @@
 // doesn't need the chord. This rebind still guarantees the shortcut works whenever the event does
 // reach the page in edit mode.
 import { Extension } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 import { toggleListPreservingStyle } from './list-style-preserve.js';
 
 export const ListShortcuts = Extension.create({
@@ -28,6 +29,18 @@ export const ListShortcuts = Extension.create({
     return {
       'Mod-Shift-8': toggle('bullet'),
       'Mod-Shift-7': toggle('ordered'),
+      // DESELECT (Johnny 2026-07-22: "command d to deselect all"). Collapses any selection —
+      // a text range or a selected node (image/gif) — to a caret at its head, and returning
+      // true swallows the browser's native Cmd+D bookmark dialog. Collapsing is not a write,
+      // so no read-mode gate; when nothing is selected it still swallows the bookmark dialog.
+      'Mod-d': () => {
+        const { state, view } = this.editor;
+        const sel = state.selection;
+        if (!sel.empty) {
+          view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(sel.to))));
+        }
+        return true;
+      },
     };
   },
 });
