@@ -14,13 +14,23 @@ import { withSentry, captureServerError } from './_lib/sentry.js';
  * CACHE that merges against it (cloud wins for shared visibility; local-only unsynced rows still show).
  *
  *   GET  /api/script-projects            -> { projects: [ {id,slug,title,episode,updated_at,trashed_at,deleted_at} ] }
- *        NOTE config is deliberately NOT in the list rows: the list GET is world-readable (site gate
- *        only) while config is a free-form jsonb bag teammates write — the library client never reads
- *        it off the list (configForProject derives everything from id/episode/title), so echoing it
- *        was pure surface. Authed writers still get config back on POST/PATCH responses unchanged.
+ *        LOGIN-GATED (checkAccess) as of the Google-Docs link-share wave: the list IS the library
+ *        index, and guests with a share link must never receive it. Signed-in teammates are
+ *        unaffected — the library's gate.js fetch interceptor injects their JWT on every /api/* call
+ *        (and edit-mode ShareToggle only ever runs under the library route, so it rides the same
+ *        interceptor). NOTE config is deliberately NOT in the list rows: config is a free-form jsonb
+ *        bag teammates write — the library client never reads it off the list (configForProject
+ *        derives everything from id/episode/title), so echoing it was pure surface. Authed writers
+ *        still get config back on POST/PATCH responses unchanged.
  *        ?trashed=1                       -> the TRASH list (trashed OR soft-deleted rows within the
  *        90-day archive window) instead of the active one. Older rows are ARCHIVED: they stop being
- *        listed but stay in the DB untouched, and PATCH-by-id restore is age-blind.
+ *        listed but stay in the DB untouched, and PATCH-by-id restore is age-blind. Same login gate.
+ *   GET  /api/script-projects?slug=<slug>  -> { project: {id,slug,title,episode,updated_at} | null }
+ *        ANONYMOUS, SCOPED single-project resolution — the Google-Docs guest door. Resolves ONE slug
+ *        to ONE project WITHOUT ever exposing the list: only a row that is PUBLIC (is_public not
+ *        false) and ACTIVE (not trashed / not deleted) resolves; unknown, private, trashed and
+ *        malformed slugs all return the SAME calm { project: null } so the response is never a
+ *        slug-existence oracle. Minimal fields only — never config, never created_by/deleted_by.
  *   POST /api/script-projects  { slug, title, episode?, config? }   (login-gated)
  *        -> { project }  the created row
  *   PATCH /api/script-projects?id=<uuid>  { title? , trashed_at? , deleted_at:null? , config? }   (login-gated)
@@ -34,9 +44,10 @@ import { withSentry, captureServerError } from './_lib/sentry.js';
  *        Still REFUSED (403) for the seeded burma/palau projects — those are precious and may be
  *        trashed/hidden but never even soft-deleted through this path.
  *
- * READS are open to anyone past the site gate (same posture as api/script-doc.js GET). WRITES require a
- * signed-in session — logged-in teammates already send their Supabase JWT via the gate.js fetch
- * interceptor, so there is nothing to provision. DB access uses the service-role key (bypasses RLS); the
+ * READ POSTURE: the ?slug= single-project resolution is the ONLY anonymous read (it serves the
+ * Google-Docs guest boot, scoped to one public row). The LIST reads are login-gated like the writes —
+ * logged-in teammates already send their Supabase JWT via the gate.js fetch interceptor, so there is
+ * nothing to provision. DB access uses the service-role key (bypasses RLS); the
  * script_projects table is RLS-locked to interpreter-access users, so the anon key gets nothing.
  *
  * This endpoint NEVER touches script_docs / script_doc_revisions — the per-doc storage is api/script-doc.js's
@@ -89,6 +100,12 @@ export default withSentry(async function handler(req) {
 
   try {
     if (req.method === 'GET') {
+      // GUEST DOOR — ?slug= resolves ONE public, active project anonymously (never the list).
+      const slugParam = url.searchParams.get('slug');
+      if (slugParam != null) return await resolvePublicBySlug(slugParam);
+      // THE LIST IS THE INDEX — login-gated so a share-link guest can never enumerate the library.
+      const denied = await checkAccess(req);
+      if (denied) return withCors(denied);
       const trashed = url.searchParams.get('trashed') === '1';
       return await listProjects(trashed);
     }
@@ -150,6 +167,38 @@ export const TRASH_ARCHIVE_DAYS = 90;
 export function trashListFilter(nowMs = Date.now()) {
   const cutoff = new Date(nowMs - TRASH_ARCHIVE_DAYS * 24 * 60 * 60 * 1000).toISOString();
   return `or=(trashed_at.gt.${cutoff},and(trashed_at.is.null,deleted_at.gt.${cutoff}))`;
+}
+
+// PURE — the wire shape a GUEST may see for a single public project: identity + title only, never
+// config (free-form team jsonb), never is_public/trashed_at bookkeeping, never created_by/deleted_by.
+// Exported for tests.
+export function publicProjectView(row) {
+  if (!row || typeof row !== 'object') return null;
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    episode: row.episode ?? null,
+    updated_at: row.updated_at ?? null,
+  };
+}
+
+// GUEST slug → project resolution (anonymous). One PUBLIC + ACTIVE row or null — and the SAME null
+// for unknown / private / trashed / malformed, so an anonymous prober can't distinguish "exists but
+// private" from "doesn't exist". Fail-CLOSED on DB trouble (502): unlike the doc GET's fail-open
+// is_public check, over-serving here would hand out titles for rows we couldn't verify are public.
+async function resolvePublicBySlug(slugRaw) {
+  const slug = String(slugRaw || '').trim();
+  if (!slug || slug.length > 60 || !SLUG_RE.test(slug) || RESERVED_SLUGS.has(slug)) {
+    return ok({ project: null });
+  }
+  const r = await sb(
+    `/rest/v1/script_projects?slug=eq.${pgrValue(slug)}&is_public=not.is.false&${ACTIVE_LIST_FILTER}` +
+    `&select=id,slug,title,episode,updated_at&limit=1`
+  );
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json().catch(() => []);
+  return ok({ project: rows.length ? publicProjectView(rows[0]) : null });
 }
 
 async function listProjects(trashed) {
