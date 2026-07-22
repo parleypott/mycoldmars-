@@ -1159,28 +1159,42 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
   user-select: none;
   -webkit-user-select: none;
   line-height: 0;
+  cursor: pointer;
+  /* Generous invisible hit padding: the visible square stays small (15px) while the grab target
+     is a comfortable ~29px. The wrap owns the click (handler is on the wrap in table.js). */
+  padding: 7px;
+  /* Only interactive once the row is revealed — otherwise the pad would swallow clicks on text
+     sitting near the divider even when the chip is invisible. */
+  pointer-events: none;
 }
-.wp-row-colmerge { left: 50%; }          /* re-measured to the real divider on row hover */
+.wp-row-colmerge { left: 50%; }          /* re-measured to the real divider on row hover / split */
 .wp-row-colsplit { left: auto; right: 0; transform: translate(50%, -50%); }
+.wp-trow:hover .wp-row-colmerge,
+.wp-trow:hover .wp-row-colsplit { pointer-events: auto; }
+/* The chip itself: a small FLAT square, dead on the divider line. Subtle ink border at rest,
+   full ink on hover. No shadow, ~square corners. (Johnny 2026-07-22: "right on the line — a
+   simple flat subtle square.") */
 .wp-row-col-btn {
-  width: 22px;
-  height: 22px;
+  width: 15px;
+  height: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1.5px solid var(--ep-grid-rule);
-  border-radius: 50%;
-  background: var(--face);
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: var(--frame);
   color: var(--label-2);
   box-shadow: none;
   opacity: 0;
   cursor: pointer;
-  transition: opacity .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease);
+  pointer-events: none;   /* clicks land on the padded wrap, never split the target in two */
+  transition: opacity .14s var(--ease), color .14s var(--ease);
 }
-.wp-trow:hover .wp-row-col-btn { opacity: .6; }
-.wp-row-col-btn:hover,
-.wp-row-col-btn:focus-visible { opacity: 1; color: var(--ep-accent); border-color: var(--ep-accent); }
+.wp-trow:hover .wp-row-col-btn { opacity: .5; }
+.wp-row-colmerge:hover .wp-row-col-btn,
+.wp-row-colsplit:hover .wp-row-col-btn,
+.wp-row-col-btn:focus-visible { opacity: 1; color: var(--ink); }
 /* Ghosted / filtered rows never surface a structure affordance (ghosts are also
    pointer-events:none — this is the belt to that suspender). */
 .wp-trow.wp-ws-ghost .wp-row-colmerge,
