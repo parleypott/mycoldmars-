@@ -40,6 +40,17 @@ export function isReadOnly() {
   return _readOnly;
 }
 
+// GUEST MODE LATCH (Google-Docs link sharing) — the Script Library's boot calls this for a
+// signed-OUT visitor on a project link BEFORE importing the engine, so a guest session is
+// read-only even on a BARE #slug link with no ?read flag. Deliberately ONE-WAY: it can only
+// force read-only ON, never off — so no code path can ever use it to downgrade a ?read link
+// into an editable session. Safe ordering: boot.jsx imports this module and latches before
+// main.jsx (and every isReadOnly consumer) evaluates, so all consumers stay in lockstep.
+export function forceReadOnly() {
+  _readOnly = true;
+  return _readOnly;
+}
+
 // TEST SEAM ONLY — lets a test mount a read-only session deterministically without driving a
 // real URL. Never called by app code. Pass a boolean to force the mode; pass nothing to
 // recompute from the (test-mocked) window.location.
