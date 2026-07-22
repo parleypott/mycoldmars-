@@ -4338,14 +4338,18 @@ document.getElementById('gif-cancel').addEventListener('click', () => {
 // exactly this window — compose the shot inside the frame, render the frame.
 
 function frame169Rect() {
-  // Largest 16:9 rect centered in the map container, with breathing room,
-  // in CSS px relative to the map container.
+  // Largest 16:9 rect that clears the editor chrome: side insets keep it off
+  // the layers panel (left, 16+240) and the style panels (right, mirrored so
+  // the frame stays screen-centered); top inset clears the topbar. CSS px
+  // relative to the map container.
   const el = map.getContainer();
   const W = el.clientWidth, H = el.clientHeight;
-  const fit = 0.88;
-  let w = W * fit, h = (w * 9) / 16;
-  if (h > H * fit) { h = H * fit; w = (h * 16) / 9; }
-  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+  const SIDE = 272, TOP = 56, BOTTOM = 16;
+  const boxW = Math.max(320, W - SIDE * 2);
+  const boxH = Math.max(180, H - TOP - BOTTOM);
+  let w = boxW, h = (w * 9) / 16;
+  if (h > boxH) { h = boxH; w = (h * 16) / 9; }
+  return { x: (W - w) / 2, y: TOP + (boxH - h) / 2, w, h };
 }
 
 function syncFrame169() {

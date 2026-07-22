@@ -272,7 +272,7 @@ html, body {
   z-index: 60;
   pointer-events: none;
   border: 1.5px solid rgba(255, 250, 240, 0.55);
-  box-shadow: 0 0 0 9999px rgba(10, 9, 7, 0.87);
+  box-shadow: 0 0 0 9999px rgba(10, 9, 7, 0.7);
 }
 #frame169::after {
   content: '16:9';
