@@ -265,6 +265,30 @@ html, body {
   background: rgba(184, 92, 60, 0.08);
 }
 
+/* ─── 16:9 compose frame — camera matte over the whole UI ─── */
+
+#frame169 {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 1.5px solid rgba(255, 250, 240, 0.55);
+  box-shadow: 0 0 0 9999px rgba(10, 9, 7, 0.87);
+}
+#frame169::after {
+  content: '16:9';
+  position: absolute;
+  top: -22px;
+  right: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 250, 240, 0.6);
+}
+#frame169-btn.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
 /* ─── Borders hub — world-border toggles + styling, opened from the topbar ─── */
 
 #borders-hub {

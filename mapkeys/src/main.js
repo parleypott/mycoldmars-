@@ -344,6 +344,7 @@ const state = {
   overlays: [],           // [{ id, name, kind, source, tiles, opacity, visible, bounds }]
   activeLayerId: null,    // which layer the route-style controls bind to
   borders: normalizeBorders(null),  // BORDERS hub: { primary, secondary } world-border styling
+  frame169: false,        // 16:9 compose frame + render crop (persisted per project)
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
   activeShapeId: null,    // selected shape (or null)
@@ -2388,6 +2389,7 @@ function getProjectSnapshot() {
       primary: { ...state.borders.primary },
       secondary: { ...state.borders.secondary },
     },
+    frame169: !!state.frame169,
     camera: {
       center: [c.lng, c.lat],
       zoom: map.getZoom(),
@@ -2535,6 +2537,7 @@ function hydrateSnapshotIntoState(parsed) {
   state.activeShapeId = parsed.activeShapeId || null;
   state.overlays = (Array.isArray(parsed.overlays) ? parsed.overlays : []).map(hydrateOverlay).filter(Boolean);
   state.borders = normalizeBorders(parsed.borders);
+  state.frame169 = parsed.frame169 === true;
 
   state.keyframes = (Array.isArray(parsed.keyframes) ? parsed.keyframes : []).map(k => ({
     ...k,
@@ -4286,10 +4289,14 @@ function gifSummaryUpdate() {
   const outDur = speed > 0 ? total / speed : 0;
   const frames = Math.max(1, Math.round(outDur * fps));
   const canvas = map.getCanvas();
-  const w = Math.round(canvas.clientWidth * (parseInt(gifScale.value, 10) / 100));
-  const h = Math.round(canvas.clientHeight * (parseInt(gifScale.value, 10) / 100));
+  const scale = parseInt(gifScale.value, 10) / 100;
+  const srcW = state.frame169 ? frame169Rect().w : canvas.clientWidth;
+  const srcH = state.frame169 ? frame169Rect().h : canvas.clientHeight;
+  const w = Math.round(srcW * scale);
+  const h = state.frame169 ? Math.round(w * 9 / 16) : Math.round(srcH * scale);
   const rangeLabel = `K${String(fromIdx + 1).padStart(2, '0')}→K${String(toIdx + 1).padStart(2, '0')}`;
-  gifSummary.textContent = `${rangeLabel} · ${frames} frames · ${outDur.toFixed(1)}s · ${w}×${h}`;
+  const frameTag = state.frame169 ? ' · 16:9 frame' : '';
+  gifSummary.textContent = `${rangeLabel} · ${frames} frames · ${outDur.toFixed(1)}s · ${w}×${h}${frameTag}`;
 }
 
 function bindLive(input, valEl) {
@@ -4321,6 +4328,57 @@ document.getElementById('gif-btn').addEventListener('click', () => {
 document.getElementById('gif-cancel').addEventListener('click', () => {
   gifModal.classList.add('hidden');
 });
+
+// ─── 16:9 compose frame ───
+// A camera matte: heavy shading over everything (panels, header, timeline)
+// except a centered 16:9 window over the map. When on, GIF renders crop to
+// exactly this window — compose the shot inside the frame, render the frame.
+
+function frame169Rect() {
+  // Largest 16:9 rect centered in the map container, with breathing room,
+  // in CSS px relative to the map container.
+  const el = map.getContainer();
+  const W = el.clientWidth, H = el.clientHeight;
+  const fit = 0.88;
+  let w = W * fit, h = (w * 9) / 16;
+  if (h > H * fit) { h = H * fit; w = (h * 16) / 9; }
+  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+}
+
+function syncFrame169() {
+  const el = document.getElementById('frame169');
+  const btn = document.getElementById('frame169-btn');
+  if (btn) btn.classList.toggle('active', !!state.frame169);
+  if (!el) return;
+  if (!state.frame169) { el.classList.add('hidden'); return; }
+  const mapRect = map.getContainer().getBoundingClientRect();
+  const r = frame169Rect();
+  el.classList.remove('hidden');
+  el.style.left = `${mapRect.left + r.x}px`;
+  el.style.top = `${mapRect.top + r.y}px`;
+  el.style.width = `${r.w}px`;
+  el.style.height = `${r.h}px`;
+}
+
+document.getElementById('frame169-btn').addEventListener('click', () => {
+  state.frame169 = !state.frame169;
+  syncFrame169();
+  saveLayers();
+});
+window.addEventListener('resize', syncFrame169);
+
+// Source crop for the renderer, in device pixels of the map canvas. Frozen
+// once per render job so a mid-render window resize can't shift the crop.
+function renderCropRect(sourceCanvas) {
+  if (!state.frame169) {
+    return { sx: 0, sy: 0, sw: sourceCanvas.width, sh: sourceCanvas.height,
+             cssW: sourceCanvas.clientWidth, cssH: sourceCanvas.clientHeight, is169: false };
+  }
+  const r = frame169Rect();
+  const dpr = sourceCanvas.width / Math.max(1, sourceCanvas.clientWidth);
+  return { sx: r.x * dpr, sy: r.y * dpr, sw: r.w * dpr, sh: r.h * dpr,
+           cssW: r.w, cssH: r.h, is169: true };
+}
 
 async function captureFrame() {
   // Force a render then read the canvas
@@ -4419,8 +4477,9 @@ async function runRenderJob(job) {
   const outDur = speed > 0 ? total / speed : 0;
   const totalFrames = Math.max(1, Math.round(outDur * fps));
   const sourceCanvas = map.getCanvas();
-  const w = Math.round(sourceCanvas.clientWidth * scalePct);
-  const h = Math.round(sourceCanvas.clientHeight * scalePct);
+  const crop = renderCropRect(sourceCanvas);
+  const w = Math.round(crop.cssW * scalePct);
+  const h = crop.is169 ? Math.round((w * 9) / 16) : Math.round(crop.cssH * scalePct);
 
   const off = document.createElement('canvas');
   off.width = w; off.height = h;
@@ -4450,7 +4509,7 @@ async function runRenderJob(job) {
       }
     });
     const src = map.getCanvas();
-    offCtx.drawImage(src, 0, 0, w, h);
+    offCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
     gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / fps) });
     job.progress = 0.5 * (i + 1) / totalFrames;
     renderQueuePanelUpdate();
@@ -4467,7 +4526,7 @@ async function runRenderJob(job) {
       const a = document.createElement('a');
       a.href = url;
       const rangeTag = `K${String(fromIdx + 1).padStart(2, '0')}-K${String(toIdx + 1).padStart(2, '0')}`;
-      a.download = `mapkeys-${rangeTag}-${speedPct}pct-${fps}fps.gif`;
+      a.download = `mapkeys-${rangeTag}${crop.is169 ? '-16x9' : ''}-${speedPct}pct-${fps}fps.gif`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
       resolve();
@@ -4607,6 +4666,7 @@ function applyProjectSnapshot(snap) {
     syncRouteStyleInputs();
     syncDrawSlider();
     syncBordersHub();
+    syncFrame169();
     clearSearchPin();
     closeSearchResults();
     updateSelectionIndicator();
