@@ -1267,6 +1267,92 @@ export function isValidCrop(c) {
 }
 export const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
+// ── VIDEO LOOP CONTROLS — pure decisions (locked by video-loop.test.mjs) ─────────────────
+// A video-src imageBlock is an AMBIENT LOOP (a "living gif"). Three additive attrs dial it in:
+//   playbackRate — null = natural 1×. Persisted only when ≠ 1 so untouched docs stay byte-identical.
+//   trimIn       — loop window start in SECONDS. null = 0 (from the top).
+//   trimOut      — loop window end in SECONDS.   null = full duration.
+// These are AMBIENT-ONLY STYLING: the inline rack loop honors them; the lightbox and the download
+// always serve the FULL ORIGINAL file (native controls + sound in the lightbox) — trim/speed never
+// rewrite pixels or bytes anywhere.
+export const VIDEO_RATE_CHOICES = [0.25, 0.5, 1, 1.5, 2];
+export const VIDEO_RATE_MIN = 0.1;
+export const VIDEO_RATE_MAX = 4;
+// The smallest loop window worth persisting — below this a "trim" is a misclick, not an intent.
+export const VIDEO_TRIM_MIN_WINDOW = 0.2;
+
+// Normalize a requested playbackRate into the PERSISTED attr: finite + positive, clamped to the
+// sane band, rounded to 2dp, and the natural rate (1×) collapses to null (the default) so choosing
+// "1" is indistinguishable from never touching speed — byte-stable docs.
+export function normalizeVideoRate(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const clamped = Math.min(VIDEO_RATE_MAX, Math.max(VIDEO_RATE_MIN, n));
+  const rounded = Math.round(clamped * 100) / 100;
+  return rounded === 1 ? null : rounded;
+}
+
+// Normalize a dragged trim window into PERSISTED attrs, given the media duration (seconds).
+// Rules: clamp into [0, duration]; keep IN < OUT with at least the min window (the OUT edge yields);
+// snap to 0.1s (the labels read mm:ss.d — persist exactly what the label promises); an IN at the top
+// → null, an OUT at (or past) the end → null, so RESET and "dragged back to the edges" both land on
+// the byte-stable absent state. Unknown duration (metadata not loaded) → keep inputs conservative.
+export function normalizeVideoTrim(trimIn, trimOut, duration) {
+  const dur = Number.isFinite(duration) && duration > 0 ? duration : null;
+  const snap = (v) => Math.round(v * 10) / 10;
+  let a = Number(trimIn);
+  let b = Number(trimOut);
+  a = Number.isFinite(a) && a > 0 ? a : 0;
+  b = Number.isFinite(b) && b > 0 ? b : (dur ?? Infinity);
+  if (dur != null) {
+    a = Math.min(a, dur);
+    b = Math.min(b, dur);
+  }
+  if (b !== Infinity && b - a < VIDEO_TRIM_MIN_WINDOW) {
+    // Degenerate window: pull IN back rather than persisting an unplayable sliver.
+    a = Math.max(0, b - VIDEO_TRIM_MIN_WINDOW);
+    if (b - a < VIDEO_TRIM_MIN_WINDOW) { a = 0; b = dur ?? Infinity; }
+  }
+  a = snap(a);
+  if (b !== Infinity) b = snap(b);
+  const outAtEnd = b === Infinity || (dur != null && b >= dur - 0.05);
+  return {
+    trimIn: a > 0.05 ? a : null,
+    trimOut: outAtEnd ? null : b,
+  };
+}
+
+// THE LOOP ENGINE's one decision, pure: given the playhead + the trim attrs, where (if anywhere)
+// must the next seek land? null = leave the playhead alone. Called from the nodeview's timeupdate
+// (DOM-only — COLLAB LOOP LAW: playback state NEVER becomes a transaction).
+//   current ≥ trimOut → wrap to trimIn.   current < trimIn → jump forward to trimIn
+//   (covers the native `loop` wrap to 0 when trimIn > 0).   No trim set → never seek.
+export function videoLoopSeekTarget(current, trimIn, trimOut) {
+  const a = Number.isFinite(trimIn) && trimIn > 0 ? trimIn : 0;
+  const rawOut = Number(trimOut);
+  const b = Number.isFinite(rawOut) && rawOut > a ? rawOut : Infinity;
+  if (a === 0 && b === Infinity) return null;
+  const t = Number(current) || 0;
+  if (t >= b) return a;
+  if (t < a) return a;
+  return null;
+}
+
+// mm:ss.d label for a trim handle (timecode-ish, tenths — matches the 0.1s persistence snap).
+export function videoTrimLabel(seconds) {
+  const s = Math.max(0, Number(seconds) || 0);
+  const m = Math.floor(s / 60);
+  const rest = s - m * 60;
+  const whole = Math.floor(rest);
+  const tenth = Math.floor((rest - whole) * 10);
+  return `${m}:${String(whole).padStart(2, '0')}.${tenth}`;
+}
+
+// The RESET patch — one transaction clears all three dials back to the ambient default.
+export function videoResetPatch() {
+  return { playbackRate: null, trimIn: null, trimOut: null };
+}
+
 // The <video> attribute set that makes an mp4 behave exactly like a GIF: autoplays
 // muted, loops forever, never fullscreens on iOS, and costs only its moov box until
 // it nears the viewport.
@@ -1338,8 +1424,15 @@ export function openMediaLightbox({ src, alt }) {
 
   let media;
   if (isVideoSrc(src)) {
-    media = el('video', 'wp-media-lightbox-media', { ...VIDEO_LOOP_ATTRS, preload: 'auto' });
-    media.muted = true; media.autoplay = true; media.loop = true; media.playsInline = true;
+    // FULL ORIGINAL, LIKE NORMAL. The rack's trim/speed dials are AMBIENT-ONLY styling — the
+    // lightbox deliberately ignores them: native controls, sound on, the whole file, so "watch
+    // fullscreen like normal" always means the real footage (and the download below serves the
+    // same untouched original). Autoplay with sound is often blocked — fall back to muted.
+    media = el('video', 'wp-media-lightbox-media', { preload: 'auto', playsinline: '' });
+    media.controls = true; media.loop = true; media.playsInline = true; media.muted = false;
+    setTimeout(() => {
+      try { media.play().catch(() => { media.muted = true; media.play().catch(() => {}); }); } catch {}
+    }, 0);
   } else {
     media = el('img', 'wp-media-lightbox-media', { decoding: 'async' });
     media.alt = alt || '';
@@ -1409,6 +1502,12 @@ export const ImageBlock = Node.create({
       // error (the in-flight promise didn't survive the reload).
       uploading: { default: false },
       uploadError: { default: null },
+      // VIDEO LOOP dials (video srcs only; inert null on stills). Ambient-only styling —
+      // see normalizeVideoRate/normalizeVideoTrim above for the persisted contract. All three
+      // default null so every existing doc serializes byte-identical (additive, WP-13).
+      playbackRate: { default: null },
+      trimIn: { default: null },
+      trimOut: { default: null },
     };
   },
   // CLIPBOARD / HTML ROUND-TRIP (Johnny 2026-07-22, "copy/cut/paste them easily"). An internal
@@ -1429,12 +1528,19 @@ export const ImageBlock = Node.create({
         let crop = null;
         const cRaw = dom.getAttribute('data-crop');
         if (cRaw) { try { const c = JSON.parse(cRaw); if (isValidCrop(c)) crop = c; } catch {} }
+        // Video loop dials ride the clipboard too (a copied loop keeps its speed + trim).
+        const rate = normalizeVideoRate(dom.getAttribute('data-video-rate'));
+        const tIn = parseFloat(dom.getAttribute('data-trim-in') || '');
+        const tOut = parseFloat(dom.getAttribute('data-trim-out') || '');
         return {
           src: (media && media.getAttribute('src')) || '',
           alt: alt || '',
           kind: dom.getAttribute('data-kind') || 'shot',
           width: Number.isFinite(wRaw) ? wRaw : null,
           crop,
+          playbackRate: rate,
+          trimIn: Number.isFinite(tIn) && tIn > 0 ? tIn : null,
+          trimOut: Number.isFinite(tOut) && tOut > 0 ? tOut : null,
         };
       },
     }];
@@ -1468,6 +1574,13 @@ export const ImageBlock = Node.create({
     // the clipboard parseHTML round-trip above).
     if (Number.isFinite(a.width)) { figAttrs.style = `width:${a.width}px`; figAttrs['data-width'] = String(a.width); }
     if (isValidCrop(a.crop)) figAttrs['data-crop'] = JSON.stringify(a.crop);
+    // Video loop dials — emitted ONLY when set (byte-stable when absent), video srcs only so a
+    // still can never smuggle a meaningless rate/trim through a copy.
+    if (isVideoSrc(a.src)) {
+      if (Number.isFinite(a.playbackRate) && a.playbackRate > 0 && a.playbackRate !== 1) figAttrs['data-video-rate'] = String(a.playbackRate);
+      if (Number.isFinite(a.trimIn) && a.trimIn > 0) figAttrs['data-trim-in'] = String(a.trimIn);
+      if (Number.isFinite(a.trimOut) && a.trimOut > 0) figAttrs['data-trim-out'] = String(a.trimOut);
+    }
     return ['figure', mergeAttributes(sharedRenderAttrs(node, figAttrs)), ...children];
   },
   // Captions are reference metadata, not script words — contribute nothing to text exports.
@@ -1561,6 +1674,29 @@ export const ImageBlock = Node.create({
         else { boxEl.style.width = ''; boxEl.classList.remove('wp-image-box--sized'); }
       };
 
+      // ── LOOP ENGINE (COLLAB LOOP LAW: currentTime seeks + playbackRate are DOM-ONLY playback
+      // state — NEVER a transaction, never persisted; the persisted intent lives in the three
+      // attrs and each attr change is one user-initiated setNodeMarkup). timeupdate wraps the
+      // playhead back to trimIn whenever it crosses trimOut (or lands below trimIn — the native
+      // `loop` wrap to 0). `scrubbing` gates the wrap off while a trim handle drags, so the live
+      // preview seek isn't fought by the engine.
+      let scrubbing = false;
+      const onTimeUpdate = () => {
+        if (scrubbing || media.tagName !== 'VIDEO') return;
+        const seek = videoLoopSeekTarget(media.currentTime, attrs.trimIn, attrs.trimOut);
+        if (seek != null) { try { media.currentTime = seek; } catch {} }
+      };
+      // Apply the persisted dials to the live element (mount, attr update, remote echo).
+      const applyVideoLoop = (a) => {
+        if (media.tagName !== 'VIDEO') return;
+        const rate = Number.isFinite(a.playbackRate) && a.playbackRate > 0 ? a.playbackRate : 1;
+        try { if (media.playbackRate !== rate) media.playbackRate = rate; } catch {}
+        if (!scrubbing) {
+          const seek = videoLoopSeekTarget(media.currentTime, a.trimIn, a.trimOut);
+          if (seek != null) { try { media.currentTime = seek; } catch {} }
+        }
+      };
+
       const paint = (a) => {
         if (isVideoSrc(a.src) !== (media.tagName === 'VIDEO')) {
           const next = makeMediaEl(a);
@@ -1568,6 +1704,7 @@ export const ImageBlock = Node.create({
           media = next;
           media.addEventListener('load', onMediaReady);
           media.addEventListener('loadedmetadata', onMediaReady);
+          media.addEventListener('timeupdate', onTimeUpdate);
         }
         media.src = media.tagName === 'IMG' ? inlineSrcFor(a) : (a.src || '');
         if (media.tagName === 'IMG') media.alt = a.alt || '';
@@ -1575,10 +1712,12 @@ export const ImageBlock = Node.create({
         dom.setAttribute('data-kind', a.kind || 'shot');
         applyWidth(a);
         applyCropStyles(a);
+        applyVideoLoop(a);
       };
-      const onMediaReady = () => applyCropStyles(attrs);
+      const onMediaReady = () => { applyCropStyles(attrs); applyVideoLoop(attrs); paintVideoCtl(attrs); };
       media.addEventListener('load', onMediaReady);
       media.addEventListener('loadedmetadata', onMediaReady);
+      media.addEventListener('timeupdate', onTimeUpdate);
 
       // The gate: editor editable AND not a read-only share. EVERY write path checks this.
       const canEdit = () => { try { return editor.isEditable && !isReadOnly(); } catch { return false; } };
@@ -1605,6 +1744,157 @@ export const ImageBlock = Node.create({
         handlesEl.appendChild(el('span', 'wp-image-handle wp-image-handle-' + h, { 'data-h': h }));
       }
       boxEl.appendChild(handlesEl);
+
+      // ── VIDEO LOOP CONTROLS — SPEED + TRIM strip + RESET, under the video, SELECTED-only ────
+      // Same surface family as the resize/crop chrome: CSS shows the console only on
+      // .ProseMirror-selectednode inside an editable editor, so a single click selects the node
+      // (and STAYS selected — every handler here preventDefaults + stops propagation, and stopEvent
+      // below keeps PM's drag/selection machinery out of the console entirely). Drags preview live
+      // in DOM; each finished gesture writes ONE transaction.
+      const videoCtl = el('div', 'wp-video-ctl', { contenteditable: 'false', hidden: '' });
+      const speedRow = el('div', 'wp-video-speed');
+      speedRow.appendChild(Object.assign(el('span', 'wp-video-word'), { textContent: 'SPEED' }));
+      const speedBtns = VIDEO_RATE_CHOICES.map((rate) => {
+        const b = el('button', 'wp-video-speed-btn', {
+          type: 'button', 'data-rate': String(rate), title: `play at ${rate}×`,
+        });
+        b.textContent = (rate === 1 ? '1' : String(rate).replace(/^0\./, '.')) + '×';
+        speedRow.appendChild(b);
+        return b;
+      });
+      const resetBtn = el('button', 'wp-video-reset', { type: 'button', title: 'clear speed + trim' });
+      resetBtn.textContent = 'RESET';
+      speedRow.appendChild(resetBtn);
+      const trimRow = el('div', 'wp-video-trim');
+      const trimTrack = el('div', 'wp-video-track');
+      const trimRange = el('div', 'wp-video-range');
+      trimTrack.appendChild(trimRange);
+      const mkTrimHandle = (which) => {
+        const h = el('button', 'wp-video-handle wp-video-handle-' + which, {
+          type: 'button', 'data-h': which,
+          title: which === 'in' ? 'drag: loop start' : 'drag: loop end',
+          'aria-label': which === 'in' ? 'loop start' : 'loop end',
+        });
+        const lab = el('span', 'wp-video-handle-label');
+        h.appendChild(lab);
+        trimTrack.appendChild(h);
+        return { h, lab };
+      };
+      const trimIn = mkTrimHandle('in');
+      const trimOut = mkTrimHandle('out');
+      trimRow.appendChild(trimTrack);
+      videoCtl.appendChild(speedRow);
+      videoCtl.appendChild(trimRow);
+      dom.appendChild(videoCtl);
+
+      const videoDuration = () => {
+        const d = media.tagName === 'VIDEO' ? media.duration : NaN;
+        return Number.isFinite(d) && d > 0 ? d : null;
+      };
+      // Effective loop window for painting: attrs resolved against the (known) duration.
+      const effWindow = (a, dur) => {
+        const tin = Number.isFinite(a.trimIn) && a.trimIn > 0 ? Math.min(a.trimIn, dur) : 0;
+        const rawOut = Number(a.trimOut);
+        const tout = Number.isFinite(rawOut) && rawOut > tin ? Math.min(rawOut, dur) : dur;
+        return { tin, tout };
+      };
+      const sizeVideoCtl = () => {
+        try {
+          const w = boxEl.getBoundingClientRect().width;
+          videoCtl.style.width = w > 0 ? Math.round(w) + 'px' : '';
+        } catch {}
+      };
+      const paintVideoCtl = (a) => {
+        const isVid = isVideoSrc(a.src) && !a.uploading && !a.uploadError;
+        videoCtl.hidden = !isVid;
+        if (!isVid) return;
+        sizeVideoCtl();
+        const rate = Number.isFinite(a.playbackRate) && a.playbackRate > 0 ? a.playbackRate : 1;
+        speedBtns.forEach((b) => b.classList.toggle('is-on', Number(b.dataset.rate) === rate));
+        const dur = videoDuration();
+        videoCtl.classList.toggle('wp-video-ctl--nometa', !dur);
+        if (!dur) return;                      // metadata still loading — strip paints on loadedmetadata
+        const { tin, tout } = effWindow(a, dur);
+        const pct = (t) => (t / dur) * 100;
+        trimRange.style.left = pct(tin) + '%';
+        trimRange.style.width = Math.max(0, pct(tout) - pct(tin)) + '%';
+        trimIn.h.style.left = pct(tin) + '%';
+        trimOut.h.style.left = pct(tout) + '%';
+        trimIn.lab.textContent = videoTrimLabel(tin);
+        trimOut.lab.textContent = videoTrimLabel(tout);
+      };
+
+      // One transaction per finished gesture — same live-node re-read discipline as commitWidth.
+      const commitVideoAttrs = (patch) => {
+        if (!canEdit()) { paintVideoCtl(attrs); return; }
+        try {
+          const pos = getPos();
+          if (typeof pos !== 'number') { paintVideoCtl(attrs); return; }
+          const live = editor.state.doc.nodeAt(pos);
+          if (!live || live.type.name !== 'imageBlock') { paintVideoCtl(attrs); return; }
+          editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, null, { ...live.attrs, ...patch }));
+        } catch { paintVideoCtl(attrs); }
+      };
+      speedBtns.forEach((b) => b.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        commitVideoAttrs({ playbackRate: normalizeVideoRate(b.dataset.rate) });
+      }));
+      resetBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        commitVideoAttrs(videoResetPatch());
+      });
+
+      // TRIM DRAG — live DOM preview (seek the ambient video to the dragged edge so Johnny sees
+      // the exact frame), ONE transaction on release. Playback pauses for the scrub and resumes
+      // after, engine wrap gated off via `scrubbing`.
+      const beginTrimDrag = (e) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
+        const which = e.currentTarget.dataset.h;
+        const dur = videoDuration();
+        if (!dur || media.tagName !== 'VIDEO') return;
+        const rect = trimTrack.getBoundingClientRect();
+        if (!(rect.width > 0)) return;
+        scrubbing = true;
+        const wasPaused = media.paused;
+        try { media.pause(); } catch {}
+        const start = effWindow(attrs, dur);
+        let live = { ...start };
+        const apply = (t) => {
+          if (which === 'in') live.tin = Math.max(0, Math.min(t, live.tout - VIDEO_TRIM_MIN_WINDOW));
+          else live.tout = Math.min(dur, Math.max(t, live.tin + VIDEO_TRIM_MIN_WINDOW));
+          const pct = (v) => (v / dur) * 100;
+          trimRange.style.left = pct(live.tin) + '%';
+          trimRange.style.width = Math.max(0, pct(live.tout) - pct(live.tin)) + '%';
+          trimIn.h.style.left = pct(live.tin) + '%';
+          trimOut.h.style.left = pct(live.tout) + '%';
+          trimIn.lab.textContent = videoTrimLabel(live.tin);
+          trimOut.lab.textContent = videoTrimLabel(live.tout);
+          try { media.currentTime = which === 'in' ? live.tin : live.tout; } catch {}
+        };
+        const onMove = (ev) => {
+          const frac = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+          apply(frac * dur);
+        };
+        onMove(e);   // the press itself may already move the edge
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove, true);
+          window.removeEventListener('pointerup', onUp, true);
+          scrubbing = false;
+          const next = normalizeVideoTrim(live.tin, live.tout, dur);
+          try { media.currentTime = Math.max(next.trimIn ?? 0, 0); } catch {}
+          if (!wasPaused) { try { media.play().catch(() => {}); } catch {} }
+          if ((attrs.trimIn ?? null) === next.trimIn && (attrs.trimOut ?? null) === next.trimOut) {
+            paintVideoCtl(attrs);   // no-op drag — repaint, no transaction
+            return;
+          }
+          commitVideoAttrs(next);
+        };
+        window.addEventListener('pointermove', onMove, true);
+        window.addEventListener('pointerup', onUp, true);
+      };
+      trimIn.h.addEventListener('pointerdown', beginTrimDrag);
+      trimOut.h.addEventListener('pointerdown', beginTrimDrag);
 
       // ── PASTE PLACEHOLDER / ERROR overlay (attr-driven). Covers the box while a pasted
       // media upload is in flight, and stands in with a retry/remove card if it failed (or was
@@ -1819,7 +2109,7 @@ export const ImageBlock = Node.create({
 
       // Recompute px-exact crop when the column/lane resizes (responsive). Pure DOM.
       let ro = null;
-      try { ro = new ResizeObserver(() => { if (!cropping && !dragging) applyCropStyles(attrs); }); ro.observe(boxEl); } catch {}
+      try { ro = new ResizeObserver(() => { if (!cropping && !dragging) applyCropStyles(attrs); sizeVideoCtl(); }); ro.observe(boxEl); } catch {}
 
       // INSPO badge — only for kind:'inspo' (mood reference, not a real frame from footage).
       const badge = el('span', 'wp-image-badge', { contenteditable: 'false' });
@@ -1863,6 +2153,7 @@ export const ImageBlock = Node.create({
         cap.hidden = editing || !a.alt || pending;
         capStrip.hidden = editing || !!a.alt || !canEdit() || pending;
         capInput.hidden = !editing;
+        paintVideoCtl(a);   // speed/trim console tracks attrs (incl. remote echoes via update())
       };
 
       const commit = (value) => {
@@ -1913,6 +2204,9 @@ export const ImageBlock = Node.create({
           if (toolsEl.contains(t)) return true;
           if (cropUi.contains(t)) return true;
           if (statusEl.contains(t)) return true;
+          // The speed/trim console is nodeview-owned chrome — PM's drag/selection machinery must
+          // never see its events, or a click on a speed pill would collapse the NodeSelection.
+          if (videoCtl.contains(t)) return true;
           return false;
         },
         update(updated) {

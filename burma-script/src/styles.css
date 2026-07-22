@@ -2948,6 +2948,65 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-image .wp-image-handle-e  { top: 50%; right: -6px; margin-top: -6px; cursor: ew-resize; }
 .wp-image .wp-image-handle-w  { top: 50%; left: -6px; margin-top: -6px; cursor: ew-resize; }
 
+/* ═══ VIDEO LOOP CONTROLS (blocks.js NodeView) — SPEED pills + TRIM strip + RESET ═════════
+   A flat mono console under a video-src image, visible ONLY while the node is SELECTED in an
+   EDITABLE editor (same gate as the resize handles — read-only shares never see it). FLAT IS
+   LAW: 1.5px ink hairlines, mono caps, one ink + the accent, no fills/shadows/gradients. The
+   nodeview sizes the console to the media box; the trim geometry is %-of-duration so it never
+   needs pixel resync. [hidden] must ALWAYS win (the wp-media-status lesson, 2026-07-22). */
+.wp-image .wp-video-ctl { display: none; }
+.wp-image .wp-video-ctl[hidden] { display: none !important; }
+.ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-video-ctl:not([hidden]) {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 10px; max-width: 100%;
+}
+.wp-video-speed { display: flex; align-items: center; gap: 5px; }
+.wp-video-word {
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .16em; color: var(--ep-kind-label, #6b6455); margin-right: 2px;
+}
+.wp-video-speed-btn {
+  padding: 2px 7px; border: 1.5px solid var(--ink); border-radius: 999px;
+  background: var(--face); color: var(--ink);
+  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  line-height: 1.5; cursor: pointer;
+}
+.wp-video-speed-btn:hover { background: var(--ink); color: var(--face); }
+.wp-video-speed-btn.is-on { background: var(--ink); color: var(--face); }
+.wp-video-reset {
+  margin-left: auto; padding: 2px 7px;
+  border: 1.5px dashed var(--ink); border-radius: 999px;
+  background: transparent; color: var(--ep-kind-label, #6b6455);
+  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; line-height: 1.5; cursor: pointer;
+}
+.wp-video-reset:hover { border-style: solid; color: var(--ink); }
+/* TRIM strip — headroom above the track for the handle timecode labels. */
+.wp-video-trim { padding: 15px 5px 2px; }
+.wp-video-track {
+  position: relative; height: 16px;
+  border: 1.5px solid var(--ink); border-radius: 5px;
+  background: transparent;
+}
+.wp-video-range {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--ep-accent, #d23b2c); opacity: .22; pointer-events: none;
+}
+.wp-video-handle {
+  position: absolute; top: -4px; bottom: -4px; width: 10px; margin-left: -5px; padding: 0;
+  border: 1.5px solid var(--ink); border-radius: 3px;
+  background: var(--face); cursor: ew-resize; z-index: 2;
+}
+.wp-video-handle:hover { background: var(--ink); }
+.wp-video-handle-label {
+  position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--ep-kind-label, #6b6455); white-space: nowrap; pointer-events: none;
+}
+.wp-video-handle:hover .wp-video-handle-label { color: var(--ink); }
+/* metadata not yet loaded → the strip waits quietly (speed still works). */
+.wp-video-ctl--nometa .wp-video-trim { opacity: .35; pointer-events: none; }
+
 /* CROP EDITOR — dim outside the rect, draggable rect with corner handles + apply/cancel bar. */
 .wp-image .wp-image-cropui { position: absolute; inset: 0; z-index: 5; }
 .wp-image .wp-image-cropui[hidden] { display: none; }

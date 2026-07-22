@@ -63,6 +63,15 @@ export interface Block {
   imageSrc?: string;         // web path served from /public (e.g. "/palau2/img/frame.png")
   imageAlt?: string;         // caption / alt text (shown under the image, mono)
   imageKind?: "shot" | "inspo"; // shot = reference frame from footage; inspo = mood/inspiration (badged)
+  imageWidth?: number;       // rendered box width in CSS px (drag-resize); absent = natural
+  imageCrop?: { x: number; y: number; w: number; h: number }; // normalized 0..1 crop rect; absent = uncropped
+  imageUploading?: boolean;  // paste-placeholder state — present ONLY while an upload is unresolved
+  imageUploadError?: string; // paste upload failure message — present ONLY when the upload failed
+  // video-src imageBlocks only (ambient "living gif" loop dials — the lightbox/download always
+  // serve the full original; these style the inline loop only). All absent = untouched playback.
+  videoRate?: number;        // playbackRate; absent = 1× (never persisted as 1)
+  videoTrimIn?: number;      // loop window start, seconds; absent = 0
+  videoTrimOut?: number;     // loop window end, seconds; absent = full duration
   // editor workflow
   done?: boolean;            // SOT/note "done → green"
   width?: "full" | "half";   // for the drag-to-A/V two-column pairing

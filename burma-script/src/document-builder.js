@@ -30,6 +30,14 @@ function imageCropShapeOk(c) {
   return !(x <= 0.0001 && y <= 0.0001 && w >= 0.9999 && h >= 0.9999);
 }
 
+// Video-loop dial guards for the blocks<->node conversion. Kept in lockstep with blocks.js
+// normalizeVideoRate / normalizeVideoTrim's persisted contract (asserted by video-loop.test.mjs)
+// but inlined, same as imageCropShapeOk, so document-builder pulls in no TipTap deps.
+// A persisted rate is finite, positive, and never 1 (1 collapses to absent); a persisted trim
+// edge is a finite positive number of seconds.
+function videoRateShapeOk(v) { return typeof v === 'number' && Number.isFinite(v) && v > 0 && v !== 1; }
+function videoTrimShapeOk(v) { return typeof v === 'number' && Number.isFinite(v) && v > 0; }
+
 function clean(text) {
   if (!text) return '';
   return String(text)
@@ -681,6 +689,10 @@ function blockToTypedNode(b, opts) {
           // every existing image block). Crop shape guard mirrors blocks.js isValidCrop's contract.
           width: Number.isFinite(b.imageWidth) ? b.imageWidth : null,
           crop: imageCropShapeOk(b.imageCrop) ? b.imageCrop : null,
+          // Video loop dials (speed / trim window) — additive like width/crop; absent → null.
+          playbackRate: videoRateShapeOk(b.videoRate) ? b.videoRate : null,
+          trimIn: videoTrimShapeOk(b.videoTrimIn) ? b.videoTrimIn : null,
+          trimOut: videoTrimShapeOk(b.videoTrimOut) ? b.videoTrimOut : null,
           // Paste placeholder state — absent on every normal image (byte-identical). A block
           // rebuilt from a doc saved mid-paste keeps uploading:true so the nodeview shows the
           // interrupted-upload card instead of a silent empty figure.
@@ -1225,6 +1237,10 @@ function nodeToBlock(node, i) {
     // Emit width/crop ONLY when set → an untouched image block serializes byte-identical.
     if (Number.isFinite(a.width)) block.imageWidth = a.width;
     if (imageCropShapeOk(a.crop)) block.imageCrop = a.crop;
+    // Video loop dials — emitted ONLY when set (same byte-stability contract as width/crop).
+    if (videoRateShapeOk(a.playbackRate)) block.videoRate = a.playbackRate;
+    if (videoTrimShapeOk(a.trimIn)) block.videoTrimIn = a.trimIn;
+    if (videoTrimShapeOk(a.trimOut)) block.videoTrimOut = a.trimOut;
     // Paste placeholder state emitted ONLY while a paste is unresolved — a landed image (the
     // overwhelming steady state) carries neither, so its derived block is byte-identical.
     if (a.uploading) block.imageUploading = true;
