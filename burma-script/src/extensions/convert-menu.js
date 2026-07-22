@@ -6,6 +6,7 @@ import { defaultDirectionMarkAttrs } from './direction-chip.js';
 import { retypeHostToVo, bulkRetypeToVo, laneMatches, maybeClearPendingForKindRange } from './slash-menu.js';
 import { collectIntersectingRows, doDeleteRows, rowFirstBlockId } from './table.js';
 import { findRowByIdentity } from './table.js';
+import { convertTimecodesInRange } from './marks.js';
 
 // ── SELECT → RIGHT-CLICK → BULK ROW MENU ─────────────────────────────────────────────────────────
 // Highlight a run of text — anywhere from a few words to a span crossing many rows — right-click,
@@ -271,6 +272,42 @@ function applyVoRange(editor, from, to, clickedRole) {
   return bulkRetypeToVo(state, view.dispatch, from, to, clickedRole);
 }
 
+// TIMECODE TAG — the DETERMINISTIC bake (Johnny 2026-07-22: "highlight, right-click, TIMECODE TAG,
+// and it bakes into that formatting with the click-to-copy feature"). Runs the SAME machinery the
+// right-click retro-convert on plain text uses — marks.js convertTimecodesInRange over the SELECTION:
+// it wraps every bare broadcast code in the real timecode chip, captures a "DAY N" prefix when the
+// selection holds one (else leaves day=null → the DAY ? state), pairs day-less existing chips, and
+// strips folded DAY literals — all in ONE transaction (one undo). Deliberately LANE-AGNOSTIC: a hand
+// selection is explicit intent, so we convert every code inside it (no said/shown scoping like the role
+// tags). The chip's click-to-copy + right-click DAY/sequence menu come free (it's the real mark). Works
+// in EVERY context — bullets, broll/oncam runs, nested rows — because convertTimecodesInRange flattens
+// the range's inline text (inlineTextMap) rather than pattern-matching a lane. Returns true when it
+// baked at least one code; false (no dispatch, no transaction) when the selection holds no parseable
+// code — the caller then shakes the button instead of silently closing.
+function applyTimecodeTagRange(editor, from, to) {
+  if (isReadOnly()) return false;
+  const { state, view } = editor;
+  const done = convertTimecodesInRange(state, from, to, (tr) => view.dispatch(tr));
+  if (done) view.focus();
+  return done;
+}
+
+// Subtle no-op feedback: a short shake + opacity flash on the button when a TIMECODE TAG click found
+// no code to bake. Uses the Web Animations API (element.animate) so it needs NO stylesheet rule —
+// styles.css is owned by a sibling change this pass, and a JS-driven animation keeps this file
+// self-contained. Guarded for headless/older engines where .animate is absent.
+function shakeNoOp(btn) {
+  if (!btn || typeof btn.animate !== 'function') return;
+  try {
+    btn.animate(
+      [{ transform: 'translateX(0)' }, { transform: 'translateX(-3px)' },
+       { transform: 'translateX(3px)' }, { transform: 'translateX(0)' }],
+      { duration: 220, easing: 'ease-in-out' },
+    );
+    btn.animate([{ opacity: 1 }, { opacity: 0.35 }, { opacity: 1 }], { duration: 220 });
+  } catch {}
+}
+
 // Delete the outermost rows captured when the menu opened. Rows are re-resolved by IDENTITY (node
 // ref → first-block id → pairId) against the CURRENT doc, so a remote collab edit that shifted
 // positions while the menu was open still deletes the right band (mirrors table.js's row-drag
@@ -326,6 +363,9 @@ function createConvertMenu(editor, x, y, clickedRole) {
   const entries = VIZ_KINDS.map((item) => ({ type: 'tag', item }));
   UTILITY_SPANS.forEach((item) => entries.push({ type: 'span', item }));
   ALIGNMENTS.forEach((item) => entries.push({ type: 'align', item }));
+  // TIMECODE TAG — the deterministic bake, last in the utility row. Always offered on a non-empty
+  // selection (the menu only opens on one); it no-ops with a shake when the selection holds no code.
+  entries.push({ type: 'timecode' });
   if (rowCount > 0) entries.push({ type: 'delete' });
 
   // Pressed-state paint at open (the bubble's `.active` equivalent), computed against the SAME
@@ -364,6 +404,14 @@ function createConvertMenu(editor, x, y, clickedRole) {
   const pick = (index) => {
     const entry = entries[index];
     if (!entry) return;
+    // TIMECODE TAG bakes IN PLACE: probe-and-apply BEFORE closing so a codeless selection can shake
+    // the button (clear "nothing matched" feedback) instead of the menu vanishing on a silent no-op.
+    if (entry.type === 'timecode') {
+      const baked = applyTimecodeTagRange(editor, from, to);
+      if (baked) { close(); editor.view.focus(); }
+      else { shakeNoOp(buttons[index]); }
+      return;
+    }
     close();
     if (entry.type === 'delete') {
       deleteRows(editor, rowRefs);
@@ -416,6 +464,27 @@ function createConvertMenu(editor, x, y, clickedRole) {
       });
       button.textContent = entry.item.glyph;
       if (rangeAlignActive(editor.state.doc, from, to, entry.item.dir)) button.classList.add('is-on');
+      button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+      button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+      buttons.push(button);
+      ensureUtilRow().appendChild(button);
+      return;
+    }
+    if (entry.type === 'timecode') {
+      // TIMECODE TAG — a labeled utility button that bakes the selection's broadcast codes into real
+      // timecode chips (deterministic, one undo). Shows a tiny chip preview so it reads as "make this
+      // a chip", then the label. Same flat util-button chrome as TK/FC.
+      const button = el('button', 'wp-convert-item wp-bulk-util wp-bulk-util-tc', {
+        type: 'button', role: 'menuitem', 'data-action': 'timecode-tag',
+        title: 'Bake the selected timecode(s) into click-to-copy chips',
+        'aria-label': 'Bake selected timecodes into chips',
+      });
+      const chip = el('span', 'wp-bulk-chip wp-tc-tag');
+      chip.textContent = '00:00:00:00';
+      const label = el('span', 'wp-convert-label');
+      label.textContent = 'TIMECODE TAG';
+      button.appendChild(chip);
+      button.appendChild(label);
       button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
       button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
       buttons.push(button);
