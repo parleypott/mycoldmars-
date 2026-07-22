@@ -714,6 +714,43 @@ function ensureShapeOnMap(shape) {
         },
       });
     }
+  } else if (shape.type === 'place') {
+    // Place = dot (circle layer) + name label (symbol layer), one point source.
+    if (!map.getSource(ids.fill)) {
+      map.addSource(ids.fill, { type: 'geojson', data: emptyFC() });
+    }
+    if (!map.getLayer(ids.fillLayer)) {
+      map.addLayer({
+        id: ids.fillLayer,
+        type: 'circle',
+        source: ids.fill,
+        paint: {
+          'circle-color': shape.stroke,
+          'circle-stroke-color': '#fffaf0',
+          'circle-stroke-width': 1.5,
+        },
+      });
+    }
+    if (!map.getLayer(ids.labelLayer)) {
+      map.addLayer({
+        id: ids.labelLayer,
+        type: 'symbol',
+        source: ids.fill,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': shape.labelSize,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-anchor': 'bottom',
+        },
+        paint: {
+          'text-color': shape.stroke,
+          'text-halo-color': '#fffaf0',
+          'text-halo-width': 1.2,
+        },
+      });
+    }
   } else {
     // line
     if (!map.getSource(ids.line)) {
@@ -734,6 +771,14 @@ function ensureShapeOnMap(shape) {
   }
   applyShapeStyle(shape);
   applyShapeVisibility(shape);
+}
+
+// Effective on-map position of a place: geocoded center + drag offsets.
+function placePosition(shape) {
+  return [
+    shape.center[0] + (shape.preview.offsetLng || 0),
+    shape.center[1] + (shape.preview.offsetLat || 0),
+  ];
 }
 
 function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
@@ -816,6 +861,9 @@ function applyShapeStyle(shape) {
     map.setPaintProperty(ids.fillLayer, 'fill-color', shape.fill);
     map.setPaintProperty(ids.fillLayer, 'fill-opacity', shape.visible ? shape.fillOpacity : 0);
   }
+  if (shape.type === 'place' && map.getLayer(ids.fillLayer)) {
+    map.setPaintProperty(ids.fillLayer, 'circle-color', shape.stroke);
+  }
   if (map.getLayer(ids.lineLayer)) {
     map.setPaintProperty(ids.lineLayer, 'line-color', shape.stroke);
     map.setPaintProperty(ids.lineLayer, 'line-width', shape.strokeWidth);
@@ -880,6 +928,26 @@ function redrawShapeImpl(shape) {
         const size = computePolygonLabelSize(shape);
         map.setLayoutProperty(ids.labelLayer, 'text-size', size);
       }
+    }
+  } else if (shape.type === 'place') {
+    const src = map.getSource(ids.fill);
+    if (!src) return;
+    const pos = placePosition(shape);
+    src.setData({
+      type: 'Feature',
+      properties: { label: shape.label || '' },
+      geometry: { type: 'Point', coordinates: pos },
+    });
+    const scale = shape.preview.scale ?? 1;
+    const dotR = Math.max(0.5, shape.dotSize * scale);
+    const textPx = Math.max(1, shape.labelSize * scale);
+    if (map.getLayer(ids.fillLayer)) {
+      map.setPaintProperty(ids.fillLayer, 'circle-radius', dotR);
+    }
+    if (map.getLayer(ids.labelLayer)) {
+      map.setLayoutProperty(ids.labelLayer, 'text-size', textPx);
+      // Anchor is 'bottom' — lift the text clear of the dot (ems of text size).
+      map.setLayoutProperty(ids.labelLayer, 'text-offset', [0, -(dotR / textPx + 0.35)]);
     }
   } else {
     const src = map.getSource(ids.line);
@@ -976,6 +1044,39 @@ function addOctagon() {
   renderShapesPanel();
   renderLayersPanel();
   showRouteUI();
+}
+
+// A geocoded place becomes a real shape: dot + label, keyframable and
+// persisted like everything else. result: { name, center: [lng, lat] }.
+function addPlace(result) {
+  if (!result || !Array.isArray(result.center)) return null;
+  snapshotForUndo('add place');
+  const id = newShapeId();
+  const shape = {
+    id,
+    type: 'place',
+    name: result.name,
+    label: result.name,
+    center: [result.center[0], result.center[1]],
+    dotSize: 6,
+    labelSize: 14,
+    stroke: SHAPE_DEFAULTS.stroke,
+    fill: SHAPE_DEFAULTS.stroke,  // unused for places but persisted
+    strokeWidth: 1.5,
+    fillOpacity: 0,
+    visible: true,
+    preview: defaultShapePreview('place'),
+  };
+  state.shapes.push(shape);
+  backfillShapeIntoKeyframes(shape);
+  ensureShapeOnMap(shape);
+  redrawShape(shape);
+  saveLayers();
+  renderShapesPanel();
+  renderLayersPanel();
+  showRouteUI();
+  selectShape(id);
+  return shape;
 }
 
 function resolveCountryGeometry(shape) {
@@ -1603,6 +1704,18 @@ function updateSelectionIndicator() {
       const allRings = [];
       for (const polyR of polyRings) for (const ring of polyR) allRings.push(ring);
       geometry = { type: 'MultiLineString', coordinates: allRings };
+    } else if (shape.type === 'place') {
+      // Pixel-space ring just outside the dot, unprojected back to lngLat.
+      const pos = placePosition(shape);
+      const cp = map.project(pos);
+      const rPx = Math.max(0.5, shape.dotSize * (shape.preview.scale ?? 1)) + 6;
+      const ring = [];
+      for (let i = 0; i <= 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const p = map.unproject([cp.x + Math.cos(a) * rPx, cp.y + Math.sin(a) * rPx]);
+        ring.push([p.lng, p.lat]);
+      }
+      geometry = { type: 'LineString', coordinates: ring };
     }
   } else if (state.lastFocus === 'layer' && state.activeLayerId) {
     const layer = state.layers.find(l => l.id === state.activeLayerId);
@@ -2270,6 +2383,9 @@ function serializeShape(s) {
     countryName: s.countryName,
     excludedPolygonIndices: Array.isArray(s.excludedPolygonIndices) ? s.excludedPolygonIndices.slice() : [],
     customGeometry: s.customGeometry || null,
+    center: s.center,
+    dotSize: s.dotSize,
+    labelSize: s.labelSize,
     stroke: s.stroke,
     fill: s.fill,
     strokeWidth: s.strokeWidth,
@@ -2316,6 +2432,7 @@ function hydrateShape(raw) {
   const baseName =
     raw.type === 'polygon' ? 'Polygon' :
     raw.type === 'line'    ? 'Line' :
+    raw.type === 'place'   ? 'Place' :
     raw.type === 'country' ? (raw.countryName || 'Country') :
                              'Shape';
   const base = {
@@ -2337,8 +2454,12 @@ function hydrateShape(raw) {
     fillOpacity: typeof raw.fillOpacity === 'number' ? raw.fillOpacity : SHAPE_DEFAULTS.fillOpacity,
     visible: raw.visible !== false,
     preview: raw.preview || (raw.type === 'country' ? {} : defaultShapePreview(raw.type, [0, 0])),
+    center: Array.isArray(raw.center) && raw.center.length === 2 ? [raw.center[0], raw.center[1]] : null,
+    dotSize: typeof raw.dotSize === 'number' ? raw.dotSize : 6,
+    labelSize: typeof raw.labelSize === 'number' ? raw.labelSize : 14,
   };
   if (base.type === 'line' && base.baseCoords.length < 2) return null;
+  if (base.type === 'place' && !base.center) return null;
   if (base.type === 'country') {
     // Resolve geometry now so subsequent renders just read from _geometry.
     resolveCountryGeometry(base);
@@ -2622,10 +2743,12 @@ function renderShapesPanel() {
     const glyph =
       shape.type === 'polygon' ? '⬡' :
       shape.type === 'line'    ? '╱' :
+      shape.type === 'place'   ? '◉' :
       shape.type === 'country' ? '◇' : '?';
     const stat =
       shape.type === 'polygon' ? `n=${shape.sides} · ${Math.round(shape.preview.radiusKm)} km` :
       shape.type === 'line'    ? `${shape.baseCoords.length} pts · scale ${shape.preview.scale.toFixed(2)}` :
+      shape.type === 'place'   ? `dot ${shape.dotSize} · text ${shape.labelSize}` :
       shape.type === 'country' ? `α ${Math.round(shape.fillOpacity * 100)}% · sw ${shape.strokeWidth}` :
                                  '';
     row.innerHTML = `
@@ -2833,6 +2956,9 @@ function fitToShape(shape) {
     if (!geom) return;
     const rings = geom.type === 'Polygon' ? geom.coordinates : geom.coordinates.flat();
     for (const ring of rings) coords = coords.concat(ring);
+  } else if (shape.type === 'place') {
+    map.easeTo({ center: placePosition(shape), zoom: Math.max(map.getZoom(), 5.5), duration: 800 });
+    return;
   }
   if (coords.length === 0) return;
   map.fitBounds(coordsBounds(coords), { padding: 120, duration: 800 });
@@ -2859,6 +2985,12 @@ const ssRotationField = document.getElementById('ss-rotation-field');
 const ssDraw = document.getElementById('ss-draw');
 const ssDrawVal = document.getElementById('ss-draw-val');
 const ssDrawField = document.getElementById('ss-draw-field');
+const ssDot = document.getElementById('ss-dot');
+const ssDotVal = document.getElementById('ss-dot-val');
+const ssDotField = document.getElementById('ss-dot-field');
+const ssLabelSize = document.getElementById('ss-label-size');
+const ssLabelSizeVal = document.getElementById('ss-label-size-val');
+const ssLabelSizeField = document.getElementById('ss-label-size-field');
 const ssDelete = document.getElementById('ss-delete');
 
 function syncShapeStyleInputs() {
@@ -2904,6 +3036,19 @@ function syncShapeStyleInputs() {
     ssScaleField.classList.remove('hidden');
     ssRotationField.classList.remove('hidden');
     ssDrawField.classList.add('hidden');
+  } else if (shape.type === 'place') {
+    ssScale.value = Math.round(shape.preview.scale * 100);
+    ssScaleVal.value = Math.round(shape.preview.scale * 100);
+    if (suffix) suffix.textContent = '%';
+    ssDot.value = shape.dotSize;
+    ssDotVal.value = shape.dotSize;
+    ssLabelSize.value = shape.labelSize;
+    ssLabelSizeVal.value = shape.labelSize;
+    ssFillOpacityField.classList.add('hidden');
+    ssSidesField.classList.add('hidden');
+    ssScaleField.classList.remove('hidden');
+    ssRotationField.classList.add('hidden');
+    ssDrawField.classList.add('hidden');
   } else {
     ssScale.value = Math.round(shape.preview.scale * 100);
     ssScaleVal.value = Math.round(shape.preview.scale * 100);
@@ -2916,6 +3061,8 @@ function syncShapeStyleInputs() {
     ssRotationField.classList.add('hidden');
     ssDrawField.classList.remove('hidden');
   }
+  ssDotField.classList.toggle('hidden', shape.type !== 'place');
+  ssLabelSizeField.classList.toggle('hidden', shape.type !== 'place');
 }
 
 // Adjust slider attributes to suit the active shape type.
@@ -2973,6 +3120,12 @@ pairSliderNum(ssFillOpacity, ssFillOpacityVal, (v) => {
 });
 pairSliderNum(ssStrokeW, ssStrokeWVal, (v) => {
   mutateActiveShape(s => { s.strokeWidth = v; });
+});
+pairSliderNum(ssDot, ssDotVal, (v) => {
+  mutateActiveShape(s => { if (s.type === 'place') s.dotSize = v; });
+});
+pairSliderNum(ssLabelSize, ssLabelSizeVal, (v) => {
+  mutateActiveShape(s => { if (s.type === 'place') s.labelSize = v; });
 });
 ssSides.addEventListener('input', e => {
   const n = Math.max(3, Math.min(24, parseInt(e.target.value, 10) || 8));
@@ -3149,10 +3302,22 @@ function shapeLineLayerIds() {
     .filter(id => map.getLayer(id));
 }
 
+function placeLayerIds() {
+  // Both the dot AND the label are click targets for a place.
+  return state.shapes
+    .filter(s => s.type === 'place')
+    .flatMap(s => {
+      const ids = shapeSourceIds(s.id);
+      return [ids.fillLayer, ids.labelLayer];
+    })
+    .filter(id => map.getLayer(id));
+}
+
 function findShapeAtPoint(point) {
   const fills = shapeFillLayerIds();
   const lines = shapeLineLayerIds();
-  const all = [...fills, ...lines];
+  const places = placeLayerIds();
+  const all = [...places, ...fills, ...lines];
   if (all.length === 0) return null;
   // Tiny pixel buffer for line hit-testing
   const bbox = [
@@ -3164,7 +3329,7 @@ function findShapeAtPoint(point) {
   const layerId = features[0].layer.id;
   for (const s of state.shapes) {
     const ids = shapeSourceIds(s.id);
-    if (ids.fillLayer === layerId || ids.lineLayer === layerId) return s;
+    if (ids.fillLayer === layerId || ids.lineLayer === layerId || ids.labelLayer === layerId) return s;
   }
   return null;
 }
@@ -3284,9 +3449,9 @@ map.on('dblclick', (e) => {
     finalizeLineDrawing();
     return;
   }
-  // Double-click a polygon → open the inline label editor
+  // Double-click a polygon or place → open the inline label editor
   const hit = findShapeAtPoint(e.point);
-  if (hit && hit.type === 'polygon') {
+  if (hit && (hit.type === 'polygon' || hit.type === 'place')) {
     e.preventDefault();
     openLabelEditor(hit);
   }
@@ -3311,6 +3476,13 @@ function openLabelEditor(shape) {
   document.body.appendChild(overlay);
 
   const placeOverlay = () => {
+    if (shape.type === 'place') {
+      const cp = map.project(placePosition(shape));
+      overlay.style.left = `${cp.x - 90}px`;
+      overlay.style.top = `${cp.y - 46}px`;
+      overlay.style.width = '180px';
+      return;
+    }
     const cp = map.project(shape.preview.center);
     const dLatDeg = shape.preview.radiusKm / KM_PER_DEG_LAT;
     const ep = map.project([shape.preview.center[0], shape.preview.center[1] + dLatDeg]);
@@ -3371,6 +3543,185 @@ function closeLabelEditor() {
   }
   if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
 }
+
+// ─── Place search (Mapbox geocoder → navigate + temp pin, or ✎ → place shape) ───
+
+const SEARCH_PIN_SRC = 'mk-search-pin-src';
+const SEARCH_PIN_DOT = 'mk-search-pin-dot';
+const SEARCH_PIN_LABEL = 'mk-search-pin-label';
+
+const psInput = document.getElementById('place-search');
+const psResults = document.getElementById('place-search-results');
+let psFeatures = [];
+let psHighlight = 0;
+let psAbort = null;
+let psTimer = null;
+
+function ensureSearchPinLayers() {
+  try {
+    if (!map.getSource(SEARCH_PIN_SRC)) {
+      map.addSource(SEARCH_PIN_SRC, { type: 'geojson', data: emptyFC() });
+    }
+    if (!map.getLayer(SEARCH_PIN_DOT)) {
+      map.addLayer({
+        id: SEARCH_PIN_DOT,
+        type: 'circle',
+        source: SEARCH_PIN_SRC,
+        paint: {
+          'circle-radius': 7,
+          'circle-color': '#b85c3c',
+          'circle-stroke-color': '#fffaf0',
+          'circle-stroke-width': 2,
+        },
+      });
+    }
+    if (!map.getLayer(SEARCH_PIN_LABEL)) {
+      map.addLayer({
+        id: SEARCH_PIN_LABEL,
+        type: 'symbol',
+        source: SEARCH_PIN_SRC,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 14,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-anchor': 'bottom',
+          'text-offset': [0, -0.9],
+        },
+        paint: {
+          'text-color': '#b85c3c',
+          'text-halo-color': '#fffaf0',
+          'text-halo-width': 1.4,
+        },
+      });
+    }
+  } catch (_) {}
+}
+
+function showSearchPin(r) {
+  ensureSearchPinLayers();
+  const src = map.getSource(SEARCH_PIN_SRC);
+  if (!src) return;
+  src.setData({
+    type: 'Feature',
+    properties: { label: r.name },
+    geometry: { type: 'Point', coordinates: r.center },
+  });
+}
+
+function clearSearchPin() {
+  const src = map.getSource(SEARCH_PIN_SRC);
+  if (src) src.setData(emptyFC());
+}
+
+async function geocodePlaces(q) {
+  if (psAbort) psAbort.abort();
+  psAbort = new AbortController();
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json`
+    + `?access_token=${mapboxgl.accessToken}&types=country,region,place,locality&limit=6&language=en`;
+  const res = await fetch(url, { signal: psAbort.signal });
+  if (!res || !res.ok) return [];
+  const json = await res.json().catch(() => null);
+  return ((json && json.features) || []).map(f => ({
+    name: f.text,
+    context: (f.place_name || '').replace(`${f.text}, `, ''),
+    center: f.center,
+    kind: (f.place_type && f.place_type[0]) || 'place',
+  }));
+}
+
+function searchZoomFor(kind) {
+  return kind === 'country' ? 3.8 : kind === 'region' ? 5.2 : kind === 'locality' ? 9 : 7.2;
+}
+
+function navigateToResult(r) {
+  showSearchPin(r);
+  map.flyTo({ center: r.center, zoom: Math.max(map.getZoom(), searchZoomFor(r.kind)), duration: 1500 });
+}
+
+function closeSearchResults() {
+  psResults.classList.add('hidden');
+  psResults.innerHTML = '';
+}
+
+function renderSearchResults() {
+  psResults.innerHTML = '';
+  if (!psFeatures.length) { closeSearchResults(); return; }
+  psResults.classList.remove('hidden');
+  psFeatures.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'ps-row' + (i === psHighlight ? ' active' : '');
+    row.innerHTML = `
+      <div class="ps-meta">
+        <div class="ps-name">${escHtml(r.name)}</div>
+        <div class="ps-context">${escHtml(r.context)}</div>
+      </div>
+      <button class="ps-pin" title="Add as a place layer (dot + label)">✎</button>
+    `;
+    row.addEventListener('click', () => {
+      psHighlight = i;
+      navigateToResult(r);
+      closeSearchResults();
+    });
+    row.querySelector('.ps-pin').addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearSearchPin();
+      addPlace(r);
+      map.flyTo({ center: r.center, zoom: Math.max(map.getZoom(), searchZoomFor(r.kind)), duration: 1200 });
+      closeSearchResults();
+      psInput.value = '';
+      psInput.blur();
+    });
+    psResults.appendChild(row);
+  });
+}
+
+psInput.addEventListener('input', () => {
+  const q = psInput.value.trim();
+  clearTimeout(psTimer);
+  if (!q) { psFeatures = []; closeSearchResults(); clearSearchPin(); return; }
+  psTimer = setTimeout(async () => {
+    try {
+      psFeatures = await geocodePlaces(q);
+      psHighlight = 0;
+      renderSearchResults();
+    } catch (err) {
+      if (err && err.name !== 'AbortError') console.warn('[mapkeys] geocode failed:', err.message);
+    }
+  }, 250);
+});
+
+psInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'ArrowDown' && psFeatures.length) {
+    e.preventDefault();
+    psHighlight = (psHighlight + 1) % psFeatures.length;
+    renderSearchResults();
+  } else if (e.key === 'ArrowUp' && psFeatures.length) {
+    e.preventDefault();
+    psHighlight = (psHighlight - 1 + psFeatures.length) % psFeatures.length;
+    renderSearchResults();
+  } else if (e.key === 'Enter' && psFeatures.length) {
+    e.preventDefault();
+    navigateToResult(psFeatures[psHighlight]);
+    closeSearchResults();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeSearchResults();
+    clearSearchPin();
+    psInput.value = '';
+    psInput.blur();
+  }
+});
+
+// Click anywhere else closes the results dropdown.
+document.addEventListener('click', (e) => {
+  if (!psResults.classList.contains('hidden')
+      && !e.target.closest('#place-search-wrap')) {
+    closeSearchResults();
+  }
+});
 
 // Hover cursor over selectable shapes / routes (and vertices in edit mode)
 map.on('mousemove', (e) => {
@@ -4174,6 +4525,8 @@ function applyProjectSnapshot(snap) {
     syncRouteStyleInputs();
     syncDrawSlider();
     syncBordersHub();
+    clearSearchPin();
+    closeSearchResults();
     updateSelectionIndicator();
   } finally {
     suppressAutosave = false;

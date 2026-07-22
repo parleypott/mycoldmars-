@@ -26,6 +26,10 @@
     <button class="btn" id="add-country-btn">+ Country</button>
     <button class="btn" id="borders-btn" title="World borders — toggle & style">Borders</button>
     <button class="btn" id="add-oldmap-btn">+ Old Map</button>
+    <div id="place-search-wrap">
+      <input id="place-search" type="text" placeholder="Find a place…" autocomplete="off" spellcheck="false">
+      <div id="place-search-results" class="hidden"></div>
+    </div>
     <div id="skin-toggle" title="Basemap skin">
       <button class="skin-btn" data-skin="earthen">Earthen</button>
       <button class="skin-btn" data-skin="satellite">Sat</button>
@@ -108,6 +112,16 @@
       <span>Draw</span>
       <input type="range" id="ss-draw" min="0" max="1000" step="1" value="1000">
       <span class="rs-val"><input class="rs-num" type="number" id="ss-draw-val" min="0" max="100" step="0.1" value="100">%</span>
+    </label>
+    <label class="rs-field hidden" id="ss-dot-field">
+      <span>Dot size</span>
+      <input type="range" id="ss-dot" min="1" max="30" step="0.5" value="6">
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-dot-val" min="1" max="30" step="0.5" value="6"></span>
+    </label>
+    <label class="rs-field hidden" id="ss-label-size-field">
+      <span>Label size</span>
+      <input type="range" id="ss-label-size" min="6" max="80" step="1" value="14">
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-label-size-val" min="6" max="80" step="1" value="14"></span>
     </label>
     <button class="btn ghost" id="ss-edit-country" title="Edit geometry — click parts to drop them">Edit parts</button>
     <button class="btn ghost danger" id="ss-delete">Delete</button>

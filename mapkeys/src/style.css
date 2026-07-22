@@ -185,6 +185,86 @@ html, body {
   white-space: nowrap;
 }
 
+/* ─── Place search — geocoder input + results dropdown in the topbar ─── */
+
+#place-search-wrap {
+  position: relative;
+}
+#place-search {
+  appearance: none;
+  width: 168px;
+  padding: 8px 10px;
+  background: rgba(246, 239, 222, 0.92);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  outline: none;
+  backdrop-filter: blur(6px);
+}
+#place-search::placeholder { color: var(--ink-faint); }
+#place-search:focus { border-color: var(--ink); }
+#place-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 30;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px -10px rgba(43, 42, 38, 0.4);
+  padding: 4px;
+}
+.ps-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ps-row:hover, .ps-row.active { background: rgba(43, 42, 38, 0.07); }
+.ps-meta { flex: 1; min-width: 0; }
+.ps-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ps-context {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ps-pin {
+  appearance: none;
+  border: 1px solid var(--panel-edge);
+  background: transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex: none;
+}
+.ps-pin:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(184, 92, 60, 0.08);
+}
+
 /* ─── Borders hub — world-border toggles + styling, opened from the topbar ─── */
 
 #borders-hub {
