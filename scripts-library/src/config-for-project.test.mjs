@@ -45,7 +45,7 @@ const throws = (fn, label) => {
 
 // The SHARED favicon path every config is normalized to (legacy Burma's relative
 // './favicon.svg' would 404 from /scripts-library/).
-const SHARED_FAVICON = '../burma-script/favicon.svg';
+const SHARED_FAVICON = '/newpress-favicon.svg';
 
 // ── 1. LEGACY: burma adopts the pinned namespace verbatim + favicon override ──
 {

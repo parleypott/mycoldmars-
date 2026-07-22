@@ -4,7 +4,7 @@ import { DAY_SEQUENCES } from './schema.ts';
 export const BURMA = {
   id: 'burma',
   title: scriptData.title || 'Burma — The Human Element',
-  favicon: './favicon.svg',
+  favicon: '/newpress-favicon.svg',
   wordmark: 'WP·01',
   figLabel: 'fig.03 — CARTRIDGE RACK',
   recoverPrefix: 'burma-recovered',

@@ -876,11 +876,11 @@ function TipsToggle() {
       <button
         class="wp-tips-toggle"
         aria-expanded={open}
+        aria-label="Tips &amp; tricks"
         onClick={() => setOpen((v) => !v)}
-        title={open ? 'Hide tips' : 'Show tips'}
+        title={open ? 'Hide tips' : 'Tips &amp; tricks'}
       >
         <span class="wp-tips-glyph">{open ? '–' : '?'}</span>
-        <span class="wp-tips-lab">tips &amp; tricks</span>
       </button>
       <div class="wp-tips-body" aria-hidden={!open}>
         <ul class="wp-tips-list">
@@ -1477,7 +1477,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const wsRole = ws ? workspaceRole(ws) : null;
 
   useEffect(() => {
-    document.title = `${EPISODE.wordmark} · ${DOC_TITLE}`;
+    document.title = `${DOC_TITLE} · Newpress Scripts`;
     const icon = document.querySelector('link[rel="icon"]');
     if (icon && EPISODE.favicon) icon.setAttribute('href', EPISODE.favicon);
   }, []);
@@ -1835,9 +1835,6 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   }, []);
 
   const words = tel?.words || 0;
-  const blocks = tel?.blocks || 0;
-  const sot = tel?.sot || 0;
-  const done = tel?.done || 0;
   const scaffold = tel?.scaffold || 0;
 
   // CHAPTER FOCUS BAR — the focused chapter's title (from the live outline) + the way back.
@@ -1904,9 +1901,9 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
           <h1 class="wp-masthead-title">{DOC_TITLE}</h1>
           <div class="wp-masthead-meta">
             <span class="wp-masthead-tag">{readOnly ? 'SCRIPT · SHARED' : 'SCRIPT · DRAFT'}</span>
-            {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader. */}
-            {!readOnly && <TipsToggle />}
-            {/* WORKSPACES — gated exactly like the other masthead popovers (owner chrome). */}
+            {/* HIERARCHY: WORKSPACES is the one promoted control (filled ink, CSS) — the eye's second
+                stop after the title. Share keeps outline weight; tips + shortcuts are quiet icons. All
+                controls share one baseline + right edge (see .wp-masthead-meta align-items:center). */}
             {!readOnly && (
               <WorkspacesMenu
                 getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
@@ -1914,6 +1911,9 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
               />
             )}
             {!readOnly && <ShareToggle project={EPISODE.id} />}
+            {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader.
+                Demoted to a quiet "?" icon; the popover content is unchanged. */}
+            {!readOnly && <TipsToggle />}
             <ShortcutsOverlay />{/* ⌘/ help card — read-only chrome, works on ?read shares too */}
           </div>
         </div>
@@ -1928,11 +1928,23 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             >
               <span class="wp-outline-glyph">{outlineOpen ? '‹' : '☰'}</span> OUTLINE
             </button>
-            <span class="wp-wordmark">{EPISODE.wordmark}</span>
-            <span class="wp-rack-fig">{EPISODE.figLabel}</span>
+            {/* Maker's stamp — the Newpress mark (the italic "n" roundel from the deck) + wordmark.
+                Quiet, editorial: the red roundel is the one dab of brand colour, the word rides the
+                deck's italic display-serif against the tool's mono chrome. Replaces the old WP·NN
+                wordmark + fig label. */}
+            <span class="wp-npstamp" title="A Newpress script tool">
+              <svg class="wp-npstamp-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="7" fill="#DD2C1E" />
+                <text x="16" y="24" text-anchor="middle" font-family="'PP Editorial New','Times New Roman',Georgia,serif" font-size="24" font-style="italic" fill="#F4F2E6">n</text>
+              </svg>
+              <span class="wp-npstamp-word">Newpress</span>
+            </span>
           </div>
+          {/* Quiet telemetry — word count only. SOT accounting moved into WORKSPACES; BLOCKS was an
+              editor-primitive count, not editorial signal, so it's dropped. DRAFT status lives in the
+              masthead tag above, so it isn't repeated here. */}
           <div class="wp-telemetry">
-            {words.toLocaleString()} WORDS · {blocks} BLOCKS · <span class="wp-tel-sot">{String(done).padStart(2, '0')}/{String(sot).padStart(2, '0')} SOT</span> · DRAFT
+            {words.toLocaleString()} <span class="wp-tel-unit">WORDS</span>
           </div>
         </header>
 
@@ -2065,7 +2077,7 @@ function mountCloudLoadingPlaceholder(el) {
     'background:#e7e1d3;color:#1f1d18;' +
     "font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;\">" +
     '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">' +
-    '<span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;opacity:0.55;">WP·01</span>' +
+    '<span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;opacity:0.55;">Newpress · Script</span>' +
     '<span style="font-size:13px;letter-spacing:0.04em;opacity:0.8;">Loading your script…</span>' +
     '</div></div>';
 }

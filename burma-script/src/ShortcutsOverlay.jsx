@@ -124,10 +124,10 @@ export function ShortcutsOverlay() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label="Keyboard shortcuts"
         title={`Keyboard shortcuts (${mac ? '⌘' : 'Ctrl+'}/)`}
       >
-        <span class="wp-keys-glyph">?</span>
-        <span class="wp-keys-lab">keys</span>
+        <span class="wp-keys-glyph">⌘</span>
       </button>
       {card && host && createPortal(card, host)}
     </span>

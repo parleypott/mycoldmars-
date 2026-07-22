@@ -42,8 +42,8 @@ function openBackups(slug) {
 
 // Human label for a project's kind — legacy episode or a generic new script.
 function kindLabel(row) {
-  if (row.episode === 'burma') return 'WP·01 · BURMA';
-  if (row.episode === 'palau') return 'WP·02 · PALAU';
+  if (row.episode === 'burma') return 'BURMA';
+  if (row.episode === 'palau') return 'PALAU';
   return 'SCRIPT';
 }
 
@@ -154,8 +154,16 @@ function LibraryApp() {
 
         <header class="sl-head">
           <div class="sl-id">
+            {/* Newpress maker's stamp — the italic "n" roundel + wordmark, same mark as the editor. */}
+            <span class="sl-npstamp">
+              <svg class="sl-npstamp-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="7" fill="#DD2C1E" />
+                <text x="16" y="24" text-anchor="middle" font-family="'PP Editorial New','Times New Roman',Georgia,serif" font-size="24" font-style="italic" fill="#F4F2E6">n</text>
+              </svg>
+              <span class="sl-npstamp-word">Newpress</span>
+            </span>
             <span class="sl-wordmark">SCRIPTS</span>
-            <span class="sl-fig">fig.05 — SCRIPT LIBRARY</span>
+            <span class="sl-fig">SCRIPT LIBRARY</span>
           </div>
           <div class="sl-sub">The Human Element · local script projects</div>
           <div class="sl-account-slot" id="sl-account-slot"></div>

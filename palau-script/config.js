@@ -6,7 +6,7 @@ import scriptData from './palau-blocks.json';
 export const PALAU = {
   id: 'palau',
   title: scriptData.title || 'Palau — The Human Element',
-  favicon: '../burma-script/favicon.svg',
+  favicon: '/newpress-favicon.svg',
   wordmark: 'WP·02',
   figLabel: 'fig.04 — REEF RACK',
   recoverPrefix: 'palau-recovered',

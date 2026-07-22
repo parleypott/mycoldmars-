@@ -19,7 +19,7 @@ import { generateSlug } from './slug.js';
 // Favicon path that resolves correctly at runtime from /scripts-library/ (the doc
 // URL the engine sets the <link rel=icon href> against). Legacy configs carry
 // './favicon.svg' (Burma) which would 404 here — override to the shared asset.
-const SHARED_FAVICON = '../burma-script/favicon.svg';
+const SHARED_FAVICON = '/newpress-favicon.svg';
 
 const LEGACY = {
   burma: BURMA,

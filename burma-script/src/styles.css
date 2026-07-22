@@ -705,25 +705,39 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   font-size: clamp(34px, 5.2vw, 52px); font-weight: 800; line-height: 1.02;
   letter-spacing: -0.01em; color: var(--ink);
 }
-.wp-masthead-meta { display: flex; align-items: center; gap: 12px; flex: none; padding-bottom: 4px; }
+/* Header control row: title on the left, a single tidy cluster on the right. Every control shares
+   ONE height (--wp-ctl-h) and the cluster shares one right edge, so the row reads aligned, not
+   scattered. The masthead-tag sits quiet-left of the actions; WORKSPACES is the one filled control. */
+.wp-masthead-meta { display: flex; align-items: center; gap: 8px; flex: none; --wp-ctl-h: 30px; }
+/* Take the CLOSED popover bodies out of flow so each control hugs its own toggle — otherwise the
+   collapsed (max-height:0) tips/share/workspaces panels still contribute their ~440px width and blow
+   the row apart. The open state re-declares its own absolute placement. (Mirrors the .wp-stickyhead
+   rule.) */
+.wp-masthead-meta .wp-tips-body,
+.wp-masthead-meta .wp-share-body,
+.wp-masthead-meta .wp-wsmenu-body { position: absolute; }
+/* WORKSPACES sits at the LEFT of the control cluster, so its panel opens rightward (over the editor)
+   instead of leftward into the reading-controls rail. Share/tips/keys stay right-anchored. */
+.wp-masthead-meta .wp-wsmenu.is-open .wp-wsmenu-body { left: 0; right: auto; }
 .wp-masthead-tag {
   font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .18em; text-transform: uppercase; color: var(--label-2);
+  margin-right: 4px;
 }
 
-/* ---- TIPS & TRICKS (feature C) — tiny collapsed toggle that expands a plain how-to ---- */
+/* ---- TIPS & TRICKS (feature C) — demoted to a quiet round "?" icon; popover content unchanged ---- */
 .wp-tips { position: relative; }
 .wp-tips-toggle {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
-  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--wp-ctl-h, 30px); height: var(--wp-ctl-h, 30px); padding: 0;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 50%; cursor: pointer;
+  color: var(--label); box-sizing: border-box;
   transition: background .14s var(--ease), color .14s var(--ease);
 }
 .wp-tips-toggle:hover { background: var(--panel); color: var(--ink); }
 .wp-tips.is-open .wp-tips-toggle { background: var(--ink); color: var(--frame); }
 .wp-tips-glyph {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 50%;
-  font-size: var(--chrome-size); font-weight: 700; line-height: 1;
+  font-family: var(--mono); font-size: 13px; font-weight: 700; line-height: 1;
 }
 .wp-tips-body {
   overflow: hidden; max-height: 0; opacity: 0;
@@ -731,7 +745,7 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 }
 .wp-tips.is-open .wp-tips-body {
   max-height: 320px; opacity: 1;
-  position: absolute; left: 0; top: calc(100% + 7px); z-index: 30;
+  position: absolute; right: 0; top: calc(100% + 7px); z-index: 30;
   width: min(440px, 70vw);
   background: var(--frame); border: 1.5px solid var(--ink); border-radius: 11px; padding: 12px 14px;
 }
@@ -749,7 +763,8 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-share { position: relative; }
 .wp-share-toggle {
   display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  height: var(--wp-ctl-h, 30px); box-sizing: border-box;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 0 11px; cursor: pointer;
   font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
   transition: background .14s var(--ease), color .14s var(--ease);
 }
@@ -807,15 +822,19 @@ html.read-only #library-pill { display: none !important; }
    chapter-frame rules to win ties).
    ============================================================ */
 .wp-wsmenu { position: relative; }
+/* WORKSPACES is the PROMOTED control — the one filled button in the header, so the eye lands on it
+   right after the title (squint test: title first, workspaces second). Filled with --ink (inverts to
+   a light fill on the dark schemes, so it stays the emphasized button in all six schemes). */
 .wp-wsmenu-toggle {
   display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
-  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
-  transition: background .14s var(--ease), color .14s var(--ease);
+  height: var(--wp-ctl-h, 30px); box-sizing: border-box;
+  background: var(--ink); border: 1.5px solid var(--ink); border-radius: 7px; padding: 0 13px; cursor: pointer;
+  font-family: var(--mono); font-size: var(--chrome-size); font-weight: 700; letter-spacing: .12em; text-transform: lowercase; color: var(--frame);
+  transition: filter .14s var(--ease), background .14s var(--ease), color .14s var(--ease);
 }
-.wp-wsmenu-toggle:hover { background: var(--panel); color: var(--ink); }
-.wp-wsmenu.is-open .wp-wsmenu-toggle { background: var(--ink); color: var(--frame); }
-.wp-wsmenu-glyph { font-size: 12px; line-height: 1; }
+.wp-wsmenu-toggle:hover { filter: brightness(1.18); }
+.wp-wsmenu.is-open .wp-wsmenu-toggle { background: var(--ink); color: var(--frame); filter: brightness(1.18); }
+.wp-wsmenu-glyph { font-size: 12px; line-height: 1; opacity: .9; }
 .wp-wsmenu-body {
   overflow: hidden; max-height: 0; opacity: 0;
   transition: max-height .2s var(--ease), opacity .2s var(--ease);
@@ -1050,10 +1069,16 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
   display: flex; justify-content: space-between; align-items: center;
   padding: 0 2px 14px;
 }
-.wp-rack-id { display: flex; align-items: baseline; gap: 12px; }
-.wp-wordmark { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: .01em; }
-.wp-wordmark b { color: var(--orange); }
-.wp-rack-fig { font-size: var(--chrome-size); color: var(--label-2); letter-spacing: .14em; text-transform: uppercase; }
+.wp-rack-id { display: flex; align-items: center; gap: 12px; }
+/* NEWPRESS maker's stamp — the italic "n" roundel (the one dab of brand red) + the wordmark set in
+   the deck's italic display-serif. Quiet, editorial; reads as the maker's mark, not a billboard.
+   The word rides var(--ink) so it stays legible across all six schemes; the roundel is always red. */
+.wp-npstamp { display: inline-flex; align-items: center; gap: 8px; }
+.wp-npstamp-mark { width: 18px; height: 18px; flex: none; display: block; }
+.wp-npstamp-word {
+  font-family: 'PP Editorial New', 'Times New Roman', Georgia, serif;
+  font-style: italic; font-size: 17px; line-height: 1; letter-spacing: .005em; color: var(--ink);
+}
 
 .wp-outline-btn {
   display: inline-flex; align-items: center; gap: 6px; align-self: center;
@@ -1065,8 +1090,11 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
 .wp-outline-btn.is-open { background: var(--ink); color: var(--frame); }
 .wp-outline-glyph { font-size: 10px; line-height: 1; }
 
-.wp-telemetry { font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label); text-transform: uppercase; }
-.wp-tel-sot { color: var(--burgundy); }
+.wp-telemetry {
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .16em; color: var(--ink);
+  text-transform: uppercase; font-variant-numeric: tabular-nums; font-weight: 700;
+}
+.wp-tel-unit { color: var(--label); font-weight: 400; letter-spacing: .2em; }
 
 /* ============================================================
    THE RACK — the live editor surface
@@ -3052,7 +3080,8 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    critical failure signal should never be covered. ════════════════════════════════════════════ */
 .wp-stickyhead {
   position: fixed; top: 0; left: 0; right: 0; z-index: 460;
-  display: none; align-items: center; gap: 12px;
+  display: none; align-items: center; gap: 10px;
+  --wp-ctl-h: 28px;
   min-height: 40px; padding: 6px 16px;
   /* Clear the fixed library/standalone door pill (top-left, x≈14–113, z-8500) that stays put on
      scroll: it floats above the strip and remains the way back to the library, so we inset the
@@ -3219,17 +3248,17 @@ body:has(.wp-save-banner) .wp-page[data-chfocus] .wp-mode { top: 96px; }
 /* the pill — sits in the masthead meta row next to the tips toggle; mirrors its grammar */
 .wp-keys { display: inline-flex; }
 .wp-keys-pill {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
-  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--wp-ctl-h, 30px); height: var(--wp-ctl-h, 30px); padding: 0;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 50%; cursor: pointer;
+  color: var(--label); box-sizing: border-box;
   transition: background .14s var(--ease), color .14s var(--ease);
 }
 .wp-keys-pill:hover { background: var(--panel); color: var(--ink); }
 .wp-keys-pill[aria-expanded="true"] { background: var(--ink); color: var(--frame); }
 .wp-keys-glyph {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 50%;
-  font-size: var(--chrome-size); font-weight: 700; line-height: 1;
+  font-size: 13px; font-weight: 700; line-height: 1;
 }
 
 /* the veil — a flat ink scrim; z above the banners (1000) and the library backbar (9999) */
