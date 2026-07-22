@@ -19,7 +19,7 @@ import { Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { BURMA_NODES, clampImageWidth, isValidCrop, IMAGE_MIN_WIDTH } from './blocks.js';
+import { BURMA_NODES, clampImageWidth, isValidCrop, IMAGE_MIN_WIDTH, croppedDisplayWidth } from './blocks.js';
 import { BURMA_TABLE_NODES } from './table.js';
 import { BURMA_MARKS } from './marks.js';
 import { DirectionMark } from './direction-chip.js';
@@ -121,6 +121,31 @@ ok('document-builder imageCropShapeOk == blocks.isValidCrop on a boundary-heavy 
   assert.equal(isValidCrop({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 }), true, 'a real rect is valid');
   assert.equal(isValidCrop({ x: 0, y: 0, w: 1, h: 1 }), false, 'full-frame reads as no crop');
   assert.equal(imageCropShapeOk({ x: 0.5, y: 0, w: 0.6, h: 0.5 }), false, 'out-of-frame dropped');
+});
+
+// ── 2b: croppedDisplayWidth — the FRAME-GEOMETRY fix (Johnny 2026-07-22, "resize/crop chrome") ──
+// A cropped natural (no `width`) image lays its media out position:absolute; the fit-content box then
+// has NO in-flow content and collapses to 0 — the selection frame + all 8 handles land on a
+// zero-width sliver (a tall thin frame, image invisible). The nodeview now PINS the box to
+// croppedDisplayWidth so the chrome hugs the visible crop. The load-bearing invariant this locks:
+// for ANY valid crop the width is POSITIVE (never 0) — the exact collapse the bug was.
+ok('croppedDisplayWidth returns the visible window width, never collapses to 0', () => {
+  // natural 400px, column cap 640, crop 50% wide → 400 * 0.5 = 200
+  assert.equal(croppedDisplayWidth(400, 640, { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }), 200);
+  // natural WIDER than the 640 cap → capped first, then * w: min(800,640)=640, *0.5 = 320
+  assert.equal(croppedDisplayWidth(800, 640, { x: 0, y: 0, w: 0.5, h: 0.5 }), 320);
+  // natural not yet known (0) → falls back to the cap so it still pins a positive width (no collapse)
+  assert.equal(croppedDisplayWidth(0, 640, { x: 0, y: 0, w: 0.5, h: 0.5 }), 320);
+  // a narrow column cap wins over a big natural
+  assert.equal(croppedDisplayWidth(1000, 300, { x: 0, y: 0, w: 0.4, h: 0.5 }), 120);
+  // invalid / absent crop → null (uncropped path: box stays fit-content, hugs the natural media)
+  assert.equal(croppedDisplayWidth(400, 640, null), null);
+  assert.equal(croppedDisplayWidth(400, 640, { x: 0, y: 0, w: 1, h: 1 }), null, 'full-frame = no crop');
+  // POSITIVE for every valid crop width across the 0..1 range — the anti-collapse guarantee
+  for (const w of [0.05, 0.2, 0.5, 0.8, 0.99]) {
+    const px = croppedDisplayWidth(500, 640, { x: 0, y: 0, w, h: 0.5 });
+    assert.ok(px > 0, `crop w=${w} must pin a positive box width, got ${px}`);
+  }
 });
 
 const IMG = {

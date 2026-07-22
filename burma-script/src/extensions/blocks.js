@@ -1252,6 +1252,20 @@ export function clampImageWidth(px, maxPx) {
   return Math.max(IMAGE_MIN_WIDTH, Math.min(n, max));
 }
 
+// VISIBLE cropped-box width. A cropped image renders its media as position:absolute (see
+// applyCropStyles), so on a NATURAL (no explicit `width`) box the fit-content wrapper has no
+// in-flow content and collapses to 0 — dragging the selection frame + all 8 handles onto a
+// zero-width sliver (the "resize/crop chrome on the full-width wrapper" report). Pinning this
+// definite width on the box keeps the frame and handles hugging the visible crop exactly. The
+// window shows `naturalDisplayW * w` at natural display scale, where naturalDisplayW is the
+// uncropped display width (natural width, capped by the column and the 640px CSS max-width).
+export function croppedDisplayWidth(naturalW, capW, crop) {
+  if (!isValidCrop(crop)) return null;
+  const cap = Number.isFinite(capW) && capW > 0 ? capW : 640;
+  const nat = Number.isFinite(naturalW) && naturalW > 0 ? Math.min(naturalW, cap) : cap;
+  return nat * crop.w;
+}
+
 // A crop is a NORMALIZED rect {x,y,w,h} in 0..1 of the NATURAL image — resolution-independent,
 // applied as pure CSS metadata on the node (NO server-side pixel processing). Valid = numbers,
 // positive w/h, inside the frame, and NOT a full-frame no-op (a full-frame crop reads as "no crop"
@@ -1659,7 +1673,20 @@ export const ImageBlock = Node.create({
         }
         const ratio = naturalRatio(media);           // wait for load if unknown
         if (!ratio) return;
-        const W = cropWrap.getBoundingClientRect().width || boxEl.getBoundingClientRect().width;
+        // W is the DEFINITE visible-crop width. A `width`-sized box already carries it; a natural
+        // box would collapse to 0 once the media below goes position:absolute, so we PIN the box to
+        // the visible-crop width — the frame + handles (inset:0 on the box) then hug the crop, not a
+        // zero-width sliver. Recomputed on every call so it tracks a responsive column resize.
+        let W;
+        if (Number.isFinite(a.width)) {
+          W = a.width;
+        } else {
+          const host = boxEl.parentElement;
+          const cap = Math.min(640, (host ? host.getBoundingClientRect().width : 640) || 640);
+          const natW = media.tagName === 'VIDEO' ? media.videoWidth : media.naturalWidth;
+          W = croppedDisplayWidth(natW, cap, c);
+          if (W) boxEl.style.width = W + 'px';
+        }
         if (!W) return;
         const fullW = W / c.w;
         const fullH = fullW / ratio;
@@ -2094,6 +2121,29 @@ export const ImageBlock = Node.create({
       };
       cropApply.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); commitCrop(); });
       cropCancel.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); exitCropMode(); });
+
+      // FOCUS-RACE FIX (Johnny 2026-07-22: "click an image, the orange box flashes for a
+      // microsecond then disappears; click AGAIN and it holds"). Clicking a media atom while the
+      // editor is BLURRED (he scrolled / clicked another window, then clicked the image) makes the
+      // browser focus the editable AND place its own DOM selection — that focus-driven placement
+      // races ProseMirror's mouseup NodeSelection (selectClickedLeaf) and clobbers it, so the frame
+      // paints then vanishes. On the second click the view is already focused, no focus transition,
+      // so it holds. FIX: on mousedown we synchronously take authoritative control — focus the view
+      // and set the NodeSelection ourselves, BEFORE the browser's placement resolves — so there is
+      // no stray caret to lose to. NOT preventDefault: the node stays draggable (draggable:true) and
+      // native drag-reorder is untouched. Edit-only, media-only: a text-caret click and the
+      // read-mode click-to-zoom below are both unaffected.
+      media.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || !canEdit()) return;
+        try {
+          const pos = getPos();
+          if (typeof pos !== 'number') return;
+          const live = editor.state.doc.nodeAt(pos);
+          if (!live || live.type.name !== 'imageBlock') return;
+          if (!editor.view.hasFocus()) editor.view.focus();
+          editor.view.dispatch(editor.state.tr.setSelection(PMNodeSelection.create(editor.state.doc, pos)));
+        } catch {}
+      });
 
       // CLICK → fullscreen ONLY in read/non-edit mode (readers keep click-to-zoom). In edit mode a
       // click just selects the atom → the resize box appears. DOUBLE-CLICK → crop (edit only).
