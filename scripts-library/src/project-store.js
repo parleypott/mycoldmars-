@@ -31,8 +31,24 @@ const API = '/api/script-projects';
 // so `#library` can't be hijacked by a doc named "Library"). Kept in sync with api/script-projects.js.
 export const RESERVED_SLUGS = new Set(['library', 'trash', 'new', 'home']);
 
+// The slug SHAPE the server enforces (SLUG_RE in api/script-projects.js). Cross-checked against the
+// server copy by reserved-slug-parity.test.mjs — kept here so the client can validate a slug BEFORE
+// pushing it to the cloud (the drift-heal push) instead of firing a doomed PATCH.
+export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// Is this slug safe to PATCH up to the cloud? Right shape, in-bounds length, not a reserved route.
+function isPushableSlug(slug) {
+  return typeof slug === 'string' && slug.length > 0 && slug.length <= 60
+    && SLUG_RE.test(slug) && !RESERVED_SLUGS.has(slug);
+}
+
 // Fired after a background cloud sync merges new rows into the cache, so the library view can refresh.
 export const PROJECTS_CHANGED_EVENT = 'sl-projects-changed';
+
+// Fired when a rename's regenerated slug collided with another project's slug in the cloud (409). The
+// rename keeps the OLD slug on both sides (nothing drifts); a live view can show a calm note. detail:
+// { id, slug } — the local id and the slug that was refused.
+export const SLUG_CONFLICT_EVENT = 'sl-slug-conflict';
 
 // ── array-safe index I/O ──────────────────────────────────────────────────────
 
@@ -76,6 +92,26 @@ function emitChanged() {
     if (typeof window !== 'undefined' && window.dispatchEvent) {
       window.dispatchEvent(new CustomEvent(PROJECTS_CHANGED_EVENT));
     }
+  } catch {}
+}
+
+// Which projects have already had ONE drift-heal attempt this browser session. sessionStorage (not
+// localStorage) so it survives the reload an "open" triggers but resets on a genuinely new session —
+// exactly "one heal attempt per project per session". Array-safe like the other stores.
+const SLUG_HEAL_KEY = 'scripts_slug_heal_v1';
+function readHealAttempted() {
+  try {
+    const raw = sessionStorage.getItem(SLUG_HEAL_KEY);
+    const v = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(v) ? v : []);
+  } catch { return new Set(); }
+}
+function markHealAttempted(cloudId) {
+  if (!cloudId) return;
+  try {
+    const s = readHealAttempted();
+    s.add(cloudId);
+    sessionStorage.setItem(SLUG_HEAL_KEY, JSON.stringify([...s]));
   } catch {}
 }
 
@@ -179,6 +215,27 @@ async function apiPatch(cloudId, fields) {
     const body = await res.json().catch(() => null);
     return body && body.project ? body.project : null;
   } catch { return null; }
+}
+
+// PATCH that keeps the HTTP status — the slug paths (rename, drift-heal) need to tell a 409 slug
+// collision (adopt the cloud slug / keep the old one) apart from a plain offline/5xx failure (retry
+// later). apiPatch above stays the thin null-or-row helper the trash/restore callers use. NEVER throws.
+async function apiPatchRaw(cloudId, fields) {
+  try {
+    const res = await fetch(`${API}?id=${encodeURIComponent(cloudId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+    let body = null;
+    try { body = await res.json(); } catch {}
+    return {
+      ok: !!(res && res.ok),
+      status: res ? res.status : 0,
+      project: body && body.project ? body.project : null,
+      error: body && body.error ? body.error : null,
+    };
+  } catch { return { ok: false, status: 0, project: null, error: null }; }
 }
 
 // SOFT-delete a cloud project row. The server's DELETE verb no longer destroys anything — it stamps
@@ -324,23 +381,71 @@ export async function createProject(title) {
   return row;
 }
 
-/** Rename a project (updates title + slug, keeps id). Optimistic cache write, then cloud PATCH. */
+/**
+ * Rename a project (updates title + slug, keeps id). Optimistic cache write, then cloud PATCH of BOTH
+ * the title AND the regenerated slug.
+ *
+ * The slug sync is the fix for SLUG DRIFT: guest ?slug= links resolve via the CLOUD slug, and every
+ * teammate's client refreshes its slug from the cloud list — so a rename that pushed only the title
+ * (as this did before) left the cloud slug stale. The renamer's own browser looked fine (its local
+ * index + URL carried the new slug), but shared links broke and teammates held a different slug than
+ * the owner shared. Now the new slug goes up with the title.
+ *
+ * The PATCH is fired before the caller's reload (masthead path) so the request reaches the server even
+ * though its .then() won't run post-navigation — the happy path lands both fields server-side. On the
+ * rare cloud 409 (the slug is taken by a teammate project not present in THIS index, so ensureUniqueSlug
+ * couldn't dedupe against it): revert the local slug to the previous one so BOTH sides keep the old slug
+ * (nothing drifts), still land the title so the rename isn't lost, and fire SLUG_CONFLICT_EVENT for any
+ * live view. Any other failure (offline / 5xx) leaves the optimistic title+slug in the cache; the next
+ * signed-in open reconciles the slug against the cloud via healSlugDrift. Never wedges.
+ */
 export function renameProject(id, title) {
   const rows = readIndex();
   const row = rows.find((r) => r && r.id === id);
   if (!row) return null;
   const clean = String(title || '').trim();
+  const prevSlug = row.slug;
   if (clean) {
     row.title = clean;
     row.slug = ensureUniqueSlug(generateSlug(clean), id);
   }
   row.updatedAt = new Date().toISOString();
   writeIndex(rows);
-  // Sync the title to the cloud (slug stays local-authoritative — the doc path/merge key is cloudId).
   if (clean && row.cloudId) {
-    apiPatch(row.cloudId, { title: clean }).then((c) => { if (c) reconcileCloudRow(id, c); });
+    const cloudId = row.cloudId;
+    const newSlug = row.slug;
+    apiPatchRaw(cloudId, { title: clean, slug: newSlug }).then((res) => {
+      if (res.ok && res.project) { reconcileCloudRow(id, res.project); return; }
+      if (res.status === 409) {
+        // Cloud slug collision — keep the OLD slug on both sides, still land the title, surface calmly.
+        revertSlugKeepTitle(id, prevSlug);
+        apiPatchRaw(cloudId, { title: clean }).then((r2) => { if (r2.ok && r2.project) reconcileCloudRow(id, r2.project); });
+        emitSlugConflict(id, newSlug);
+      }
+    });
   }
   return row;
+}
+
+// Undo an optimistic slug change (keeping the new title) after a cloud 409 — the cloud kept the OLD
+// slug, so the cache must too or guest links / teammate refreshes drift. NEVER throws.
+function revertSlugKeepTitle(localId, prevSlug) {
+  try {
+    const rows = readIndex();
+    const row = rows.find((r) => r && r.id === localId);
+    if (!row) return;
+    row.slug = prevSlug;
+    writeIndex(rows);
+    emitChanged();
+  } catch {}
+}
+
+function emitSlugConflict(localId, attemptedSlug) {
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent(SLUG_CONFLICT_EVENT, { detail: { id: localId, slug: attemptedSlug } }));
+    }
+  } catch {}
 }
 
 /** Bump a project's updatedAt (called when its doc is opened/edited). Local-only; cheap. */
@@ -391,6 +496,66 @@ function reconcileCloudRow(localId, cloudRow) {
     row.trashedAt = cloudRow.trashed_at ?? row.trashedAt;
     if ('deleted_at' in cloudRow) row.deletedAt = cloudRow.deleted_at ?? null;
     if (cloudRow.updated_at) row.updatedAt = cloudRow.updated_at;
+    writeIndex(rows);
+    emitChanged();
+  } catch {}
+}
+
+/**
+ * DRIFT HEAL — reconcile a project's cloud slug with the local one on a signed-in OPEN. Renames done
+ * BEFORE the slug-sync fix pushed only the title, leaving the cloud SLUG stale — so guest ?slug= links
+ * (which resolve via the cloud slug) broke and teammates refreshed to a different slug than the owner
+ * shared. On open we compare the LOCAL slug (which is the slug in THIS user's URL — they navigated here
+ * by it) against the cloud slug for the same project id:
+ *   • in sync                         → nothing to do
+ *   • local ≠ cloud, local pushable   → push the LOCAL slug up (the owner's URL is the shared one), so
+ *                                       the cloud — the guest/teammate source of truth — matches it
+ *   • push rejected (409 collision / not pushable) → adopt the CLOUD slug locally instead, never wedge
+ *
+ * At most ONE attempt per project per browser session (sessionStorage). Quiet console.info logging, no
+ * loop. Resolves { action: 'insync'|'pushed'|'adopted'|'skip', slug? } so the caller (boot.openProject)
+ * can realign the URL + route state when we adopt the cloud slug. Fire-and-forget; NEVER throws.
+ *
+ * Only meaningful for a signed-in session with a real cloud row: apiList is login-gated (the gate.js
+ * interceptor carries the JWT), a guest never calls this, and a local-only (no cloudId) project has no
+ * cloud slug to drift against.
+ */
+export async function healSlugDrift(row) {
+  try {
+    if (!row || !row.cloudId || !row.slug) return { action: 'skip' };
+    if (readHealAttempted().has(row.cloudId)) return { action: 'skip' };
+
+    const list = await apiList(false);
+    if (!Array.isArray(list)) return { action: 'skip' };            // offline — don't burn the attempt
+    const cloudRow = list.find((c) => c && c.id === row.cloudId);
+    if (!cloudRow || !cloudRow.slug) return { action: 'skip' };     // not an active cloud row — nothing to heal
+
+    markHealAttempted(row.cloudId);                                 // a real check ran; don't repeat this session
+    if (cloudRow.slug === row.slug) return { action: 'insync' };
+
+    const localSlug = row.slug;
+    if (isPushableSlug(localSlug)) {
+      const res = await apiPatchRaw(row.cloudId, { slug: localSlug });
+      if (res.ok && res.project && res.project.slug === localSlug) {
+        reconcileCloudRow(row.id, res.project);
+        console.info('[slug-heal] pushed local slug to cloud', row.cloudId, localSlug);
+        return { action: 'pushed', slug: localSlug };
+      }
+      console.info('[slug-heal] local push rejected, adopting cloud slug', row.cloudId, res.status, cloudRow.slug);
+    }
+    adoptCloudSlug(row.id, cloudRow.slug);
+    return { action: 'adopted', slug: cloudRow.slug };
+  } catch { return { action: 'skip' }; }
+}
+
+// Take the cloud slug as local truth (the heal fallback — cloud is truth for guests). Updates the
+// cache row's slug and notifies; the caller realigns the URL. NEVER throws.
+function adoptCloudSlug(localId, cloudSlug) {
+  try {
+    const rows = readIndex();
+    const row = rows.find((r) => r && r.id === localId);
+    if (!row || !cloudSlug) return;
+    row.slug = cloudSlug;
     writeIndex(rows);
     emitChanged();
   } catch {}

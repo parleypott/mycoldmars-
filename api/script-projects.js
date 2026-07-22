@@ -33,9 +33,13 @@ import { withSentry, captureServerError } from './_lib/sentry.js';
  *        slug-existence oracle. Minimal fields only — never config, never created_by/deleted_by.
  *   POST /api/script-projects  { slug, title, episode?, config? }   (login-gated)
  *        -> { project }  the created row
- *   PATCH /api/script-projects?id=<uuid>  { title? , trashed_at? , deleted_at:null? , config? }   (login-gated)
+ *   PATCH /api/script-projects?id=<uuid>  { title? , slug? , trashed_at? , deleted_at:null? , config? }   (login-gated)
  *        -> { project }  the updated row  (rename / trash / restore / config-update). deleted_at is
  *        accepted ONLY as null — the restore that clears a soft delete. Setting it goes through DELETE.
+ *        slug is accepted so a RENAME syncs the new slug to the cloud (the guest ?slug= door and every
+ *        teammate's client refresh both read the CLOUD slug — a rename that only pushed the title left
+ *        the cloud slug stale and broke shared links). Same shape/reserved guards as create; a collision
+ *        with another row's slug returns 409 SLUG_TAKEN (the client keeps its old slug and surfaces it).
  *   DELETE /api/script-projects?id=<uuid>   (login-gated)   SOFT DELETE — recoverable, for EVERYONE
  *        -> { ok:true, id, deleted_at }   stamps deleted_at/deleted_by (and trashed_at if not already
  *        set) via PATCH. NOBODY can hard-delete through this API anymore: the old REST DELETE (which
@@ -249,7 +253,19 @@ async function patchProject(id, fields) {
     headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
     body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() }),
   });
-  if (!upd.ok) return err(502, 'DB_WRITE', await upd.text());
+  // A slug PATCH can collide with another row's slug (the DB's unique index). Surface it as 409
+  // SLUG_TAKEN exactly like create does, so the client keeps its old slug and reports the conflict
+  // calmly instead of silently dropping the rename. (Only slug can trip this; title/config can't.)
+  if (upd.status === 409) {
+    return err(409, 'SLUG_TAKEN', `slug "${fields.slug ?? ''}" already exists`);
+  }
+  if (!upd.ok) {
+    const text = await upd.text();
+    if (/duplicate key|unique constraint|23505/i.test(text)) {
+      return err(409, 'SLUG_TAKEN', `slug "${fields.slug ?? ''}" already exists`);
+    }
+    return err(502, 'DB_WRITE', text);
+  }
   const rows = await upd.json().catch(() => []);
   if (!rows.length) return err(404, 'NO_PROJECT', 'unknown project id');
   return ok({ project: projectView(rows[0]) });
@@ -368,6 +384,17 @@ export function buildPatch(body) {
     if (title.length > 300) return { ok: false, code: 'BAD_TITLE', message: 'title too long (max 300)' };
     fields.title = title;
   }
+  if ('slug' in body) {
+    // RENAME syncs the regenerated slug up. Same shape + reserved guards as create — the slug the
+    // client sends is a generateSlug() output run through ensureUniqueSlug, so it always fits SLUG_RE.
+    // Uniqueness is enforced by the DB's slug unique index; patchProject maps that violation to 409.
+    const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
+    if (!slug) return { ok: false, code: 'BAD_SLUG', message: 'slug must be a non-empty string' };
+    if (slug.length > 60) return { ok: false, code: 'BAD_SLUG', message: 'slug too long (max 60)' };
+    if (!SLUG_RE.test(slug)) return { ok: false, code: 'BAD_SLUG', message: 'slug must be lowercase alnum + hyphens' };
+    if (RESERVED_SLUGS.has(slug)) return { ok: false, code: 'RESERVED_SLUG', message: `"${slug}" is a reserved route` };
+    fields.slug = slug;
+  }
   if ('trashed_at' in body) {
     const t = body.trashed_at;
     if (t === null) fields.trashed_at = null;                       // restore
@@ -397,7 +424,7 @@ export function buildPatch(body) {
     fields.is_public = body.is_public;
   }
   if (Object.keys(fields).length === 0) {
-    return { ok: false, code: 'NO_FIELDS', message: 'patch must set title, trashed_at, deleted_at (null), config, or is_public' };
+    return { ok: false, code: 'NO_FIELDS', message: 'patch must set title, slug, trashed_at, deleted_at (null), config, or is_public' };
   }
   return { ok: true, fields };
 }

@@ -17,7 +17,7 @@
 // which is fine and keeps state trivially correct. A "← Library" affordance is
 // injected into the page in project mode (the engine files stay UNCHANGED).
 
-import { seedIfAbsent, findBySlug, touchProject, renameProject } from './project-store.js';
+import { seedIfAbsent, findBySlug, touchProject, renameProject, healSlugDrift } from './project-store.js';
 import { configForProject } from './config-for-project.js';
 import { ensureUnlocked, detectSession, requestSignIn, hideGate } from './gate.js';
 import { resolvePublicProject, rowForGuest, mountPrivateScriptPage, injectGuestSignInPill } from './guest.js';
@@ -202,6 +202,18 @@ async function openProject(row) {
     // resolves either. A local-only project (no cloud row) resolves to an empty list and renders nothing.
     import('./presence.js')
       .then((m) => m.startPresence(row.cloudId || row.slug))
+      .catch(() => {});
+    // DRIFT HEAL (Wave 2 slug-sync): reconcile this project's cloud slug with the local one. Background,
+    // once per session. Renames done before slug-sync left the cloud slug stale — this pushes the local
+    // slug up (the owner's URL is the shared one). If it instead ADOPTS the cloud slug (collision /
+    // teammate rename), realign the URL + route state so a refresh resolves and future opens use it.
+    healSlugDrift(row)
+      .then((res) => {
+        if (res && res.action === 'adopted' && res.slug) {
+          try { history.replaceState(null, '', '#' + encodeURIComponent(res.slug)); } catch {}
+          mountedMode = res.slug;
+        }
+      })
       .catch(() => {});
   } finally {
     // The engine mounts synchronously after import; give it a beat to paint,
