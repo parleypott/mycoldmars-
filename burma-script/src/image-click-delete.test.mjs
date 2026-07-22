@@ -116,4 +116,40 @@ ok('deleting a gif→video imageBlock (src .mp4) behaves identically to a still'
   newState.doc.check();
 });
 
+// ---- 3: FOCUS-RACE FIX — a blurred first click must yield a NodeSelection that HOLDS ------------
+// Johnny 2026-07-22: "click an image, the orange box flashes for a microsecond then disappears;
+// click AGAIN and it holds." Clicking a media atom while the editor is BLURRED lets the browser's
+// focus-driven DOM-selection placement race ProseMirror's mouseup NodeSelection and clobber it. The
+// fix takes authoritative control on mousedown: focus the view + set the NodeSelection ourselves,
+// BEFORE the browser's placement resolves. Real hit-testing needs a browser (verified live), so here
+// we lock the two invariants a headless suite CAN prove.
+const blocksSrc = readFileSync(new URL('./extensions/blocks.js', import.meta.url), 'utf8');
+ok('the imageBlock nodeview installs a media mousedown handler that sets a NodeSelection (edit-only)', () => {
+  // The handler block: media.addEventListener('mousedown', …) that guards canEdit() and dispatches a
+  // PMNodeSelection. If a refactor drops it, the blurred-first-click race re-opens silently.
+  const m = blocksSrc.match(/media\.addEventListener\(\s*'mousedown'[\s\S]{0,600}?\}\);/);
+  assert.ok(m, "media has a 'mousedown' handler in the nodeview");
+  assert.match(m[0], /canEdit\(\)/, 'the handler is edit-only (read mode keeps click-to-zoom)');
+  assert.match(m[0], /PMNodeSelection\.create/, 'the handler sets a NodeSelection on the clicked node');
+  assert.match(m[0], /hasFocus\(\)[\s\S]*focus\(\)/, 'it focuses the view when blurred, before selecting');
+  assert.ok(!/preventDefault\(\)/.test(m[0]), 'it must NOT preventDefault — the node stays draggable');
+});
+
+ok('a NodeSelection on an image HOLDS through a benign remote-like transaction (no degrade)', () => {
+  // The "holds across ticks" property at the mapping layer: a NodeSelection on the image, carried
+  // through an unrelated transaction (a remote teammate edit elsewhere in the doc), must remain a
+  // NodeSelection on the SAME image — never silently degrade to a text caret.
+  const doc = N.doc.create(null, [row(image('hold', '/x.png')), row(para('tail text'))]);
+  let state = stateWith(doc);
+  const pos = posOfImage(state.doc, 'hold');
+  state = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, pos)));
+  assert.ok(state.selection instanceof NodeSelection, 'starts as a NodeSelection');
+  // simulate an edit far from the image (append text to the tail paragraph)
+  const tailEnd = state.doc.content.size - 1;
+  const after = state.apply(state.tr.insertText(' more', tailEnd));
+  assert.ok(after.selection instanceof NodeSelection, 'still a NodeSelection after an unrelated edit');
+  assert.equal(after.selection.node.type.name, 'imageBlock', 'still selecting the SAME image');
+  assert.equal(posOfImage(after.doc, 'hold'), after.selection.from, 'anchored on the image, not drifted');
+});
+
 console.log(`image-click-delete: ${pass} passed, 0 failed`);
