@@ -13,12 +13,19 @@ export const DIRECTION_CHIP_KINDS = ['archive', 'oncam', 'sot', 'factcheck', 'an
 // chip to ON-CAMERA SPEECH (bold-italic text, no box), so only archive keeps the ☐/☑ widget.
 export const CHECKBOX_MARK_KINDS = ['archive'];
 
-// RUN-LABEL kinds — marks whose runs open with a small non-editable identity tag, the same
-// furniture the VO cartridge cap ("VO") and SOT cap ("SOT") give their blocks. oncam lost its
-// box in the 2026-07-09 re-scope and became bare bold-italic ink, which left it unlabeled at
-// a glance — Johnny 2026-07-21: "/oncam should create a little ONCAM tag like SOT and VO."
-// Decoration-only (never saved), one tag per contiguous run.
+// RUN-LABEL kinds — marks whose presence in a CELL raises a small non-editable identity cap,
+// the same furniture the VO cartridge cap ("VO") gives its block. oncam lost its box in the
+// 2026-07-09 re-scope and became bare bold-italic ink, which left it unlabeled at a glance —
+// Johnny 2026-07-21: "/oncam should create a little ONCAM tag like SOT and VO."
+// Round 3 (2026-07-21): the caps used to ride INLINE at each contiguous run's head, so a run
+// that began mid-sentence jammed the tag into the middle of the line. Johnny: "SOT and ONCAM
+// tags shouldn't be inline — they should be just like the VO tag which sits frozen in the upper
+// left of a cell." So the caps now sit ONE-per-kind pinned at the cell's upper-left (see
+// findLabelCellKinds + the CELL CAPS decorations below). Decoration-only (never saved).
 export const RUN_LABEL_KINDS = { oncam: 'ONCAM', sot: 'SOT' };
+
+// Cap order when a single cell carries both kinds — ONCAM cap first, then SOT.
+export const CAP_KIND_ORDER = ['oncam', 'sot'];
 
 export function defaultDirectionChipAttrs(kind) {
   switch (kind) {
@@ -132,11 +139,44 @@ export function findCheckboxMarkRuns(doc, markType, kinds = CHECKBOX_MARK_KINDS)
   return runs;
 }
 
+// Per-CELL cap presence for the RUN_LABEL_KINDS (oncam / sot). Instead of one tag per contiguous
+// run (the old inline placement), this collapses every labeled run in a cell down to at most one
+// cap per kind, attributed to the run's NEAREST ancestor tableCell — so a Palau nested row's runs
+// cap the INNER leaf cell that actually holds them, never the wrapper cell around it. Returns an
+// array of { cellPos, kinds } in document order, kinds ordered oncam-then-sot, ready to become one
+// stable-keyed widget decoration per capped cell. Decoration-only — reads the doc, mutates nothing.
+export function findLabelCellKinds(doc, markType, kinds = Object.keys(RUN_LABEL_KINDS)) {
+  if (!markType) return [];
+  const perCell = new Map(); // cellPos -> Set<kind>
+  doc.descendants((node, pos) => {
+    if (!node.isText) return;
+    const mark = node.marks.find(
+      (m) => m.type === markType && kinds.includes(m.attrs.kind),
+    );
+    if (!mark) return;
+    const $pos = doc.resolve(pos);
+    let cellPos = null;
+    for (let d = $pos.depth; d >= 1; d -= 1) {
+      if ($pos.node(d).type.name === 'tableCell') { cellPos = $pos.before(d); break; }
+    }
+    if (cellPos == null) return; // run outside any cell — nothing to cap
+    let set = perCell.get(cellPos);
+    if (!set) { set = new Set(); perCell.set(cellPos, set); }
+    set.add(mark.attrs.kind);
+  });
+  return [...perCell.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([cellPos, set]) => ({ cellPos, kinds: CAP_KIND_ORDER.filter((k) => set.has(k)) }));
+}
+
 function buildCheckboxDecorations(state) {
   const markType = state.schema.marks.directionMark;
   if (!markType) return DecorationSet.empty;
+  // NOTE: no early-out on an empty archive-run list. The cell caps (oncam / sot) below are computed
+  // independently of the archive checkboxes, so a doc with SOT/ONCAM but no /archive must still fall
+  // through to the CELL CAPS block — bailing here on `!runs.length` silently dropped every cap in
+  // such a doc (caught in live verification 2026-07-21).
   const runs = findCheckboxMarkRuns(state.doc, markType);
-  if (!runs.length) return DecorationSet.empty;
 
   // archiveOwnLine flag (Palau opts in): an archive run that leads its paragraph gets a small left
   // indent so it reads as its own indented, checkable line. Gated on the same flag as the slash-menu
@@ -200,28 +240,34 @@ function buildCheckboxDecorations(state) {
     }
   });
 
-  // RUN LABELS — a small non-editable identity tag ("ONCAM") at the head of each labeled run,
-  // mirroring the VO/SOT cartridge caps. Same stable-key discipline as the checkboxes so remote
-  // y-sync transactions never thrash the tag DOM.
-  const labelKinds = Object.keys(RUN_LABEL_KINDS);
-  if (labelKinds.length) {
-    findCheckboxMarkRuns(state.doc, markType, labelKinds).forEach(({ from, kind }) => {
-      decos.push(
-        Decoration.widget(
-          from,
-          () => {
-            const tag = document.createElement('span');
-            tag.setAttribute('contenteditable', 'false');
-            tag.className = 'wp-dhl-runtag';
-            tag.setAttribute('data-kind', kind);
-            tag.textContent = RUN_LABEL_KINDS[kind];
-            return tag;
-          },
-          { side: -1, key: `dhltag:${from}:${kind}` },
-        ),
-      );
-    });
-  }
+  // CELL CAPS — the ONCAM/SOT identity tags, ONE per kind, pinned at each cell's upper-left like
+  // the VO cartridge cap (Johnny 2026-07-21: "SOT and ONCAM tags shouldn't be inline — they should
+  // be just like the VO tag which sits frozen in the upper left of a cell"). This replaces the old
+  // inline run-head tags, which landed mid-sentence whenever a marked run began mid-line. One widget
+  // per capped cell, dropped at the cell's first content position (cellPos + 1) so the cap row sits
+  // above the cell's text flow; stable-keyed on cellPos + kinds so remote y-sync never thrashes it.
+  findLabelCellKinds(state.doc, markType).forEach(({ cellPos, kinds }) => {
+    decos.push(
+      Decoration.widget(
+        cellPos + 1,
+        () => {
+          const capRow = document.createElement('div');
+          capRow.setAttribute('contenteditable', 'false');
+          capRow.className = 'wp-dhl-caprow';
+          kinds.forEach((kind) => {
+            const cap = document.createElement('span');
+            cap.setAttribute('contenteditable', 'false');
+            cap.className = 'wp-dhl-cap';
+            cap.setAttribute('data-kind', kind);
+            cap.textContent = RUN_LABEL_KINDS[kind];
+            capRow.appendChild(cap);
+          });
+          return capRow;
+        },
+        { side: -1, key: `dhlcap:${cellPos}:${kinds.join('+')}` },
+      ),
+    );
+  });
 
   return DecorationSet.create(state.doc, decos);
 }

@@ -336,8 +336,9 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
   font-style: italic;   /* speech: someone is talking on camera */
   color: #7a3d1e;        /* warm on-camera ink — not a warning red */
 }
-/* Run-identity tag ("ONCAM") decorated at the head of each labeled run — the same little-cap
-   furniture as the VO/SOT cartridge tags, in the run's own ink. Decoration-only, never saved. */
+/* Run-identity tag ("ONCAM") — STILL used inline by the empty-caret placeholder (a /oncam or
+   /sot armed on a blank line shows the cap at the caret since there's no text yet). The cell caps
+   below took over the real, saved-text case. Decoration-only, never saved. */
 .wp-dhl-runtag {
   display: inline-block; font-family: var(--mono); font-size: var(--chrome-size-sm, 9px);
   letter-spacing: .18em; text-transform: uppercase; font-weight: 700; font-style: normal;
@@ -347,6 +348,23 @@ body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 .wp-dhl-runtag[data-kind="oncam"] { color: #7a3d1e; }
 /* SOT runs are the filled red-purple chip; the cap sits OUTSIDE the fill in the same ink. */
 .wp-dhl-runtag[data-kind="sot"] { color: #a02c62; }
+
+/* CELL CAPS — the ONCAM / SOT identity tags pinned upper-left in a cell, ONE per kind, exactly
+   like the boxed VO cartridge cap (Johnny 2026-07-21: not inline, "frozen in the upper left of a
+   cell"). The cap row is a decoration dropped at the top of the cell content, above its text flow;
+   a cell holding both kinds shows both caps side by side (oncam then sot). Chrome mirrors .wp-vo-tag
+   (mono, chrome-size, .12em tracking, 700, 1.5px border, radius 4, pad 2/6) in each kind's own ink. */
+.wp-dhl-caprow {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 7px;
+  user-select: none; -webkit-user-select: none;
+}
+.wp-dhl-cap {
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em;
+  text-transform: uppercase; font-weight: 700; font-style: normal; line-height: 1;
+  border: 1.5px solid currentColor; border-radius: 4px; padding: 2px 6px; user-select: none;
+}
+.wp-dhl-cap[data-kind="oncam"] { color: #7a3d1e; }
+.wp-dhl-cap[data-kind="sot"]   { color: #a02c62; }
 .wp-dhl[data-kind="animation"]{ background:#9184c7; border-color:#6f5fb0; color:#1a1a18; }   /* /animation — purple chip, BLACK text */
 .wp-dhl[data-kind="3d"]{ background:#9184c7; border-color:#6f5fb0; color:#f5e63d; }           /* /3d — purple chip, bright YELLOW text */
 /* Redundant "DAY N" folded before its timecode chip (day-fold plugin) — hidden, not deleted. */
@@ -2474,6 +2492,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    as dark-red wells with near-white text so nothing inside the alert goes unreadable */
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl-runtag,
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dhl-cap,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-dchip,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-tk,
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-fc,
