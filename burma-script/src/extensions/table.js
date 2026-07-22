@@ -1130,6 +1130,18 @@ function createAddRowsMenu(editor, rowPos, x, y) {
   return { menu, close };
 }
 
+// Pure geometry for the MERGE chip: its `left` — in the ROW's own coordinate space, the same
+// space the absolutely-positioned chip lives in — is the horizontal CENTER of the column divider.
+// The divider is the 2nd cell's border-left, so its center sits half a border-width inside that
+// cell's left edge. Fed getBoundingClientRect().left deltas (rowLeft, cellLeft) so it is immune to
+// the row's own left gutter/padding and to WHICH ancestor is the offsetParent. (The old code summed
+// content.offsetLeft + cell.offsetLeft, but cell.offsetLeft is ALREADY measured against .wp-trow —
+// adding the row's left inset again pushed the chip one gutter-width to the RIGHT of the line, the
+// bug Johnny drew a square over.) Pinned by divider-affordance.test.mjs.
+export function dividerChipLeft(rowLeft, cellLeft, borderLeft) {
+  return (cellLeft - rowLeft) + (borderLeft || 0) / 2;
+}
+
 // --- tableCell — a column slot. Holds block+ (cartridges). The cell owns NO chrome of its
 // own; its only job is to be a flex column. The hairline between split columns is painted by
 // CSS on cells after the first (.wp-tcell + .wp-tcell { border-left }).
@@ -1328,15 +1340,27 @@ export const TableRow = Node.create({
       let mergeWrap = null;
       let splitWrap = null;
       const positionMergeChip = () => {
-        // Center the merge chip ON the divider: the divider is the 2nd cell's border-left, and
-        // .wp-tcell:first-child flexes 1.2 vs 1 — so 50% is WRONG. offsetLeft is measured against
-        // the positioned .wp-trow, the same coordinate space the absolute chip uses. Re-measured
-        // on every row mouseenter, so resizes/reflows can't leave the chip off the line.
+        // Center the merge chip ON the divider line. The divider is the 2nd cell's border-left, and
+        // .wp-tcell:first-child flexes 1.2 vs 1 — so a CSS 50% is WRONG. Measure the cell's left edge
+        // and the row's left edge as viewport rects and take the delta (dividerChipLeft): that lands
+        // the chip in the row's coordinate space regardless of the row's own left gutter/padding —
+        // the failure the offsetLeft sum had. Re-run on mouseenter and on every split so resizes,
+        // reflows, and the SIZE knob can never leave it off the line.
         if (!mergeWrap) return;
         const second = content.children && content.children[1];
-        if (second && typeof second.offsetLeft === 'number') {
-          mergeWrap.style.left = `${content.offsetLeft + second.offsetLeft}px`;
-        }
+        if (!second || typeof second.getBoundingClientRect !== 'function') return;
+        const rowRect = dom.getBoundingClientRect();
+        const cellRect = second.getBoundingClientRect();
+        if (!rowRect.width || !cellRect.width) return;   // not laid out yet — keep the CSS fallback
+        const border = parseFloat(getComputedStyle(second).borderLeftWidth) || 0;
+        mergeWrap.style.left = `${dividerChipLeft(rowRect.left, cellRect.left, border)}px`;
+      };
+      // Re-measure one frame out, so a freshly-shown 2nd cell (row just became split, or the
+      // nodeView mounted) has real layout before we read it. rAF also defers past the synchronous
+      // nodeView construction below, where `content` is not yet initialised.
+      const scheduleChipMeasure = () => {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(positionMergeChip);
+        else positionMergeChip();
       };
       const runDividerAction = (e, action) => {
         if (e.button !== 0) return;   // left-click only
@@ -1357,10 +1381,12 @@ export const TableRow = Node.create({
         });
         // One full-width bar: what the row becomes.
         mergeBtn.innerHTML =
-          '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">'
-          + '<rect x="1.2" y="2.7" width="9.6" height="6.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/>'
+          '<svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">'
+          + '<path d="M2.5 6h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
           + '</svg>';
-        mergeBtn.addEventListener('mousedown', (e) => runDividerAction(e, 'merge'));
+        // Handler on the WRAP, not the button: the wrap carries the generous invisible hit padding,
+        // so a click anywhere in that comfortable zone (not just on the tiny visible square) merges.
+        mergeWrap.addEventListener('mousedown', (e) => runDividerAction(e, 'merge'));
         mergeWrap.appendChild(mergeBtn);
         dom.appendChild(mergeWrap);
 
@@ -1372,11 +1398,10 @@ export const TableRow = Node.create({
         });
         // Two columns: the divider returns.
         splitBtn.innerHTML =
-          '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">'
-          + '<rect x="1.2" y="2.7" width="9.6" height="6.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/>'
-          + '<path d="M6 2.7v6.6" stroke="currentColor" stroke-width="1.4"/>'
+          '<svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">'
+          + '<path d="M6 2.5v7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
           + '</svg>';
-        splitBtn.addEventListener('mousedown', (e) => runDividerAction(e, 'split'));
+        splitWrap.addEventListener('mousedown', (e) => runDividerAction(e, 'split'));
         splitWrap.appendChild(splitBtn);
         dom.appendChild(splitWrap);
 
@@ -1387,6 +1412,10 @@ export const TableRow = Node.create({
         const split = rowIsSplitNode(n);
         mergeWrap.style.display = split ? '' : 'none';
         splitWrap.style.display = split ? 'none' : '';
+        // NIT (queued 2026-07-21): the chip used to place only on mouseenter, so splitting a row
+        // while already hovering it left the chip at its stale 50% fallback. Re-measure whenever the
+        // row is (or becomes) split — deferred one rAF so the just-shown 2nd cell has layout.
+        if (split) scheduleChipMeasure();
       };
       paintDivider(node);
 

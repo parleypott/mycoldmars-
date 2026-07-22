@@ -23,7 +23,7 @@ import { history, undo } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { doMergeRow, doSplitRow, rowIsSplitNode, BURMA_TABLE_NODES } from './table.js';
+import { doMergeRow, doSplitRow, rowIsSplitNode, dividerChipLeft, BURMA_TABLE_NODES } from './table.js';
 import { BURMA_NODES } from './blocks.js';
 import { BURMA_MARKS } from './marks.js';
 import { DirectionMark } from './direction-chip.js';
@@ -173,6 +173,26 @@ ok('oracle: a keep-all merge would leak the empty para (childCount 2) — drop i
   assert.equal(allBlocks.length, 2, 'said block + the empty shown para — the leak the drop prevents');
   assert.equal(allBlocks[1].type.name, 'paragraph', 'the second is the empty shown placeholder');
   assert.equal(allBlocks[1].content.size, 0, 'and it is genuinely empty (zero words)');
+});
+
+// ── 5. CHIP GEOMETRY — the merge chip's `left` is the divider CENTER in the row's coord space ──
+// dividerChipLeft(rowLeft, cellLeft, borderLeft) is fed getBoundingClientRect().left values, so it
+// is immune to the row's own left gutter/padding. The regression this pins: the old code summed
+// content.offsetLeft + cell.offsetLeft, double-counting the row inset and pushing the chip one
+// gutter-width RIGHT of the line (Johnny's ~40px offset).
+ok('dividerChipLeft: no gutter → divider center is the cell edge + half the border', () => {
+  // row border-box at viewport x=100, 2nd cell edge at x=633, 1.5px divider.
+  assert.equal(dividerChipLeft(100, 633, 1.5), 533 + 0.75);
+});
+ok('dividerChipLeft: a 40px row gutter shifts BOTH rects equally — result is unchanged (no double-count)', () => {
+  // The gutter moves the row's own left edge and the cell edge by the same 40px; the delta holds.
+  const noGutter = dividerChipLeft(100, 633, 1.5);
+  const gutter40 = dividerChipLeft(140, 673, 1.5);
+  assert.equal(gutter40, noGutter, 'chip lands on the line regardless of the row inset');
+});
+ok('dividerChipLeft: missing border width defaults to 0', () => {
+  assert.equal(dividerChipLeft(0, 500, undefined), 500);
+  assert.equal(dividerChipLeft(0, 500, 0), 500);
 });
 
 console.log(`divider-affordance.test.mjs: ${pass} assertions passed`);
