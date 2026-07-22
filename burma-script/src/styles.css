@@ -2506,6 +2506,16 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) {
   background: #b02318;
   border-radius: 11px;
+  /* Interior air (Johnny 2026-07-22: "text jammed up against the edges") — the melted carts
+     stop providing their own padding context, so the alert cell breathes on its own. Top
+     clears the corner tag. */
+  padding: 26px 16px 12px 14px;
+}
+/* the empty-cart type hint is noise inside an alarm ("press the grip…" doesn't go away —
+   the re-ink was promoting its faint italic to full near-white). A pending cell needs a
+   visual plan, not a block type. */
+.wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz]) .wp-none-hint {
+  display: none;
 }
 /* tiny mono corner tag — the cell names its own alarm */
 .wp-tcell:has(> .wp-tcell-content > [data-pending-viz], > [data-pending-viz])::before {
