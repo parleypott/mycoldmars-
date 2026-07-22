@@ -14,7 +14,7 @@ import {
   lineLength, sliceLineCoords, lerpLng, lerpBearing, coordsBounds,
 } from './route-geo.js';
 import { computeGifRange } from './gif-range.js';
-import { EASINGS, totalDuration, resolveKeyframeSegment } from './playback-timing.js';
+import { EASINGS, totalDuration, resolveKeyframeSegment, keyframeStartTime } from './playback-timing.js';
 import { searchCountries as rankCountries } from './country-search.js';
 import { classifyOldMapInput, annotationBounds, annotationLabel } from './oldmap-resolve.js';
 import { featherPlan } from './feather-mask.js';
@@ -2074,16 +2074,6 @@ function deleteKeyframe(id) {
   renderEditor();
 }
 
-// Timeline start time of a keyframe: the sum of segment durations before it.
-function keyframeStartTime(id) {
-  let t = 0;
-  for (const kf of state.keyframes) {
-    if (kf.id === id) return t;
-    t += Number.isFinite(kf.duration) ? kf.duration : 0; // mirror totalDuration's NaN guard
-  }
-  return 0;
-}
-
 function selectKeyframe(id, jump = true) {
   state.selectedId = id;
   state.lastFocus = 'keyframe';
@@ -2101,7 +2091,7 @@ function selectKeyframe(id, jump = true) {
       syncShapeStyleInputs();
       // Park the playhead here so Play continues from this keyframe.
       if (!state.playing) {
-        state.playOffset = keyframeStartTime(id);
+        state.playOffset = keyframeStartTime(state.keyframes, id);
         updateTimeDisplay(state.playOffset);
       }
     }

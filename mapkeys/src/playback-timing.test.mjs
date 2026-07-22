@@ -3,7 +3,7 @@
 // Imports the REAL shipped functions. Mutation-proven: the RED blocks below
 // reconstruct each guard removed and show the contract breaks.
 
-import { EASINGS, totalDuration, resolveKeyframeSegment, easedSegmentAt } from './playback-timing.js';
+import { EASINGS, totalDuration, resolveKeyframeSegment, easedSegmentAt, keyframeStartTime } from './playback-timing.js';
 
 let pass = 0, fail = 0;
 const eq = (a, b, msg) => {
@@ -144,6 +144,38 @@ else { fail++; console.error('FAIL: real resolver must return a finite localT on
 // zero-regression: identical output for every valid finite-duration list.
 eq(totalDuration([kf(4), kf(3), kf(2)]), totalDurationUnguarded([kf(4), kf(3), kf(2)]),
   'zero-regression: guard is byte-identical to old form for valid durations');
+
+// ── keyframeStartTime ── (commit a7e986b: "Play starts from the selected keyframe")
+// Parks state.playOffset at a selected keyframe's timeline position so Play resumes
+// forward from there. Consolidated out of an inline main.js copy onto this shared,
+// tested module (it duplicated totalDuration's NaN-guarded prefix sum). Load-bearing:
+// a wrong value parks Play at the wrong point in the flight; a NaN poisons playOffset.
+const kfi = (id, duration) => ({ id, duration });
+const KFS = [kfi('a', 4), kfi('b', 3), kfi('c', 2)];   // last kf has no outgoing segment
+eq(keyframeStartTime(KFS, 'a'), 0, 'keyframeStartTime: first keyframe → 0 (no prior segments)');
+eq(keyframeStartTime(KFS, 'b'), 4, 'keyframeStartTime: second keyframe → duration[0]');
+eq(keyframeStartTime(KFS, 'c'), 7, 'keyframeStartTime: third keyframe → duration[0]+duration[1]');
+eq(keyframeStartTime(KFS, 'zzz'), 0, 'keyframeStartTime: unknown id → 0 (start from the beginning)');
+eq(keyframeStartTime([], 'a'), 0, 'keyframeStartTime: empty list → 0');
+eq(keyframeStartTime(null, 'a'), 0, 'keyframeStartTime: null list → 0 (no crash)');
+// Cross-lock the documented invariant: the LAST keyframe's start === totalDuration.
+eq(keyframeStartTime(KFS, 'c'), totalDuration(KFS),
+  'keyframeStartTime: last keyframe start time === totalDuration (prefix reaches full length)');
+// NaN guard: a legacy/corrupt PRIOR duration must contribute 0, never poison the sum.
+eq(keyframeStartTime([kfi('a', NaN), kfi('b', 3), kfi('c', 2)], 'c'), 3,
+  'keyframeStartTime: non-finite prior duration counts as 0 (mirrors totalDuration guard)');
+eq(keyframeStartTime([kfi('a', 4), kfi('b', null), kfi('c', 2)], 'c'), 4,
+  'keyframeStartTime: null prior duration counts as 0');
+// RED proof: an unguarded prefix sum (no Number.isFinite fold) NaN-poisons playOffset.
+function keyframeStartTimeUnguarded(keyframes, id) {
+  let t = 0;
+  for (const kf of keyframes) { if (kf.id === id) return t; t += kf.duration; }
+  return 0;
+}
+if (Number.isNaN(keyframeStartTimeUnguarded([kfi('a', NaN), kfi('b', 3), kfi('c', 2)], 'c'))) { pass++; }
+else { fail++; console.error('FAIL: unguarded keyframeStartTime must return NaN to prove the guard matters'); }
+if (Number.isFinite(keyframeStartTime([kfi('a', NaN), kfi('b', 3), kfi('c', 2)], 'c'))) { pass++; }
+else { fail++; console.error('FAIL: real keyframeStartTime must stay finite on a NaN prior duration'); }
 
 console.log(`playback-timing: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

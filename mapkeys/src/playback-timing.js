@@ -44,6 +44,24 @@ export function totalDuration(keyframes) {
   return t;
 }
 
+// Timeline start time of a keyframe: the sum of every segment duration BEFORE the
+// one whose id matches (exclusive of its own outgoing segment). Used to park the
+// playhead when a keyframe is selected so Play continues forward from there.
+// Mirrors totalDuration's NaN guard — a legacy/corrupt keyframe with a
+// missing/non-numeric duration contributes 0 rather than NaN-poisoning playOffset.
+// An unknown id (never matched) → 0, a safe "start from the beginning" default.
+// Invariant: the LAST keyframe's start time === totalDuration (it has no outgoing
+// segment, so the prefix sum reaches the full timeline length).
+export function keyframeStartTime(keyframes, id) {
+  if (!keyframes) return 0;
+  let t = 0;
+  for (const kf of keyframes) {
+    if (kf.id === id) return t;
+    t += Number.isFinite(kf.duration) ? kf.duration : 0;
+  }
+  return 0;
+}
+
 // Resolve the playhead time to { index, localT } where index is the segment's
 // starting keyframe and localT is the clamped 0..1 position within it.
 // Returns null when there is no segment to interpolate (fewer than 2 keyframes).
