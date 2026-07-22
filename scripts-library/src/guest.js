@@ -71,7 +71,7 @@ export function mountPrivateScriptPage(onSignIn) {
         <div class="sl-gate-eyebrow">Newpress</div>
         <h1 class="sl-private-title">This script is private</h1>
         <p class="sl-private-sub">The link you followed isn’t shared right now.
-        If you’re on the team, sign in — otherwise ask whoever sent it to turn sharing on.</p>
+        If you’re on the team, sign in. Otherwise ask whoever sent it to turn sharing on.</p>
         <button id="sl-private-signin" class="sl-gate-btn sl-gate-btn--primary">Sign in</button>
       </div>
     </div>`;

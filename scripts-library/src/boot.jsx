@@ -19,7 +19,7 @@
 
 import { seedIfAbsent, findBySlug, touchProject, renameProject } from './project-store.js';
 import { configForProject } from './config-for-project.js';
-import { ensureUnlocked, detectSession, requestSignIn } from './gate.js';
+import { ensureUnlocked, detectSession, requestSignIn, hideGate } from './gate.js';
 import { resolvePublicProject, rowForGuest, mountPrivateScriptPage, injectGuestSignInPill } from './guest.js';
 import { armSentry } from '../../burma-script/src/sentry-boot.js';
 
@@ -250,6 +250,9 @@ async function applyRouteFromUrl() {
 async function openProjectAsGuest(slug) {
   mountedMode = slug; // the reconciler treats this route as mounted (hash edits → reload → re-boot)
   showLoadingVeil('Opening…');
+  // index.html ships #app with .sl-hidden; on the signed-in road hideGate() (via detectSession/
+  // ensureUnlocked) strips it. The guest road must strip it too or the mounted script paints nothing.
+  hideGate();
   const pub = await resolvePublicProject(slug);
   if (!pub) {
     hideLoadingVeil();
@@ -269,9 +272,25 @@ async function openProjectAsGuest(slug) {
   }
 }
 
+// Route-change dispatch. SIGNED-IN (or open-mode) sessions keep the exact old reconciler. A GUEST
+// session must NEVER run applyRouteFromUrl: its unknown-slug fallback is `hash='library'; mountLibrary()`
+// — which, fired from a hash edit while the guest sits on the sign-in wall (mountedMode null,
+// localStorage seeded), would mount the library INDEX into the (hidden) DOM with no session. Live-caught
+// hole. For guests every route CHANGE is a full reload instead — boot re-runs and re-routes it down the
+// guest/gate fork; a same-route hash tweak (e.g. ?read appearing) stays a no-op, matching the old feel.
+let guestSession = false;
+function onRouteEvent() {
+  if (!guestSession) return applyRouteFromUrl();
+  const slug = currentSlug();
+  const target = isLibraryRoute(slug) ? 'library' : slug;
+  if (mountedMode !== null && target === mountedMode) return; // same route — nothing to do
+  showLoadingVeil(target === 'library' ? 'Loading…' : 'Opening…');
+  window.location.reload();
+}
+
 seedIfAbsent();
-window.addEventListener('hashchange', applyRouteFromUrl);
-window.addEventListener('popstate', applyRouteFromUrl);
+window.addEventListener('hashchange', onRouteEvent);
+window.addEventListener('popstate', onRouteEvent);
 
 // Gate FIRST — but the gate now has a GUEST-shaped hole in it, scoped to project links:
 //   • signed in / auth unconfigured → exactly the old flow (edit access, library, everything)
@@ -282,9 +301,11 @@ window.addEventListener('popstate', applyRouteFromUrl);
 (async () => {
   const session = await detectSession();
   if (session === 'guest') {
+    guestSession = true; // flips the route reconciler to reload-on-change (see onRouteEvent)
     const slug = currentSlug();
     if (!isLibraryRoute(slug)) return openProjectAsGuest(slug);
     await ensureUnlocked(); // library route stays walled — resolves after sign-in
+    guestSession = false;   // signed in mid-session: back to the normal reconciler
     return applyRouteFromUrl();
   }
   return applyRouteFromUrl();

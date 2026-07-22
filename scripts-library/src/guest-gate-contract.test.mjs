@@ -96,7 +96,7 @@ const eq = (g, w, m) => ok(g === w, `${m} (got ${JSON.stringify(g)}, want ${JSON
 
 /* ── 4. boot.jsx guest-branch wiring (source scan) ───────────────────────────── */
 {
-  const guestFn = bootSrc.slice(bootSrc.indexOf('async function openProjectAsGuest'), bootSrc.indexOf('seedIfAbsent()'));
+  const guestFn = bootSrc.slice(bootSrc.indexOf('async function openProjectAsGuest'), bootSrc.indexOf('// Route-change dispatch'));
   ok(guestFn.length > 0, 'openProjectAsGuest exists in boot.jsx');
 
   const latchAt = guestFn.indexOf('forceReadOnly()');
@@ -120,6 +120,17 @@ const eq = (g, w, m) => ok(g === w, `${m} (got ${JSON.stringify(g)}, want ${JSON
   ok(bootTail.includes('if (!isLibraryRoute(slug)) return openProjectAsGuest(slug)'),
     'guest + project slug → guest path');
   ok(bootTail.includes('await ensureUnlocked()'), 'guest + #library → ensureUnlocked (the wall, exactly as before)');
+
+  // The route reconciler: a guest hash edit must NEVER run applyRouteFromUrl (its unknown-slug
+  // fallback mounts the library). Guests reload on route change; boot re-runs and re-forks.
+  const dispatch = bootSrc.slice(bootSrc.indexOf('function onRouteEvent'), bootSrc.indexOf('seedIfAbsent()'));
+  ok(dispatch.includes('if (!guestSession) return applyRouteFromUrl()'), 'signed-in reconciler unchanged');
+  ok(dispatch.includes('window.location.reload()'), 'guest route change → reload (re-forks through boot)');
+  ok(!/guestSession[\s\S]*applyRouteFromUrl\(\)/.test(dispatch.slice(dispatch.indexOf('if (!guestSession)') + 40)),
+    'no guest branch reaches applyRouteFromUrl');
+  ok(bootSrc.includes("window.addEventListener('hashchange', onRouteEvent)") &&
+     bootSrc.includes("window.addEventListener('popstate', onRouteEvent)"),
+    'both route events go through the dispatch');
 }
 
 /* ── 5. guest.js has zero write verbs; gate.js seam intact ───────────────────── */
