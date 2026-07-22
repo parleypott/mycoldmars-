@@ -5,7 +5,7 @@
  *
  * Run: bun api/script-doc.test.mjs
  */
-const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP, stalePayload } = await import('./script-doc.js');
+const { toVersion, validatePutBody, isWriteAcceptable, updateGuardClause, UUID_RE, toRevisionId, toRevisionView, REVISION_LIST_CAP, stalePayload, guestReadVerdict } = await import('./script-doc.js');
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL ' + m); } };
@@ -135,6 +135,24 @@ ok(REVISION_LIST_CAP === 50, 'rv12. list capped at 50 (light metadata payload)')
   eq(p6.version, 0, 'sp9. no row -> version 0');
   eq(p6.updated_by, null, 'sp10. no row -> null writer');
 }
+
+/* ---- guestReadVerdict: may an anonymous guest read this project's doc? ---- */
+// The trashed-slug-guesser fix. The guest resolver (script-projects ?slug=) excludes trashed and
+// deleted rows via ACTIVE_LIST_FILTER; this verdict is the content endpoint's twin, so a project
+// the resolver says doesn't exist can never have its FULL doc served here to an anonymous prober.
+ok(guestReadVerdict({ is_public: true, trashed_at: null, deleted_at: null }), 'gv1. shared + active -> readable');
+ok(guestReadVerdict({ trashed_at: null, deleted_at: null }), 'gv2. is_public missing (pre-migration row) -> readable, matches old !== false rule');
+ok(!guestReadVerdict({ is_public: false, trashed_at: null, deleted_at: null }), 'gv3. sharing OFF -> gated');
+ok(!guestReadVerdict({ is_public: true, trashed_at: '2026-07-20T00:00:00Z', deleted_at: null }),
+  'gv4. TRASHED but still is_public -> gated (the palau slug-guesser hole)');
+ok(!guestReadVerdict({ is_public: true, trashed_at: null, deleted_at: '2026-07-20T00:00:00Z' }),
+  'gv5. soft-DELETED but still is_public -> gated (deeper shade of trash)');
+ok(!guestReadVerdict({ is_public: true, trashed_at: '2026-07-19T00:00:00Z', deleted_at: '2026-07-20T00:00:00Z' }),
+  'gv6. trashed AND deleted -> gated');
+ok(!guestReadVerdict(undefined), 'gv7. NO row (unknown project) -> gated, same SHARING_OFF as private (no existence oracle)');
+ok(!guestReadVerdict(null), 'gv8. null row -> gated');
+ok(!guestReadVerdict('junk'), 'gv9. non-object row -> gated');
+ok(guestReadVerdict({ is_public: true }), 'gv10. trash columns absent from an active row -> readable (additive migration)');
 
 console.log(`\nscript-doc: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

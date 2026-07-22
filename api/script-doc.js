@@ -81,12 +81,18 @@ export default withSentry(async function handler(req) {
       }
       if (wantsList) return await listRevisions(pid);
       if (revisionId) return await getRevision(pid, revisionId);
-      // LINK-SHARE STATUS — the plain doc read is open ONLY while the owner keeps sharing ON. When the
-      // Share toggle is OFF (is_public=false), a logged-out ?read viewer is refused (403 SHARING_OFF);
-      // but the owner/teammates still load (gate.js's fetch interceptor injects x-access-code, so
-      // checkAccess passes), so turning sharing off NEVER locks Johnny out of his own doc. Fail-open on
-      // any lookup hiccup so a blip can only over-serve, never wrongly block a legit share.
-      if (!(await projectIsPublic(pid))) {
+      // LINK-SHARE STATUS — the plain doc read is open ONLY while the owner keeps sharing ON *and*
+      // the project is ACTIVE (not trashed, not soft-deleted). When the Share toggle is OFF
+      // (is_public=false) OR the row sits in the trash, a logged-out ?read viewer is refused
+      // (403 SHARING_OFF); but the owner/teammates still load (gate.js's fetch interceptor injects
+      // x-access-code / the JWT, so checkAccess passes), so trashing or unsharing NEVER locks Johnny
+      // out of his own doc. The trashed check keeps this gate in lockstep with the guest resolver
+      // (script-projects ?slug= appends ACTIVE_LIST_FILTER): before it, a slug-guesser could read a
+      // trashed-but-still-public project's FULL doc here even though the resolver said it didn't
+      // exist. Fail-open on any lookup HICCUP (non-200, pre-migration columns, malformed body) so a
+      // blip can only over-serve, never wrongly block a legit share — but an authoritative row that
+      // says trashed/deleted/unshared, or NO row at all, gates.
+      if (!(await projectIsGuestReadable(pid))) {
         const denied = await checkAccess(req);
         if (denied) return err(403, 'SHARING_OFF', 'This script is not currently shared by its owner.');
       }
@@ -135,15 +141,31 @@ async function resolveProjectId(ref) {
   return rows.length ? rows[0].id : null;
 }
 
-// Link-share status for a project. Fail-OPEN (treat as public) on ANY query hiccup or a missing
-// column — a read must never be blocked by an infra blip; only an explicit is_public=false gates.
-async function projectIsPublic(pid) {
+// GUEST-READ status for a project: sharing ON *and* the row ACTIVE (not trashed, not soft-deleted).
+// Fail-OPEN (treat as readable) ONLY on a query HICCUP — non-200 (including pre-migration schemas
+// where the trashed_at/deleted_at or is_public columns don't exist yet), a thrown fetch, or a
+// malformed body — a read must never be blocked by an infra blip. An AUTHORITATIVE answer gates:
+// an explicit is_public=false, a set trashed_at/deleted_at, or no row at all (unknown project has
+// nothing to share; a guest gets the same SHARING_OFF as a private one — no existence oracle).
+async function projectIsGuestReadable(pid) {
   try {
-    const r = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(pid)}&select=is_public&limit=1`);
+    const r = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(pid)}&select=is_public,trashed_at,deleted_at&limit=1`);
     if (!r.ok) return true;
-    const rows = await r.json().catch(() => []);
-    return rows[0]?.is_public !== false;
+    const rows = await r.json().catch(() => null);
+    if (!Array.isArray(rows)) return true;
+    return guestReadVerdict(rows[0]);
   } catch { return true; }
+}
+
+// PURE — the verdict on ONE script_projects row: may an anonymous guest read this project's doc?
+// This is the content-endpoint twin of the resolver's ACTIVE_LIST_FILTER (script-projects ?slug=
+// excludes trashed/deleted rows), so "the resolver says it doesn't exist" and "the doc endpoint
+// serves it anyway" can never diverge again. Missing row -> false. Exported for tests.
+export function guestReadVerdict(row) {
+  if (!row || typeof row !== 'object') return false;   // no such project — nothing is shared
+  if (row.is_public === false) return false;           // owner turned sharing OFF
+  if (row.trashed_at != null || row.deleted_at != null) return false; // in the trash — resolver parity
+  return true;
 }
 
 /* ------------------------------------------------------------------- read */
