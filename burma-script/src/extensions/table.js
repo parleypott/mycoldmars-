@@ -209,16 +209,23 @@ function findDropTargetForDrag(view, ref, clientY) {
 // never Dropcursor's red line inviting a corrupting drop into a gap.
 const rowDragKey = new PluginKey('wpRowDrag');
 
-// THE ONLY SANCTIONED DRAG INITIATORS inside the editor: the row grip (.wp-row-drag) and the
-// block cartridge grip (blocks.js's [data-drag-handle] .wp-grip). Johnny 2026-07-21: "under no
-// circumstances do I want the row to break out of the two column experience… I should be able to
-// click anywhere within the cell and drag and all it does is highlight." So ANY native dragstart
-// whose target is inside a row but NOT on a grip is an accident — a selected-text drag, an <img>
-// drag, a browser-invented drag — and gets preventDefault'd before ProseMirror or the browser can
-// turn it into a structure-mutating drop. Pure predicate, exported for the headless suite.
+// THE ONLY SANCTIONED DRAG INITIATORS inside the editor: the row grip (.wp-row-drag), the block
+// cartridge grip (blocks.js's [data-drag-handle] .wp-grip), and a media figure (.wp-image — the
+// imageBlock nodeview). Johnny 2026-07-21: "under no circumstances do I want the row to break out
+// of the two column experience… I should be able to click anywhere within the cell and drag and
+// all it does is highlight." So ANY native dragstart whose target is inside a row but NOT on a
+// sanctioned surface is an accident — a selected-text drag, a stray <img> drag, a browser-invented
+// drag — and gets preventDefault'd before ProseMirror or the browser can turn it into a
+// structure-mutating drop.
+//
+// .wp-image is safe to sanction (Johnny 2026-07-22, "click and MOVE images easily"): the imageBlock
+// is an atom (group:block, draggable:true), so PM arms a NODE drag of the image ALONE — never the
+// row. The doc top level is tableRow+, so PM's drop can only land the block inside a cell (block+),
+// never as a stray top-level node: the schema keeps the two-column structure intact by construction.
+// Pure predicate, exported for the headless suite.
 export function dragSourceSanctioned(target) {
   return !!(target && typeof target.closest === 'function'
-    && target.closest('.wp-row-drag, [data-drag-handle], .wp-grip'));
+    && target.closest('.wp-row-drag, [data-drag-handle], .wp-grip, .wp-image'));
 }
 
 // Edge autoscroll: dragover fires continuously, so a small per-event nudge near the viewport

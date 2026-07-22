@@ -148,4 +148,69 @@ ok('Burma + Palau seeds emit ZERO imageBlock nodes (addition is inert for them)'
   assert.ok(!JSON.stringify(burmaDoc).includes('"imageBlock"'), 'burma doc has no imageBlock');
 });
 
+// ---- 5: CLIPBOARD ROUND-TRIP (Johnny 2026-07-22, "copy/cut/paste them easily") ------------------
+// An internal ProseMirror copy serializes the node to DOM via renderHTML (spec.toDOM) and RECONSTRUCTS
+// it on paste by DOM-parsing that HTML through the node's parseHTML getAttrs (spec.parseDOM) — NOT
+// fromJSON. So the clipboard contract is exactly: toDOM → parseDOM getAttrs preserves the media attrs
+// (src/alt/kind/width/crop) and DROPS blockId (a fresh id is minted on save, never a duplicate).
+//
+// No jsdom in this repo, so we drive the two pure spec functions directly, building a minimal fake
+// element from the DOM-spec array toDOM emits (only the getAttribute / querySelector / textContent
+// surface parseHTML's getAttrs actually touches).
+function fakeEl(spec) {
+  if (typeof spec === 'string') return { tag: '#text', text: spec, children: [], getAttribute: () => null };
+  const [tag, maybeAttrs, ...rest] = spec;
+  const hasAttrs = maybeAttrs && typeof maybeAttrs === 'object' && !Array.isArray(maybeAttrs);
+  const attrs = hasAttrs ? maybeAttrs : {};
+  const kids = (hasAttrs ? rest : [maybeAttrs, ...rest]).filter((x) => x !== undefined && x !== null && x !== 0).map(fakeEl);
+  const descendants = (node) => node.children.flatMap((c) => [c, ...descendants(c)]);
+  const self = {
+    tag,
+    children: kids,
+    getAttribute: (n) => (n in attrs ? String(attrs[n]) : null),
+    get textContent() { return kids.map((k) => (k.text != null ? k.text : k.textContent || '')).join(''); },
+  };
+  self.querySelector = (sel) => {
+    const wanted = sel.split(',').map((s) => s.trim());
+    return descendants(self).find((d) => wanted.includes(d.tag)) || null;
+  };
+  return self;
+}
+
+const imgSpec = schema.nodes.imageBlock.spec;
+const rule = imgSpec.parseDOM.find((r) => typeof r.getAttrs === 'function');
+
+ok('imageBlock render→parse (clipboard) preserves src/alt/kind/width/crop, DROPS blockId', () => {
+  const attrs = {
+    blockId: 'image_copy_src', flavor: null, chapterId: null, pendingViz: null,
+    src: '/palau2/img/palau2-005-003.png', alt: 'a caption with words', kind: 'inspo',
+    width: 512, crop: { x: 0.1, y: 0.2, w: 0.6, h: 0.5 }, uploading: false, uploadError: null,
+  };
+  const node = schema.nodes.imageBlock.create(attrs);
+  const dom = fakeEl(imgSpec.toDOM(node));               // renderHTML output (the clipboard HTML)
+  const parsed = rule.getAttrs(dom);                     // parseHTML getAttrs (the paste path)
+  assert.equal(parsed.src, attrs.src, 'src survives the copy→paste');
+  assert.equal(parsed.alt, attrs.alt, 'alt/caption survives');
+  assert.equal(parsed.kind, 'inspo', 'kind survives');
+  assert.equal(parsed.width, 512, 'resized width survives');
+  assert.deepEqual(parsed.crop, attrs.crop, 'crop rect survives');
+  assert.ok(!('blockId' in parsed) || parsed.blockId == null, 'blockId is NOT resurrected (fresh id on save)');
+  // The node built from the parsed attrs uses the schema default (null) for blockId → no duplicate.
+  const pasted = schema.nodes.imageBlock.create(parsed);
+  assert.equal(pasted.attrs.blockId, null, 'pasted copy carries a null blockId until docToBlocks mints one');
+  assert.equal(pasted.attrs.src, attrs.src);
+});
+
+ok('a resting (unsized, uncropped) video imageBlock round-trips through the clipboard', () => {
+  const node = schema.nodes.imageBlock.create({
+    blockId: 'vid_1', src: 'https://x/y.mp4', alt: '', kind: 'shot',
+    width: null, crop: null, uploading: false, uploadError: null,
+  });
+  const parsed = rule.getAttrs(fakeEl(imgSpec.toDOM(node)));
+  assert.equal(parsed.src, 'https://x/y.mp4', 'video src survives (read off the <video> element)');
+  assert.equal(parsed.kind, 'shot');
+  assert.equal(parsed.width, null, 'no width → null (not NaN)');
+  assert.equal(parsed.crop, null, 'no crop → null');
+});
+
 console.log(`image-block: ${pass} passed, 0 failed`);

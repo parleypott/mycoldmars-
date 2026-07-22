@@ -1356,7 +1356,34 @@ export const ImageBlock = Node.create({
       uploadError: { default: null },
     };
   },
-  parseHTML() { return [{ tag: 'figure[data-image]' }]; },
+  // CLIPBOARD / HTML ROUND-TRIP (Johnny 2026-07-22, "copy/cut/paste them easily"). An internal
+  // ProseMirror copy serializes the node through renderHTML and reconstructs it on paste through
+  // THIS getAttrs (PM's clipboard path is DOM-parse, not fromJSON) — so without capturing the media
+  // attrs a pasted copy came back blank (empty src, no crop/width/caption). We read them back here.
+  // blockId is DELIBERATELY not parsed: a paste must never resurrect a duplicate id — the copy lands
+  // with a null id and docToBlocks mints a fresh one on the next save (see baseAttrs comment above).
+  parseHTML() {
+    return [{
+      tag: 'figure[data-image]',
+      getAttrs: (dom) => {
+        const media = dom.querySelector('img, video');
+        const cap = dom.querySelector('figcaption');
+        const alt = (media && (media.getAttribute('alt') || media.getAttribute('aria-label')))
+          || (cap && cap.textContent) || '';
+        const wRaw = parseFloat(dom.getAttribute('data-width') || '');
+        let crop = null;
+        const cRaw = dom.getAttribute('data-crop');
+        if (cRaw) { try { const c = JSON.parse(cRaw); if (isValidCrop(c)) crop = c; } catch {} }
+        return {
+          src: (media && media.getAttribute('src')) || '',
+          alt: alt || '',
+          kind: dom.getAttribute('data-kind') || 'shot',
+          width: Number.isFinite(wRaw) ? wRaw : null,
+          crop,
+        };
+      },
+    }];
+  },
   renderHTML({ node }) {
     const a = node.attrs;
     const pending = (a.uploading || a.uploadError) && !a.src;
@@ -1382,7 +1409,9 @@ export const ImageBlock = Node.create({
     };
     if (a.uploading) figAttrs['data-uploading'] = '1';
     if (a.uploadError) figAttrs['data-error'] = '1';
-    if (Number.isFinite(a.width)) figAttrs.style = `width:${a.width}px`;
+    // width rides in BOTH style (HTML-export fidelity) and data-width (a clean, un-regex'd read for
+    // the clipboard parseHTML round-trip above).
+    if (Number.isFinite(a.width)) { figAttrs.style = `width:${a.width}px`; figAttrs['data-width'] = String(a.width); }
     if (isValidCrop(a.crop)) figAttrs['data-crop'] = JSON.stringify(a.crop);
     return ['figure', mergeAttributes(sharedRenderAttrs(node, figAttrs)), ...children];
   },
