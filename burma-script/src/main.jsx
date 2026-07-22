@@ -12,6 +12,7 @@ import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, rehydrateLocalFromNewest, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, readLatestSavedRaw, ensureResetBackup, LS_DOC_FALLBACK, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly, docsDiffer, snapshotDocConflictAsync } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
+import { bookmarkTargetFromUrl } from './bookmark-target.js';
 import { isEditMode, setEditMode } from './edit-mode.js';
 import { chapterFocusKey } from './extensions/chapter-focus.js';
 import { isCollabEnabled, prepareCollab } from './collab.js';
@@ -1422,22 +1423,10 @@ function ModeToggle({ edit }) {
   );
 }
 
-// ── BOOKMARK DEEP LINK — `?bm=<id>` (search or hash-query, same posture as ?read/?backups).
-// The target row can render late (collab rooms sync after mount; cloud seeds after paint), so
-// we poll gently for it and stop after ~30s. On find: scroll to center + a brief accent flash.
-function bookmarkTargetFromUrl() {
-  try {
-    const { search = '', hash = '' } = window.location;
-    const hashQuery = hash.includes('?') ? hash.slice(hash.indexOf('?')) : '';
-    for (const qs of [search, hashQuery]) {
-      if (!qs) continue;
-      const params = new URLSearchParams(qs.startsWith('?') ? qs.slice(1) : qs);
-      const v = params.get('bm');
-      if (v) return v;
-    }
-    return null;
-  } catch { return null; }
-}
+// BOOKMARK DEEP LINK — `?bm=<id>` (search or hash-query, same posture as ?read/?backups). The
+// resolver lives in ./bookmark-target.js (imported above) so the parse rule has ONE source of truth
+// shared with the link builder's round-trip test. The target row can render late (collab rooms sync
+// after mount; cloud seeds after paint), so callers poll gently for it and flash on find.
 
 // READ-ONLY SHARE BADGE (read-only-share) — the calm replacement for the save pill. A reader is never
 // saving anything, so the always-visible status indicator says plainly what this view is: a shared,

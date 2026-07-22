@@ -525,16 +525,48 @@ export function buildBookmarkUrl(bookmarkId, loc) {
   return origin + pathname + search + hash;
 }
 
-// Build the canonical READ-ONLY SHARE link for this script. Unlike buildBookmarkUrl (which
-// preserves whatever access mode you copied from — so an edit-mode copy stays editable), this
-// ALWAYS forces the standalone read door: origin + /burma-script/?read, optionally deep-linking
-// to a bookmark with &bm=. Anyone who opens it views the script read-only and has NO path to the
-// library. The link IS the capability (exactly like the ?read shares already work) — no backend,
-// no per-recipient state. Pure(loc) for the suite.
+// Build the canonical READ-ONLY SHARE link for the script, FROM THE CURRENT DOOR. Unlike
+// buildBookmarkUrl (which preserves whatever access mode you copied from — so an edit-mode copy
+// stays editable), this ALWAYS forces `?read`, optionally deep-linking to a bookmark with &bm=.
+//
+// There are two doors, and a share must be minted on the one that actually serves THIS script:
+//
+//   • LIBRARY DOOR (/scripts-library/#<slug>): a library-native project (e.g. NILE RIVER) has NO
+//     standalone directory — its only door is the hash-routed library, which reads the project slug
+//     from the hash. So the read link carries that slug: /scripts-library/#<slug>?read&bm=<id>.
+//     `?read` and `&bm=` ride INSIDE the hash-query — read-mode.js and bookmark-target.js both scan
+//     the hash-query, and boot.jsx strips it back off to recover the slug, so the link round-trips.
+//     (Before this fix every library bookmark emitted /burma-script/?read — opening the WRONG script.)
+//
+//   • STANDALONE EPISODE DOOR (/burma-script/, /palau-script/, …): these directories serve `?read`
+//     shares logged-out (standalone-gate.js keeps read-only shares on the standalone page). Mint the
+//     link on the CURRENT path so a non-burma episode never hands out a burma link.
+//
+// The slug carried for the library door is taken verbatim from the live hash — already
+// encodeURIComponent-encoded by the router (boot.jsx / rename), and the same source the boot router
+// resolves the project from, so renames/slug changes stay correct. The link IS the capability
+// (exactly like the ?read shares already work) — no backend, no per-recipient state. Pure(loc).
 export function buildShareUrl({ bm } = {}, loc) {
   const l = loc || (typeof window !== 'undefined' ? window.location : {});
   const origin = l.origin || '';
-  return origin + '/burma-script/?read' + (bm ? '&bm=' + encodeURIComponent(bm) : '');
+  const pathname = l.pathname || '';
+  const bmSuffix = bm ? '&bm=' + encodeURIComponent(bm) : '';
+
+  // Library door → carry the current project's slug so the recipient opens the SAME project.
+  if (pathname.indexOf('/scripts-library/') === 0) {
+    const rawHash = String(l.hash || '').replace(/^#/, '');
+    const qi = rawHash.indexOf('?');
+    const slug = qi >= 0 ? rawHash.slice(0, qi) : rawHash; // already URL-encoded in the live hash
+    return origin + '/scripts-library/#' + slug + '?read' + bmSuffix;
+  }
+
+  // Standalone episode door → mint on the current directory. Strip a trailing index.html and
+  // normalize to the directory; fall back to /burma-script/ only when there's no path at all
+  // (defensive — a real browser always has one; the test helper may omit it).
+  let base = pathname.replace(/index\.html?$/i, '');
+  if (!base) base = '/burma-script/';
+  if (!base.endsWith('/')) base += '/';
+  return origin + base + '?read' + bmSuffix;
 }
 
 // Copy any URL to the clipboard + confirm with the shared toast (the label shows in the pill).
@@ -550,8 +582,9 @@ export function copyShareLink(url, label) {
 }
 
 // Copy a bookmark's link. Johnny's rule: sharing applies to bookmarks too — so this hands out a
-// READ-ONLY SHARE link (buildShareUrl), not the mode-preserving buildBookmarkUrl. Opening it drops
-// the recipient into the read-only view scrolled straight to this bookmark, with no library access.
+// READ-ONLY SHARE link (buildShareUrl, minted from the current door), not the mode-preserving
+// buildBookmarkUrl. Opening it drops the recipient into the read-only view of THIS script scrolled
+// straight to this bookmark.
 function copyBookmarkLink(bookmarkId) {
   copyShareLink(buildShareUrl({ bm: bookmarkId }), 'BOOKMARK LINK');
 }

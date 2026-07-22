@@ -10,9 +10,10 @@ import { findProjectRow } from './share-project-match.js';
 // (the doc GET starts refusing logged-out viewers; see api/script-doc.js). Johnny himself always
 // loads either way, because his signed-in editor sends the access header the guard honors.
 //
-// The copy buttons hand out the CANONICAL read-only link (buildShareUrl forces the standalone
-// /burma-script/?read door, never the login-gated library). Bookmarks share the same way — the ⚑
-// on each row copies a read-only deep link. No per-recipient state: the link IS the capability.
+// The copy buttons hand out the CANONICAL read-only link (buildShareUrl forces `?read` on the
+// CURRENT door — the standalone /burma-script/ path for a legacy episode, or /scripts-library/#<slug>
+// for a library-native project, so the link always serves THIS script). Bookmarks share the same way
+// — the ⚑ on each row copies a read-only deep link. No per-recipient state: the link IS the capability.
 //
 // `project` is the CURRENT episode id (main.jsx passes EPISODE.id) — burma / palau / palau2 for legacy
 // configs, or a cloud UUID for a library project. It is NOT hardcoded: this same engine boots every
