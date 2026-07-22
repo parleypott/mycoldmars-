@@ -1361,6 +1361,24 @@ export const TableRow = Node.create({
         if (!rowRect.width || !cellRect.width) return;   // not laid out yet — keep the CSS fallback
         const border = parseFloat(getComputedStyle(second).borderLeftWidth) || 0;
         mergeWrap.style.left = `${dividerChipLeft(rowRect.left, cellRect.left, border)}px`;
+        // SELF-CORRECTING second pass (Johnny 2026-07-22 round 3: "still off to the right").
+        // `left` on an abspos child measures from the row's PADDING edge, but the formula above
+        // measures from its BORDER edge — so any row border (workspace cutout walls, selection
+        // frames) shifts the chip right by that width, and DPR rounding adds subpixels. Instead
+        // of modeling every box, measure where the chip's midpoint ACTUALLY landed and cancel
+        // the residual. Converges in one step; a ±0.5px result is left alone.
+        requestAnimationFrame(() => {
+          if (!mergeWrap || !mergeWrap.isConnected) return;
+          const btn = mergeWrap.querySelector('.wp-row-col-btn');
+          if (!btn) return;
+          const btnRect = btn.getBoundingClientRect();
+          const lineMid = second.getBoundingClientRect().left
+            + (parseFloat(getComputedStyle(second).borderLeftWidth) || 0) / 2;
+          const residual = (btnRect.left + btnRect.width / 2) - lineMid;
+          if (Math.abs(residual) > 0.5) {
+            mergeWrap.style.left = `${parseFloat(mergeWrap.style.left) - residual}px`;
+          }
+        });
       };
       // Re-measure one frame out, so a freshly-shown 2nd cell (row just became split, or the
       // nodeView mounted) has real layout before we read it. rAF also defers past the synchronous
