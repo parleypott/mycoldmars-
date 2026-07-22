@@ -2736,10 +2736,12 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   border-radius: 5px;
 }
 .wp-image .wp-image-cap-input[hidden] { display: none; }
-/* Selected (atom) image gets the same selection affordance as other nodes — a video
-   (the gif→mp4 optimization) is the same atom, same affordance. */
-.wp-image.ProseMirror-selectednode img,
-.wp-image.ProseMirror-selectednode video { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; }
+/* SELECTION FRAME (Johnny 2026-07-22, "frame and bounding box exactly as big as the image itself").
+   A selected imageBlock must read as ONE tight box hugging the rendered media — not the full-width
+   figure. The generic .ProseMirror-selectednode rule outlines the whole figure (which spans the cell
+   and swallows the caption strip below) — suppress it here; the single frame is the outline on
+   .wp-image-box (fit-content, so it wraps the image exactly), defined in the NodeView block below. */
+.wp-image.ProseMirror-selectednode { outline: none; }
 /* Rack media invites the click (lightbox below). */
 .wp-image .wp-image-img { cursor: zoom-in; }
 
@@ -2842,8 +2844,12 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 .wp-image .wp-image-handles { position: absolute; inset: 0; z-index: 2; display: none; pointer-events: none; }
 .ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-image-handles { display: block; }
 .wp-image .wp-image-box { outline: none; }
-.ProseMirror[contenteditable="true"] .wp-image.ProseMirror-selectednode .wp-image-box {
-  outline: 1.5px solid rgba(255,91,31,.9); outline-offset: 2px; border-radius: 12px;
+/* THE selection frame: a flat 1.5px accent hairline on the fit-content box, so it hugs the rendered
+   image exactly (offset+radius stay concentric with the media's 1.5px/11px border). Selection only
+   happens in edit mode — read mode click opens the lightbox — but keying on .ProseMirror-selectednode
+   alone (no contenteditable gate) keeps the frame correct in every selected state. */
+.wp-image.ProseMirror-selectednode .wp-image-box {
+  outline: 1.5px solid rgba(255,91,31,.9); outline-offset: 2px; border-radius: 13px;
 }
 .wp-image .wp-image-handle {
   position: absolute; width: 12px; height: 12px; background: var(--face);

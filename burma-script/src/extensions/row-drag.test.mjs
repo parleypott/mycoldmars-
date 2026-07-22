@@ -316,12 +316,21 @@ ok('tableRow spec is draggable:false — PM native row drags are structurally de
   assert.equal(schema.nodes.tableRow.spec.draggable, false);
 });
 
-// Only the grips may start a native drag; anything else inside a row is an accident the capture
-// guard preventDefault's. The predicate is the guard's single truth.
-ok('dragSourceSanctioned: grips yes, cell/text/img targets no', () => {
-  const target = (matches) => ({ closest: (sel) => (matches ? {} : null) });
-  assert.equal(dragSourceSanctioned(target(true)), true);   // .wp-row-drag / [data-drag-handle] / .wp-grip
-  assert.equal(dragSourceSanctioned(target(false)), false); // a text node's parent, an <img>, a cell
+// Only the grips and a media figure may start a native drag; anything else inside a row is an
+// accident the capture guard preventDefault's. The predicate is the guard's single truth.
+// A `closest(sel)` mock that reports which of the target's ancestor-classes are present.
+const targetWithin = (...classes) => ({
+  closest: (sel) => (sel.split(',').some((s) => classes.includes(s.trim())) ? {} : null),
+});
+ok('dragSourceSanctioned: grips + image figure yes, cell/text targets no', () => {
+  assert.equal(dragSourceSanctioned(targetWithin('.wp-row-drag')), true);
+  assert.equal(dragSourceSanctioned(targetWithin('[data-drag-handle]')), true);
+  assert.equal(dragSourceSanctioned(targetWithin('.wp-grip')), true);
+  // The imageBlock nodeview: an atom node drag (moves the image alone), now sanctioned.
+  assert.equal(dragSourceSanctioned(targetWithin('.wp-image')), true);
+  // Bare cell interior / selected text — still an accident, still blocked (row stays paired).
+  assert.equal(dragSourceSanctioned(targetWithin('.wp-cell')), false);
+  assert.equal(dragSourceSanctioned(targetWithin()), false);
   assert.equal(dragSourceSanctioned(null), false);
   assert.equal(dragSourceSanctioned({}), false);            // no .closest at all
 });
