@@ -2074,6 +2074,16 @@ function deleteKeyframe(id) {
   renderEditor();
 }
 
+// Timeline start time of a keyframe: the sum of segment durations before it.
+function keyframeStartTime(id) {
+  let t = 0;
+  for (const kf of state.keyframes) {
+    if (kf.id === id) return t;
+    t += Number.isFinite(kf.duration) ? kf.duration : 0; // mirror totalDuration's NaN guard
+  }
+  return 0;
+}
+
 function selectKeyframe(id, jump = true) {
   state.selectedId = id;
   state.lastFocus = 'keyframe';
@@ -2089,6 +2099,11 @@ function selectKeyframe(id, jump = true) {
       applyOverlayStateAtKeyframe(kf);
       syncDrawSlider();
       syncShapeStyleInputs();
+      // Park the playhead here so Play continues from this keyframe.
+      if (!state.playing) {
+        state.playOffset = keyframeStartTime(id);
+        updateTimeDisplay(state.playOffset);
+      }
     }
   }
 }
