@@ -99,8 +99,8 @@ export function ShareToggle({ project = 'burma' }) {
             : state.err
               ? 'Could not read the sharing status — try reopening this panel.'
               : on
-                ? 'On — send the link and anyone can read this script, no login. They can’t reach your library or edit anything.'
-                : 'Off — the link is dead. Only you, signed in, can open it.'}
+                ? 'On — anyone with the link can read this script, no login. Even the plain address-bar link works, read-only. They can’t reach your library or edit anything.'
+                : 'Off — every shared link shows a calm “this script is private” page instead. Only signed-in team members can open it.'}
         </p>
 
         <button class="wp-share-copy" disabled={!on || state.loading} onClick={copyRead}>
