@@ -109,6 +109,30 @@ ok('every link carries ?read (the read-only share flag read-mode.js keys on)', (
   assert.match(buildShareUrl({ bm: 'z' }, loc('https://x.dev', { pathname: '/scripts-library/', hash: '#s' })), /[?&]read\b/);
 });
 
+// ── THE TWO CALLERS ─────────────────────────────────────────────────────────────────────────────
+// Both live share affordances funnel through buildShareUrl, so both must door-correct together. These
+// cases mirror the EXACT invocation each makes, so a regression in either is named, not inferred:
+//   (1) READ LINK pill   — ShareToggle.jsx copyRead()      → buildShareUrl({})
+//   (2) bookmark ⚑ link  — table.js copyBookmarkLink(id)   → buildShareUrl({ bm: id })
+const libLoc = (slug) => loc('https://www.newpress.press', { pathname: '/scripts-library/', hash: '#' + slug });
+const stdLoc = (dir) => loc('https://www.newpress.press', { pathname: dir });
+
+ok('CALLER 1 — READ LINK pill: library door → /scripts-library/#<slug>?read (no bm)', () => {
+  assert.equal(buildShareUrl({}, libLoc('nile-river')), 'https://www.newpress.press/scripts-library/#nile-river?read');
+});
+ok('CALLER 1 — READ LINK pill: standalone door → <episode-path>?read (no bm)', () => {
+  assert.equal(buildShareUrl({}, stdLoc('/burma-script/')), 'https://www.newpress.press/burma-script/?read');
+  assert.equal(buildShareUrl({}, stdLoc('/palau-script/')), 'https://www.newpress.press/palau-script/?read');
+});
+ok('CALLER 2 — bookmark link: library door → /scripts-library/#<slug>?read&bm=<id>, never burma', () => {
+  const url = buildShareUrl({ bm: 'bm_mrwdngqs_1_uolkv' }, libLoc('nile-river'));
+  assert.equal(url, 'https://www.newpress.press/scripts-library/#nile-river?read&bm=bm_mrwdngqs_1_uolkv');
+  assert.ok(!url.includes('/burma-script/'), 'the reported bug: must NOT be the burma standalone door');
+});
+ok('CALLER 2 — bookmark link: standalone door → <episode-path>?read&bm=<id>', () => {
+  assert.equal(buildShareUrl({ bm: 'bm_p' }, stdLoc('/palau-script/')), 'https://www.newpress.press/palau-script/?read&bm=bm_p');
+});
+
 // ── ROUND TRIP THROUGH THE REAL PARSERS ─────────────────────────────────────────────────────────
 // Feed the emitted URL back through read-mode.js (isReadOnly) and bookmark-target.js
 // (bookmarkTargetFromUrl) — the ACTUAL parsers the app runs — so the flag composition is proven to
@@ -131,9 +155,12 @@ const roundTrip = (name, emittedLoc, expectBm) => ok(name, () => {
   assert.equal(bookmarkTargetFromUrl(parts), expectBm || null, `${url} must resolve bm=${expectBm}`);
 });
 
-roundTrip('round-trip: standalone door read+bm parses back', loc('https://newpress.press', { pathname: '/burma-script/' }), 'bm_std_1');
-roundTrip('round-trip: library door read+bm (hash-query) parses back', loc('https://www.newpress.press', { pathname: '/scripts-library/', hash: '#nile-river' }), 'bm_lib_1');
-roundTrip('round-trip: library door read (no bm) still resolves read-only', loc('https://x.dev', { pathname: '/scripts-library/', hash: '#nile-river' }), null);
+// CALLER 2 (bookmark) — read + bm must both resolve, on BOTH doors.
+roundTrip('round-trip: bookmark link, standalone door — read+bm parses back', loc('https://newpress.press', { pathname: '/burma-script/' }), 'bm_std_1');
+roundTrip('round-trip: bookmark link, library door — read+bm (hash-query) parses back', loc('https://www.newpress.press', { pathname: '/scripts-library/', hash: '#nile-river' }), 'bm_lib_1');
+// CALLER 1 (READ LINK pill) — read must resolve with NO bm, on BOTH doors.
+roundTrip('round-trip: READ LINK pill, standalone door — read resolves (no bm)', loc('https://newpress.press', { pathname: '/burma-script/' }), null);
+roundTrip('round-trip: READ LINK pill, library door — read resolves (no bm)', loc('https://x.dev', { pathname: '/scripts-library/', hash: '#nile-river' }), null);
 
 console.log(`\nshare-url: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
