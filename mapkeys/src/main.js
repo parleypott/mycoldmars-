@@ -304,6 +304,7 @@ map.on('style.load', () => {
   ensureDrawPreviewOnMap();
   ensureSelectionLayers();
   ensureCountryEditLayers();
+  applyShapeOrder();
   updateSelectionIndicator();
   // Re-render with the current preview progress so a hard refresh shows
   // the correct partial-draw state immediately.
@@ -366,7 +367,8 @@ window.__mapkeys = {
   map,
   state,
   fns: {
-    addCountry, saveLayers, renderShapesPanel, renderLayersPanel,
+    addCountry, addPlace, saveLayers, renderShapesPanel, renderLayersPanel,
+    applyShapeOrder, reorderShapeByDisplay,
     ensureShapeOnMap, redrawShape, backfillShapeIntoKeyframes,
     ensureBordersOnMap, applyBordersToMap, applySatGrade,
   },
@@ -781,6 +783,44 @@ function placePosition(shape) {
   ];
 }
 
+// ─── Shape z-order ───
+// state.shapes is TOP-FIRST (Photoshop order): index 0 is the top row in the
+// panel AND the topmost paint on the globe. Rebuild the map's layer stack to
+// match by walking bottom→top and lifting each shape's layers to the top;
+// editor chrome (selection ring, draw preview, country-edit overlay, search
+// pin) always rides above content.
+function applyShapeOrder() {
+  try {
+    for (let i = state.shapes.length - 1; i >= 0; i--) {
+      const ids = shapeSourceIds(state.shapes[i].id);
+      for (const lid of [ids.fillLayer, ids.lineLayer, ids.labelLayer]) {
+        if (map.getLayer(lid)) map.moveLayer(lid); // no beforeId → top
+      }
+    }
+    for (const lid of [
+      SEL_HALO, SEL_LINE,
+      DRAW_PREVIEW_LINE, DRAW_PREVIEW_PTS,
+      CE_FILL, CE_LINE, CE_VERT,
+      SEARCH_PIN_DOT, SEARCH_PIN_LABEL,
+    ]) {
+      if (map.getLayer(lid)) map.moveLayer(lid);
+    }
+  } catch (err) {
+    console.warn('[mapkeys] shape reorder failed:', err.message);
+  }
+}
+
+// Move a shape to a new panel position (display index == array index).
+function reorderShapeByDisplay(dragId, targetIdx) {
+  const from = state.shapes.findIndex(s => s.id === dragId);
+  if (from === -1) return;
+  const [moved] = state.shapes.splice(from, 1);
+  state.shapes.splice(Math.max(0, Math.min(targetIdx, state.shapes.length)), 0, moved);
+  applyShapeOrder();
+  saveLayers();
+  renderShapesPanel();
+}
+
 function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
 
 // ─── BORDERS hub — map plumbing ───
@@ -1033,7 +1073,7 @@ function addOctagon() {
     visible: true,
     preview: defaultShapePreview('polygon', [c.lng, c.lat]),
   };
-  state.shapes.push(shape);
+  state.shapes.unshift(shape); // top-first: new shapes land on top
   // Backfill all existing keyframes with this shape's initial state so
   // playback doesn't pop when crossing a keyframe that pre-dates the shape.
   backfillShapeIntoKeyframes(shape);
@@ -1067,7 +1107,7 @@ function addPlace(result) {
     visible: true,
     preview: defaultShapePreview('place'),
   };
-  state.shapes.push(shape);
+  state.shapes.unshift(shape); // top-first: new shapes land on top
   backfillShapeIntoKeyframes(shape);
   ensureShapeOnMap(shape);
   redrawShape(shape);
@@ -1116,7 +1156,7 @@ function addCountry(country) {
     visible: true,
     preview: {},  // unused but kept for compatibility with the rest of the system
   };
-  state.shapes.push(shape);
+  state.shapes.unshift(shape); // top-first: new shapes land on top
   backfillShapeIntoKeyframes(shape);
   ensureShapeOnMap(shape);
   redrawShape(shape);
@@ -1141,7 +1181,7 @@ function addLineFromCoords(coords) {
     visible: true,
     preview: defaultShapePreview('line'),
   };
-  state.shapes.push(shape);
+  state.shapes.unshift(shape); // top-first: new shapes land on top
   backfillShapeIntoKeyframes(shape);
   ensureShapeOnMap(shape);
   redrawShape(shape);
@@ -1170,7 +1210,9 @@ function duplicateShape(id) {
     dup.preview.offsetLng = orig.preview.offsetLng + offsetDeg;
     dup.preview.offsetLat = orig.preview.offsetLat + offsetDeg;
   }
-  state.shapes.push(dup);
+  // Insert the copy just above the original (top-first stack).
+  const origIdx = state.shapes.findIndex(s => s.id === id);
+  state.shapes.splice(Math.max(0, origIdx), 0, dup);
   // Copy per-keyframe state from original to duplicate.
   for (const kf of state.keyframes) {
     if (!kf.shapes) kf.shapes = {};
@@ -1185,6 +1227,7 @@ function duplicateShape(id) {
   }
   ensureShapeOnMap(dup);
   redrawShape(dup);
+  applyShapeOrder();
   state.activeShapeId = newId;
   state.lastFocus = 'shape';
   saveLayers();
@@ -2731,13 +2774,17 @@ document.getElementById('rs-close').addEventListener('click', () => {
 
 // ─── Shape panel rendering ───
 
+let draggedShapeId = null;
+
 function renderShapesPanel() {
   const list = document.getElementById('shapes-list');
   list.innerHTML = '';
   if (state.shapes.length === 0) return;
-  for (const shape of state.shapes) {
+  // state.shapes is already TOP-FIRST — row order == paint order.
+  state.shapes.forEach((shape, displayIdx) => {
     const row = document.createElement('div');
     row.className = 'shape-row';
+    row.draggable = true;
     if (shape.id === state.activeShapeId) row.classList.add('active');
     if (!shape.visible) row.classList.add('hidden-layer');
     const glyph =
@@ -2752,6 +2799,7 @@ function renderShapesPanel() {
       shape.type === 'country' ? `α ${Math.round(shape.fillOpacity * 100)}% · sw ${shape.strokeWidth}` :
                                  '';
     row.innerHTML = `
+      <span class="om-grip" title="Drag to reorder — top row paints on top">⠿</span>
       <input type="checkbox" class="layer-vis" ${shape.visible ? 'checked' : ''} title="Toggle visibility">
       <span class="shape-swatch" style="background:${shape.type === 'polygon' ? shape.fill : shape.stroke}; border-color:${shape.stroke};"></span>
       <span class="shape-glyph">${glyph}</span>
@@ -2782,8 +2830,41 @@ function renderShapesPanel() {
       fitToShape(shape);
     });
     row.addEventListener('click', () => selectShape(shape.id));
+
+    // ── drag to reorder (top row paints on top) ──
+    row.addEventListener('dragstart', e => {
+      draggedShapeId = shape.id;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', shape.id); } catch {}
+    });
+    row.addEventListener('dragend', () => {
+      draggedShapeId = null;
+      list.querySelectorAll('.drop-above, .drop-below').forEach(el =>
+        el.classList.remove('drop-above', 'drop-below'));
+      row.classList.remove('dragging');
+    });
+    row.addEventListener('dragover', e => {
+      if (!draggedShapeId || draggedShapeId === shape.id) return;
+      e.preventDefault();
+      const above = e.offsetY < row.offsetHeight / 2;
+      row.classList.toggle('drop-above', above);
+      row.classList.toggle('drop-below', !above);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-above', 'drop-below'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!draggedShapeId || draggedShapeId === shape.id) return;
+      const above = e.offsetY < row.offsetHeight / 2;
+      const fromIdx = state.shapes.findIndex(s => s.id === draggedShapeId);
+      let target = displayIdx + (above ? 0 : 1);
+      if (fromIdx < target) target -= 1; // removal shifts insertion point
+      snapshotForUndo('reorder shape');
+      reorderShapeByDisplay(draggedShapeId, target);
+    });
+
     list.appendChild(row);
-  }
+  });
 }
 
 // ─── Old-maps panel rendering ───
@@ -4504,6 +4585,7 @@ function applyProjectSnapshot(snap) {
       ensureBordersOnMap();
       for (const l of state.layers) ensureLayerOnMap(l);
       for (const s of state.shapes) { ensureShapeOnMap(s); redrawShape(s); }
+      applyShapeOrder();
       setRouteSources(state.previewProgress);
     }
     if (snap && snap.camera && Array.isArray(snap.camera.center)) {

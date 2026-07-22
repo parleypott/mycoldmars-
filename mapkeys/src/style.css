@@ -1475,7 +1475,8 @@ body.dragging-shape .mapboxgl-canvas {
   user-select: none;
   padding: 0 2px;
 }
-.oldmap-row:hover .om-grip { color: var(--ink); }
+.oldmap-row:hover .om-grip,
+.shape-row:hover .om-grip { color: var(--ink); }
 .om-rename {
   appearance: none;
   background: #fffaf0;
