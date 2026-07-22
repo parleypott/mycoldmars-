@@ -1804,6 +1804,25 @@ export const ImageBlock = Node.create({
           videoCtl.style.width = w > 0 ? Math.round(w) + 'px' : '';
         } catch {}
       };
+      // Keep a handle's timecode label inside the strip at the edges (a label centered on the
+      // 0% handle would clip its leading "0:" off the left of the figure).
+      const positionTrimLabel = (labEl, pct) => {
+        labEl.style.transform = pct < 6 ? 'translateX(-4px)'
+          : pct > 94 ? 'translateX(calc(-100% + 14px))'
+          : 'translateX(-50%)';
+      };
+      // One geometry painter for both the persisted paint and the live drag preview.
+      const paintTrimGeometry = (tin, tout, dur) => {
+        const pct = (t) => (t / dur) * 100;
+        trimRange.style.left = pct(tin) + '%';
+        trimRange.style.width = Math.max(0, pct(tout) - pct(tin)) + '%';
+        trimIn.h.style.left = pct(tin) + '%';
+        trimOut.h.style.left = pct(tout) + '%';
+        trimIn.lab.textContent = videoTrimLabel(tin);
+        trimOut.lab.textContent = videoTrimLabel(tout);
+        positionTrimLabel(trimIn.lab, pct(tin));
+        positionTrimLabel(trimOut.lab, pct(tout));
+      };
       const paintVideoCtl = (a) => {
         const isVid = isVideoSrc(a.src) && !a.uploading && !a.uploadError;
         videoCtl.hidden = !isVid;
@@ -1815,13 +1834,7 @@ export const ImageBlock = Node.create({
         videoCtl.classList.toggle('wp-video-ctl--nometa', !dur);
         if (!dur) return;                      // metadata still loading — strip paints on loadedmetadata
         const { tin, tout } = effWindow(a, dur);
-        const pct = (t) => (t / dur) * 100;
-        trimRange.style.left = pct(tin) + '%';
-        trimRange.style.width = Math.max(0, pct(tout) - pct(tin)) + '%';
-        trimIn.h.style.left = pct(tin) + '%';
-        trimOut.h.style.left = pct(tout) + '%';
-        trimIn.lab.textContent = videoTrimLabel(tin);
-        trimOut.lab.textContent = videoTrimLabel(tout);
+        paintTrimGeometry(tin, tout, dur);
       };
 
       // One transaction per finished gesture — same live-node re-read discipline as commitWidth.
@@ -1863,13 +1876,7 @@ export const ImageBlock = Node.create({
         const apply = (t) => {
           if (which === 'in') live.tin = Math.max(0, Math.min(t, live.tout - VIDEO_TRIM_MIN_WINDOW));
           else live.tout = Math.min(dur, Math.max(t, live.tin + VIDEO_TRIM_MIN_WINDOW));
-          const pct = (v) => (v / dur) * 100;
-          trimRange.style.left = pct(live.tin) + '%';
-          trimRange.style.width = Math.max(0, pct(live.tout) - pct(live.tin)) + '%';
-          trimIn.h.style.left = pct(live.tin) + '%';
-          trimOut.h.style.left = pct(live.tout) + '%';
-          trimIn.lab.textContent = videoTrimLabel(live.tin);
-          trimOut.lab.textContent = videoTrimLabel(live.tout);
+          paintTrimGeometry(live.tin, live.tout, dur);
           try { media.currentTime = which === 'in' ? live.tin : live.tout; } catch {}
         };
         const onMove = (ev) => {

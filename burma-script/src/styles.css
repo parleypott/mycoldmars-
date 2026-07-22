@@ -2990,7 +2990,7 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 }
 .wp-video-range {
   position: absolute; top: 0; bottom: 0;
-  background: var(--ep-accent, #d23b2c); opacity: .22; pointer-events: none;
+  background: var(--ep-accent, #d23b2c); opacity: .3; pointer-events: none;
 }
 .wp-video-handle {
   position: absolute; top: -4px; bottom: -4px; width: 10px; margin-left: -5px; padding: 0;
