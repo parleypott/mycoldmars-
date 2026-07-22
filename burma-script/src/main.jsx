@@ -1317,15 +1317,16 @@ function WorkspacesMenu({ getDoc, onPick, placement = 'masthead' }) {
 // the strip lives at the very top and never touches the masthead's own intersection) and yields
 // the top edge back whenever a workspace view or chapter-focus owns it (their bars are z-530; the
 // strip is z-460, UNDER the centered READ/EDIT toggle at z-470 which floats above it, clear of the
-// strip's end-hugged controls). The whole strip is absent in a ?read share. The one show/hide rule
-// is stickyHeaderVisible() (sticky-header.js), tested headless. The workspaces menu and share are
+// strip's end-hugged controls). The strip mounts in a ?read share too, carrying the read-safe
+// workspaces menu but NOT the owner-only SHARE control. The one show/hide rule is
+// stickyHeaderVisible() (sticky-header.js), tested headless. The workspaces menu and share are
 // the SAME components as the masthead — a second placement, not a fork; the selected-workspace
 // state lives in App, so nothing here can desync.
 function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project }) {
   const [mastheadVisible, setMastheadVisible] = useState(true);
   useEffect(() => {
-    // A ?read share never mounts the owner masthead controls, so there's nothing to observe.
-    if (readOnly) return undefined;
+    // The masthead (with its workspaces menu) is present in BOTH owner and ?read shares now,
+    // so observe it in either mode — the strip mirrors whichever workspaces control scrolled off.
     const el = document.querySelector('.wp-masthead');
     if (!el || typeof IntersectionObserver === 'undefined') return undefined;
     const io = new IntersectionObserver(
@@ -1334,17 +1335,16 @@ function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project })
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [readOnly]);
+  }, []);
 
-  // Owner chrome only — a ?read viewer gets no strip at all (matches the masthead popovers).
-  if (readOnly) return null;
   const show = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive: !!ws, chFocusActive: !!chFocus });
   return (
     <div class="wp-stickyhead" data-show={show ? '' : undefined} aria-hidden={!show}>
       <span class="wp-stickyhead-title" title={title}>{title}</span>
       <span class="wp-stickyhead-spacer" />
       <WorkspacesMenu getDoc={getDoc} onPick={onPick} placement="sticky" />
-      <ShareToggle project={project} />
+      {/* SHARE is an owner write-surface (PATCHes is_public) — never in a ?read share's strip. */}
+      {!readOnly && <ShareToggle project={project} />}
     </div>
   );
 }
@@ -1597,9 +1597,10 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   // Entering a CRAFT workspace feeds the key into the filter plugin as a transaction meta
   // (decoration-only, no doc change, no reload — the chapter-focus pattern) and rewrites
   // the hash-query via replaceState. 'map' skips the plugin (stage 4 owns that view).
-  // Never in a ?read share: the menu isn't mounted and the deep link is ignored (v1).
+  // WORKS IN A ?read SHARE: a teammate on a read link gets the workspaces menu + ?ws= deep
+  // link. The dispatch is a setMeta (decoration-only, ZERO doc steps) — ProseMirror applies
+  // it to a non-editable view too, so the shared doc stays structurally frozen.
   const enterWorkspace = useCallback((key) => {
-    if (readOnly) return;
     const role = workspaceRole(key);
     if (!role && key !== WS_MAP_KEY) return;
     const ed = editorRef.current;
@@ -1616,7 +1617,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     if (key === WS_MAP_KEY) { try { ed?.view?.dom?.blur(); } catch {} }
     setWs(key);
     writeWsFlag(key);
-  }, [readOnly]);
+  }, []);
 
   const exitWorkspace = useCallback(() => {
     const ed = editorRef.current;
@@ -1685,9 +1686,10 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
 
   // DEEP LINK — #slug?ws=<key> (search or hash-query). Enter once the editor is ready;
   // a collab room that syncs later just repaints the already-active filter (the plugin
-  // rebuilds on every doc change). Ignored in ?read shares for v1.
+  // rebuilds on every doc change). Runs in ?read shares too, so a link like `?read&ws=3d`
+  // lands the animator straight in their workspace — `read` and `ws` parse independently
+  // (read-mode.js keys off `?read`/`?view`; ws-route.js off `?ws=`), so both flags compose.
   useEffect(() => {
-    if (readOnly) return undefined;
     let target = null;
     try { target = parseWsFlag(window.location.search, window.location.hash); } catch {}
     if (!target) return undefined;
@@ -1702,7 +1704,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       if (tries > 75) clearInterval(timer);
     }, 400);
     return () => clearInterval(timer);
-  }, [readOnly, enterWorkspace]);
+  }, [enterWorkspace]);
 
   // HUB METRICS — recomputed on the telemetry cadence (Editor.jsx already debounces +
   // idle-schedules the telemetry walk; this effect keys on that state landing), plus once
@@ -1858,19 +1860,19 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
         </div>
       )}
       {!readOnly && <ModeToggle edit={editUi} />}
-      {/* STICKY HEADER — carries workspaces + share once the masthead scrolls away (owner only;
-          yields to the wsbar/chfocus bar). Reuses the SAME menu/share components as the masthead. */}
-      {!readOnly && (
-        <StickyHeader
-          title={DOC_TITLE}
-          readOnly={readOnly}
-          ws={ws}
-          chFocus={chFocus}
-          getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
-          onPick={enterWorkspace}
-          project={EPISODE.id}
-        />
-      )}
+      {/* STICKY HEADER — carries the workspaces menu (and, for the owner, share) once the masthead
+          scrolls away; yields to the wsbar/chfocus bar. Mounts in ?read shares too so a teammate
+          can still switch workspace after scrolling — it drops the owner-only SHARE control there
+          (StickyHeader gates share on readOnly internally). */}
+      <StickyHeader
+        title={DOC_TITLE}
+        readOnly={readOnly}
+        ws={ws}
+        chFocus={chFocus}
+        getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
+        onPick={enterWorkspace}
+        project={EPISODE.id}
+      />
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
       <OutlineRail items={tel?.outline} hidden={outlineOpen} />
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
@@ -1893,12 +1895,12 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             {/* HIERARCHY: WORKSPACES is the one promoted control (filled ink, CSS) — the eye's second
                 stop after the title. Share keeps outline weight; tips + shortcuts are quiet icons. All
                 controls share one baseline + right edge (see .wp-masthead-meta align-items:center). */}
-            {!readOnly && (
-              <WorkspacesMenu
-                getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
-                onPick={enterWorkspace}
-              />
-            )}
+            {/* WORKSPACES mounts in ?read shares too — a teammate's craft lens is read-safe
+                (decoration-only paint on the same non-editable editor). SHARE stays owner-only. */}
+            <WorkspacesMenu
+              getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
+              onPick={enterWorkspace}
+            />
             {!readOnly && <ShareToggle project={EPISODE.id} />}
             {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader.
                 Demoted to a quiet "?" icon; the popover content is unchanged. */}

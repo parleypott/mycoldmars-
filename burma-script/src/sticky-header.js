@@ -1,19 +1,20 @@
 // STICKY HEADER visibility — the one pure rule that decides whether the slim sticky strip
-// (title + workspaces + share) is on screen. Kept out of the component so it can be tested
-// headless and can never drift from the interplay contract.
+// (title + workspaces, plus SHARE for the owner) is on screen. Kept out of the component so it
+// can be tested headless and can never drift from the interplay contract.
 //
-// The strip exists ONLY to keep the workspaces menu (and share) reachable once the real
-// masthead has scrolled away. So it shows when, and only when, ALL of these hold:
+// The strip exists ONLY to keep the workspaces menu reachable once the real masthead has
+// scrolled away. The masthead's workspaces menu now mounts in ?read shares too (a teammate's
+// craft lens + cutout view are read-safe, decoration-only paint), so the strip follows it in
+// EITHER mode. It shows when, and only when, ALL of these hold:
 //   • the masthead is NOT currently visible (scrolled out — IntersectionObserver reports it)
-//   • we are NOT in a ?read SHARE (readOnly) — a viewer has no owner chrome to carry
 //   • NO workspace view is active — the wp-wsbar already owns the top edge there
 //   • NOT in chapter-focus — the wp-chfocus-bar owns the top edge there
 //
-// Note this gates on readOnly (the SHARE capability), not the READ/EDIT toggle: an owner
-// reading their own script still has the masthead workspaces button, so the strip still
-// carries it. Only a true ?read share drops the whole strip.
-export function stickyHeaderVisible({ mastheadVisible, readOnly, wsActive, chFocusActive }) {
-  if (readOnly) return false;
+// readOnly is NOT a hide gate anymore: a ?read viewer still gets the (read-safe) workspaces
+// menu in the strip — just without the owner-only SHARE control, which the StickyHeader
+// component omits when readOnly. The pre-v1 rule dropped the whole strip in a share; that was
+// the "workspaces excluded from ?read" scope cut this change reverses.
+export function stickyHeaderVisible({ mastheadVisible, wsActive, chFocusActive } = {}) {
   if (wsActive) return false;
   if (chFocusActive) return false;
   if (mastheadVisible) return false;
