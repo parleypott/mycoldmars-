@@ -25,6 +25,8 @@ import {
   renameProject, migrateLegacyIfNeeded,
 } from './projects.js';
 import { initLibrary, showLibrary, hideLibrary } from './library.js';
+import { saveGifBlob } from './drop-write.js';
+import { getDropFolderHandle, ensureDropPermission, linkDropFolder, hasDirectoryPicker, DROP_FOLDER_SUGGEST_COPY } from '../../shared/drop-folder.js';
 import './style.css';
 import './library.css';
 
@@ -4455,6 +4457,38 @@ async function drainRenderQueue() {
   drainRenderQueue();
 }
 
+// SHARED DROP FOLDER (Johnny 2026-07-23) — is a folder currently linked? Drives the render-panel
+// affordance: when NOT linked we offer a one-click "Link a folder" button (its click is the gesture
+// showDirectoryPicker needs); when linked, exports flow into it silently and the script tool's ⌘⌃M
+// reads the newest. Refreshed after boot and after each export. Never throws.
+let dropFolderLinked = false;
+async function refreshDropFolderHint() {
+  try { dropFolderLinked = !!(await getDropFolderHandle()); }
+  catch { dropFolderLinked = false; }
+  renderQueuePanelUpdate();
+}
+
+// One-time link — invoked from the render-panel button's CLICK (the transient user activation
+// showDirectoryPicker requires). Linking here sets the handle for BOTH tools (shared IndexedDB), so
+// the script tool's ⌘⌃M immediately reads from the same folder. Safari (no directory picker) just
+// keeps the plain download.
+async function linkDropFolderFromPanel() {
+  if (!hasDirectoryPicker()) { flashToast("this browser can't link a folder — the gif still downloads"); return; }
+  try {
+    const handle = await linkDropFolder({ mode: 'readwrite' });
+    if (!handle) return;
+    // Prime the grant now (readwrite, request allowed — we're still inside the click gesture) so the
+    // very next export can write silently.
+    await ensureDropPermission(handle, { mode: 'readwrite', request: true });
+    dropFolderLinked = true;
+    flashToast('script folder linked → gifs now flow into ⌘⌃M');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // user cancelled the picker — silent
+    flashToast("couldn't link that folder — the gif still downloads");
+  }
+  renderQueuePanelUpdate();
+}
+
 function renderQueuePanelUpdate() {
   const panel = document.getElementById('render-queue');
   const list = document.getElementById('rq-list');
@@ -4468,8 +4502,9 @@ function renderQueuePanelUpdate() {
     const row = document.createElement('div');
     row.className = 'rq-row rq-' + job.status;
     const pct = Math.round(job.progress * 100);
+    const doneLabel = job.savedTo === 'folder' ? 'Done — in your script folder' : 'Done — downloaded';
     const statusLabel = job.status === 'rendering' ? `Rendering · ${pct}%` :
-                        job.status === 'done'      ? 'Done — downloaded' :
+                        job.status === 'done'      ? doneLabel :
                         job.status === 'error'     ? `Error: ${job.error}` :
                                                      'Queued';
     row.innerHTML = `
@@ -4478,6 +4513,26 @@ function renderQueuePanelUpdate() {
       <div class="rq-bar"><div class="rq-fill" style="width:${pct}%"></div></div>
     `;
     list.appendChild(row);
+  }
+  // FIRST-TIME LINK affordance — once a gif has finished and no folder is linked yet, surface a
+  // gesture-safe button so the next export flows straight into the script tool. Un-forced: the plain
+  // download already happened, this just wires up the fast path. Hidden entirely on Safari.
+  const anyDone = renderQueue.some((j) => j.status === 'done');
+  let linkRow = document.getElementById('rq-link-folder');
+  if (anyDone && !dropFolderLinked && hasDirectoryPicker()) {
+    if (!linkRow) {
+      linkRow = document.createElement('button');
+      linkRow.id = 'rq-link-folder';
+      linkRow.className = 'rq-link-folder';
+      linkRow.title = DROP_FOLDER_SUGGEST_COPY;
+      linkRow.textContent = '↪ Link a folder for instant script insert';
+      linkRow.addEventListener('click', linkDropFolderFromPanel);
+      list.appendChild(linkRow);
+    } else {
+      list.appendChild(linkRow);
+    }
+  } else if (linkRow) {
+    linkRow.remove();
   }
 }
 
@@ -4543,14 +4598,23 @@ async function runRenderJob(job) {
       renderQueuePanelUpdate();
     });
     gif.on('finished', blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
       const rangeTag = `K${String(fromIdx + 1).padStart(2, '0')}-K${String(toIdx + 1).padStart(2, '0')}`;
-      a.download = `mapkeys-${rangeTag}${crop.is169 ? '-16x9' : ''}-${speedPct}pct-${fps}fps.gif`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      resolve();
+      const name = `mapkeys-${rangeTag}${crop.is169 ? '-16x9' : ''}-${speedPct}pct-${fps}fps.gif`;
+      // The plain browser download — the un-linked behavior, and the fall-back whenever the shared
+      // drop folder isn't linked/granted. saveGifBlob only writes to the folder on an ALREADY-granted
+      // handle (no gesture live in this encoder callback), so a gif is never lost.
+      const downloadFallback = (b, fname) => {
+        const url = URL.createObjectURL(b);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fname;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      };
+      saveGifBlob({ blob, name }, { downloadFallback, toast: flashToast })
+        .then((where) => { job.savedTo = where; })
+        .catch(() => { try { downloadFallback(blob, name); } catch {} })
+        .finally(() => { refreshDropFolderHint(); resolve(); });
     });
     try { gif.render(); } catch (e) { reject(e); }
   });
@@ -4574,6 +4638,9 @@ gifGo.addEventListener('click', () => {
 // Initial render
 renderKeyframes();
 renderEditor();
+// Learn whether the shared drop folder is already linked (from a previous session or the script
+// tool) so the render panel knows whether to offer the one-click link affordance.
+refreshDropFolderHint();
 
 // ─── Project library: routing, open/save, chrome ───
 // The URL hash is the source of truth: '' → library, '#<slug>' → that project.

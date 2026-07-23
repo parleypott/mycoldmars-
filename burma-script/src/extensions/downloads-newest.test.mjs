@@ -167,26 +167,28 @@ await okAsync('ensureReadPermission: a throwing API / bad handle degrades to den
 });
 
 // ── 4. ORCHESTRATOR (mocked deps) ────────────────────────────────────────────────────────────
-// Deps injected so no real File System Access API / IndexedDB / gesture is needed.
+// Deps injected so no real File System Access API / IndexedDB / gesture is needed. The SOURCE is now
+// the SHARED drop folder (shared/drop-folder.js): getDropFolderHandle loads it, linkDropFolder picks +
+// persists it for BOTH tools.
 const baseDeps = (over = {}) => {
-  const log = { pasted: [], toasts: [], saved: [], pickedDir: 0 };
+  const log = { pasted: [], toasts: [], pickedDir: 0 };
   return {
     log,
     isReadOnly: () => false,
     hasDirectoryPicker: () => true,
     startMediaPaste: (_v, files) => log.pasted.push(files),
     toast: (msg, opts) => log.toasts.push({ msg, opts }),
-    saveDownloadsHandle: async (h) => { log.saved.push(h); return true; },
-    loadDownloadsHandle: async () => null,
+    getDropFolderHandle: async () => null,
     ensureReadPermission: async () => 'granted',
     newestFileFromDir: async () => ({ name: 'map.gif', type: 'image/gif' }),
-    showDirectoryPicker: async () => { log.pickedDir++; return { id: 'picked' }; },
+    // linkDropFolder both picks AND persists (shared module) — the mock just records the pick.
+    linkDropFolder: async () => { log.pickedDir++; return { id: 'picked' }; },
     ...over,
   };
 };
 
 await okAsync('granted stored handle → SILENT enumerate + startMediaPaste([newest]), no picker/toast', async () => {
-  const d = baseDeps({ loadDownloadsHandle: async () => ({ id: 'stored' }), ensureReadPermission: async () => 'granted' });
+  const d = baseDeps({ getDropFolderHandle: async () => ({ id: 'stored' }), ensureReadPermission: async () => 'granted' });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pickedDir, 0, 'no directory picker on a granted handle');
   assert.equal(d.log.pasted.length, 1);
@@ -194,17 +196,16 @@ await okAsync('granted stored handle → SILENT enumerate + startMediaPaste([new
   assert.equal(d.log.toasts.length, 0, 'silent success — no toast');
 });
 
-await okAsync('first use (no stored handle) → showDirectoryPicker + save + link toast + insert', async () => {
-  const d = baseDeps({ loadDownloadsHandle: async () => null });
+await okAsync('first use (no linked handle) → linkDropFolder + link toast + insert', async () => {
+  const d = baseDeps({ getDropFolderHandle: async () => null });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pickedDir, 1, 'picker shown on first use');
-  assert.equal(d.log.saved.length, 1, 'handle persisted');
-  assert.ok(d.log.toasts.some((t) => /downloads folder linked/i.test(t.msg)), 'one-time link toast');
+  assert.ok(d.log.toasts.some((t) => /script folder linked/i.test(t.msg)), 'one-time link toast');
   assert.equal(d.log.pasted.length, 1, 'newest file still inserted after linking');
 });
 
-await okAsync('denied stored handle → re-pick via showDirectoryPicker, then insert', async () => {
-  const d = baseDeps({ loadDownloadsHandle: async () => ({ id: 'stored' }), ensureReadPermission: async () => 'denied' });
+await okAsync('denied stored handle → re-link via linkDropFolder, then insert', async () => {
+  const d = baseDeps({ getDropFolderHandle: async () => ({ id: 'stored' }), ensureReadPermission: async () => 'denied' });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pickedDir, 1, 'a denied handle falls back to the picker');
   assert.equal(d.log.pasted.length, 1);
@@ -212,7 +213,7 @@ await okAsync('denied stored handle → re-pick via showDirectoryPicker, then in
 
 await okAsync('UNSUPPORTED newest file → toast, startMediaPaste NOT called', async () => {
   const d = baseDeps({
-    loadDownloadsHandle: async () => ({ id: 'stored' }),
+    getDropFolderHandle: async () => ({ id: 'stored' }),
     newestFileFromDir: async () => ({ name: 'thing.svg', type: 'image/svg+xml' }),
   });
   await runDownloadsHotkey(view, d);
@@ -220,8 +221,8 @@ await okAsync('UNSUPPORTED newest file → toast, startMediaPaste NOT called', a
   assert.ok(d.log.toasts.some((t) => /thing\.svg/.test(t.msg) && /image or video/i.test(t.msg)), 'named calm toast');
 });
 
-await okAsync('empty downloads (enumerate → null) → calm toast, no insert', async () => {
-  const d = baseDeps({ loadDownloadsHandle: async () => ({ id: 'stored' }), newestFileFromDir: async () => null });
+await okAsync('empty folder (enumerate → null) → calm toast, no insert', async () => {
+  const d = baseDeps({ getDropFolderHandle: async () => ({ id: 'stored' }), newestFileFromDir: async () => null });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pasted.length, 0);
   assert.ok(d.log.toasts.some((t) => /no complete file/i.test(t.msg)));
@@ -229,14 +230,14 @@ await okAsync('empty downloads (enumerate → null) → calm toast, no insert', 
 
 await okAsync('picker AbortError (user cancels) → SILENT: no toast, no insert', async () => {
   const abort = () => { const e = new Error('cancel'); e.name = 'AbortError'; throw e; };
-  const d = baseDeps({ loadDownloadsHandle: async () => null, showDirectoryPicker: async () => abort() });
+  const d = baseDeps({ getDropFolderHandle: async () => null, linkDropFolder: async () => abort() });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pasted.length, 0);
   assert.equal(d.log.toasts.length, 0, 'a cancelled picker is silent, not an error');
 });
 
 await okAsync('read-only session → whole hotkey is a no-op', async () => {
-  const d = baseDeps({ isReadOnly: () => true, loadDownloadsHandle: async () => ({ id: 'stored' }) });
+  const d = baseDeps({ isReadOnly: () => true, getDropFolderHandle: async () => ({ id: 'stored' }) });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pasted.length, 0);
   assert.equal(d.log.pickedDir, 0);
@@ -287,7 +288,7 @@ ok('list-shortcuts.js binds Mod-Alt-m at priority 1001 behind isEditable → run
 ok('shortcuts-list.js documents ⌘⌃M on the help card + keyLabel renders ⌃ on mac', () => {
   const sl = src('../shortcuts-list.js');
   assert.ok(/keys:\s*\['Mod',\s*'Ctrl',\s*'M'\]/.test(sl), 'card row for ⌘⌃M');
-  assert.ok(/newest download/i.test(sl), 'plain-words copy');
+  assert.ok(/newest gif from your script folder/i.test(sl), 'plain-words copy (shared drop folder)');
   assert.ok(/token === 'Ctrl'.*mac \? '⌃'/s.test(sl), "keyLabel maps Ctrl → ⌃ on mac");
 });
 
@@ -306,9 +307,9 @@ ok('downloads-newest.js names the bound ⌘⌃M in its toasts — never the macO
   assert.ok(!/⌘⌥M/.test(dn), 'no stale ⌘⌥M label in the downloads module');
   assert.ok(!/Mod-Alt-m/.test(dn), 'no stale Mod-Alt-m token in the downloads module');
   // The two user-facing toasts (LINKED grant + read-error) name ⌘⌃M — the chord that actually works.
-  const linked = dn.match(/doToast\('downloads folder linked[^']*'/);
+  const linked = dn.match(/doToast\('script folder linked[^']*'/);
   assert.ok(linked && /⌘⌃M/.test(linked[0]), 'LINKED toast names ⌘⌃M');
-  const readErr = dn.match(/doToast\("couldn't read your downloads folder[^"]*"/);
+  const readErr = dn.match(/doToast\("couldn't read your script folder[^"]*"/);
   assert.ok(readErr && /⌘⌃M/.test(readErr[0]), 'read-error toast names ⌘⌃M');
 });
 
