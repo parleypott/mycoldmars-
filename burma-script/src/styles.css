@@ -1824,6 +1824,51 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
   .wp-device.outline-open { transform: translateX(140px); }
 }
 
+/* ── OUTLINE MODULAR MODE (chapter reorder) ──────────────────────────────────
+   FLAT house style: mono chrome, one ink + the accent hairline for the drop line.
+   The REORDER toggle sits beside the collapse control; flipped on, the list becomes
+   a stack of draggable chapter rows with a ⠿ grip. */
+.wp-outline-headtools { display: flex; align-items: center; gap: 6px; }
+.wp-outline-reorder {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px; border: 1.5px solid var(--ink); border-radius: 6px;
+  background: transparent; cursor: pointer;
+  font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: .16em;
+  color: var(--label); text-transform: uppercase; white-space: nowrap;
+}
+.wp-outline-reorder:hover { background: var(--ink); color: var(--frame); }
+.wp-outline-reorder.is-on { background: var(--ink); color: var(--frame); border-color: var(--ink); }
+.wp-reorder-grip { font-size: 11px; line-height: 1; letter-spacing: 0; }
+.wp-outline-modnote {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .16em; color: var(--label-3);
+  text-transform: uppercase; padding: 2px 0 4px;
+}
+
+/* a draggable chapter row in modular mode */
+.wp-outline-drag {
+  position: relative; cursor: grab; user-select: none;
+  border: 1.5px solid transparent; border-radius: 7px;
+  margin-top: 6px !important; padding: 6px 8px; gap: 8px;
+  background: var(--panel, transparent);
+}
+.wp-outline-drag:first-of-type { margin-top: 0 !important; }
+.wp-outline-drag:hover { border-color: var(--rule); }
+.wp-outline-drag:active { cursor: grabbing; }
+.wp-outline-drag.is-dragging { opacity: .45; }
+.wp-outline-drag-grip {
+  flex: none; font-size: 13px; line-height: 1; color: var(--label-3);
+  align-self: center; letter-spacing: 0;
+}
+.wp-outline-drag:hover .wp-outline-drag-grip { color: var(--ep-accent, var(--orange)); }
+/* the drop hairline — the same accent line family as the row-drag indicator */
+.wp-outline-drag.is-drop-before::before,
+.wp-outline-drag.is-drop-after::after {
+  content: ""; position: absolute; left: 4px; right: 4px; height: 2px;
+  background: var(--ep-accent, var(--orange)); border-radius: 2px; pointer-events: none; z-index: 3;
+}
+.wp-outline-drag.is-drop-before::before { top: -4px; }
+.wp-outline-drag.is-drop-after::after { bottom: -4px; }
+
 /* ============================================================
    THE CONTROL UNIT — sticky LEFT reading instrument (feature E)
    Flat fig.01 box, Teenage-Engineering tactile knobs. position:fixed so it stays

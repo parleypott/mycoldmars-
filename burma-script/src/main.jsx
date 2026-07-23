@@ -27,6 +27,7 @@ import { getEpisode } from './episode-config.js';
 import { ROLE_DEFS, ROLE_IDS, parseRoles, serializeRoles, toggleRole, rolesStorageKey } from './roles.js';
 import { WORKSPACE_ROLES, workspaceRole, scanWorkspace, workspaceMetrics } from './workspaces.js';
 import { workspaceFilterKey } from './extensions/workspace-filter.js';
+import { moveChapter, walkChapters } from './extensions/chapter-reorder.js';
 import { countCheckedMembers } from './extensions/ws-checkoff.js';
 import { WS_MAP_KEY, parseWsFlag, setWsInHash, setWsInSearch } from './ws-route.js';
 import { mapModel } from './script-map.js';
@@ -503,30 +504,132 @@ function OutlineRail({ items, hidden }) {
 
 // ── OUTLINE PANEL — slides out from the LEFT. Default hidden. Monochrome indented
 // chapter/scene spine; scroll-spy marks the chapter currently in the reading band.
-function OutlinePanel({ items, open, onClose }) {
+//
+// MODULAR MODE (chapter reorder): the header carries a REORDER toggle. Flipped on, the list shows
+// ONLY chapters (level 0), each with a drag grip; dragging a chapter up/down and dropping reorders
+// the ACTUAL script body in ONE ProseMirror transaction (via onReorder → moveChapter). The drag is
+// pure outline-list reordering (HTML5 drag) — the doc changes ONLY on drop, so a live drag
+// dispatches nothing (collab-safe). Disabled entirely in ?read (a reader never restructures the
+// author's script) and whenever there are fewer than two chapters. See extensions/chapter-reorder.js
+// for the lossless-by-construction engine.
+function OutlinePanel({ items, open, onClose, readOnly, onReorder }) {
   const activeId = useOutlineSpy(items);
   const jump = jumpToOutlineId;
 
+  const chapters = (items || []).filter((it) => it.level === 0);
+  const canReorder = !readOnly && chapters.length > 1;
+
+  const [modular, setModular] = useState(false);
+  // Drag state is the SOURCE OF TRUTH in refs (read synchronously by the drag handlers — HTML5
+  // dragstart/dragover/drop can fire in the same tick, so async React state would go stale between
+  // them). The paired useState mirrors only drive the re-render for the visual indicator.
+  const dragRef = useRef(null);              // blockId being dragged
+  const dropRef = useRef(null);              // { id, before } — current drop target
+  const [dragId, setDragId] = useState(null);
+  const [dropAt, setDropAt] = useState(null); // { id, before }
+  const setDrag = (id) => { dragRef.current = id; setDragId(id); };
+  const setDrop = (v) => { dropRef.current = v; setDropAt(v); };
+
+  // Leaving modular mode (or losing the ability to reorder) clears any in-flight drag.
+  useEffect(() => { if (!modular || !canReorder) { setDrag(null); setDrop(null); } }, [modular, canReorder]);
+  useEffect(() => { if (!canReorder && modular) setModular(false); }, [canReorder, modular]);
+
+  // ESC cancels an in-progress drag WITHOUT dropping (dispatches nothing) — a safe bail-out.
+  useEffect(() => {
+    if (!modular) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (dragRef.current) { e.stopPropagation(); setDrag(null); setDrop(null); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [modular]);
+
+  const endDrag = () => { setDrag(null); setDrop(null); };
+
+  const onGripDragStart = (id, e) => {
+    setDrag(id);
+    setDrop(null);
+    try {
+      e.dataTransfer.effectAllowed = 'move';
+      // Empty text payload on purpose: even if a drop escaped React's handlers, there is no
+      // parseable content to insert anywhere (mirrors the row-drag safety posture).
+      e.dataTransfer.setData('text/plain', '');
+    } catch (_err) {}
+  };
+  const onItemDragOver = (id, e) => {
+    if (!dragRef.current) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch (_err) {}
+    if (id === dragRef.current) { setDrop(null); return; } // hovering self → no indicator (no-op)
+    const r = e.currentTarget.getBoundingClientRect();
+    const before = e.clientY < r.top + r.height / 2;
+    setDrop({ id, before });
+  };
+  const onItemDrop = (id, e) => {
+    const from = dragRef.current;
+    if (!from) return;
+    e.preventDefault();
+    const at = dropRef.current || { id, before: true };
+    endDrag();
+    if (from && at.id) onReorder?.(from, at.id, at.before);
+  };
+
   return (
-    <aside class={`wp-outline${open ? ' is-open' : ''}`} aria-hidden={!open} inert={open ? undefined : ''}>
+    <aside class={`wp-outline${open ? ' is-open' : ''}${modular ? ' is-modular' : ''}`} aria-hidden={!open} inert={open ? undefined : ''}>
       <div class="wp-outline-head">
-        <span class="wp-outline-ttl">OUTLINE</span>
-        <button class="wp-outline-collapse" title="Collapse outline" aria-label="Collapse outline" tabindex={open ? 0 : -1} onClick={onClose}>‹</button>
+        <span class="wp-outline-ttl">{modular ? 'REORDER' : 'OUTLINE'}</span>
+        <div class="wp-outline-headtools">
+          {canReorder && (
+            <button
+              class={`wp-outline-reorder${modular ? ' is-on' : ''}`}
+              title={modular ? 'Done reordering' : 'Reorder chapters — drag to remap the script'}
+              aria-label={modular ? 'Done reordering chapters' : 'Reorder chapters'}
+              aria-pressed={modular ? 'true' : 'false'}
+              tabindex={open ? 0 : -1}
+              onClick={() => setModular((v) => !v)}
+            >
+              {modular ? 'DONE' : (<><span class="wp-reorder-grip" aria-hidden="true">⠿</span> REORDER</>)}
+            </button>
+          )}
+          <button class="wp-outline-collapse" title="Collapse outline" aria-label="Collapse outline" tabindex={open ? 0 : -1} onClick={onClose}>‹</button>
+        </div>
       </div>
+      {modular && (
+        <div class="wp-outline-modnote">DRAG A CHAPTER TO REORDER · ESC CANCELS</div>
+      )}
       <div class="wp-outline-list">
         {(!items || !items.length) && <div class="wp-outline-empty">OUTLINE · LOADING</div>}
-        {(items || []).map((it) => (
-          <button
-            key={it.id}
-            class={`wp-outline-item lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`}
-            title={it.title}
-            tabindex={open ? 0 : -1}
-            onClick={() => jump(it.id)}
-          >
-            {it.level === 0 && <span class="wp-outline-ord">{it.ord}</span>}
-            <span class="wp-outline-txt">{it.title}</span>
-          </button>
-        ))}
+        {/* MODULAR: chapters only, each a draggable grip row. NORMAL: the full chapter/scene spine. */}
+        {modular
+          ? chapters.map((it) => (
+            <div
+              key={it.id}
+              class={`wp-outline-item lvl-0 wp-outline-drag${it.id === dragId ? ' is-dragging' : ''}${dropAt && dropAt.id === it.id ? (dropAt.before ? ' is-drop-before' : ' is-drop-after') : ''}`}
+              title={it.title}
+              draggable
+              onDragStart={(e) => onGripDragStart(it.id, e)}
+              onDragOver={(e) => onItemDragOver(it.id, e)}
+              onDrop={(e) => onItemDrop(it.id, e)}
+              onDragEnd={endDrag}
+            >
+              <span class="wp-outline-drag-grip" aria-hidden="true">⠿</span>
+              <span class="wp-outline-ord">{it.ord}</span>
+              <span class="wp-outline-txt">{it.title}</span>
+            </div>
+          ))
+          : (items || []).map((it) => (
+            <button
+              key={it.id}
+              class={`wp-outline-item lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`}
+              title={it.title}
+              tabindex={open ? 0 : -1}
+              onClick={() => jump(it.id)}
+            >
+              {it.level === 0 && <span class="wp-outline-ord">{it.ord}</span>}
+              <span class="wp-outline-txt">{it.title}</span>
+            </button>
+          ))}
       </div>
     </aside>
   );
@@ -1511,6 +1614,31 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
     setChFocus(null);
   }, []);
 
+  // CHAPTER REORDER (outline modular mode). The outline hands us the dragged chapter's blockId, the
+  // drop-target chapter's blockId, and whether the drop landed before/after it. We resolve those to
+  // chapter INDICES against the LIVE doc (never a stale outline index) and run moveChapter — ONE
+  // lossless permutation transaction on the user's drop (collab-safe: the drag itself dispatched
+  // nothing). Frozen in ?read shares (readOnly). After the move, telemetry recomputes the outline
+  // and we re-seek the moved chapter's heading so it stays in view.
+  const reorderChapters = useCallback((fromBlockId, targetBlockId, before) => {
+    if (readOnly) return;
+    const ed = editorRef.current;
+    if (!ed) return;
+    const doc = ed.state.doc;
+    const ids = walkChapters(doc).chapters.map((c) => c.firstBlockId);
+    const fromIdx = ids.indexOf(fromBlockId);
+    if (fromIdx < 0) return;
+    // The desired FINAL index (standard array-move): drop the moving chapter out, then find where
+    // the target sits in the reduced list and land before/after it.
+    const reduced = ids.filter((_, i) => i !== fromIdx);
+    let toIdx = reduced.indexOf(targetBlockId);
+    if (toIdx < 0) return;          // dropped onto itself (target === from) → no-op
+    if (!before) toIdx += 1;
+    try { moveChapter(ed.state, ed.view.dispatch, fromIdx, toIdx); } catch {}
+    // Keep the moved chapter in view once the reorder + telemetry re-render settle.
+    requestAnimationFrame(() => { try { jumpToOutlineId(fromBlockId); } catch {} });
+  }, [readOnly]);
+
   // Scroll choreography: entering focus starts the chapter at the top; exiting restores the
   // exact pre-focus position on the next frame (after the hidden rows have re-rendered) — the
   // "get back without reloading, seamless" contract.
@@ -1874,7 +2002,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
         onPick={enterWorkspace}
         project={EPISODE.id}
       />
-      <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
+      <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} readOnly={readOnly} onReorder={reorderChapters} />
       <OutlineRail items={tel?.outline} hidden={outlineOpen} />
       {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
           touch nothing but CSS variables. Edit-only chrome below is what we strip. */}
