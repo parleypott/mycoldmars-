@@ -611,6 +611,25 @@ body.dragging-shape .mapboxgl-canvas { cursor: grabbing !important; }
 .rq-row.rq-done .rq-fill   { background: #2f6b3a; }
 .rq-row.rq-error .rq-fill  { background: #b85c3c; }
 
+/* ─── Shared drop folder: one-click link affordance (Johnny 2026-07-23) ─── */
+.rq-link-folder {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 4px 12px 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.rq-link-folder:hover { background: var(--accent); color: var(--bg, #fff); }
+
 /* ─── Toast (e.g. "Undo: delete shape") ─── */
 #mk-toast {
   position: fixed;

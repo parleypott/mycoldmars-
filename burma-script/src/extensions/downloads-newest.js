@@ -1,30 +1,37 @@
-// Burma Script Tool — DOWNLOADS HOTKEY (Johnny 2026-07-23: "press a key, my newest download
-// lands in the script — no Finder, no drag").
+// Burma Script Tool — DROP-FOLDER HOTKEY (Johnny 2026-07-23: "press a key, my newest gif lands in
+// the script — no Finder, no drag").
 //
-// THE USE CASE: Johnny generates a gif in his MapKeys tool, it drops into ~/Downloads (a real
-// example is a 56MB mapkeys .gif). He wants it in the script INSTANTLY. ⌘⌥M does exactly that:
-// it finds the NEWEST complete real file in his Downloads folder and feeds it through the EXACT
-// media-paste pipeline a clipboard paste uses (startMediaPaste) — so it inherits, for free, the
-// full road already proven by image-drop.js: gif→mp4 transcode, base64/signed route split,
-// SHA-256 dedupe, the 413 self-heal, video-loop controls, and the one-user-transaction insert.
+// THE USE CASE: Johnny renders a gif in his MapKeys tool and it saves into a SHARED DROP FOLDER he
+// picked once (e.g. Desktop › mapkey-gifs). He wants that gif in the script INSTANTLY. ⌘⌃M does
+// exactly that: it finds the NEWEST complete real file in that same folder and feeds it through the
+// EXACT media-paste pipeline a clipboard paste uses (startMediaPaste) — so it inherits, for free, the
+// full road already proven by image-drop.js: gif→mp4 transcode, base64/signed route split, SHA-256
+// dedupe, the 413 self-heal, video-loop controls, and the one-user-transaction insert.
 //
-// WHY THIS IS EVEN POSSIBLE FROM A WEB PAGE: a page cannot freely read ~/Downloads. But the
-// File System Access API lets the USER grant a directory ONCE (showDirectoryPicker) and the app
-// PERSISTS the returned handle in IndexedDB (handles are structured-clone-able). On every later
-// press we reload the handle and re-check its read permission — 'granted' means we read the
-// folder SILENTLY (no dialog, no picker); the zero-click experience Johnny asked for.
+// WHY A SHARED FOLDER (not ~/Downloads): a page cannot freely read ~/Downloads, AND Chrome's
+// showDirectoryPicker BLOCKS the Downloads folder outright ("contains system files"). So instead the
+// USER grants a NORMAL folder ONCE (showDirectoryPicker → linkDropFolder) and the handle persists in
+// IndexedDB. MapKeys and this script tool are the SAME ORIGIN (newpress.press), so they SHARE that
+// IndexedDB and the SAME handle — MapKeys writes gifs into the folder, this tool reads the newest out.
+// Linking from EITHER tool sets it for both. Handle store + permission live in shared/drop-folder.js.
 //
-// GESTURE LAW: showDirectoryPicker / requestPermission REQUIRE transient user activation, so the
-// whole chain is kicked off synchronously from the keydown handler (list-shortcuts.js) and never
-// waits on a timer before touching those APIs — the browser keeps the activation alive across the
-// awaited permission/handle steps as one continuous chain.
+// GESTURE LAW: showDirectoryPicker / requestPermission REQUIRE transient user activation, so the whole
+// chain is kicked off synchronously from the keydown handler (list-shortcuts.js) and never waits on a
+// timer before touching those APIs — the browser keeps the activation alive across the awaited
+// permission/link steps as one continuous chain. Reading an ALREADY-'granted' folder needs no gesture.
 //
 // COLLAB LOOP LAW: this module never dispatches a transaction itself. It hands the File to
 // startMediaPaste, whose insert is a single user-initiated transaction (one undo removes it) —
 // identical to a paste. Read-mode is gated at the keymap call site (editor.isEditable) AND
-// re-checked here, so ⌘⌥M is a no-op on a ?read share.
+// re-checked here, so ⌘⌃M is a no-op on a ?read share.
 
 import { isReadOnly } from '../read-mode.js';
+import {
+  getDropFolderHandle,
+  ensureDropPermission,
+  linkDropFolder,
+  hasDirectoryPicker as sharedHasDirectoryPicker,
+} from '../../../shared/drop-folder.js';
 import {
   isSupportedMediaMime,
   SUPPORTED_IMAGE_MIMES,
@@ -41,9 +48,10 @@ function toast(msg, { tone = 'error', lab } = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// NEWEST-FILE SELECTION — PURE. The whole "grab my latest download" promise rests on picking the
-// right file, so the rules are pure functions over plain {name,lastModified,size,kind} records and
-// unit-tested hard. NONE of these touch the DOM or the File System Access API.
+// NEWEST-FILE SELECTION — PURE. The whole "grab my latest gif" promise rests on picking the right
+// file, so the rules are pure functions over plain {name,lastModified,size,kind} records and
+// unit-tested hard. NONE of these touch the DOM or the File System Access API. (Unchanged when the
+// SOURCE moved from Downloads to the shared drop folder — the selection logic is identical.)
 
 // IN-PROGRESS download sentinels — a partially-written file must NEVER be picked (it would upload
 // a truncated/zero-byte fragment). Chrome/Brave use .crdownload; other browsers/tools use
@@ -56,8 +64,8 @@ export function isInProgressName(name) {
   return IN_PROGRESS_SUFFIXES.some((s) => n.endsWith(s));
 }
 
-// HIDDEN / SYSTEM files — macOS litters Downloads with .DS_Store and other dotfiles. A leading
-// dot means hidden; never a thing Johnny dropped there to use.
+// HIDDEN / SYSTEM files — macOS litters folders with .DS_Store and other dotfiles. A leading dot
+// means hidden; never a thing Johnny meant to use.
 export function isHiddenName(name) {
   const n = String(name || '');
   return n.startsWith('.');
@@ -65,7 +73,7 @@ export function isHiddenName(name) {
 
 // A file is a candidate for "newest real, complete file" only when it is: an actual file (not a
 // directory), not hidden/system, not an in-progress download, and has real bytes (size > 0). The
-// zero-byte gate double-covers a download that just began (the OS creates a 0-byte target first).
+// zero-byte gate double-covers a write that just began (the OS creates a 0-byte target first).
 export function isCompleteRealFile(entry) {
   if (!entry) return false;
   if (entry.kind === 'directory') return false;
@@ -90,7 +98,7 @@ export function pickNewestFile(entries) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// MEDIA GATE + ROUTE — PURE. The newest file might be a .svg / .zip Johnny also has in Downloads;
+// MEDIA GATE + ROUTE — PURE. The newest file might be a .svg / .zip Johnny also has in the folder;
 // only a supported image/video is inserted. Reuses image-drop.js's EXACT predicate so this can
 // never drift from what the paste/drop paths accept. onMedia/onReject are injected so the routing
 // decision is testable without a live editor.
@@ -104,93 +112,12 @@ export function routeNewestFile(file, { onMedia, onReject }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// PERMISSION STATE MACHINE — the contract, testable against a mock handle. queryPermission tells us
-// where we stand; if it's already 'granted' we proceed SILENTLY; if it's 'prompt' we requestPermission
-// (one click, inside the gesture); 'denied' means fall back to the picker. Never throws — any API
-// error resolves to 'denied' so the caller re-picks rather than wedging.
+// PERMISSION — thin READ wrapper over the shared state machine, kept exported so callers/tests that
+// only care about read access have a one-arg entry point. The canonical machine (granted → silent,
+// prompt → requestPermission inside the gesture, denied/throw → denied) lives in shared/drop-folder.js.
 //   returns 'granted' | 'prompt' | 'denied'
-export async function ensureReadPermission(handle, { request = true } = {}) {
-  if (!handle || typeof handle.queryPermission !== 'function') return 'denied';
-  const opts = { mode: 'read' };
-  let state = 'prompt';
-  try { state = await handle.queryPermission(opts); } catch { state = 'prompt'; }
-  if (state === 'granted') return 'granted';
-  if (request && typeof handle.requestPermission === 'function') {
-    try { state = await handle.requestPermission(opts); } catch { state = 'denied'; }
-  }
-  return state === 'granted' ? 'granted' : (state === 'prompt' ? 'prompt' : 'denied');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// HANDLE PERSISTENCE — a FileSystemDirectoryHandle is structured-clone-able, so it stores straight
-// into IndexedDB and survives reloads. Own tiny DB so it can't collide with the recovery/doc stores.
-const HANDLE_DB = 'wp-downloads';
-const HANDLE_STORE = 'handles';
-const HANDLE_KEY = 'downloads-dir';
-
-function idbAvailable() {
-  return typeof indexedDB !== 'undefined' && indexedDB;
-}
-
-function openHandleDb() {
-  return new Promise((resolve, reject) => {
-    if (!idbAvailable()) { reject(new Error('no-indexeddb')); return; }
-    let req;
-    try { req = indexedDB.open(HANDLE_DB, 1); } catch (e) { reject(e); return; }
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(HANDLE_STORE)) db.createObjectStore(HANDLE_STORE);
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error('idb open failed'));
-  });
-}
-
-// Persist the granted directory handle. Best-effort — a failure to save just means the NEXT press
-// re-picks (a minor annoyance, never a crash), so we swallow and resolve false.
-export async function saveDownloadsHandle(handle) {
-  try {
-    const db = await openHandleDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(HANDLE_STORE, 'readwrite');
-      tx.objectStore(HANDLE_STORE).put(handle, HANDLE_KEY);
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
-    });
-    db.close?.();
-    return true;
-  } catch { return false; }
-}
-
-// Load the stored handle, or null when there is none / IndexedDB is unavailable. Never throws.
-export async function loadDownloadsHandle() {
-  try {
-    const db = await openHandleDb();
-    const handle = await new Promise((resolve, reject) => {
-      const tx = db.transaction(HANDLE_STORE, 'readonly');
-      const r = tx.objectStore(HANDLE_STORE).get(HANDLE_KEY);
-      r.onsuccess = () => resolve(r.result || null);
-      r.onerror = () => reject(r.error);
-    });
-    db.close?.();
-    return handle || null;
-  } catch { return null; }
-}
-
-// Drop the stored handle (e.g. it became permanently unusable). Best-effort.
-export async function clearDownloadsHandle() {
-  try {
-    const db = await openHandleDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(HANDLE_STORE, 'readwrite');
-      tx.objectStore(HANDLE_STORE).delete(HANDLE_KEY);
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-    db.close?.();
-    return true;
-  } catch { return false; }
+export function ensureReadPermission(handle, opts = {}) {
+  return ensureDropPermission(handle, { mode: 'read', ...opts });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -226,10 +153,11 @@ export function mediaPickerAcceptTypes() {
   ];
 }
 
-// Feature detect — the zero-click path needs showDirectoryPicker (Chromium). Safari has neither
-// this nor a persistent directory handle, so it takes the one-click showOpenFilePicker fallback.
+// Feature detect — the zero-click path needs showDirectoryPicker (Chromium). Safari has neither this
+// nor a persistent directory handle, so it takes the one-click showOpenFilePicker fallback. Re-exports
+// the shared detector so both tools agree on capability.
 export function hasDirectoryPicker() {
-  return typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+  return sharedHasDirectoryPicker();
 }
 export function hasFilePicker() {
   return typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function';
@@ -243,25 +171,25 @@ function insertResolvedFile(view, file, deps = {}) {
   const doToast = deps.toast || toast;
   return routeNewestFile(file, {
     onMedia: (f) => doPaste(view, [f]),
-    onReject: (f) => doToast(`newest download isn't an image or video (${f?.name || 'unknown file'})`),
+    onReject: (f) => doToast(`newest file isn't an image or video (${f?.name || 'unknown file'})`),
   });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// SAFARI / NO-API FALLBACK — showOpenFilePicker defaulting to Downloads. One click to confirm the
-// file (Safari can't persist a directory handle, so the zero-click version is impossible there),
+// SAFARI / NO-API FALLBACK — showOpenFilePicker defaulting to the desktop (Safari can't persist a
+// directory handle, so the zero-click version is impossible there). One click to confirm the file,
 // then the same insert pipeline. An AbortError = Johnny cancelled the picker = silent.
 async function runFilePickerFallback(view, deps = {}) {
   const doToast = deps.toast || toast;
   const openFilePicker = deps.showOpenFilePicker
     || (typeof window !== 'undefined' ? window.showOpenFilePicker?.bind(window) : null);
   if (typeof openFilePicker !== 'function') {
-    doToast("this browser can't reach your downloads folder — drag the file into the script instead");
+    doToast("this browser can't reach your script folder — drag the file into the script instead");
     return;
   }
   try {
     const [fileHandle] = await openFilePicker({
-      startIn: 'downloads',
+      startIn: 'desktop',
       multiple: false,
       excludeAcceptAllOption: false,
       types: mediaPickerAcceptTypes(),
@@ -276,13 +204,13 @@ async function runFilePickerFallback(view, deps = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// THE ORCHESTRATOR — what ⌘⌥M runs. Dependency-injectable (every browser API + the two side-effect
+// THE ORCHESTRATOR — what ⌘⌃M runs. Dependency-injectable (every browser API + the two side-effect
 // sinks can be mocked) so the whole flow is drivable in a headless test without a real gesture.
 //
-// FLOW (Chromium): load the stored handle → if present, ensureReadPermission (granted = silent,
-// prompt = one-click request); if we have a granted handle, enumerate + insert the newest file. No
-// usable handle (first ever use, or permission revoked/denied) → showDirectoryPicker, persist the
-// grant, tell Johnny ONCE, then enumerate + insert. Any picker AbortError = silent cancel.
+// FLOW (Chromium): load the SHARED drop-folder handle → if present, ensureReadPermission (granted =
+// silent, prompt = one-click request); with a granted handle, enumerate + insert the newest file. No
+// usable handle (first ever use here, or permission revoked) → linkDropFolder (showDirectoryPicker,
+// persisted for BOTH tools), tell Johnny ONCE, then enumerate + insert. Any picker AbortError = silent.
 export async function runDownloadsHotkey(view, deps = {}) {
   const doToast = deps.toast || toast;
   const readOnly = deps.isReadOnly || isReadOnly;
@@ -294,32 +222,31 @@ export async function runDownloadsHotkey(view, deps = {}) {
     return runFilePickerFallback(view, deps);
   }
 
-  const load = deps.loadDownloadsHandle || loadDownloadsHandle;
-  const save = deps.saveDownloadsHandle || saveDownloadsHandle;
+  const getHandle = deps.getDropFolderHandle || getDropFolderHandle;
+  const link = deps.linkDropFolder || linkDropFolder;
   const ensure = deps.ensureReadPermission || ensureReadPermission;
   const enumerate = deps.newestFileFromDir || newestFileFromDir;
-  const pickDir = deps.showDirectoryPicker
-    || (typeof window !== 'undefined' ? window.showDirectoryPicker?.bind(window) : null);
 
   try {
-    let handle = await load();
+    let handle = await getHandle();
     if (handle) {
       const perm = await ensure(handle); // silent when 'granted'; one click when 'prompt'
-      if (perm !== 'granted') handle = null; // denied/prompt-refused → re-pick below
+      if (perm !== 'granted') handle = null; // denied/prompt-refused → re-link below
     }
     if (!handle) {
-      if (typeof pickDir !== 'function') { doToast("this browser can't reach your downloads folder"); return; }
-      handle = await pickDir({ id: 'wp-downloads', startIn: 'downloads', mode: 'read' });
+      // First use here (or the grant is gone): pick the folder MapKeys saves gifs to. The keypress is
+      // the gesture — linkDropFolder calls showDirectoryPicker synchronously inside this chain and
+      // persists the handle for BOTH tools. AbortError (user cancels) surfaces to the catch → silent.
+      handle = await link({ mode: 'readwrite' });
       if (!handle) return;
-      await save(handle);
-      doToast('downloads folder linked — ⌘⌥M now grabs your newest download instantly', { tone: 'ok', lab: 'LINKED' });
+      doToast('script folder linked — ⌘⌃M now drops in your newest gif instantly', { tone: 'ok', lab: 'LINKED' });
     }
     const file = await enumerate(handle);
-    if (!file) { doToast('no complete file in your downloads folder yet'); return; }
+    if (!file) { doToast('no complete file in your script folder yet'); return; }
     insertResolvedFile(view, file, deps);
   } catch (e) {
     if (e && e.name === 'AbortError') return; // user cancelled the directory picker — silent
-    doToast("couldn't read your downloads folder — press ⌘⌥M to try again");
+    doToast("couldn't read your script folder — press ⌘⌃M to try again");
   }
 }
 

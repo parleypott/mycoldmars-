@@ -56,7 +56,7 @@ export const SHORTCUT_GROUPS = [
     items: [
       { keys: ['/'], does: 'open the block menu — chapter, scene, vo, marks', edit: true },
       { keys: ['Mod', 'K'], does: 'turn the selected words into a link', edit: true },
-      { keys: ['Mod', 'Ctrl', 'M'], does: 'drop in your newest download — the last gif or clip you saved', edit: true },
+      { keys: ['Mod', 'Ctrl', 'M'], does: 'drop in your newest gif from your script folder — the last one MapKeys saved', edit: true },
       { keys: ['Mod', 'Z'], does: 'undo your last change', edit: true },
       { keys: ['Mod', 'Shift', 'Z'], does: 'put it back', edit: true },
     ],
