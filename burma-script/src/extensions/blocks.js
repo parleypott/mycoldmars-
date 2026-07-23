@@ -1210,6 +1210,29 @@ export function isRenderTransformSrc(src) {
   return String(src || '').includes(STORAGE_RENDER_MARKER);
 }
 
+// Pure: does an inline <img> need to fall back from its bounded transform variant to the full-res
+// ORIGINAL? The transform is an OPTIMISATION; the original is the GUARANTEE — so any way the variant
+// can fail to paint routes back to the original exactly once, and a blank image box becomes
+// impossible. True ONLY for a real transform MISS:
+//   • currentSrc is a transform URL (a broken ORIGINAL is not ours to "fix" — leave it broken),
+//   • the original is a DIFFERENT url worth trying,
+//   • it did NOT decode, AND
+//   • we have not already swapped (no src ↔ src loop).
+// `decoded` folds BOTH failure shapes into one decision: an `error` event passes decoded=false, and
+// a `load` event passes decoded = naturalWidth > 0. That second path is the load-bearing one — a
+// browser with no/partial WebP support (older WebKit/Safari especially, since Supabase serves WebP
+// to any client whose Accept carries an image/* wildcard, not just an explicit image/webp) can FETCH
+// the variant and fire `load` while painting nothing, naturalWidth 0, WITHOUT ever firing `error`.
+// An error-only self-heal misses that shape and leaves a permanent blank; checking the decode closes it.
+export function shouldFallbackToOriginal({ currentSrc, originalSrc, decoded, healed }) {
+  if (healed) return false;                              // swap once, never loop
+  if (!originalSrc) return false;                        // nothing to fall back to
+  if (!isRenderTransformSrc(currentSrc)) return false;   // a broken ORIGINAL stays broken
+  if (currentSrc === originalSrc) return false;          // already the original
+  if (decoded) return false;                             // it painted — keep the bandwidth win
+  return true;
+}
+
 // Session verdict — flips false the first time any transform URL errors, then every inline image
 // falls back to its raw original. Module-scoped so the whole rack shares one feature-detect result.
 let inlineTransformsOk = true;
@@ -1640,16 +1663,27 @@ export const ImageBlock = Node.create({
           return v;
         }
         const img = el('img', 'wp-image-img', { loading: 'lazy', decoding: 'async' });
-        // FEATURE-DETECT ONCE: a failed TRANSFORM url (not a broken original) → turn transforms off
-        // for the session and repaint this image at full res. The guard on isRenderTransformSrc stops
-        // any loop — once src is the raw original, a further error is a truly broken image, left as-is.
-        img.addEventListener('error', () => {
-          const orig = attrs.src || '';
-          if (orig && isRenderTransformSrc(img.getAttribute('src')) && img.getAttribute('src') !== orig) {
-            inlineTransformsOk = false;
-            img.src = orig;
-          }
-        });
+        // TRANSFORM FALLBACK / FEATURE-DETECT ONCE. A transform variant that fails to paint swaps back
+        // to the full-res original and turns transforms off for the rest of the session, so every other
+        // inline image skips the transform too — a project whose browser can't use the endpoint still
+        // works, just at full res. TWO failure shapes both route here (see shouldFallbackToOriginal):
+        //   • error — the transform 404/400/timed out, or the bytes failed to decode.
+        //   • load with naturalWidth 0 — a browser that FETCHED an undecodable variant (older WebKit
+        //     with no/partial WebP) and fired `load` while painting nothing; an error-only self-heal
+        //     never sees this and would leave a permanent blank box.
+        const healToOriginal = (decoded) => {
+          if (!shouldFallbackToOriginal({
+            currentSrc: img.getAttribute('src') || '',
+            originalSrc: attrs.src || '',
+            decoded,
+            healed: img.dataset.inlineHealed === '1',
+          })) return;
+          img.dataset.inlineHealed = '1';   // swap once — a later error on the original is left broken
+          inlineTransformsOk = false;
+          img.src = attrs.src;
+        };
+        img.addEventListener('error', () => healToOriginal(false));
+        img.addEventListener('load', () => healToOriginal(img.naturalWidth > 0));
         return img;
       };
       let media = makeMediaEl(attrs);

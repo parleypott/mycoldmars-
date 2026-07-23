@@ -17,7 +17,8 @@
  */
 import assert from 'node:assert/strict';
 import {
-  supabaseInlineSrc, pickInlineWidth, isRenderTransformSrc, INLINE_WIDTH_LADDER, isVideoSrc,
+  supabaseInlineSrc, pickInlineWidth, isRenderTransformSrc, shouldFallbackToOriginal,
+  INLINE_WIDTH_LADDER, isVideoSrc,
 } from './blocks.js';
 
 let pass = 0;
@@ -71,6 +72,44 @@ ok('isRenderTransformSrc: true only for the render endpoint', () => {
   assert.ok(!isRenderTransformSrc(PUB));
   assert.ok(!isRenderTransformSrc('/palau2/img/x.png'));
   assert.ok(!isRenderTransformSrc(''));
+});
+
+// ── FALLBACK CONTRACT — the transform is an optimisation, the original is the guarantee ─────────
+// A transform variant that fails to paint (errored, OR loaded blank on a browser with no/partial
+// WebP) must swap to the full-res original exactly once, so a blank image box is impossible.
+const XFORM = RENDER + '?width=768&quality=78';
+
+ok('shouldFallbackToOriginal: a transform that ERRORED (decoded=false) falls back', () => {
+  assert.equal(shouldFallbackToOriginal({ currentSrc: XFORM, originalSrc: PUB, decoded: false, healed: false }), true);
+});
+
+ok('shouldFallbackToOriginal: a transform that LOADED BLANK (naturalWidth 0 → decoded=false) falls back', () => {
+  // The Safari/older-WebKit shape: `load` fired but the image painted nothing. An error-only
+  // self-heal never sees this — this case is the whole reason the load handler checks naturalWidth.
+  assert.equal(shouldFallbackToOriginal({ currentSrc: XFORM, originalSrc: PUB, decoded: false, healed: false }), true);
+});
+
+ok('shouldFallbackToOriginal: a transform that PAINTED (decoded=true) keeps the bandwidth win', () => {
+  assert.equal(shouldFallbackToOriginal({ currentSrc: XFORM, originalSrc: PUB, decoded: true, healed: false }), false);
+});
+
+ok('shouldFallbackToOriginal: never swaps twice — once healed, no loop', () => {
+  assert.equal(shouldFallbackToOriginal({ currentSrc: XFORM, originalSrc: PUB, decoded: false, healed: true }), false);
+});
+
+ok('shouldFallbackToOriginal: a broken ORIGINAL (not a transform url) stays broken', () => {
+  // currentSrc is already the original and it failed — nothing better to try, leave it.
+  assert.equal(shouldFallbackToOriginal({ currentSrc: PUB, originalSrc: PUB, decoded: false, healed: false }), false);
+  // A foreign/bundled src that failed is likewise not ours to rewrite.
+  assert.equal(shouldFallbackToOriginal({ currentSrc: '/palau2/img/x.png', originalSrc: '/palau2/img/x.png', decoded: false, healed: false }), false);
+});
+
+ok('shouldFallbackToOriginal: no original to fall back to → no swap', () => {
+  assert.equal(shouldFallbackToOriginal({ currentSrc: XFORM, originalSrc: '', decoded: false, healed: false }), false);
+});
+
+ok('shouldFallbackToOriginal: current already IS the original (paranoia) → no swap', () => {
+  assert.equal(shouldFallbackToOriginal({ currentSrc: PUB, originalSrc: PUB, decoded: false, healed: false }), false);
 });
 
 console.log(`inline-image-transform.test.mjs: ${pass} assertions passed`);
