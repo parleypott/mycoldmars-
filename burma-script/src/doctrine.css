@@ -236,9 +236,21 @@
    said lane stays at normal reading weight. */
 .wp-tcell[data-role="shown"] .wp-tcell-content { font-weight: 650; }
 
-/* ROW GRIDLINES — every split writing row closes with a clean 1px rule so rows
-   read as TABLE rows even outside a chapter frame. Frame member rows already get
-   this from the wp-chframe rule below — the :not() keeps the line single. */
+/* ROW GRIDLINES — every writing row closes with a clean 1px rule so rows read as
+   TABLE rows even outside a chapter frame. Frame member rows already get this from
+   the wp-chframe rule below — the :not() keeps the line single.
+
+   FULL-WIDTH rows count too (Johnny 2026-07-23: a cols:1 archive/direction row
+   dragged up between two split rows "breaks out of the clean container"). Before,
+   only cols:2/3 closed with the rule, so any full-width row floated line-less
+   between the contained split rows — the divider stops at it and nothing closes it.
+   The drag never corrupted it (moveRow reinserts the immutable node whole); the row
+   was a legit cols:1 that simply had no container treatment. Now it gets the same
+   hairline, so a row reads as a contained table row whether it is split or full-width,
+   adjacent to splits or in a run of its own. EXCEPT chapter/scene HEADER rows: those
+   are "big beautiful book headers", not table rows — their cartridge carries its own
+   frame, so a gridline under the title would be wrong. */
+.wp-trow[data-cols="1"]:not(.wp-chframe):not(:has(.wp-chapter)):not(:has(.wp-scene)),
 .wp-trow[data-cols="2"]:not(.wp-chframe),
 .wp-trow[data-cols="3"]:not(.wp-chframe) {
   border-bottom: 1px solid var(--ep-grid-rule);

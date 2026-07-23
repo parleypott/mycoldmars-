@@ -369,4 +369,45 @@ ok('moveRow refuses non-row drop targets (cell interior, block, text pos)', () =
   assert.equal(dispatched, false, 'refused drops dispatch NOTHING');
 });
 
+// Johnny's exact "breaks out of the clean container" report (2026-07-23): a FULL-WIDTH archive
+// direction row ("any archive Sots of nasser…", a cols:1 / role:full row whose paragraph carries a
+// directionMark kind:archive) dragged UP between two split rows. The complaint was VISUAL (a cols:1
+// row gets no closing gridline — fixed in doctrine.css), NOT structural: the drag must leave the
+// full-width row byte-identical (cols:1, role:full, the archive mark intact) and never touch the
+// neighboring split rows' pairing. This pins that the grip drag can NEVER un-pair or mangle a row —
+// the same guarantee the in-flight chapter-reorder feature (row-RANGE moves) inherits from moveRow.
+ok('reordering a full-width archive/direction row preserves cols:1/role:full + the directionMark, neighbors keep pairing', () => {
+  const archivePara = (text) => ({
+    type: 'paragraph', attrs: { textAlign: 'left' },
+    content: [{ type: 'text', text, marks: [{ type: 'directionMark', attrs: { kind: 'archive', status: 'needed' } }] }],
+  });
+  const docJson = { type: 'doc', content: [
+    pairedRow('pair_above', [vo('a1', 'there is a reason you see walls')], [none('a1s', 'walls and farms')]),
+    { type: 'tableRow', attrs: { cols: 1, pairId: null },
+      content: [{ type: 'tableCell', attrs: { role: 'full' }, content: [archivePara('any archive Sots of nasser talking or of british news documentary about the dam.')] }] },
+    pairedRow('pair_below', [vo('b1', 'in building this dam they flooded the valley')], [none('b1s', 'early lake nasser')]),
+  ] };
+  const state = makeState(docJson);
+  const movedBefore = clone(state.doc.child(1).toJSON());
+  let out = state;
+  // Drag the full-width archive row (index 1) UP to before the first split row (index 0).
+  const did = moveRow(state, (tr) => { out = state.apply(tr); }, rowPos(state.doc, 1), rowPos(state.doc, 0), true);
+  assert.equal(did, true, 'move returns true');
+
+  const movedAfter = clone(out.doc.child(0).toJSON());
+  assert.deepEqual(movedAfter, movedBefore, 'full-width archive row byte-identical after the drag');
+  assert.equal(out.doc.child(0).attrs.cols, 1, 'still cols:1 (never un-paired INTO a split)');
+  assert.equal(out.doc.child(0).child(0).attrs.role, 'full', 'sole cell still role:full');
+  const mark = out.doc.child(0).child(0).child(0).child(0).marks[0];
+  assert.equal(mark?.type?.name, 'directionMark', 'directionMark survives');
+  assert.equal(mark?.attrs?.kind, 'archive', 'archive kind survives');
+  // The split rows it moved past are untouched — pairing intact, no cell got mangled.
+  assert.equal(out.doc.child(1).attrs.pairId, 'pair_above', 'neighbor split row keeps its pairId');
+  assert.equal(out.doc.child(2).attrs.pairId, 'pair_below', 'other split row keeps its pairId');
+  // Mirror-schema round-trip (the save-gate law) still holds.
+  const reparsed = docFrom(out.doc.toJSON());
+  reparsed.check();
+  assert.deepEqual(clone(reparsed.toJSON()), clone(out.doc.toJSON()), 'mirror round-trip byte-exact');
+});
+
 console.log(`row-drag.test.mjs: ${pass} assertions passed`);
