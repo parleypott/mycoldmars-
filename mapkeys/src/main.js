@@ -4462,11 +4462,75 @@ async function drainRenderQueue() {
 // showDirectoryPicker needs); when linked, exports flow into it silently and the script tool's ⌘⌃M
 // reads the newest. Refreshed after boot and after each export. Never throws.
 let dropFolderLinked = false;
+let dropFolderHandle = null;   // cached for the destination button (name + grant state)
 async function refreshDropFolderHint() {
-  try { dropFolderLinked = !!(await getDropFolderHandle()); }
-  catch { dropFolderLinked = false; }
+  try {
+    dropFolderHandle = (await getDropFolderHandle()) || null;
+    dropFolderLinked = !!dropFolderHandle;
+  } catch { dropFolderHandle = null; dropFolderLinked = false; }
   renderQueuePanelUpdate();
+  syncRenderDirBtn();
 }
+
+// ─── Render destination button — the little folder icon by Render GIF ───
+// Same shared handle as the script-tool drop flow: one destination, two doors.
+// Default (unlinked) = the browser's normal Downloads behavior.
+async function syncRenderDirBtn() {
+  const btn = document.getElementById('render-dir-btn');
+  if (!btn) return;
+  if (!dropFolderHandle) {
+    btn.classList.remove('active', 'needs-grant');
+    btn.title = 'Renders download to your Downloads folder — click to pick a folder instead';
+    return;
+  }
+  let perm = 'prompt';
+  try { perm = await ensureDropPermission(dropFolderHandle, { mode: 'readwrite', request: false }); } catch {}
+  btn.classList.add('active');
+  btn.classList.toggle('needs-grant', perm !== 'granted');
+  btn.title = perm === 'granted'
+    ? `Renders save to “${dropFolderHandle.name}” — click to change · ⌥-click to go back to Downloads`
+    : `“${dropFolderHandle.name}” needs re-permission — click to re-allow`;
+}
+
+document.getElementById('render-dir-btn').addEventListener('click', async (e) => {
+  if (e.altKey) {
+    if (dropFolderHandle) {
+      try { await clearDropFolderHandle(); } catch {}
+      dropFolderHandle = null;
+      dropFolderLinked = false;
+      flashToast('renders go to Downloads again');
+      renderQueuePanelUpdate();
+      syncRenderDirBtn();
+    }
+    return;
+  }
+  if (!hasDirectoryPicker()) { flashToast("this browser can't pick folders — renders download instead"); return; }
+  try {
+    // Linked but permission lapsed (browser restart): this click IS the
+    // gesture — re-arm the existing folder instead of opening the picker.
+    if (dropFolderHandle) {
+      const pre = await ensureDropPermission(dropFolderHandle, { mode: 'readwrite', request: false });
+      if (pre !== 'granted') {
+        const perm = await ensureDropPermission(dropFolderHandle, { mode: 'readwrite', request: true });
+        flashToast(perm === 'granted'
+          ? `“${dropFolderHandle.name}” re-armed — renders save there again`
+          : "couldn't re-allow — renders download instead");
+        syncRenderDirBtn();
+        return;
+      }
+    }
+    const handle = await linkDropFolder({ mode: 'readwrite' });
+    if (!handle) return;
+    await ensureDropPermission(handle, { mode: 'readwrite', request: true });
+    dropFolderHandle = handle;
+    dropFolderLinked = true;
+    flashToast(`renders now save to “${handle.name}”`);
+  } catch (err) {
+    if (!(err && err.name === 'AbortError')) flashToast("couldn't set that folder — renders download instead");
+  }
+  renderQueuePanelUpdate();
+  syncRenderDirBtn();
+});
 
 // One-time link — invoked from the render-panel button's CLICK (the transient user activation
 // showDirectoryPicker requires). Linking here sets the handle for BOTH tools (shared IndexedDB), so
@@ -4502,7 +4566,9 @@ function renderQueuePanelUpdate() {
     const row = document.createElement('div');
     row.className = 'rq-row rq-' + job.status;
     const pct = Math.round(job.progress * 100);
-    const doneLabel = job.savedTo === 'folder' ? 'Done — in your script folder' : 'Done — downloaded';
+    const doneLabel = job.savedTo === 'folder'
+      ? `Done — saved to \u201C${(dropFolderHandle && dropFolderHandle.name) || 'your folder'}\u201D`
+      : 'Done — downloaded';
     const statusLabel = job.status === 'rendering' ? `Rendering · ${pct}%` :
                         job.status === 'done'      ? doneLabel :
                         job.status === 'error'     ? `Error: ${job.error}` :

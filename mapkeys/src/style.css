@@ -285,9 +285,16 @@ html, body {
   color: rgba(255, 250, 240, 0.6);
 }
 #frame169-btn.active,
-#frame-guides-btn.active {
+#frame-guides-btn.active,
+#render-dir-btn.active {
   background: var(--ink);
   color: var(--paper);
+}
+#render-dir-btn svg { display: block; }
+#render-dir-btn.needs-grant {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(184, 92, 60, 0.08);
 }
 /* Center guides — Photoshop-cyan hairlines crossing at the frame's center */
 #frame169 .fg-v, #frame169 .fg-h { display: none; }
