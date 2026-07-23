@@ -11,6 +11,7 @@ import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, rehydrateLocalFromNewest, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, readLatestSavedRaw, ensureResetBackup, LS_DOC_FALLBACK, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly, docsDiffer, snapshotDocConflictAsync } from './cloud-sync.js';
+import { setCloudBackedPredicate, installCloudHealthListeners } from './cloud-health.js';
 import { isReadOnly } from './read-mode.js';
 import { bookmarkTargetFromUrl } from './bookmark-target.js';
 import { isEditMode, setEditMode } from './edit-mode.js';
@@ -2019,10 +2020,25 @@ function runStartupMigration() {
       // STARTUP-BANNER RACE FIX: SaveStatus mounts during render() below, so a pre-render event would
       // be missed. Stash the broken-storage state here and let SaveStatus consume it on mount.
       if (/back up|unavailable/i.test(r.reason || '')) {
-        INITIAL_SAVE_FAILURE = {
-          kind: 'storage',
-          message: 'storage is full or blocked — your edits will NOT be saved.',
-        };
+        // HONEST STARTUP BANNER (Johnny 2026-07-23, the Nile false alarm). This branch means the safe
+        // migration could not write its LOCAL pre-migration .bak (shared-origin localStorage quota
+        // full, or Safari private-mode blocked). That is a LOCAL-only condition: the migration is just
+        // a table-wrap convenience the editor's own ensureTableDoc re-applies at render, and for a
+        // cloud-backed project reconcileOnLoad keeps the doc durable in the cloud regardless. So the
+        // catastrophic "your edits will NOT be saved" banner here is a flat lie whenever the project
+        // is cloud-backed — exactly the Nile case (cloud saving fine, local mirror full). Only raise it
+        // for a LOCAL-ONLY project, where localStorage genuinely IS the only home. Cloud-backed → a
+        // calm console note; the cloud is the source of truth and the editor still wraps at render.
+        if (isCloudBackedProject()) {
+          console.info('[burma] migration could not take a LOCAL backup (' + r.reason + '), but this ' +
+            'project is cloud-backed — the cloud copy is the durable home, so NO SAVE-FAILED banner. ' +
+            'The editor re-wraps the doc at render; reconcile keeps the cloud authoritative.');
+        } else {
+          INITIAL_SAVE_FAILURE = {
+            kind: 'storage',
+            message: 'storage is full or blocked — your edits will NOT be saved.',
+          };
+        }
       }
     } else if (r.migrated) {
       console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');
@@ -2093,6 +2109,17 @@ function mountSharingOff(el) {
 // ── STARTUP ORCHESTRATION — deterministic, no flash of source on a fresh device ───────────────────
 async function startup() {
   const el = document.getElementById('app');
+
+  // CLOUD-HEALTH WIRING (honest-banner). Teach the durability signal (1) whether THIS project is
+  // cloud-backed — the gate saveDoc + the startup migration use to decide "is a dead localStorage
+  // actually data loss, or does the cloud hold the doc?" — and (2) to observe the wp-cloud-* push
+  // outcomes so the sole-durability escalation can re-raise the loud banner if a cloud push fails.
+  // Done first so it is live before the migration or the first save can consult it. Pure + harmless
+  // on the read-only path too (a reader never writes, so the signal is simply never asked).
+  try {
+    setCloudBackedPredicate(isCloudBackedProject);
+    installCloudHealthListeners();
+  } catch {}
 
   // SHARE-SAFETY (write-token provisioning). If Johnny opened his edit URL with `?key=SECRET`, stash the
   // secret into this device's localStorage and SCRUB it from the address bar — so every subsequent push

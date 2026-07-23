@@ -44,6 +44,7 @@ import {
   idbPutSnapshot, idbPutDoc, idbReadDoc, idbDocProbe, idbAvailable, compressDoc, decompressDoc,
 } from './recovery-store.js';
 import { getEpisode, getEpisodeStorage, onEpisodeChange, episodeFlag } from './episode-config.js';
+import { cloudDurabilityHealthy, armCloudSoleDurability } from './cloud-health.js';
 
 // PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
 // quota is hundreds of MB vs localStorage's ~5MB. The sync localStorage write that wraps each call to
@@ -685,7 +686,17 @@ export function backupRaw(raw) {
       mirrorSnapshotToIDB('bak', raw);  // Phase 3: park a copy in the big IDB store too.
       return key;
     } catch {
-      if (!evict()) return null;
+      if (!evict()) {
+        // FULL/BLOCKED-LS BACKUP FALLBACK (Johnny 2026-07-23): localStorage can't hold the .bak even
+        // after exhausting every evictable tier (shared-origin quota genuinely full, or Safari
+        // private-mode blocked). Rather than lose the recovery copy entirely, park it in the GB-scale
+        // IndexedDB snapshot store, which has vastly more room and works where LS is blocked. This is
+        // best-effort + fire-and-forget (backupRaw is sync — it can't await the async IDB write), so
+        // the LS return contract is unchanged: a null still means "no SYNCHRONOUS backup latched". But
+        // a durable copy now survives in IDB, and the resolver/recovery scan reads IDB snapshots back.
+        mirrorSnapshotToIDB('bak', raw);
+        return null;
+      }
     }
   }
 }
@@ -753,22 +764,57 @@ function dropKey(k) {
 //   tier 1: evict ALL .bak copies (routine session snapshots; the cloud mirror is the real backstop).
 //   tier 2: evict ALL .conflict copies (divergence recovery copies).
 //   tier 3: evict ALL .corrupt copies (corruption recovery copies).
+//   tier 4: evict SIBLING-TOOL REGENERABLE CACHES on the shared newpress.press origin — ONLY the
+//           explicit allowlist RECLAIMABLE_SIBLING_PREFIXES below. The ~5MB localStorage quota is
+//           ONE budget shared across every tool on the origin (memory: "ONE 5MB across .com"), so a
+//           sibling tool can fill it and jam THIS tool's canonical save. The Nile root cause. We
+//           reclaim only keys that are provably regenerable network caches of ANOTHER tool — never a
+//           doc, never unsynced work, never anything under THIS tool's own doc key.
 //
 // Unlike the bounded pruners, when we are out of space to save the LIVE doc we sacrifice ALL of a
 // tier — keeping a stale recovery copy is worthless if the live doc can't be written. The escalator
 // is stateful per save attempt: each call advances to the NEXT tier that frees something. It returns
 // true while it freed at least one key (room to retry), false only when every tier is exhausted —
 // i.e. nothing reclaimable remains, which is the ONLY condition under which the save fails loudly.
+//
+// SAFE-PURGE ALLOWLIST (tier 4). The one sibling key family we KNOW is a regenerable network cache and
+// safe to drop under quota pressure (per Johnny's standing note that the Westchester House Hunter photo
+// caches are safe to purge). Every entry MUST be a cache that re-populates itself from the network on
+// next use — NEVER a document, NEVER user-authored/unsynced data. Add here only with that guarantee.
+const RECLAIMABLE_SIBLING_PREFIXES = [
+  'whh:fetchcache:', // Westchester House Hunter — HTTP fetch cache, fully regenerable on next load.
+];
+
+// Is `k` a sibling regenerable cache we may reclaim? Belt-and-suspenders: it must match an allowlist
+// prefix AND must NOT be one of THIS tool's own keys (defense against a future episode whose DOC key
+// somehow shares a prefix). Never touches LS_DOC / .z / .bak / .conflict / .corrupt / version stamp.
+function isReclaimableSiblingKey(k) {
+  if (typeof k !== 'string' || !k) return false;
+  if (k === LS_DOC || k === LS_DOC_FALLBACK || k === LS_DOC_VER || k === LS_BLOCKS || k === LS_MIGRATED) return false;
+  if (k.startsWith(BAK_PREFIX) || k.startsWith(CONFLICT_PREFIX) || k.startsWith(CORRUPT_PREFIX)) return false;
+  return RECLAIMABLE_SIBLING_PREFIXES.some((p) => k.startsWith(p));
+}
+
 function makeQuotaEscalator() {
   let tier = 0;
   return function evictStep() {
-    while (tier <= 3) {
+    while (tier <= 4) {
       let freed = false;
       if (tier === 0) {
         freed = dropKey(LS_BLOCKS);
-      } else {
+      } else if (tier <= 3) {
         const prefix = tier === 1 ? BAK_PREFIX : tier === 2 ? CONFLICT_PREFIX : CORRUPT_PREFIX;
         for (const k of listKeysWithPrefix(prefix)) { if (dropKey(k)) freed = true; }
+      } else {
+        // tier 4 — reclaim sibling regenerable caches sharing the origin quota (allowlist only).
+        let siblingKeys = [];
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (isReclaimableSiblingKey(k)) siblingKeys.push(k);
+          }
+        } catch {}
+        for (const k of siblingKeys) { if (dropKey(k)) freed = true; }
       }
       tier++;
       if (freed) return true; // freed something this tier — let the caller retry the write.
@@ -1165,6 +1211,41 @@ export function saveDoc(json) {
     const invariantReason = persisted.lsReason.startsWith('invariant-') ? persisted.lsReason
       : (zReason.startsWith('invariant-') ? zReason : '');
     const quota = zReason === 'quota' || persisted.lsReason === 'quota';
+
+    // HONEST BANNER (Johnny 2026-07-23, the Nile false alarm). EVERY local store failed — but that is
+    // only DATA LOSS when local is the doc's ONLY home. For a cloud-backed project whose cloud copy is
+    // the source of truth (the exact Nile situation: cloud saving fine, localStorage quota full from
+    // the shared newpress.press origin, or Safari private-mode blocked), the edit is NOT lost: it
+    // rides the cloud push flushSave fires next. Screaming "your edits are NOT being saved" there is a
+    // flat lie. So: if the doc has a durable cloud home, DON'T fire the catastrophic banner — go
+    // CLOUD-ONLY (return ok so flushSave pushes), show at most a calm degraded note, and ARM a one-shot
+    // that re-raises the loud banner the instant that cloud push comes back offline/conflict. That
+    // escalation makes an under-alarm impossible: we stay calm ONLY while the cloud is actually holding
+    // the edit. Local-only projects (Palau) fall through to the true catastrophic banner below.
+    if (cloudDurabilityHealthy()) {
+      knownBaseVersion = newVersion; // keep this tab incrementing so the next save advances the push.
+      armCloudSoleDurability(() => {
+        // The cloud push we were leaning on did NOT land — NOW nothing holds the edit. Fire the loud
+        // banner + export fallback, worded for the real cause (quota-full vs blocked local store).
+        try { downloadDocFallback(out); } catch {}
+        notifySaveFailed({
+          kind: quota ? 'quota' : 'blocked',
+          message: quota
+            ? 'storage is full AND the cloud did not confirm your last edit — export now to keep it.'
+            : 'storage is blocked AND the cloud did not confirm your last edit — export now to keep it.',
+        });
+      });
+      console.info('[burma] save: local stores full/blocked but the project is cloud-backed — ' +
+        'edit rides the cloud push (no false SAVE-FAILED). Escalates only if the cloud push fails.');
+      notifySaveDegraded({
+        kind: 'local-backup-unavailable',
+        message: quota
+          ? 'local backup is full — your edit is saving to the cloud.'
+          : 'local backup is unavailable on this browser — your edit is saving to the cloud.',
+      });
+      return { ok: true, reason: 'cloud-only', version: newVersion, degraded: true };
+    }
+
     console.warn('[burma] save FAILED — no durable store accepted the doc (.z, LS_DOC, and IDB all unavailable)');
     try { downloadDocFallback(out); } catch {}
     notifySaveFailed({

@@ -58,7 +58,11 @@ const backup = sliceFn(migrate, 'export function backupRaw');
 ok('backupRaw found', backup.length > 0);
 ok('backupRaw uses makeQuotaEscalator (belt for non-collab tight origins)', backup.includes('makeQuotaEscalator()'));
 ok('backupRaw retries the setItem in a loop, only returning null when eviction is exhausted',
-  /for\s*\(;;\)/.test(backup) && /if\s*\(\s*!evict\(\)\s*\)\s*return null/.test(backup));
+  // The null return now lives inside the `if (!evict())` block alongside the IDB backup fallback
+  // (full/blocked-LS: park the recovery copy in IndexedDB before giving up on a synchronous LS latch).
+  /for\s*\(;;\)/.test(backup) && /if\s*\(\s*!evict\(\)\s*\)\s*\{[\s\S]*?return null/.test(backup));
+ok('backupRaw falls back to an IDB snapshot when localStorage is full/blocked (recovery copy survives)',
+  /if\s*\(\s*!evict\(\)\s*\)\s*\{[\s\S]*?mirrorSnapshotToIDB\(\s*'bak'/.test(backup));
 
 console.log(`\ncollab-skips-boot-migration: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
