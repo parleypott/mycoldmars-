@@ -16,6 +16,7 @@
 import { Extension } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 import { toggleListPreservingStyle } from './list-style-preserve.js';
+import { runDownloadsHotkey } from './downloads-newest.js';
 
 export const ListShortcuts = Extension.create({
   name: 'listShortcuts',
@@ -48,6 +49,20 @@ export const ListShortcuts = Extension.create({
       'Mod-Shift-x': () => {
         if (!this.editor.isEditable) return false;
         return this.editor.chain().focus().toggleStrike().run();
+      },
+      // DOWNLOADS HOTKEY (Johnny 2026-07-23: "press a key, my newest download lands in the
+      // script"). ⌘/Ctrl+⌥+M grabs the NEWEST complete file in his ~/Downloads (a MapKeys .gif,
+      // etc.) via the File System Access API and feeds it through the SAME media-paste pipeline a
+      // clipboard paste uses — transcode/route/dedupe/413-heal/loop-controls all inherited. Bound
+      // here at priority 1001 so no keymap reshuffle can shadow it. The whole async chain starts
+      // INSIDE this keydown gesture so the permission prompt / directory picker is user-activated
+      // (browsers require it). isEditable gate = a no-op on a ?read share. Returning true swallows
+      // any browser default for the chord. Not a write here (the insert is one user transaction
+      // inside startMediaPaste) → COLLAB LOOP LAW safe.
+      'Mod-Alt-m': () => {
+        if (!this.editor.isEditable) return false;
+        runDownloadsHotkey(this.editor.view);
+        return true;
       },
     };
   },

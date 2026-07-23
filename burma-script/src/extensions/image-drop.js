@@ -605,7 +605,10 @@ async function uploadAndSwap(view, file, id) {
 }
 
 // PASTE entry: one placeholder row per media file, in clipboard order, then kick the uploads.
-function startMediaPaste(view, files) {
+// Exported so the DOWNLOADS HOTKEY (downloads-newest.js) can reuse the EXACT paste insert path —
+// a file grabbed from ~/Downloads lands as a new row identically to a clipboard paste, inheriting
+// the transcode / route-split / dedupe / 413-self-heal / video-loop pipeline verbatim.
+export function startMediaPaste(view, files) {
   const items = [];
   for (const file of files) {
     if (file.size > MAX_IMAGE_BYTES) {
