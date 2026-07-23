@@ -42,7 +42,7 @@
 // byte-exact, and the tr rides the existing autosave debounce / Yjs binding unchanged.
 
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { Slice, Fragment } from '@tiptap/pm/model';
 import { dropPoint } from '@tiptap/pm/transform';
@@ -218,7 +218,15 @@ export function findPlaceholderPos(state, id) {
 // placeholder's mapped position and clear the placeholder in the same tr. Returns null
 // (caller aborts + toasts) when the placeholder is gone, the src is unsafe, or the mapped
 // position is no longer a legal insertion point — never a partial/patched insert.
-export function insertImageTr(state, id, { src, alt = '', kind = 'shot' }) {
+//
+// `select` (⌘⌃M hotkey path): also put a NodeSelection ON the just-inserted image in the SAME
+// tr. The hotkey lands media into a possibly-BLURRED editor (keypress + async upload, no mouse in
+// the doc), which is exactly the state the blocks.js FOCUS-RACE FIX guards against — the first
+// click would take a focus transition and the selection frame would flash then vanish. Landing on
+// a NodeSelection (paired with the caller's view.focus()) leaves the editor in the same
+// already-focused-and-selected state a second click reaches, so the FIRST real click holds. Drops
+// pass no flag (mouse is already in the doc, focus is fine) → selection behavior unchanged.
+export function insertImageTr(state, id, { src, alt = '', kind = 'shot', select = false }) {
   if (!isSafeImageSrc(src)) return null;
   const pos = findPlaceholderPos(state, id);
   if (pos == null) return null;
@@ -228,6 +236,9 @@ export function insertImageTr(state, id, { src, alt = '', kind = 'shot' }) {
     const node = type.create({ blockId: id, src: String(src), alt: String(alt || ''), kind });
     const tr = state.tr.insert(pos, node);
     tr.setMeta(imageDropKey, { remove: { id } });
+    if (select) {
+      try { tr.setSelection(NodeSelection.create(tr.doc, pos)); } catch {}
+    }
     return tr;
   } catch {
     return null; // mapped pos became structurally illegal — abort, never clamp
@@ -402,7 +413,7 @@ async function maybeTranscodeGif(file, onLabel) {
   }
 }
 
-async function uploadAndInsert(view, file, id) {
+async function uploadAndInsert(view, file, id, opts = {}) {
   let url = null;
   let detail = '';
   try {
@@ -427,7 +438,7 @@ async function uploadAndInsert(view, file, id) {
   }
   // alt (the caption) starts EMPTY — captions are hidden until Johnny clicks below the
   // image and types one (imageBlock nodeview). The filename was never a caption he wrote.
-  const tr = insertImageTr(view.state, id, { src: url, alt: '', kind: 'shot' });
+  const tr = insertImageTr(view.state, id, { src: url, alt: '', kind: 'shot', select: !!opts.focusSelect });
   if (!tr) {
     // Placeholder deleted (row removed / undo) or position no longer legal → ABORT.
     view.dispatch(removePlaceholderTr(view.state, id));
@@ -435,6 +446,12 @@ async function uploadAndInsert(view, file, id) {
     return;
   }
   view.dispatch(tr);
+  if (opts.focusSelect) {
+    // ⌘⌃M path: the tr left a NodeSelection on the image; focus the view so PM syncs the DOM
+    // selection onto the node NOW (not on the user's first click). The editor lands focused +
+    // selected — the just-inserted gif is immediately clickable, no select-then-deselect flicker.
+    try { view.focus(); } catch {}
+  }
 }
 
 // THE CORE AT-CARET INSERT (the drop path's engine, extracted so it can be driven from a raw
@@ -445,7 +462,11 @@ async function uploadAndInsert(view, file, id) {
 // upload(s) started; false when there is NO legal point (the caller decides the fallback — the
 // drop handler toasts, the ⌘⌃M hotkey drops to the new-row paste). Exported so downloads-newest.js
 // lands the newest gif INLINE IN THE CELL at the live cursor, byte-identical to dragging it there.
-export function insertMediaAtPos(view, files, rawPos) {
+// `opts.focusSelect` (⌘⌃M hotkey): after each upload lands, focus the view and NodeSelect the
+// inserted image so it is immediately clickable in a possibly-blurred editor (see insertImageTr /
+// the blocks.js FOCUS-RACE FIX). The drop handler passes NO opts — its selection behavior is
+// untouched (mouse already in the doc).
+export function insertMediaAtPos(view, files, rawPos, opts = {}) {
   const pos = resolveDropPos(view.state, rawPos);
   if (pos == null) return false;
   for (const file of files) {
@@ -455,7 +476,7 @@ export function insertMediaAtPos(view, files, rawPos) {
     }
     const id = mintImageBlockId();
     view.dispatch(addPlaceholderTr(view.state, pos, id));
-    uploadAndInsert(view, file, id);
+    uploadAndInsert(view, file, id, opts);
   }
   return true;
 }

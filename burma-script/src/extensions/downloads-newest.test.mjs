@@ -181,9 +181,9 @@ const baseDeps = (over = {}) => {
     log,
     isReadOnly: () => false,
     hasDirectoryPicker: () => true,
-    // PRIMARY path: at-cursor-in-cell insert. Records the files + the position it was handed, and
+    // PRIMARY path: at-cursor-in-cell insert. Records files + position + opts it was handed, and
     // reports success (true) so the orchestrator does NOT fall back to the new-row paste.
-    insertMediaAtPos: (_v, files, pos) => { log.inserted.push({ files, pos }); return true; },
+    insertMediaAtPos: (_v, files, pos, opts) => { log.inserted.push({ files, pos, opts }); return true; },
     // FALLBACK path (only when insertMediaAtPos returns false): the new-row paste.
     startMediaPaste: (_v, files) => log.pasted.push(files),
     toast: (msg, opts) => log.toasts.push({ msg, opts }),
@@ -203,6 +203,7 @@ await okAsync('granted stored handle → SILENT enumerate + insertMediaAtPos([ne
   assert.equal(d.log.inserted.length, 1, 'inserted inline at the cursor');
   assert.deepEqual(d.log.inserted[0].files, [{ name: 'map.gif', type: 'image/gif' }]);
   assert.equal(d.log.inserted[0].pos, CURSOR, 'insert position is the LIVE cursor (selection.from)');
+  assert.equal(d.log.inserted[0].opts && d.log.inserted[0].opts.focusSelect, true, 'focusSelect:true so the gif lands focused + selected (clickable on the FIRST click, no flicker)');
   assert.equal(d.log.pasted.length, 0, 'the at-cursor path is used, NOT the new-row paste');
   assert.equal(d.log.toasts.length, 0, 'silent success — no toast');
 });
@@ -277,7 +278,7 @@ await okAsync('no File System Access API → falls back to showOpenFilePicker + 
   const d = {
     isReadOnly: () => false,
     hasDirectoryPicker: () => false, // Safari
-    insertMediaAtPos: (_v, files, pos) => { log.inserted.push({ files, pos }); return true; },
+    insertMediaAtPos: (_v, files, pos, opts) => { log.inserted.push({ files, pos, opts }); return true; },
     startMediaPaste: (_v, files) => log.pasted.push(files),
     toast: (msg) => log.toasts.push(msg),
     showOpenFilePicker: async () => { opened++; return [{ getFile: async () => ({ name: 'clip.mp4', type: 'video/mp4' }) }]; },
@@ -286,6 +287,7 @@ await okAsync('no File System Access API → falls back to showOpenFilePicker + 
   assert.equal(opened, 1, 'used the file picker fallback');
   assert.deepEqual(log.inserted[0].files, [{ name: 'clip.mp4', type: 'video/mp4' }]);
   assert.equal(log.inserted[0].pos, CURSOR, 'the picked file inserts at the live cursor too');
+  assert.equal(log.inserted[0].opts && log.inserted[0].opts.focusSelect, true, 'Safari-picked file also lands focused + selected');
   assert.equal(log.pasted.length, 0);
 });
 

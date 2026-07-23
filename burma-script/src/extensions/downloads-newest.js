@@ -180,7 +180,10 @@ function insertResolvedFile(view, file, deps = {}) {
   return routeNewestFile(file, {
     onMedia: (f) => {
       const pos = view?.state?.selection?.from;
-      const placed = pos != null && insertAtCursor(view, [f], pos);
+      // focusSelect: land the gif focused + NodeSelected so it's clickable on the FIRST click.
+      // The hotkey inserts into a possibly-blurred editor (keypress + async upload), the exact
+      // state the blocks.js FOCUS-RACE FIX guards — without this the first click flickers.
+      const placed = pos != null && insertAtCursor(view, [f], pos, { focusSelect: true });
       if (!placed) pasteAsRow(view, [f]); // no legal inline spot → sensible new-row fallback
     },
     onReject: (f) => doToast(`newest file isn't an image or video (${f?.name || 'unknown file'})`),

@@ -31,7 +31,7 @@
 import assert from 'node:assert/strict';
 import { getSchema } from '@tiptap/core';
 import { Node as PMNode } from '@tiptap/pm/model';
-import { EditorState, TextSelection } from '@tiptap/pm/state';
+import { EditorState, TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { history, undo } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
@@ -268,6 +268,36 @@ ok('an unrelated edit above the placeholder during upload: mapped insert still h
   // Undo pops ONLY the image (its own step); the typing survives.
   undo(state, dispatch);
   assert.deepEqual(clone(state.doc.toJSON()), afterTyping, 'undo removes just the image, keeps the typing');
+});
+
+// ── 4b: select option (⌘⌃M focus-race fix) — the insert lands on a NodeSelection ON the image ──
+// The downloads hotkey inserts into a possibly-BLURRED editor (keypress + async upload), the exact
+// state the blocks.js FOCUS-RACE FIX guards. insertImageTr({ select:true }) leaves a NodeSelection
+// on the just-inserted image (the caller then view.focus()es), so the FIRST click holds — no
+// select-then-deselect flicker. DROP passes no flag → its selection behavior is untouched.
+ok('insertImageTr select:true lands a NodeSelection ON the image; default leaves a text caret', () => {
+  // select:true (the hotkey path)
+  let state = makeState(BASE_DOC);
+  let dispatch = (tr) => { state = state.apply(tr); };
+  let pos = resolveDropPos(state, posInsideShownCell(state.doc));
+  let id = mintImageBlockId();
+  dispatch(addPlaceholderTr(state, pos, id));
+  const trSel = insertImageTr(state, id, { src: CDN_URL, alt: '', kind: 'shot', select: true });
+  assert.ok(trSel, 'insert built');
+  dispatch(trSel);
+  assert.equal(imageParentRole(state.doc), 'shown', 'still lands in the shown cell');
+  assert.ok(state.selection instanceof NodeSelection, 'selection is a NodeSelection (not a text caret)');
+  assert.equal(state.selection.node.type.name, 'imageBlock', 'the NodeSelection is ON the inserted image');
+  assert.equal(state.doc.nodeAt(state.selection.from)?.attrs.blockId, id, 'selected node is THIS image');
+
+  // default (the drop path) — NO select flag → selection is NOT a NodeSelection on the image.
+  let s2 = makeState(BASE_DOC);
+  const d2 = (tr) => { s2 = s2.apply(tr); };
+  const p2 = resolveDropPos(s2, posInsideShownCell(s2.doc));
+  const id2 = mintImageBlockId();
+  d2(addPlaceholderTr(s2, p2, id2));
+  d2(insertImageTr(s2, id2, { src: CDN_URL, alt: '', kind: 'shot' }));
+  assert.ok(!(s2.selection instanceof NodeSelection), 'drop path leaves the ordinary caret selection, unchanged');
 });
 
 // ── 5: placeholder deleted (row removed / undo) → ABORT, never clamp ───────────────────────
