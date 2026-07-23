@@ -1,6 +1,6 @@
 // STICKY HEADER visibility — the one pure rule that decides whether the slim sticky strip
-// (title + workspaces, plus SHARE for the owner) is on screen. Kept out of the component so it
-// can be tested headless and can never drift from the interplay contract.
+// (OUTLINE + title + workspaces, plus SHARE for the owner) is on screen. Kept out of the component
+// so it can be tested headless and can never drift from the interplay contract.
 //
 // The strip exists ONLY to keep the workspaces menu reachable once the real masthead has
 // scrolled away. The masthead's workspaces menu now mounts in ?read shares too (a teammate's

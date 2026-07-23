@@ -1426,7 +1426,7 @@ function WorkspacesMenu({ getDoc, onPick, placement = 'masthead' }) {
 // stickyHeaderVisible() (sticky-header.js), tested headless. The workspaces menu and share are
 // the SAME components as the masthead — a second placement, not a fork; the selected-workspace
 // state lives in App, so nothing here can desync.
-function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project }) {
+function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project, outlineOpen, onToggleOutline, hasOutline }) {
   const [mastheadVisible, setMastheadVisible] = useState(true);
   useEffect(() => {
     // The masthead (with its workspaces menu) is present in BOTH owner and ?read shares now,
@@ -1444,6 +1444,20 @@ function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project })
   const show = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive: !!ws, chFocusActive: !!chFocus });
   return (
     <div class="wp-stickyhead" data-show={show ? '' : undefined} aria-hidden={!show}>
+      {/* OUTLINE — a read-safe VIEW control (opens the same left OutlinePanel the rack-head button
+          does). It rides the LEFT of the strip, mirroring the rack header where OUTLINE is leftmost,
+          so a reader scrolled deep into the script can still jump by chapter. Kept in ?read like the
+          workspaces menu; hidden only when the doc has no outline to show. */}
+      {hasOutline && (
+        <button
+          class={`wp-outline-btn wp-stickyhead-outline${outlineOpen ? ' is-open' : ''}`}
+          onClick={onToggleOutline}
+          title={outlineOpen ? 'Hide outline' : 'Show outline'}
+          aria-pressed={outlineOpen}
+        >
+          <span class="wp-outline-glyph">{outlineOpen ? '‹' : '☰'}</span> OUTLINE
+        </button>
+      )}
       <span class="wp-stickyhead-title" title={title}>{title}</span>
       <span class="wp-stickyhead-spacer" />
       <WorkspacesMenu getDoc={getDoc} onPick={onPick} placement="sticky" />
@@ -2001,6 +2015,9 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
         getDoc={() => { try { return editorRef.current?.state?.doc || null; } catch { return null; } }}
         onPick={enterWorkspace}
         project={EPISODE.id}
+        outlineOpen={outlineOpen}
+        onToggleOutline={() => setOutlineOpen((v) => !v)}
+        hasOutline={!!(tel?.outline && tel.outline.length)}
       />
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} readOnly={readOnly} onReorder={reorderChapters} />
       <OutlineRail items={tel?.outline} hidden={outlineOpen} />

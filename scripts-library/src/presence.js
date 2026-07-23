@@ -116,7 +116,7 @@ function render(holders) {
   const list = Array.isArray(holders) ? holders.slice() : [];
   // Keep self first if present, then others by most-recent.
   list.sort((a, b) => (a.holderId === _holderId ? -1 : b.holderId === _holderId ? 1 : 0));
-  if (list.length === 0) { el.innerHTML = ''; el.classList.remove('is-visible'); return; }
+  if (list.length === 0) { el.innerHTML = ''; el.classList.remove('is-visible'); clearPresenceWidth(); return; }
 
   const MAX = 5;
   const shown = list.slice(0, MAX);
@@ -134,6 +134,22 @@ function render(holders) {
   // No "HERE" label (Johnny: it crowded the find bar) — the dots speak for themselves.
   el.innerHTML = `${dots}${more}`;
   el.classList.add('is-visible');
+  publishPresenceWidth(el);
+}
+
+// Publish the pill's rendered width so the engine's sticky strip can reserve exactly that much
+// space on its right edge (styles.css `html:has(#sl-presence.is-visible) .wp-stickyhead`) and keep
+// its workspaces/share cluster to the LEFT of the pill instead of underneath it. Measured after the
+// paint that changed the dot count, so the reserve tracks a stack that grows or shrinks.
+function publishPresenceWidth(el) {
+  try {
+    const w = Math.round(el.getBoundingClientRect().width);
+    document.documentElement.style.setProperty('--sl-presence-w', w + 'px');
+  } catch {}
+}
+
+function clearPresenceWidth() {
+  try { document.documentElement.style.removeProperty('--sl-presence-w'); } catch {}
 }
 
 async function tickPoll() {
@@ -171,6 +187,7 @@ export function stopPresence() {
   if (_hbTimer) { clearInterval(_hbTimer); _hbTimer = null; }
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   _started = false;
+  clearPresenceWidth();
 }
 
 function esc(s) {

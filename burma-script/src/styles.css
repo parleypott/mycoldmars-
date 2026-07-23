@@ -3160,22 +3160,29 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
    editing; while in READ every write affordance inside the editor surface is
    hidden or inert so a scroll-through can never nudge the script. Same flat pill
    family as the save pill — mono, inked active segment, no shadow. */
+/* Smaller + quieter (Johnny: "a subtle mode indicator, not a headline control"). Thin muted ring,
+   compact segments, and it RESTS at low opacity so it recedes into the chrome — lifting to full
+   presence only on hover/focus. The active segment still inks solid so READ vs EDIT stays clearly
+   distinguishable (and legible) across all six schemes; the border rides --label-3 (a scheme token)
+   so the ring reads as quiet in every theme. */
 .wp-mode {
-  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
   z-index: 470;
   display: flex; align-items: stretch;
-  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 999px;
+  background: var(--frame); border: 1px solid var(--label-3); border-radius: 999px;
   overflow: hidden; font-family: var(--mono);
+  opacity: .62; transition: opacity .16s var(--ease);
 }
+.wp-mode:hover, .wp-mode:focus-within { opacity: 1; }
 .wp-mode-seg {
-  font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-  padding: 7px 16px; border: 0; background: transparent; color: var(--label-3);
+  font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  padding: 4px 11px; border: 0; background: transparent; color: var(--label-3);
   cursor: pointer; line-height: 1;
   transition: background .14s var(--ease), color .14s var(--ease);
 }
-.wp-mode-seg + .wp-mode-seg { border-left: 1.5px solid var(--ink); }
+.wp-mode-seg + .wp-mode-seg { border-left: 1px solid var(--label-3); }
 .wp-mode-seg:hover { color: var(--ink); }
-.wp-mode-seg.is-active { background: var(--ink); color: var(--frame); cursor: default; }
+.wp-mode-seg.is-active { background: var(--ink); color: var(--frame); font-weight: 700; cursor: default; }
 .wp-mode-seg:focus-visible { outline: 2px solid var(--ep-accent); outline-offset: -2px; }
 
 /* READ MODE — strip the write affordances from the surface. The editor is already
@@ -3234,8 +3241,24 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   min-width: 0; max-width: 38%;
 }
 .wp-stickyhead-spacer { flex: 1 1 auto; min-width: 12px; }
+/* OUTLINE in the strip — the same flat outline button, sized down to the strip's control height so
+   it reads as chrome, not a headline. Sits leftmost (before the title) mirroring the rack header. It
+   never shrinks and never wraps, so a long title's ellipsis gives way first, not the control. */
+.wp-stickyhead-outline {
+  flex: 0 0 auto; height: var(--wp-ctl-h, 28px); padding: 0 10px; align-self: center;
+  box-sizing: border-box; white-space: nowrap;
+}
 /* The workspaces menu + share reuse their masthead toggle styling verbatim; the popovers drop
    downward from inside the strip (top: calc(100% + 7px)) exactly as they do from the masthead. */
+/* PRESENCE GUTTER (cross-app) — the shell's #sl-presence "who's here" pill is a fixed top-right
+   overlay (library.css .sl-presence, z-500) that used to paint straight over the strip's SHARE
+   control. When presence is actually on screen it publishes its measured width as --sl-presence-w
+   (presence.js), and the strip reserves exactly that width plus a gap on its right edge, so the
+   workspaces + share cluster always lands to the LEFT of the pill — its own slot in the row, never
+   under it. No presence → the var is unset → the strip keeps its normal 16px right padding. */
+html:has(#sl-presence.is-visible) .wp-stickyhead {
+  padding-right: calc(var(--sl-presence-w, 0px) + 26px);
+}
 
 /* ═══ CHAPTER FOCUS — one chapter, full screen, seamless return ═════════════════
    The ⛶ on a chapter cartridge. All page chrome folds away, every row outside the

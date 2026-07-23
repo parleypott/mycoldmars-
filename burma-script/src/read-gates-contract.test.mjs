@@ -54,6 +54,16 @@ ok('StickyHeader mounts in read (carries workspaces; drops share internally)', (
   assert.ok(!gatedBefore('StickyHeader').test(main), 'StickyHeader mount is NOT !readOnly-gated');
 });
 
+ok('sticky-strip OUTLINE is a read-safe VIEW control (gated on hasOutline, never !readOnly)', () => {
+  // The strip's OUTLINE button opens the same left OutlinePanel the rack-head button does — a read-safe
+  // navigation aid, so a scrolled reader can still jump by chapter. It gates on whether an outline
+  // EXISTS, not on readOnly, exactly like the workspaces menu stays in ?read.
+  assert.ok(/wp-stickyhead-outline/.test(main), 'the strip carries a wp-stickyhead-outline control');
+  assert.ok(/\{hasOutline && \(\s*\n\s*<button\s+class=\{`wp-outline-btn wp-stickyhead-outline/.test(main),
+    'the strip OUTLINE gates on hasOutline (content), not readOnly');
+  assert.ok(!/\{!readOnly &&[^\n]*wp-stickyhead-outline/.test(main), 'the strip OUTLINE is NOT !readOnly-gated');
+});
+
 ok('WorkspaceHub + ScriptMap host are reachable in read (gated on ws state, not readOnly)', () => {
   assert.ok(/\{wsRole && <WorkspaceHub\b/.test(main), 'WorkspaceHub gates on wsRole (reachable once ws is set in read)');
   assert.ok(/ws === WS_MAP_KEY && \(/.test(main), 'the SCRIPT MAP host gates on the ws key, not readOnly');
