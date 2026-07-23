@@ -277,18 +277,18 @@ ok('list-shortcuts.js binds Mod-Alt-m at priority 1001 behind isEditable → run
   const ls = src('list-shortcuts.js');
   assert.ok(/priority:\s*1001/.test(ls), 'priority 1001 tier');
   assert.ok(/import \{ runDownloadsHotkey \} from '\.\/downloads-newest\.js'/.test(ls), 'imports the orchestrator');
-  assert.ok(/'Mod-Alt-m':\s*\(\)\s*=>\s*\{/.test(ls), 'binds Mod-Alt-m');
+  assert.ok(/'Mod-Ctrl-m':\s*\(\)\s*=>\s*\{/.test(ls), 'binds Mod-Ctrl-m (⌘⌃M — off ⌘⌥M which macOS eats for minimize)');
   // the isEditable gate + the call live inside that handler
-  const handler = ls.slice(ls.indexOf("'Mod-Alt-m'"));
+  const handler = ls.slice(ls.indexOf("'Mod-Ctrl-m'"));
   assert.ok(/if \(!this\.editor\.isEditable\) return false;/.test(handler), 'isEditable gate (no-op in ?read)');
   assert.ok(/runDownloadsHotkey\(this\.editor\.view\)/.test(handler), 'routes to runDownloadsHotkey');
 });
 
-ok('shortcuts-list.js documents ⌘⌥M on the help card + keyLabel renders ⌥ on mac', () => {
+ok('shortcuts-list.js documents ⌘⌃M on the help card + keyLabel renders ⌃ on mac', () => {
   const sl = src('../shortcuts-list.js');
-  assert.ok(/keys:\s*\['Mod',\s*'Alt',\s*'M'\]/.test(sl), 'card row for ⌘⌥M');
+  assert.ok(/keys:\s*\['Mod',\s*'Ctrl',\s*'M'\]/.test(sl), 'card row for ⌘⌃M');
   assert.ok(/newest download/i.test(sl), 'plain-words copy');
-  assert.ok(/token === 'Alt'.*mac \? '⌥'/s.test(sl), "keyLabel maps Alt → ⌥ on mac");
+  assert.ok(/token === 'Ctrl'.*mac \? '⌃'/s.test(sl), "keyLabel maps Ctrl → ⌃ on mac");
 });
 
 console.log(`downloads-newest.test.mjs: ${pass} assertions passed`);

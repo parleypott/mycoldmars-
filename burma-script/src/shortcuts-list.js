@@ -28,6 +28,7 @@ export function keyLabel(token, mac) {
   if (token === 'Mod') return mac ? '⌘' : 'Ctrl';
   if (token === 'Shift') return mac ? '⇧' : 'Shift';
   if (token === 'Alt') return mac ? '⌥' : 'Alt';
+  if (token === 'Ctrl') return mac ? '⌃' : 'Ctrl';
   return token; // Tab, Esc, '/', single letters — shown as written
 }
 
@@ -55,7 +56,7 @@ export const SHORTCUT_GROUPS = [
     items: [
       { keys: ['/'], does: 'open the block menu — chapter, scene, vo, marks', edit: true },
       { keys: ['Mod', 'K'], does: 'turn the selected words into a link', edit: true },
-      { keys: ['Mod', 'Alt', 'M'], does: 'drop in your newest download — the last gif or clip you saved', edit: true },
+      { keys: ['Mod', 'Ctrl', 'M'], does: 'drop in your newest download — the last gif or clip you saved', edit: true },
       { keys: ['Mod', 'Z'], does: 'undo your last change', edit: true },
       { keys: ['Mod', 'Shift', 'Z'], does: 'put it back', edit: true },
     ],

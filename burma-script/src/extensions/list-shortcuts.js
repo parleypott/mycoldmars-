@@ -50,8 +50,8 @@ export const ListShortcuts = Extension.create({
         if (!this.editor.isEditable) return false;
         return this.editor.chain().focus().toggleStrike().run();
       },
-      // DOWNLOADS HOTKEY (Johnny 2026-07-23: "press a key, my newest download lands in the
-      // script"). ⌘/Ctrl+⌥+M grabs the NEWEST complete file in his ~/Downloads (a MapKeys .gif,
+      // DOWNLOADS HOTKEY (Johnny 2026-07-23, rebound off ⌘⌥M which macOS eats for minimize: "press a key, my newest download lands in the
+      // script"). ⌘⌃M (Ctrl+⌘+M) grabs the NEWEST complete file in his ~/Downloads (a MapKeys .gif,
       // etc.) via the File System Access API and feeds it through the SAME media-paste pipeline a
       // clipboard paste uses — transcode/route/dedupe/413-heal/loop-controls all inherited. Bound
       // here at priority 1001 so no keymap reshuffle can shadow it. The whole async chain starts
@@ -59,7 +59,7 @@ export const ListShortcuts = Extension.create({
       // (browsers require it). isEditable gate = a no-op on a ?read share. Returning true swallows
       // any browser default for the chord. Not a write here (the insert is one user transaction
       // inside startMediaPaste) → COLLAB LOOP LAW safe.
-      'Mod-Alt-m': () => {
+      'Mod-Ctrl-m': () => {
         if (!this.editor.isEditable) return false;
         // Call SYNCHRONOUSLY inside the keydown gesture — the File System Access permission
         // prompt/picker requires transient user activation, so we must NOT defer to a microtask.
