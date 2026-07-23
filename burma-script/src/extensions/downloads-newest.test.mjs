@@ -291,4 +291,25 @@ ok('shortcuts-list.js documents ⌘⌃M on the help card + keyLabel renders ⌃ 
   assert.ok(/token === 'Ctrl'.*mac \? '⌃'/s.test(sl), "keyLabel maps Ctrl → ⌃ on mac");
 });
 
+// ── 6. CHORD COPY vs BINDING (static source truth) ───────────────────────────────────────────
+// The rebind ⌘⌥M → ⌘⌃M (macOS reserves ⌘⌥M for minimize) touched the keymap + help card + the
+// list-shortcuts comment, but the ORCHESTRATOR's user-facing toasts were missed — they told Johnny
+// to "press ⌘⌥M", the exact chord that minimizes his window instead of grabbing the download. This
+// locks every ⌘⌥M reference OUT of downloads-newest.js and pins the two user-facing toasts to the
+// ACTUALLY-BOUND chord, so a future rebind that forgets the toast copy goes RED here.
+ok('downloads-newest.js names the bound ⌘⌃M in its toasts — never the macOS-reserved ⌘⌥M', () => {
+  const dn = src('downloads-newest.js');
+  const ls = src('list-shortcuts.js');
+  // The keymap binding is the source of truth for which chord actually fires.
+  assert.ok(/'Mod-Ctrl-m'/.test(ls) && !/'Mod-Alt-m'/.test(ls), 'keymap binds Mod-Ctrl-m, not Mod-Alt-m');
+  // No trace of the macOS-reserved ⌘⌥M (label OR Mod-Alt-m token) survives anywhere in the module.
+  assert.ok(!/⌘⌥M/.test(dn), 'no stale ⌘⌥M label in the downloads module');
+  assert.ok(!/Mod-Alt-m/.test(dn), 'no stale Mod-Alt-m token in the downloads module');
+  // The two user-facing toasts (LINKED grant + read-error) name ⌘⌃M — the chord that actually works.
+  const linked = dn.match(/doToast\('downloads folder linked[^']*'/);
+  assert.ok(linked && /⌘⌃M/.test(linked[0]), 'LINKED toast names ⌘⌃M');
+  const readErr = dn.match(/doToast\("couldn't read your downloads folder[^"]*"/);
+  assert.ok(readErr && /⌘⌃M/.test(readErr[0]), 'read-error toast names ⌘⌃M');
+});
+
 console.log(`downloads-newest.test.mjs: ${pass} assertions passed`);

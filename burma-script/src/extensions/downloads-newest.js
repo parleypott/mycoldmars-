@@ -2,7 +2,7 @@
 // lands in the script — no Finder, no drag").
 //
 // THE USE CASE: Johnny generates a gif in his MapKeys tool, it drops into ~/Downloads (a real
-// example is a 56MB mapkeys .gif). He wants it in the script INSTANTLY. ⌘⌥M does exactly that:
+// example is a 56MB mapkeys .gif). He wants it in the script INSTANTLY. ⌘⌃M does exactly that:
 // it finds the NEWEST complete real file in his Downloads folder and feeds it through the EXACT
 // media-paste pipeline a clipboard paste uses (startMediaPaste) — so it inherits, for free, the
 // full road already proven by image-drop.js: gif→mp4 transcode, base64/signed route split,
@@ -22,7 +22,7 @@
 // COLLAB LOOP LAW: this module never dispatches a transaction itself. It hands the File to
 // startMediaPaste, whose insert is a single user-initiated transaction (one undo removes it) —
 // identical to a paste. Read-mode is gated at the keymap call site (editor.isEditable) AND
-// re-checked here, so ⌘⌥M is a no-op on a ?read share.
+// re-checked here, so ⌘⌃M is a no-op on a ?read share.
 
 import { isReadOnly } from '../read-mode.js';
 import {
@@ -276,7 +276,7 @@ async function runFilePickerFallback(view, deps = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// THE ORCHESTRATOR — what ⌘⌥M runs. Dependency-injectable (every browser API + the two side-effect
+// THE ORCHESTRATOR — what ⌘⌃M runs. Dependency-injectable (every browser API + the two side-effect
 // sinks can be mocked) so the whole flow is drivable in a headless test without a real gesture.
 //
 // FLOW (Chromium): load the stored handle → if present, ensureReadPermission (granted = silent,
@@ -312,14 +312,14 @@ export async function runDownloadsHotkey(view, deps = {}) {
       handle = await pickDir({ id: 'wp-downloads', startIn: 'downloads', mode: 'read' });
       if (!handle) return;
       await save(handle);
-      doToast('downloads folder linked — ⌘⌥M now grabs your newest download instantly', { tone: 'ok', lab: 'LINKED' });
+      doToast('downloads folder linked — ⌘⌃M now grabs your newest download instantly', { tone: 'ok', lab: 'LINKED' });
     }
     const file = await enumerate(handle);
     if (!file) { doToast('no complete file in your downloads folder yet'); return; }
     insertResolvedFile(view, file, deps);
   } catch (e) {
     if (e && e.name === 'AbortError') return; // user cancelled the directory picker — silent
-    doToast("couldn't read your downloads folder — press ⌘⌥M to try again");
+    doToast("couldn't read your downloads folder — press ⌘⌃M to try again");
   }
 }
 
