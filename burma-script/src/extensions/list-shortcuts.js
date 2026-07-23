@@ -61,7 +61,12 @@ export const ListShortcuts = Extension.create({
       // inside startMediaPaste) → COLLAB LOOP LAW safe.
       'Mod-Alt-m': () => {
         if (!this.editor.isEditable) return false;
-        runDownloadsHotkey(this.editor.view);
+        // Call SYNCHRONOUSLY inside the keydown gesture — the File System Access permission
+        // prompt/picker requires transient user activation, so we must NOT defer to a microtask.
+        // The inline try/.catch just swallows a synchronous pre-try throw + async rejection so a
+        // stray error can't become an unhandled rejection (review NIT 2026-07-23); the gesture
+        // timing is untouched.
+        try { runDownloadsHotkey(this.editor.view)?.catch(() => {}); } catch (_) { /* no-op */ }
         return true;
       },
     };
