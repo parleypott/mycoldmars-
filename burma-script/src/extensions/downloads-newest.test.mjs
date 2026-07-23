@@ -1,10 +1,12 @@
 /*
  * downloads-newest.test.mjs — DOWNLOADS HOTKEY (⌘⌥M) — downloads-newest.js.
  *
- * Johnny 2026-07-23: "press a key, my newest download lands in the script — no Finder, no drag."
- * ⌘⌥M finds the NEWEST complete real file in ~/Downloads (via the File System Access API, with a
- * once-granted directory handle persisted in IndexedDB) and feeds it through the SAME media-paste
- * pipeline a clipboard paste uses (startMediaPaste).
+ * Johnny 2026-07-23: "press a key, my newest download lands in the script — no Finder, no drag" AND
+ * "insert it into the cell that the cursor is in… as if I'm pasting it or dragging it in." ⌘⌃M finds
+ * the NEWEST complete real file in the shared drop folder (via the File System Access API, with a
+ * once-granted directory handle persisted in IndexedDB) and inserts it INLINE INTO THE CELL at the
+ * cursor — the EXACT at-caret insert a drag-drop uses (image-drop.js's insertMediaAtPos), NOT the
+ * new-row paste. A caret with no legal inline spot falls back to the new-row paste (startMediaPaste).
  *
  * Proves, all headless (the real File System Access API needs a live gesture + a real Chrome
  * permission grant that no headless run can produce — so the SELECTION rules, the MEDIA GATE, the
@@ -16,9 +18,10 @@
  *      else (svg, zip, HEIC) to onReject; reuses image-drop.js's isSupportedMediaMime exactly.
  *   3. PERMISSION state machine — granted → 'granted' with NO request; prompt → requestPermission
  *      then its verdict; denied → 'denied' without asking; a throwing API degrades to 'denied'.
- *   4. ORCHESTRATOR (mocked deps) — granted handle → silent enumerate + startMediaPaste([file]);
- *      first use (no handle) → showDirectoryPicker + save + link toast + insert; denied stored
- *      handle → re-pick; unsupported newest file → toast, startMediaPaste NOT called; a picker
+ *   4. ORCHESTRATOR (mocked deps) — granted handle → silent enumerate + insertMediaAtPos([file]) at
+ *      the LIVE cursor (not the new-row paste); first use (no handle) → showDirectoryPicker + save +
+ *      link toast + insert; denied stored handle → re-pick; caret with no legal inline spot → falls
+ *      back to the new-row paste; unsupported newest file → toast, nothing inserted; a picker
  *      AbortError → silent no-op; read-only → nothing happens.
  *   5. KEYMAP — list-shortcuts.js binds Mod-Alt-m at priority 1001 behind the isEditable gate and
  *      routes to runDownloadsHotkey; shortcuts-list.js documents ⌘⌥M on the help card.
@@ -42,7 +45,9 @@ let pass = 0;
 const ok = (label, fn) => { fn(); pass++; };
 const okAsync = async (label, fn) => { await fn(); pass++; };
 
-const view = { isDestroyed: false }; // orchestrator only reads isDestroyed + hands to startMediaPaste
+// orchestrator reads isDestroyed + state.selection.from (the live cursor the file inserts at)
+const CURSOR = 7;
+const view = { isDestroyed: false, state: { selection: { from: CURSOR } } };
 const fileRec = (name, lastModified, size, extra = {}) => ({ name, kind: 'file', lastModified, size, ...extra });
 
 // ── 1. SELECTION (pure) ────────────────────────────────────────────────────────────────────
@@ -171,11 +176,15 @@ await okAsync('ensureReadPermission: a throwing API / bad handle degrades to den
 // the SHARED drop folder (shared/drop-folder.js): getDropFolderHandle loads it, linkDropFolder picks +
 // persists it for BOTH tools.
 const baseDeps = (over = {}) => {
-  const log = { pasted: [], toasts: [], pickedDir: 0 };
+  const log = { inserted: [], pasted: [], toasts: [], pickedDir: 0 };
   return {
     log,
     isReadOnly: () => false,
     hasDirectoryPicker: () => true,
+    // PRIMARY path: at-cursor-in-cell insert. Records the files + the position it was handed, and
+    // reports success (true) so the orchestrator does NOT fall back to the new-row paste.
+    insertMediaAtPos: (_v, files, pos) => { log.inserted.push({ files, pos }); return true; },
+    // FALLBACK path (only when insertMediaAtPos returns false): the new-row paste.
     startMediaPaste: (_v, files) => log.pasted.push(files),
     toast: (msg, opts) => log.toasts.push({ msg, opts }),
     getDropFolderHandle: async () => null,
@@ -187,43 +196,60 @@ const baseDeps = (over = {}) => {
   };
 };
 
-await okAsync('granted stored handle → SILENT enumerate + startMediaPaste([newest]), no picker/toast', async () => {
+await okAsync('granted stored handle → SILENT enumerate + insertMediaAtPos([newest]) at cursor, no picker/toast', async () => {
   const d = baseDeps({ getDropFolderHandle: async () => ({ id: 'stored' }), ensureReadPermission: async () => 'granted' });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pickedDir, 0, 'no directory picker on a granted handle');
-  assert.equal(d.log.pasted.length, 1);
-  assert.deepEqual(d.log.pasted[0], [{ name: 'map.gif', type: 'image/gif' }]);
+  assert.equal(d.log.inserted.length, 1, 'inserted inline at the cursor');
+  assert.deepEqual(d.log.inserted[0].files, [{ name: 'map.gif', type: 'image/gif' }]);
+  assert.equal(d.log.inserted[0].pos, CURSOR, 'insert position is the LIVE cursor (selection.from)');
+  assert.equal(d.log.pasted.length, 0, 'the at-cursor path is used, NOT the new-row paste');
   assert.equal(d.log.toasts.length, 0, 'silent success — no toast');
 });
 
-await okAsync('first use (no linked handle) → linkDropFolder + link toast + insert', async () => {
+await okAsync('first use (no linked handle) → linkDropFolder + link toast + insert at cursor', async () => {
   const d = baseDeps({ getDropFolderHandle: async () => null });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pickedDir, 1, 'picker shown on first use');
   assert.ok(d.log.toasts.some((t) => /script folder linked/i.test(t.msg)), 'one-time link toast');
-  assert.equal(d.log.pasted.length, 1, 'newest file still inserted after linking');
+  assert.equal(d.log.inserted.length, 1, 'newest file still inserted at the cursor after linking');
+  assert.equal(d.log.pasted.length, 0);
 });
 
-await okAsync('denied stored handle → re-link via linkDropFolder, then insert', async () => {
+await okAsync('denied stored handle → re-link via linkDropFolder, then insert at cursor', async () => {
   const d = baseDeps({ getDropFolderHandle: async () => ({ id: 'stored' }), ensureReadPermission: async () => 'denied' });
   await runDownloadsHotkey(view, d);
   assert.equal(d.log.pickedDir, 1, 'a denied handle falls back to the picker');
-  assert.equal(d.log.pasted.length, 1);
+  assert.equal(d.log.inserted.length, 1);
 });
 
-await okAsync('UNSUPPORTED newest file → toast, startMediaPaste NOT called', async () => {
+await okAsync('caret with NO legal inline spot → graceful fallback to the new-row paste', async () => {
+  // insertMediaAtPos returns false when the cursor is on a chip / empty selection / pre-table doc.
+  const d = baseDeps({
+    getDropFolderHandle: async () => ({ id: 'stored' }),
+    insertMediaAtPos: () => false,
+  });
+  await runDownloadsHotkey(view, d);
+  assert.equal(d.log.inserted.length, 0, 'inline insert reported no legal spot');
+  assert.equal(d.log.pasted.length, 1, 'fell back to the new-row paste so the file still lands');
+  assert.deepEqual(d.log.pasted[0], [{ name: 'map.gif', type: 'image/gif' }]);
+});
+
+await okAsync('UNSUPPORTED newest file → toast, nothing inserted (neither path)', async () => {
   const d = baseDeps({
     getDropFolderHandle: async () => ({ id: 'stored' }),
     newestFileFromDir: async () => ({ name: 'thing.svg', type: 'image/svg+xml' }),
   });
   await runDownloadsHotkey(view, d);
-  assert.equal(d.log.pasted.length, 0, 'junk is never inserted');
+  assert.equal(d.log.inserted.length, 0, 'junk is never inserted');
+  assert.equal(d.log.pasted.length, 0, 'junk never falls back to the paste path either');
   assert.ok(d.log.toasts.some((t) => /thing\.svg/.test(t.msg) && /image or video/i.test(t.msg)), 'named calm toast');
 });
 
 await okAsync('empty folder (enumerate → null) → calm toast, no insert', async () => {
   const d = baseDeps({ getDropFolderHandle: async () => ({ id: 'stored' }), newestFileFromDir: async () => null });
   await runDownloadsHotkey(view, d);
+  assert.equal(d.log.inserted.length, 0);
   assert.equal(d.log.pasted.length, 0);
   assert.ok(d.log.toasts.some((t) => /no complete file/i.test(t.msg)));
 });
@@ -239,36 +265,42 @@ await okAsync('picker AbortError (user cancels) → SILENT: no toast, no insert'
 await okAsync('read-only session → whole hotkey is a no-op', async () => {
   const d = baseDeps({ isReadOnly: () => true, getDropFolderHandle: async () => ({ id: 'stored' }) });
   await runDownloadsHotkey(view, d);
+  assert.equal(d.log.inserted.length, 0);
   assert.equal(d.log.pasted.length, 0);
   assert.equal(d.log.pickedDir, 0);
   assert.equal(d.log.toasts.length, 0);
 });
 
-await okAsync('no File System Access API → falls back to showOpenFilePicker + insert', async () => {
-  const log = { pasted: [], toasts: [] };
+await okAsync('no File System Access API → falls back to showOpenFilePicker + insert at cursor', async () => {
+  const log = { inserted: [], pasted: [], toasts: [] };
   let opened = 0;
   const d = {
     isReadOnly: () => false,
     hasDirectoryPicker: () => false, // Safari
+    insertMediaAtPos: (_v, files, pos) => { log.inserted.push({ files, pos }); return true; },
     startMediaPaste: (_v, files) => log.pasted.push(files),
     toast: (msg) => log.toasts.push(msg),
     showOpenFilePicker: async () => { opened++; return [{ getFile: async () => ({ name: 'clip.mp4', type: 'video/mp4' }) }]; },
   };
   await runDownloadsHotkey(view, d);
   assert.equal(opened, 1, 'used the file picker fallback');
-  assert.deepEqual(log.pasted[0], [{ name: 'clip.mp4', type: 'video/mp4' }]);
+  assert.deepEqual(log.inserted[0].files, [{ name: 'clip.mp4', type: 'video/mp4' }]);
+  assert.equal(log.inserted[0].pos, CURSOR, 'the picked file inserts at the live cursor too');
+  assert.equal(log.pasted.length, 0);
 });
 
 await okAsync('Safari fallback: picker AbortError → silent', async () => {
-  const log = { pasted: [], toasts: [] };
+  const log = { inserted: [], pasted: [], toasts: [] };
   const d = {
     isReadOnly: () => false,
     hasDirectoryPicker: () => false,
+    insertMediaAtPos: (_v, files, pos) => { log.inserted.push({ files, pos }); return true; },
     startMediaPaste: (_v, files) => log.pasted.push(files),
     toast: (msg) => log.toasts.push(msg),
     showOpenFilePicker: async () => { const e = new Error('x'); e.name = 'AbortError'; throw e; },
   };
   await runDownloadsHotkey(view, d);
+  assert.equal(log.inserted.length, 0);
   assert.equal(log.pasted.length, 0);
   assert.equal(log.toasts.length, 0);
 });

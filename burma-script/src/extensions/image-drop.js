@@ -437,15 +437,17 @@ async function uploadAndInsert(view, file, id) {
   view.dispatch(tr);
 }
 
-// Shared drop/paste entry: place one placeholder per file at the refined position and
-// kick off the async uploads. Placeholders at the same position map to AFTER each landed
-// insert (widget side ≥ 0), so a multi-file drop keeps its order.
-function startUploads(view, files, rawPos) {
+// THE CORE AT-CARET INSERT (the drop path's engine, extracted so it can be driven from a raw
+// position with no DragEvent). Refine `rawPos` to the nearest LEGAL point INSIDE the cell via
+// PM's dropPoint, place one decoration placeholder per file there, and kick the async uploads.
+// Placeholders at the same position map to AFTER each landed insert (widget side ≥ 0), so a
+// multi-file batch keeps its order. Returns true when the caret had a legal inline spot and the
+// upload(s) started; false when there is NO legal point (the caller decides the fallback — the
+// drop handler toasts, the ⌘⌃M hotkey drops to the new-row paste). Exported so downloads-newest.js
+// lands the newest gif INLINE IN THE CELL at the live cursor, byte-identical to dragging it there.
+export function insertMediaAtPos(view, files, rawPos) {
   const pos = resolveDropPos(view.state, rawPos);
-  if (pos == null) {
-    toast('no legal spot for an image there — try dropping onto a row');
-    return;
-  }
+  if (pos == null) return false;
   for (const file of files) {
     if (file.size > MAX_IMAGE_BYTES) {
       toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
@@ -454,6 +456,15 @@ function startUploads(view, files, rawPos) {
     const id = mintImageBlockId();
     view.dispatch(addPlaceholderTr(view.state, pos, id));
     uploadAndInsert(view, file, id);
+  }
+  return true;
+}
+
+// Shared DROP entry: insert at the refined position, and on NO legal spot give the drop's calm
+// "aim at a row" toast (the hotkey uses insertMediaAtPos directly so it can fall back instead).
+function startUploads(view, files, rawPos) {
+  if (!insertMediaAtPos(view, files, rawPos)) {
+    toast('no legal spot for an image there — try dropping onto a row');
   }
 }
 

@@ -3,10 +3,12 @@
 //
 // THE USE CASE: Johnny renders a gif in his MapKeys tool and it saves into a SHARED DROP FOLDER he
 // picked once (e.g. Desktop › mapkey-gifs). He wants that gif in the script INSTANTLY. ⌘⌃M does
-// exactly that: it finds the NEWEST complete real file in that same folder and feeds it through the
-// EXACT media-paste pipeline a clipboard paste uses (startMediaPaste) — so it inherits, for free, the
-// full road already proven by image-drop.js: gif→mp4 transcode, base64/signed route split, SHA-256
-// dedupe, the 413 self-heal, video-loop controls, and the one-user-transaction insert.
+// exactly that: it finds the NEWEST complete real file in that same folder and inserts it INLINE INTO
+// THE CELL at the cursor — the EXACT at-caret insert a drag-drop uses (image-drop.js's insertMediaAtPos,
+// NOT the new-row paste). Johnny 2026-07-23: "insert it into the cell that the cursor is in… as if I'm
+// pasting it or dragging it in." So it inherits, for free, the full road already proven by image-drop.js:
+// gif→mp4 transcode, base64/signed route split, SHA-256 dedupe, the 413 self-heal, video-loop controls,
+// and the one-user-transaction insert. (A caret with no legal inline spot falls back to the new-row paste.)
 //
 // WHY A SHARED FOLDER (not ~/Downloads): a page cannot freely read ~/Downloads, AND Chrome's
 // showDirectoryPicker BLOCKS the Downloads folder outright ("contains system files"). So instead the
@@ -21,9 +23,9 @@
 // permission/link steps as one continuous chain. Reading an ALREADY-'granted' folder needs no gesture.
 //
 // COLLAB LOOP LAW: this module never dispatches a transaction itself. It hands the File to
-// startMediaPaste, whose insert is a single user-initiated transaction (one undo removes it) —
-// identical to a paste. Read-mode is gated at the keymap call site (editor.isEditable) AND
-// re-checked here, so ⌘⌃M is a no-op on a ?read share.
+// insertMediaAtPos (or, on the fallback, startMediaPaste), whose insert is a single user-initiated
+// transaction (one undo removes it) — identical to a drag-drop / paste. Read-mode is gated at the
+// keymap call site (editor.isEditable) AND re-checked here, so ⌘⌃M is a no-op on a ?read share.
 
 import { isReadOnly } from '../read-mode.js';
 import {
@@ -36,6 +38,7 @@ import {
   isSupportedMediaMime,
   SUPPORTED_IMAGE_MIMES,
   SUPPORTED_VIDEO_MIMES,
+  insertMediaAtPos,
   startMediaPaste,
 } from './image-drop.js';
 
@@ -163,14 +166,23 @@ export function hasFilePicker() {
   return typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function';
 }
 
-// Insert a resolved File through the media gate + the shared paste pipeline. A supported image/video
-// becomes a new full-width row at the caret (startMediaPaste — inherits transcode/route/dedupe/413/
-// loop-controls); anything else gets a calm named toast and NOTHING is inserted.
+// Insert a resolved File through the media gate + the shared upload pipeline. A supported image/video
+// lands INLINE INTO THE CELL at the live cursor — the EXACT at-caret insert a drag-drop uses
+// (insertMediaAtPos: dropPoint refinement, then the transcode/route-split/dedupe/413-self-heal/
+// loop-controls road). Johnny 2026-07-23: "insert it into the cell that the cursor is in… as if I'm
+// pasting it or dragging it in." If the caret has NO legal inline spot (empty/odd selection, a chip,
+// a pre-table doc) the inline insert reports false and we fall back to the new-row paste path so the
+// file still lands somewhere sensible — never a dead toast. Anything non-media → a calm named toast.
 function insertResolvedFile(view, file, deps = {}) {
-  const doPaste = deps.startMediaPaste || startMediaPaste;
+  const insertAtCursor = deps.insertMediaAtPos || insertMediaAtPos;
+  const pasteAsRow = deps.startMediaPaste || startMediaPaste;
   const doToast = deps.toast || toast;
   return routeNewestFile(file, {
-    onMedia: (f) => doPaste(view, [f]),
+    onMedia: (f) => {
+      const pos = view?.state?.selection?.from;
+      const placed = pos != null && insertAtCursor(view, [f], pos);
+      if (!placed) pasteAsRow(view, [f]); // no legal inline spot → sensible new-row fallback
+    },
     onReject: (f) => doToast(`newest file isn't an image or video (${f?.name || 'unknown file'})`),
   });
 }
