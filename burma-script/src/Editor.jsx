@@ -156,18 +156,36 @@ export function telemetry(doc) {
   const outline = [];
   // TABLE SPINE — the doc top level is tableRow+. Flatten rows→cells→blocks so telemetry counts
   // the cartridge nodes exactly as before (and the outline keys by the cartridge's blockId).
+  //
+  // CHAPTER-DEFINITION PARITY (must match chapter-reorder.js firstOwnBlockOfRow): a row opens a
+  // CHAPTER only when a chapterBlock is that top-level row's FIRST OWN block — the first block of its
+  // first cell, and NOT a nested-Palau tableRow wrapper. A chapterBlock buried mid-cell or in a split
+  // row's second (shown) cell is NOT a chapter: the reorder engine (walkChapters) ignores it, so the
+  // outline must not list it as a draggable level-0 chapter (otherwise the modular list shows a
+  // "phantom" chapter the engine can't move, and canReorder miscounts). We tag each flattened block
+  // with whether it is its row's first-own block and gate the level-0 chapter entry on that flag, so
+  // telemetry's chapter set is byte-for-byte the same set walkChapters permutes.
   const flat = [];
   for (const row of doc?.content || []) {
     if (row?.type === 'tableRow') {
+      // The row's first OWN block (mirror of chapter-reorder.js firstOwnBlockOfRow): first block of
+      // the first cell, unless that block is itself a nested tableRow (a Palau wrapper — classified
+      // by its own first block, never its child row's). null → this row can never open a chapter.
+      const firstCell = (row.content || [])[0];
+      let firstOwnBlock = null;
+      if (firstCell?.type === 'tableCell') {
+        const b0 = (firstCell.content || [])[0];
+        if (b0 && b0.type !== 'tableRow') firstOwnBlock = b0;
+      }
       for (const cell of row.content || []) {
-        if (cell?.type === 'tableCell') for (const b of cell.content || []) flat.push(b);
-        else flat.push(cell);
+        if (cell?.type === 'tableCell') for (const b of cell.content || []) flat.push({ n: b, firstOwn: b === firstOwnBlock });
+        else flat.push({ n: cell, firstOwn: false });
       }
     } else {
-      flat.push(row);
+      flat.push({ n: row, firstOwn: false });
     }
   }
-  for (const n of flat) {
+  for (const { n, firstOwn } of flat) {
     // scriptStart is a decorative divider, not a content block — don't count it.
     if (n.type === 'scriptStart') continue;
     blocks++;
@@ -177,7 +195,10 @@ export function telemetry(doc) {
     }
     if (n.type === 'sotBlock') { sot++; if (n.attrs?.done) done++; }
     if (n.type === 'binBlock' && n.attrs?.scaffold) scaffold++;
-    if (n.type === 'chapterBlock' || n.type === 'sceneBlock') {
+    // A chapterBlock only opens an outline CHAPTER when it is its row's first-own block (parity with
+    // walkChapters — see the flatten comment above). Scenes can sit anywhere, so they are unaffected.
+    const opensChapter = n.type === 'chapterBlock' && firstOwn;
+    if (opensChapter || n.type === 'sceneBlock') {
       // TITLE, not transcript (design panel 2026-07-07): the outline used to swallow the
       // WHOLE block body — director's notes, timecodes, 700-char b-roll dumps — and then
       // mid-word-ellipsize it in CSS. The doctrine already treats the FIRST paragraph as
@@ -192,8 +213,8 @@ export function telemetry(doc) {
       if (title) outline.push({
         id: n.attrs?.blockId || '',
         title,
-        level: n.type === 'chapterBlock' ? 0 : 1,
-        ord: n.type === 'chapterBlock' ? String(++chapters).padStart(2, '0') : null,
+        level: opensChapter ? 0 : 1,
+        ord: opensChapter ? String(++chapters).padStart(2, '0') : null,
       });
     }
   }

@@ -107,8 +107,11 @@ function posOfChildIndex(doc, index) {
   return pos;
 }
 
-// The multiset of every blockId in a doc (dev invariant + tests). Sorted so two equal multisets
-// compare equal regardless of order.
+// The multiset of every blockId in a doc (dev invariant + tests). Sorted into a canonical order so
+// two equal multisets compare equal element-wise regardless of original document order — the sort is
+// an equality-key ordering ONLY, never rendered, so any deterministic total order works. blockIds
+// are opaque STRINGS; the comparator is explicit lexical (never a bare .sort(), which would coerce
+// and mislead a reader into thinking numeric order was intended — it isn't).
 export function collectBlockIds(doc) {
   const ids = [];
   doc.descendants((node) => {
@@ -116,7 +119,7 @@ export function collectBlockIds(doc) {
     if (id) ids.push(id);
     return true;
   });
-  return ids.sort();
+  return ids.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 function sameMultiset(a, b) {
