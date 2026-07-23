@@ -15,6 +15,8 @@ import { BURMA } from '../../burma-script/config.js';
 import { PALAU } from '../../palau-script/config.js';
 import { PALAU2 } from '../../palau2-script/config.js';
 import { generateSlug } from './slug.js';
+import { mergeDays, readPicker } from '../../burma-script/src/picker-config.js';
+import { patchPickerEntry } from './project-store.js';
 
 // Favicon path that resolves correctly at runtime from /scripts-library/ (the doc
 // URL the engine sets the <link rel=icon href> against). Legacy configs carry
@@ -84,6 +86,26 @@ export function recoveryDbNameForConfig(cfg) {
   return doc.replace(/_doc_v1$/, '') + '_recovery';
 }
 
+// Merge a project's PERSISTED picker additions (script_projects.config.picker, cached on the row) into
+// an episode config, and wire the live-add persistence callback the engine's timecode picker fires. The
+// picker reads `days` (built-in DAYs augmented with the project's added ones) and `pickerSequences` (the
+// project's saved interview sequences, shown alongside the doc-derived ones) — and calls `onPickerAdd`
+// when Johnny adds a new day/sequence, which writes it back to the durable per-project config so it
+// SURVIVES RELOAD and SYNCS to teammates. Legacy episodes (Burma/Palau) get the exact same augmentation
+// (their hardcoded days stay the base; additions ride on top) — nothing about their pinned doc changes.
+function withPickerConfig(cfg, row) {
+  const persisted = readPicker(row && row.config);
+  return {
+    ...cfg,
+    days: mergeDays(cfg.days, persisted.days),
+    pickerSequences: persisted.sequences,
+    // The engine calls this from the DAY/SEQUENCE picker's "+ Add" affordances. It persists to the cache
+    // + cloud per-project config (project-store handles the RMW + cloud PATCH). A guest / local-only row
+    // with no id resolves to a no-op inside patchPickerEntry, so read-only sessions never write.
+    onPickerAdd: (kind, value) => patchPickerEntry(row && row.id, kind, value),
+  };
+}
+
 /** Build the EPISODE config the engine understands from a library index row. */
 export function configForProject(row) {
   if (!row || typeof row !== 'object') {
@@ -93,7 +115,7 @@ export function configForProject(row) {
   // LEGACY: adopt the existing episode config + its pinned namespace verbatim.
   const legacy = row.episode && LEGACY[row.episode];
   if (legacy) {
-    return { ...legacy, favicon: SHARED_FAVICON };
+    return withPickerConfig({ ...legacy, favicon: SHARED_FAVICON }, row);
   }
 
   // BRAND-NEW: derive an isolated namespace off the row id. recovery-store derives
@@ -115,7 +137,7 @@ export function configForProject(row) {
   // before. It stays device-local until a future re-sync gives it a cloud row.
   const isCloudBacked = !String(id).startsWith('local_');
 
-  return {
+  return withPickerConfig({
     id,
     title,
     favicon: SHARED_FAVICON,
@@ -156,5 +178,5 @@ export function configForProject(row) {
       docId: id,
       tokenHeader: 'X-Script-Write-Token', // unused for new projects — auth is the JWT
     },
-  };
+  }, row);
 }

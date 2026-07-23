@@ -107,6 +107,16 @@ export default withSentry(async function handler(req) {
       // GUEST DOOR — ?slug= resolves ONE public, active project anonymously (never the list).
       const slugParam = url.searchParams.get('slug');
       if (slugParam != null) return await resolvePublicBySlug(slugParam);
+      // AUTHED per-project fetch — ?id= returns ONE project WITH its config. The LIST deliberately drops
+      // config (world-shaped index; locked by tests), so a teammate's added picker days/sequences ride
+      // this login-gated single-project read instead. Same checkAccess gate as the list below.
+      const idParam = url.searchParams.get('id');
+      if (idParam != null) {
+        const denied = await checkAccess(req);
+        if (denied) return withCors(denied);
+        if (!UUID_RE.test(idParam)) return err(400, 'BAD_ID', 'id (uuid) query param required');
+        return await resolveProjectById(idParam);
+      }
       // THE LIST IS THE INDEX — login-gated so a share-link guest can never enumerate the library.
       const denied = await checkAccess(req);
       if (denied) return withCors(denied);
@@ -203,6 +213,17 @@ async function resolvePublicBySlug(slugRaw) {
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json().catch(() => []);
   return ok({ project: rows.length ? publicProjectView(rows[0]) : null });
+}
+
+// AUTHED single-project resolution BY ID — the full projectView (config included), for a signed-in
+// teammate hydrating a project's per-project config on open (picker days/sequences). Unlike the anonymous
+// ?slug= door this is behind checkAccess (the caller gated it), so returning config is fine. An unknown /
+// deleted id resolves to { project: null } (not a 404) so the client's background hydrate stays a calm no-op.
+async function resolveProjectById(id) {
+  const r = await sb(`/rest/v1/script_projects?id=eq.${pgrValue(id)}&select=${SELECT_COLS}&limit=1`);
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json().catch(() => []);
+  return ok({ project: rows.length ? projectView(rows[0]) : null });
 }
 
 async function listProjects(trashed) {

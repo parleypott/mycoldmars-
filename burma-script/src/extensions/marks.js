@@ -18,6 +18,7 @@ import { isReadOnly } from '../read-mode.js';
 import { setEditMode } from '../edit-mode.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 import { getEpisode, episodeFlag } from '../episode-config.js';
+import { nextDay, mergeDays, mergeSequences } from '../picker-config.js';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
 // workshop event. Returns true if a span was hit (so PM stops default handling).
@@ -598,6 +599,41 @@ function openTimecodeMenu(view, pos, anchorRect) {
     menu.appendChild(item);
   };
 
+  // "+ Add DAY N" — offer the NEXT shoot day past the project's current max (capped at MAX_DAY; hidden
+  // when the list is already full). Picking it PERSISTS the new day to the per-project config (via the
+  // episode config's onPickerAdd callback — survives reload AND syncs to teammates), reflects it LIVE so
+  // a reopened menu shows it this session, and APPLIES it to this chip (sets the day attr → the chip
+  // reads "DAY N ·" and the red "DAY ?" nag clears) — exactly like picking a built-in day. This is the
+  // fix for "won't let me add day four": the day list was a fixed config literal with no add path.
+  const addDayAffordance = () => {
+    const d = nextDay(getEpisode()?.days || []);
+    if (d == null) return; // 1..MAX_DAY all present — nothing to add
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'wp-bm-item wp-bm-add';
+    item.textContent = '+ Add DAY ' + d;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const ep = getEpisode();
+      if (ep) ep.days = mergeDays(ep.days, [d]); // live-reflect for a reopened menu this session
+      try { ep?.onPickerAdd?.('day', d); } catch {} // persist per-project (reload + teammates)
+      patchTimecodeAt(view, pos, { day: d });       // apply to this chip + clear the nag
+      closeTcMenu();
+      view.focus();
+    });
+    makeItemKeyActivatable(item);
+    menu.appendChild(item);
+  };
+
+  // The DAY list (built-in + the project's added days) + "No day" + the add affordance. Shared by BOTH
+  // the sequence-picker branch and the plain DAY branch so every episode/library project can add a day.
+  const renderDays = () => {
+    (getEpisode()?.days || [1, 2, 3]).forEach((d) =>
+      addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
+    addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+    addDayAffordance();
+  };
+
   if (palau) {
     // DAY-BASED scripts tag TWO things on a timecode: its shoot DAY (the `day` attr — drives the
     // "DAY N ·" chip and CLEARS the red "DAY ?" nag) and, optionally, an interview SEQUENCE (`seq`).
@@ -605,13 +641,14 @@ function openTimecodeMenu(view, pos, anchorRect) {
     // only offered sequences (and a "DAY N" pick set `seq`, never `day`), so the nag never cleared
     // and a fresh doc with no day-sequences yet had no day option at all.
     const dayOf = (label) => { const m = /^DAY\s*(\d+)$/i.exec(String(label || '').trim()); return m ? Number(m[1]) : null; };
-    (getEpisode()?.days || [1, 2, 3]).forEach((d) =>
-      addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
-    addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+    renderDays();
 
     // Interview SEQUENCES (optional grouping) — interviews only; the DAYs are handled above so we
-    // don't double-list them. Setting one writes `seq` → onUpdate → autosave → survives reload.
-    const seqs = collectSequences(view.state).filter((s) => dayOf(s) == null);
+    // don't double-list them. The list is the project's SAVED sequences (pickerSequences — persisted in
+    // the per-project config, so they show even before being applied to a chip) UNION the ones derived
+    // live from the doc. Setting one writes `seq` → onUpdate → autosave → survives reload.
+    const configSeqs = getEpisode()?.pickerSequences || [];
+    const seqs = mergeSequences(configSeqs, collectSequences(view.state)).filter((s) => dayOf(s) == null);
     if (curSeq && dayOf(curSeq) == null && !seqs.includes(cleanSeqLabel(curSeq))) seqs.unshift(cleanSeqLabel(curSeq));
     const curSeqLabel = curSeq ? cleanSeqLabel(curSeq) : null;
     if (seqs.length) {
@@ -621,23 +658,29 @@ function openTimecodeMenu(view, pos, anchorRect) {
       addItem('No sequence', curSeq == null, () => patchTimecodeAt(view, pos, { seq: null }));
     }
 
+    // "+ Add sequence…" — prompt for a NAME, PERSIST it to the per-project config (survives reload +
+    // syncs, and appears in this list for every chip thereafter), reflect it live, and apply it here.
     const sepNew = document.createElement('div'); sepNew.className = 'wp-bm-sep'; menu.appendChild(sepNew);
     const addNew = document.createElement('button');
     addNew.type = 'button';
-    addNew.className = 'wp-bm-item';
-    addNew.textContent = 'New sequence…';
+    addNew.className = 'wp-bm-item wp-bm-add';
+    addNew.textContent = '+ Add sequence…';
     addNew.addEventListener('mousedown', (e) => {
       e.preventDefault();
       closeTcMenu();
       const name = cleanSeqLabel(window.prompt('Sequence name', curSeq || '') || '');
-      if (name) patchTimecodeAt(view, pos, { seq: name });
+      if (name) {
+        const ep = getEpisode();
+        if (ep) ep.pickerSequences = mergeSequences(ep.pickerSequences || [], [name]); // live-reflect
+        try { ep?.onPickerAdd?.('sequence', name); } catch {} // persist per-project (reload + teammates)
+        patchTimecodeAt(view, pos, { seq: name });
+      }
       view.focus();
     });
     makeItemKeyActivatable(addNew);
     menu.appendChild(addNew);
   } else {
-    (getEpisode()?.days || [1, 2, 3]).forEach((d) => addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
-    addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+    renderDays();
   }
 
   const sep = document.createElement('div'); sep.className = 'wp-bm-sep'; menu.appendChild(sep);

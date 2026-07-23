@@ -2124,6 +2124,10 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
 .wp-tcmenu { max-height: 60vh; overflow-y: auto; }
 .wp-bm-del { color: var(--red); }
 .wp-bm-del:hover { background: rgba(232,65,43,.08); }
+/* "+ Add DAY N" / "+ Add sequence…" — a quiet, secondary affordance: a touch lighter than a real pick
+   so it reads as "make a new one" rather than "choose this one", but still calm (no shouting accent). */
+.wp-bm-add { color: var(--label); font-weight: 600; }
+.wp-bm-add:hover { background: var(--panel); color: var(--ink); }
 
 /* ============================================================
    WORKSHOP HUB — right-margin drawer. FLAT panel, hairline border.

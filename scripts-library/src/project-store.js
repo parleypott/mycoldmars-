@@ -19,6 +19,7 @@
 
 import { recencyKey, isArchivedTrash } from './library-time.js';
 import { generateSlug } from './slug.js';
+import { addToPicker, unionPickerConfigs } from '../../burma-script/src/picker-config.js';
 
 export const INDEX_KEY = 'scripts_index_v1';
 // Tombstone set of cloudIds the user purged locally, so a background cloud merge can't resurrect them.
@@ -357,6 +358,10 @@ export async function createProject(title) {
       slug: cloud.slug || slug,
       title: cloud.title || clean,
       episode: null,
+      // The per-project jsonb config (picker days/sequences live here). Empty at create; the timecode
+      // picker's "+ Add" writes into it via patchPickerEntry. Cached so configForProject can merge the
+      // additions on the next open without a cloud round-trip (same-device reload survival).
+      config: (cloud.config && typeof cloud.config === 'object') ? cloud.config : {},
       createdAt: cloud.created_at || now,
       updatedAt: cloud.updated_at || now,
       trashedAt: null,
@@ -458,6 +463,63 @@ export function touchProject(id) {
   return row;
 }
 
+// ── per-project picker config (timecode DAY / SEQUENCE additions) ───────────────────────────────────
+
+/** Read a project's persisted config bag from the cache (always an object). */
+export function projectConfig(id) {
+  const row = findById(id);
+  return (row && row.config && typeof row.config === 'object') ? row.config : {};
+}
+
+/**
+ * ADD a custom day/sequence to a project's picker and PERSIST it. `kind` is 'day' | 'sequence'.
+ *
+ * The timecode picker (burma-script marks.js) fires this via the episode config's onPickerAdd callback
+ * (wired in config-for-project.js) when Johnny adds DAY 4 or a new named sequence. It writes the addition
+ * into the per-project jsonb config so the entry SURVIVES RELOAD (the cache carries config; configForProject
+ * merges it on the next open) and SYNCS to teammates (the cloud PATCH — see hydrateProjectConfig for the
+ * read-back). Optimistic-cache-then-cloud, mirroring rename/trash: the addition lands locally instantly and
+ * the cloud PATCH reconciles the returned row. Returns the new config, or null if there was nothing to add
+ * (invalid value, already present, or no such row — e.g. a guest/ephemeral session with no id). NEVER throws.
+ */
+export function patchPickerEntry(id, kind, value) {
+  if (!id) return null;
+  const rows = readIndex();
+  const row = rows.find((r) => r && r.id === id);
+  if (!row) return null;
+  const { config, changed } = addToPicker(row.config, kind, value);
+  if (!changed) return row.config || null; // dup / invalid — nothing to persist
+  row.config = config;
+  row.updatedAt = new Date().toISOString();
+  writeIndex(rows);
+  // Cloud-backed row → persist the whole (small) config bag; the response reconciles back into the cache.
+  // A local-only row (no cloudId) stays device-local, exactly like an offline-created project's doc.
+  if (row.cloudId) apiPatch(row.cloudId, { config }).then((c) => { if (c) reconcileCloudRow(id, c); });
+  return config;
+}
+
+/**
+ * HYDRATE a project's config from the cloud (background, on open). The LIST endpoint deliberately never
+ * carries config (it's the world-shaped index; that posture is locked by tests), so a teammate's added
+ * days/sequences don't ride the background syncFromCloud. This fills that gap: a single login-gated
+ * per-project GET (/api/script-projects?id=<uuid>) returns the full row WITH config, which reconcileCloudRow
+ * UNIONS into the cache. So a teammate's — or another device's — additions appear on the NEXT open (the
+ * same eventual-consistency model as the rest of project-store). Fire-and-forget; NEVER throws. No-op for a
+ * local-only project (no cloudId → no cloud config to fetch).
+ */
+export async function hydrateProjectConfig(row) {
+  try {
+    if (!row || !row.cloudId || !row.id) return false;
+    const res = await fetch(`${API}?id=${encodeURIComponent(row.cloudId)}`, { headers: { Accept: 'application/json' } });
+    if (!res || !res.ok) return false;
+    const body = await res.json().catch(() => null);
+    const cloudRow = body && body.project ? body.project : null;
+    if (!cloudRow || !('config' in cloudRow)) return false;
+    reconcileCloudRow(row.id, cloudRow);
+    return true;
+  } catch { return false; }
+}
+
 /** Soft-delete: move a project to the trash. Optimistic cache write, then cloud PATCH. */
 export function trashProject(id) {
   const rows = readIndex();
@@ -496,6 +558,11 @@ function reconcileCloudRow(localId, cloudRow) {
     row.trashedAt = cloudRow.trashed_at ?? row.trashedAt;
     if ('deleted_at' in cloudRow) row.deletedAt = cloudRow.deleted_at ?? null;
     if (cloudRow.updated_at) row.updatedAt = cloudRow.updated_at;
+    // Adopt the cloud's config, but UNION its picker additions with any local ones — the cloud config
+    // PATCH replaces the whole jsonb column, so a teammate's near-simultaneous add would otherwise clobber
+    // a local unsynced add. unionPickerConfigs keeps both (and the system converges as each re-writes its
+    // unioned view). Only projectView responses (POST/PATCH/?id= GET) carry config; the LIST never does.
+    if ('config' in cloudRow) row.config = unionPickerConfigs(cloudRow.config, row.config);
     writeIndex(rows);
     emitChanged();
   } catch {}

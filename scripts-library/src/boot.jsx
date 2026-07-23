@@ -17,7 +17,7 @@
 // which is fine and keeps state trivially correct. A "← Library" affordance is
 // injected into the page in project mode (the engine files stay UNCHANGED).
 
-import { seedIfAbsent, findBySlug, touchProject, renameProject, healSlugDrift } from './project-store.js';
+import { seedIfAbsent, findBySlug, touchProject, renameProject, healSlugDrift, hydrateProjectConfig } from './project-store.js';
 import { configForProject } from './config-for-project.js';
 import { ensureUnlocked, detectSession, requestSignIn, hideGate } from './gate.js';
 import { resolvePublicProject, rowForGuest, mountPrivateScriptPage, injectGuestSignInPill } from './guest.js';
@@ -215,6 +215,11 @@ async function openProject(row) {
         }
       })
       .catch(() => {});
+    // CONFIG HYDRATE (Wave 2): pull this project's per-project config (picker DAY/SEQUENCE additions) from
+    // the cloud in the background. The LIST endpoint never carries config, so a teammate's — or another
+    // device's — added days sync down here and appear on the NEXT open. Same eventual-consistency posture
+    // as the slug heal above; fire-and-forget, never blocks the open.
+    hydrateProjectConfig(row).catch(() => {});
   } finally {
     // The engine mounts synchronously after import; give it a beat to paint,
     // then lift the veil so there's no blank flash between veil and script.
