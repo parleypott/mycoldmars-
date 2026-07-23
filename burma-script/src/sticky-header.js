@@ -14,9 +14,16 @@
 // menu in the strip — just without the owner-only SHARE control, which the StickyHeader
 // component omits when readOnly. The pre-v1 rule dropped the whole strip in a share; that was
 // the "workspaces excluded from ?read" scope cut this change reverses.
-export function stickyHeaderVisible({ mastheadVisible, wsActive, chFocusActive } = {}) {
+//
+// outlineOpen also yields the top edge: the OUTLINE drawer is a fixed left panel whose head +
+// collapse button live at top:0. The strip (z above the drawer) would bury that collapse control
+// when scrolled — the "can't reach it to close" trap. So while the drawer is open the strip steps
+// aside, exactly like it does for the wsbar / chfocus bar, leaving the drawer's own collapse (and
+// the click-away / Esc paths) unobstructed.
+export function stickyHeaderVisible({ mastheadVisible, wsActive, chFocusActive, outlineOpen } = {}) {
   if (wsActive) return false;
   if (chFocusActive) return false;
+  if (outlineOpen) return false;
   if (mastheadVisible) return false;
   return true;
 }

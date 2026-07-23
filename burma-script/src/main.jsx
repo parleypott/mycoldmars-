@@ -545,6 +545,21 @@ function OutlinePanel({ items, open, onClose, readOnly, onReorder }) {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [modular]);
 
+  // ESC CLOSES the panel — the always-there escape hatch. It must work even when the panel's own
+  // collapse button is buried under fixed top chrome (a save banner, or — before the strip yields —
+  // the sticky strip). Bubble phase + the `dragRef` guard means a live reorder drag's cancel (the
+  // capture-phase handler above) wins first and this never also closes the panel in the same keypress.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || dragRef.current) return;
+      e.stopPropagation();
+      onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   const endDrag = () => { setDrag(null); setDrop(null); };
 
   const onGripDragStart = (id, e) => {
@@ -576,6 +591,14 @@ function OutlinePanel({ items, open, onClose, readOnly, onReorder }) {
   };
 
   return (
+    <>
+      {/* CLICK-AWAY BACKDROP — a light scrim over everything but the drawer. Clicking it (or the
+          dimmed script, chrome, sticky strip) closes the panel, so the outline is never a trap even
+          when its collapse button is covered. It also sits over the editor's row-drag grips while
+          open, so their native "Drag to reorder row" title tooltip can't be provoked (and stick)
+          under the drawer. Rendered only while open; page scroll is NOT locked so a reader can still
+          move around and dismiss with a click. */}
+      {open && <div class="wp-outline-backdrop" onClick={onClose} aria-hidden="true" />}
     <aside class={`wp-outline${open ? ' is-open' : ''}${modular ? ' is-modular' : ''}`} aria-hidden={!open} inert={open ? undefined : ''}>
       <div class="wp-outline-head">
         <span class="wp-outline-ttl">{modular ? 'REORDER' : 'OUTLINE'}</span>
@@ -624,7 +647,7 @@ function OutlinePanel({ items, open, onClose, readOnly, onReorder }) {
               class={`wp-outline-item lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`}
               title={it.title}
               tabindex={open ? 0 : -1}
-              onClick={() => jump(it.id)}
+              onClick={() => { jump(it.id); onClose?.(); }}
             >
               {it.level === 0 && <span class="wp-outline-ord">{it.ord}</span>}
               <span class="wp-outline-txt">{it.title}</span>
@@ -632,6 +655,7 @@ function OutlinePanel({ items, open, onClose, readOnly, onReorder }) {
           ))}
       </div>
     </aside>
+    </>
   );
 }
 
@@ -1441,7 +1465,7 @@ function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project, o
     return () => io.disconnect();
   }, []);
 
-  const show = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive: !!ws, chFocusActive: !!chFocus });
+  const show = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive: !!ws, chFocusActive: !!chFocus, outlineOpen: !!outlineOpen });
   return (
     <div class="wp-stickyhead" data-show={show ? '' : undefined} aria-hidden={!show}>
       {/* OUTLINE — a read-safe VIEW control (opens the same left OutlinePanel the rack-head button

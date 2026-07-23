@@ -1486,7 +1486,11 @@ export const TableRow = Node.create({
       // first) — the spine's old contextmenu role rides the grip now that the spine is gone.
       let handle = null;
       if (rowDragEnabled() && !isReadOnly()) {
-        handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', title: 'Drag to reorder row', 'aria-label': 'drag row to reorder' });
+        // No native `title`: a browser title tooltip does not dismiss when an overlay (the OUTLINE
+        // drawer, a menu) appears over the still-"hovered" grip, so it sticks on screen with no way
+        // to clear it. The three-bar grip icon is self-evident and `aria-label` keeps it accessible;
+        // the visual hint is not worth the stuck-tooltip leak.
+        handle = el('div', 'wp-row-drag', { contenteditable: 'false', draggable: 'true', 'aria-label': 'drag row to reorder' });
         // A proper grippy icon (the old ⇕ text glyph was vestigial — unstyled, mid-flow, dead).
         // Three quiet horizontal bars, crisp SVG like the bookmark ribbon; deliberately NOT the
         // block grip's ⠿ dots — two identical grips is how users grabbed the wrong drag before.

@@ -46,15 +46,21 @@ ok(stickyHeaderVisible({ ...base, wsActive: true }) === false, 'workspace active
 // Chapter-focus owns the top edge (wp-chfocus-bar) — strip yields.
 ok(stickyHeaderVisible({ ...base, chFocusActive: true }) === false, 'chapter-focus active → HIDDEN even scrolled past');
 
+// The OUTLINE drawer owns the top-left edge (its collapse button lives at top:0) — the strip yields
+// so it never buries that collapse control, the "can't reach it to close" trap.
+ok(stickyHeaderVisible({ ...base, outlineOpen: true }) === false, 'outline drawer open → HIDDEN even scrolled past');
+
 // The show/hide answer is INDEPENDENT of readOnly — only the view gates and masthead visibility
 // decide it (readOnly only changes WHAT the strip carries, handled in the component, not here).
 for (const readOnly of [true, false]) {
   for (const wsActive of [true, false]) {
     for (const chFocusActive of [true, false]) {
-      for (const mastheadVisible of [true, false]) {
-        const expected = !wsActive && !chFocusActive && !mastheadVisible;
-        const got = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive, chFocusActive });
-        ok(got === expected, `combo r=${readOnly} ws=${wsActive} ch=${chFocusActive} mh=${mastheadVisible} → ${expected}`);
+      for (const outlineOpen of [true, false]) {
+        for (const mastheadVisible of [true, false]) {
+          const expected = !wsActive && !chFocusActive && !outlineOpen && !mastheadVisible;
+          const got = stickyHeaderVisible({ mastheadVisible, readOnly, wsActive, chFocusActive, outlineOpen });
+          ok(got === expected, `combo r=${readOnly} ws=${wsActive} ch=${chFocusActive} ol=${outlineOpen} mh=${mastheadVisible} → ${expected}`);
+        }
       }
     }
   }

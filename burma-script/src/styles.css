@@ -1762,8 +1762,17 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
   .wp-rail:hover::before, .wp-rail.is-open::before { opacity: 0; }
 }
 
+/* CLICK-AWAY BACKDROP — a light scrim under the drawer, over everything else. Clicking it closes
+   the panel (main.jsx onClick=onClose), so the outline is dismissable no matter what covers its own
+   collapse button. z sits just under the drawer and above the centered READ/EDIT toggle so a click
+   anywhere-but-the-drawer dismisses. Below the critical save/conflict banners (z 998+) and the
+   library door pill so those stay on top. Page scroll is intentionally NOT locked. */
+.wp-outline-backdrop {
+  position: fixed; inset: 0; z-index: 475;
+  background: rgba(20, 18, 15, 0.22);
+}
 .wp-outline {
-  position: fixed; top: 0; left: 0; z-index: 160; width: 280px; height: 100vh;
+  position: fixed; top: 0; left: 0; z-index: 476; width: 280px; height: 100vh;
   background: var(--frame); border-right: 2px solid var(--ink);
   padding: 22px 18px 26px; display: flex; flex-direction: column; gap: 12px;
   transform: translateX(-100%);
@@ -1781,7 +1790,11 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
   font-family: var(--mono); font-size: 13px; line-height: 1; color: var(--label); cursor: pointer;
 }
 .wp-outline-collapse:hover { background: var(--ink); color: var(--frame); }
-.wp-outline-list { flex: 1 1 auto; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; }
+/* min-height:0 lets this flex child shrink below its content height so overflow-y actually scrolls
+   (without it a flex item keeps its full content height and a long 17+ chapter outline would spill
+   past the viewport with no scroll — the "fills the column, no way down" trap). The drawer is
+   height:100vh, so this list is hard-bounded to the viewport minus the pinned head. */
+.wp-outline-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; }
 .wp-outline-empty { font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label-3); padding: 8px 0; }
 .wp-outline-item {
   display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
