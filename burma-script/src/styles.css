@@ -1739,6 +1739,17 @@ html:has(.wp-page[data-ws]) #sl-backbar { display: none; }
 
 ::selection { background: rgba(255,91,31,.18); }
 
+/* COLUMN-SCOPED DRAG SELECTION (table.js columnSelectPlugin, Johnny 2026-07-24).
+   While a drag stays inside ONE column of a said|shown row, the editor DOM wears `.wp-col-drag`:
+   we neutralize the native both-column ::selection paint and let a node decoration
+   (.wp-col-cell-selected on each anchor-lane cell) be the SOLE highlight — a clean single-column
+   rectangle. The moment the drag crosses into the other lane the class + decorations drop and the
+   native selection (both columns) returns. Underlying TextSelection.from/to is untouched, so
+   whole-row delete/transfer/copy and lane-scoped tagging all keep working. */
+.wp-col-drag ::selection { background: transparent; }
+.wp-col-drag ::-moz-selection { background: transparent; }
+.wp-tcell.wp-col-cell-selected { background: rgba(255,91,31,.13); }
+
 /* ============================================================
    OUTLINE PANEL — slides out from the LEFT, default hidden
    ============================================================ */

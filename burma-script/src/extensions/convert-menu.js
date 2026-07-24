@@ -5,7 +5,7 @@ import { episodeFlag } from '../episode-config.js';
 import { defaultDirectionMarkAttrs } from './direction-chip.js';
 import { retypeHostToVo, bulkRetypeToVo, laneMatches, maybeClearPendingForKindRange } from './slash-menu.js';
 import { collectIntersectingRows, doDeleteRows, rowFirstBlockId } from './table.js';
-import { findRowByIdentity } from './table.js';
+import { findRowByIdentity, activeColumnScopeRole } from './table.js';
 import { convertTimecodesInRange } from './marks.js';
 
 // ── SELECT → RIGHT-CLICK → BULK ROW MENU ─────────────────────────────────────────────────────────
@@ -643,9 +643,12 @@ export const ConvertMenu = Extension.create({
                 : null;
               if (onChip) return false;
 
-              // Capture WHICH LANE the pointer is over, at click time, so every bulk tag scopes to
-              // that column (said vs shown) — the fix for "lay VO tags into the left column not both".
-              const clickedRole = clickedCellRole(view, event.clientX, event.clientY);
+              // Capture WHICH LANE to scope the bulk tags to. A SINGLE-COLUMN DRAG wins: when the
+              // column-scoped selection is live (table.js columnSelectPlugin), the tag follows the
+              // DRAGGED lane even if the right-click drifts into the other column ("honor the
+              // selected cells", Johnny 2026-07-24). Otherwise fall back to the lane the pointer is
+              // over at click time (the full-selection / plain-caret path — unchanged behavior).
+              const clickedRole = activeColumnScopeRole(view) || clickedCellRole(view, event.clientX, event.clientY);
 
               event.preventDefault();
               closeOpenConvertMenu();

@@ -17,6 +17,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { TextSelection, Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { episodeFlag } from '../episode-config.js';
 import { isReadOnly } from '../read-mode.js';
 import { setEditMode } from '../edit-mode.js';
@@ -803,6 +804,214 @@ export function doDeleteRows(state, dispatch, rowPositions) {
   return true;
 }
 
+// ---- COLUMN-SCOPED DRAG SELECTION (Johnny 2026-07-24) ---------------------
+// "If I click and drag my cursor down the LEFT column only, it should select ONLY the left
+// column. Only if I drag it over into the RIGHT column should it select cells in BOTH columns."
+//
+// THE PROBLEM. This spine has NO CellSelection (no prosemirror-tables) — every cross-row
+// selection is a plain LINEAR TextSelection. A two-column row is, in DOCUMENT ORDER,
+// tableRow > [ said(LEFT) , shown(RIGHT) ], so a vertical drag from the said cell of row A
+// down to the said cell of row C UNAVOIDABLY sweeps through row A's shown cell, both cells of
+// row B, etc. — the browser's native ::selection then paints EVERY node in that linear range =
+// both columns. Nothing is "force-expanding"; the geometry of a TextSelection does it.
+//
+// THE FIX — a PURE-GESTURE decoration layer that leaves the TextSelection byte-identical.
+//   • The underlying selection.from/to still spans the full vertical row range, so EVERY
+//     downstream consumer that reads from/to keeps working untouched: collectIntersectingRows
+//     (whole-row delete/transfer/copy) and laneCellRanges (lane-scoped tagging).
+//   • While the drag STAYS in the anchor column, we (a) suppress the native both-column
+//     ::selection paint via a `wp-col-drag` class on the editor DOM (styles.css) and (b) render
+//     a node DECORATION over ONLY the anchor-lane leaf cells across the covered rows — the
+//     single-column highlight the user sees.
+//   • The instant the pointer crosses into the OTHER lane (a genuine 2-col cell of a different
+//     role), we drop the class + decorations and let the native TextSelection stand = both
+//     columns, today's behavior.
+// It dispatches only SELECTION-META transactions (no doc change ever), so it is structurally
+// collab-safe (a doc-less tr never travels through Yjs) — same doctrine as doCellHop.
+
+// Inline lane predicate (the twin of slash-menu.js laneMatches, inlined to avoid a table.js →
+// slash-menu.js → table.js import cycle). A 'full' cell matches any lane; a null/full anchor
+// role matches everything (never used to scope — the plugin only engages on a said/shown anchor).
+function colLaneMatches(cellRole, anchorRole) {
+  if (anchorRole == null || anchorRole === 'full') return true;
+  return cellRole === anchorRole || cellRole === 'full';
+}
+
+// Resolve a document position to its enclosing LEAF tableCell's column identity, or null. Walks
+// UP to the NEAREST tableCell (so a nested Palau leaf reports its own said|shown role, never the
+// wrapper's 'full') and reads the owning row's child count + this cell's index within it. Pure
+// (doc, pos) -> { role, cellIndex, colCount, rowPos } | null. Exported for the headless suite.
+export function cellColumnAt(doc, pos) {
+  if (!doc) return null;
+  const size = doc.content.size;
+  const $pos = doc.resolve(Math.max(0, Math.min(pos, size)));
+  for (let d = $pos.depth; d > 0; d--) {
+    if ($pos.node(d).type.name === 'tableCell') {
+      const cellNode = $pos.node(d);
+      const rowNode = $pos.node(d - 1);
+      return {
+        role: cellNode.attrs?.role || 'full',
+        cellIndex: $pos.index(d - 1),
+        colCount: rowNode ? rowNode.childCount : 1,
+        rowPos: $pos.before(d - 1),
+      };
+    }
+  }
+  return null;
+}
+
+// Does the drag currently span BOTH columns? True ONLY when the head cell is a genuine 2-column
+// cell in a DIFFERENT lane than the anchor — that is the horizontal cross that native table
+// CellSelection widens on. A head over the same lane, or over a full-width (1-col) row, keeps the
+// column scope (a full row has no second column to cross into). An anchor that isn't itself in a
+// 2-column row never scopes at all (returns false → the plugin leaves native selection alone).
+// Pure (anchor, head) -> boolean, exported for the headless suite.
+export function columnCrossed(anchor, head) {
+  if (!anchor || anchor.colCount < 2 || anchor.role === 'full') return false;
+  if (!head) return false;
+  return head.colCount >= 2 && head.role !== anchor.role;
+}
+
+// The leaf tableCells intersecting [from,to] that belong to the anchor's lane — the cells the
+// column-scoped decoration paints. Walks every LEAF tableCell (descending THROUGH Palau wrapper
+// cells to the inner said|shown|full leaves) and keeps whole-cell spans whose role matches the
+// lane. Whole cells (not clipped to from/to) so the highlight reads as a clean column rectangle,
+// the CellSelection look. A collapsed range paints nothing. Pure (doc, from, to, role) ->
+// [{ from, to }] node spans, exported for the headless suite.
+export function columnScopedCells(doc, from, to, role) {
+  const lo = Math.min(from, to);
+  const hi = Math.max(from, to);
+  if (lo === hi) return [];
+  const cells = [];
+  doc.nodesBetween(lo, hi, (node, pos) => {
+    if (node.type.name !== 'tableCell') return true;
+    let hasNestedRow = false;
+    node.forEach((child) => { if (child.type.name === 'tableRow') hasNestedRow = true; });
+    if (hasNestedRow) return true; // wrapper cell — descend to the leaf said|shown|full cells
+    if (colLaneMatches(node.attrs?.role || 'full', role)) {
+      cells.push({ from: pos, to: pos + node.nodeSize });
+    }
+    return false; // leaf cell — nothing deeper to scope
+  });
+  return cells;
+}
+
+// Build the DecorationSet for an active column scope over the current selection. Empty set when
+// the scope is off, the selection collapsed, or no lane cell is covered. Pure (doc, selection,
+// role) -> DecorationSet, exported so the suite can assert exactly which cells light up.
+export function columnScopeDecorations(doc, selection, role) {
+  if (!role) return DecorationSet.empty;
+  const cells = columnScopedCells(doc, selection.from, selection.to, role);
+  if (!cells.length) return DecorationSet.empty;
+  const decos = cells.map((c) => Decoration.node(c.from, c.to, { class: 'wp-col-cell-selected' }));
+  return DecorationSet.create(doc, decos);
+}
+
+// The plugin's PluginKey — also read by convert-menu.js so a bulk tag can scope to the DRAGGED
+// column (not just the right-clicked one).
+const colSelectKey = new PluginKey('wpColSelect');
+
+// The active column-scope lane ('said' | 'shown') for THIS view, or null when there is no
+// column-scoped selection. convert-menu.js consults this so a tag applied after a single-column
+// drag lands only in the dragged lane, even if the right-click drifts into the other column.
+export function activeColumnScopeRole(view) {
+  try { return colSelectKey.getState(view.state)?.role || null; } catch { return null; }
+}
+
+// Module-scoped gesture state (mirrors draggingRow's pattern — the handlers and the plugin share
+// one module). colDragAnchor is the anchor cell's column identity captured on mousedown; colDragging
+// is live only between mousedown and mouseup.
+let colDragAnchor = null;
+let colDragging = false;
+
+// The column-scoped drag-select plugin. Registered in TableRow.addProseMirrorPlugins(). Selection
+// + decoration only — NEVER a doc transaction, so it sits OUTSIDE the collab-loop risk class.
+export function columnSelectPlugin() {
+  return new Plugin({
+    key: colSelectKey,
+    state: {
+      init() { return { role: null, deco: DecorationSet.empty }; },
+      apply(tr, value, _oldState, newState) {
+        const meta = tr.getMeta(colSelectKey);
+        if (meta !== undefined) {
+          // Explicit engage/cross/clear from a gesture handler.
+          const role = meta.role || null;
+          return { role, deco: columnScopeDecorations(newState.doc, newState.selection, role) };
+        }
+        if (!value.role) return value.deco === DecorationSet.empty ? value : { role: null, deco: DecorationSet.empty };
+        // Scope is live: a plain selection-extend (the native drag) or a doc edit flowed through —
+        // recompute the decoration against the new selection. A collapse clears the scope so a
+        // later click doesn't inherit a stale lane.
+        if (newState.selection.empty) return { role: null, deco: DecorationSet.empty };
+        return { role: value.role, deco: columnScopeDecorations(newState.doc, newState.selection, value.role) };
+      },
+    },
+    props: {
+      decorations(state) { return colSelectKey.getState(state)?.deco || null; },
+    },
+    view(editorView) {
+      const roleNow = () => colSelectKey.getState(editorView.state)?.role || null;
+      const setScope = (role) => {
+        if (roleNow() === (role || null)) return;
+        editorView.dispatch(editorView.state.tr.setMeta(colSelectKey, { role: role || null }));
+      };
+      const anchorAt = (clientX, clientY) => {
+        const coords = editorView.posAtCoords({ left: clientX, top: clientY });
+        return coords ? cellColumnAt(editorView.state.doc, coords.pos) : null;
+      };
+      const onMouseDown = (e) => {
+        // Only a LEFT-button press starts a fresh selection gesture. A right-click (button 2) must
+        // NOT clear the scope — the convert menu reads it to scope the tag to the dragged lane.
+        if (e.button !== 0) return;
+        colDragging = false;
+        colDragAnchor = null;
+        setScope(null); // any prior column highlight ends when a new drag begins
+        const t = e.target;
+        if (!(t && typeof t.closest === 'function')) return;
+        // The grips/images own their own drags; menus/chips own their own clicks.
+        if (dragSourceSanctioned(t)) return;
+        if (t.closest('.wp-slash-menu, .wp-convert-menu, .wp-bulk-menu, .wp-rowmenu, .wp-addrows-menu, .wp-tc-tag, [data-tc], [data-dchip]')) return;
+        if (!t.closest('.wp-tcell')) return;
+        const anchor = anchorAt(e.clientX, e.clientY);
+        // Only engage when the anchor is a genuine 2-column lane cell (said|shown). A full-width
+        // row has no column to scope, so it keeps plain native selection.
+        if (!anchor || anchor.colCount < 2 || anchor.role === 'full') return;
+        colDragAnchor = anchor;
+        colDragging = true;
+      };
+      const onMouseMove = (e) => {
+        if (!colDragging || !colDragAnchor) return;
+        if ((e.buttons & 1) === 0) { colDragging = false; return; } // button released off-DOM
+        const head = anchorAt(e.clientX, e.clientY);
+        const crossed = columnCrossed(colDragAnchor, head);
+        setScope(crossed ? null : colDragAnchor.role);
+      };
+      const onMouseUp = () => { colDragging = false; }; // scope persists for the follow-up right-click
+      editorView.dom.addEventListener('mousedown', onMouseDown);
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      return {
+        // Mirror the plugin's role onto the editor DOM so CSS can neutralize the native
+        // both-column ::selection paint whenever a single-column scope is live (styles.css
+        // `.wp-col-drag ::selection { background: transparent }`). Reactive to state, never
+        // hand-toggled, so it can never drift from the decoration set.
+        update(view) {
+          const on = !!(colSelectKey.getState(view.state)?.role);
+          view.dom.classList.toggle('wp-col-drag', on);
+        },
+        destroy() {
+          editorView.dom.removeEventListener('mousedown', onMouseDown);
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          editorView.dom.classList.remove('wp-col-drag');
+          colDragging = false;
+          colDragAnchor = null;
+        },
+      };
+    },
+  });
+}
+
 // TAB CELL-HOP (Johnny: "when im in a table and i hit tab, it should bring me to the next
 // row… left column tab brings me to right, right column tab brings me to the left column in
 // the row below. shift tab goes the opposite way"). Spreadsheet Tab: caret hops cell → cell
@@ -1308,7 +1517,7 @@ export const TableRow = Node.create({
     };
   },
   addProseMirrorPlugins() {
-    const plugins = [optionSplitKeyPlugin()];
+    const plugins = [optionSplitKeyPlugin(), columnSelectPlugin()];
     if (spineGuardSafeHere()) plugins.push(tableSpineGuardPlugin());
     if (rowDragEnabled()) plugins.push(rowDragPlugin());
     return plugins;
