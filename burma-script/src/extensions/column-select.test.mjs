@@ -32,8 +32,9 @@ import TextAlign from '@tiptap/extension-text-align';
 import { BURMA_NODES } from './blocks.js';
 import {
   BURMA_TABLE_NODES, cellColumnAt, columnCrossed, columnScopedCells,
-  columnScopeDecorations, collectIntersectingRows,
+  columnScopeDecorations, columnScopeForDrag, columnSelectEnabled, collectIntersectingRows,
 } from './table.js';
+import { __setReadOnlyForTest } from '../read-mode.js';
 import { BURMA_MARKS } from './marks.js';
 import { DirectionMark } from './direction-chip.js';
 import { bulkApplyMarkRange } from './convert-menu.js';
@@ -197,6 +198,55 @@ ok('bulkApplyMarkRange(said) tags only the said lane; the shown lane is byte-unt
   assert.equal(markInCell(out.doc.child(1).child(0)), true, 'row2 said tagged');
   assert.deepEqual(clone(out.doc.child(0).child(1).toJSON()), shownBefore, 'row1 shown untouched');
   assert.equal(markInCell(out.doc.child(1).child(1)), false, 'row2 shown untouched');
+});
+
+// ── 7. columnScopeForDrag — the live-drag engage gate (regression: intra-cell text select) ─────
+// The bug: onMouseMove engaged the column scope whenever the head merely stayed in the anchor's
+// LANE — it never checked whether the drag had LEFT the anchor cell. So a plain click-drag to
+// select a phrase WITHIN one said cell washed the whole cell orange and zeroed the native
+// highlight. The gate must return null (native) until the head enters a DIFFERENT same-lane cell.
+ok('columnScopeForDrag: a drag still INSIDE the anchor cell stays native (null), not column-scoped', () => {
+  const anchor = { role: 'said', cellIndex: 0, colCount: 2, rowPos: 10 };
+  // Head is the very same cell (same rowPos + cellIndex) — ordinary intra-cell text selection.
+  assert.equal(columnScopeForDrag(anchor, { ...anchor }), null, 'same cell → no scope, native word-level selection survives');
+  // Head is null at gesture start too (posAtCoords miss) — but a null head means "keep dragging
+  // vertically off the surface", which SHOULD hold the lane once a real drag is underway; that path
+  // is only reached after leaving the cell, so the same-cell guard above is what protects the phrase
+  // select. A null head therefore keeps the lane:
+  assert.equal(columnScopeForDrag(anchor, null), 'said', 'head off-DOM (drag ran past last row) keeps the lane');
+});
+
+ok('columnScopeForDrag: head in a DIFFERENT same-lane cell engages the column scope', () => {
+  const anchor = { role: 'said', cellIndex: 0, colCount: 2, rowPos: 10 };
+  const sameLaneNextRow = { role: 'said', cellIndex: 0, colCount: 2, rowPos: 40 };
+  assert.equal(columnScopeForDrag(anchor, sameLaneNextRow), 'said', 'a real multi-row column drag scopes to the lane');
+  const fullRowBelow = { role: 'full', cellIndex: 0, colCount: 1, rowPos: 70 };
+  assert.equal(columnScopeForDrag(anchor, fullRowBelow), 'said', 'a full-width row in the run joins the lane');
+});
+
+ok('columnScopeForDrag: crossing into the other lane, or a non-scoping anchor, returns null', () => {
+  const anchor = { role: 'said', cellIndex: 0, colCount: 2, rowPos: 10 };
+  const otherLane = { role: 'shown', cellIndex: 1, colCount: 2, rowPos: 40 };
+  assert.equal(columnScopeForDrag(anchor, otherLane), null, 'crossed into the shown lane → both columns, native');
+  const fullAnchor = { role: 'full', cellIndex: 0, colCount: 1, rowPos: 10 };
+  assert.equal(columnScopeForDrag(fullAnchor, { role: 'full', cellIndex: 0, colCount: 1, rowPos: 40 }), null, 'a full-width anchor never scopes');
+  assert.equal(columnScopeForDrag(null, otherLane), null, 'no anchor → null');
+});
+
+// ── 8. columnSelectEnabled — the ?read / guest-share gate (regression: see-one / copy-both) ────
+// The bug: columnSelectPlugin mounted unconditionally, so on a ?read share the gesture engaged and
+// painted a single-column highlight while the native TextSelection still spanned both columns —
+// Cmd+C copied BOTH columns' text while only one appeared selected. Read pages must keep native
+// both-column selection (visible == clipboard).
+ok('columnSelectEnabled: false on a read-only share, true in a normal edit session', () => {
+  try {
+    __setReadOnlyForTest(true);
+    assert.equal(columnSelectEnabled(), false, 'read-only share → gesture disabled (native both-column selection)');
+    __setReadOnlyForTest(false);
+    assert.equal(columnSelectEnabled(), true, 'editable session → gesture enabled');
+  } finally {
+    __setReadOnlyForTest(false); // never leak read-only into a later test
+  }
 });
 
 console.log(`column-select.test.mjs: ${pass} assertions passed`);

@@ -872,6 +872,26 @@ export function columnCrossed(anchor, head) {
   return head.colCount >= 2 && head.role !== anchor.role;
 }
 
+// The lane a LIVE drag should scope to, given the anchor cell and the head cell under the pointer —
+// or null for "leave the native TextSelection alone". Null when any of:
+//   • the anchor isn't a genuine 2-column said|shown cell (nothing to scope), OR
+//   • the head crossed into the OTHER lane (columnCrossed → both columns, native), OR
+//   • the head is STILL INSIDE the anchor cell. That last case is the fix for the most common
+//     spine gesture: an ordinary click-drag WITHIN one said|shown cell to select a phrase (to
+//     italicize / bold / tag it). Engaging the scope there would wash the whole cell and zero the
+//     native word-level ::selection, so the user can't see what they picked and a follow-up Cmd+I
+//     acts on an invisible range. The column scope must engage ONLY once the head enters a
+//     DIFFERENT same-lane cell — a real multi-row column drag.
+// A null head (pointer dragged off the editor, e.g. past the last row) keeps the current lane, so a
+// vertical drag that runs off the bottom stays column-scoped. Pure (anchor, head) -> role | null,
+// exported for the headless suite.
+export function columnScopeForDrag(anchor, head) {
+  if (!anchor || anchor.colCount < 2 || anchor.role === 'full') return null;
+  if (columnCrossed(anchor, head)) return null;
+  if (head && head.rowPos === anchor.rowPos && head.cellIndex === anchor.cellIndex) return null;
+  return anchor.role;
+}
+
 // The leaf tableCells intersecting [from,to] that belong to the anchor's lane — the cells the
 // column-scoped decoration paints. Walks every LEAF tableCell (descending THROUGH Palau wrapper
 // cells to the inner said|shown|full leaves) and keeps whole-cell spans whose role matches the
@@ -924,6 +944,17 @@ export function activeColumnScopeRole(view) {
 let colDragAnchor = null;
 let colDragging = false;
 
+// The column-scoped drag gesture is an EDIT affordance, so it must be INERT on a ?read / guest
+// share. A read session is non-editable but still SELECTABLE, so without this gate a reader dragging
+// the left lane to copy just the said/VO text would SEE a single-column highlight while the
+// underlying both-column TextSelection (and therefore Cmd+C) still copies BOTH columns — a
+// see-one / copy-both mismatch. Mirrors rowDragPlugin's `!isReadOnly()` gate. Read live (never
+// frozen) so a guest-mode latch that flips read-only ON after editor construction is still honored.
+// Exported so the headless suite can lock the read-mode contract.
+export function columnSelectEnabled() {
+  return !isReadOnly();
+}
+
 // The column-scoped drag-select plugin. Registered in TableRow.addProseMirrorPlugins(). Selection
 // + decoration only — NEVER a doc transaction, so it sits OUTSIDE the collab-loop risk class.
 export function columnSelectPlugin() {
@@ -960,6 +991,9 @@ export function columnSelectPlugin() {
         return coords ? cellColumnAt(editorView.state.doc, coords.pos) : null;
       };
       const onMouseDown = (e) => {
+        // ?read / guest share: the gesture is an edit affordance and must never engage (see
+        // columnSelectEnabled) — otherwise the reader sees one column but Cmd+C copies both.
+        if (!columnSelectEnabled()) return;
         // Only a LEFT-button press starts a fresh selection gesture. A right-click (button 2) must
         // NOT clear the scope — the convert menu reads it to scope the tag to the dragged lane.
         if (e.button !== 0) return;
@@ -983,8 +1017,9 @@ export function columnSelectPlugin() {
         if (!colDragging || !colDragAnchor) return;
         if ((e.buttons & 1) === 0) { colDragging = false; return; } // button released off-DOM
         const head = anchorAt(e.clientX, e.clientY);
-        const crossed = columnCrossed(colDragAnchor, head);
-        setScope(crossed ? null : colDragAnchor.role);
+        // Engage the column scope ONLY once the pointer leaves the anchor cell into a different
+        // same-lane cell; a drag still inside the anchor cell stays native (intra-cell text select).
+        setScope(columnScopeForDrag(colDragAnchor, head));
       };
       const onMouseUp = () => { colDragging = false; }; // scope persists for the follow-up right-click
       editorView.dom.addEventListener('mousedown', onMouseDown);
@@ -1517,7 +1552,11 @@ export const TableRow = Node.create({
     };
   },
   addProseMirrorPlugins() {
-    const plugins = [optionSplitKeyPlugin(), columnSelectPlugin()];
+    const plugins = [optionSplitKeyPlugin()];
+    // Column-scoped drag select is an EDIT affordance — skip it entirely on a ?read / guest share so
+    // read pages keep native both-column selection (visible == clipboard). Belt-and-suspenders with
+    // the runtime guard in onMouseDown, which also covers a guest latch after this runs.
+    if (columnSelectEnabled()) plugins.push(columnSelectPlugin());
     if (spineGuardSafeHere()) plugins.push(tableSpineGuardPlugin());
     if (rowDragEnabled()) plugins.push(rowDragPlugin());
     return plugins;
