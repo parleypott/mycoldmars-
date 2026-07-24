@@ -53,9 +53,24 @@ export const MAX_SIGNED_BYTES = 100 * 1024 * 1024;
 // Exported so the QSS-map-stays-image-only contract is a locked test.
 // quicktime → .mov keeps the container extension so isVideoSrc (blocks.js) can fork on it.
 const VIDEO_TYPES = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
+// AUDIO ALLOWANCE — LOCAL to this endpoint, same posture as VIDEO_TYPES: audio rides the signed road
+// ONLY (the base64 edge route's shared imageStorageMeta would coerce audio → png). The client only
+// ever sends AUDIO/MPEG (an mp3 — passthrough or the audio-transcode.js output) or AUDIO/WAV (a
+// passthrough wav, re-labeled canonical client-side by normalizeAudioPassthrough); the extra
+// variants are belt-and-suspenders so an odd Finder wav mime still stores with the right extension.
+// Every entry is a pure media type the browser plays in <audio> — never a document — so the
+// stored-content-type-injection concern the shared allowlist guards stays closed. Widening the SHARED
+// imageStorageMeta (used by QSS) is deliberately avoided — same reasoning as VIDEO_TYPES.
+const AUDIO_TYPES = {
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',
+  'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav', 'audio/vnd.wave': 'wav',
+  'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/m4a': 'm4a', 'audio/aac': 'aac',
+  'audio/ogg': 'ogg', 'audio/flac': 'flac',
+};
 export function mediaStorageMeta(rawMime) {
   const mime = String(rawMime ?? '').trim().toLowerCase();
   if (VIDEO_TYPES[mime]) return { mime, ext: VIDEO_TYPES[mime] };
+  if (AUDIO_TYPES[mime]) return { mime, ext: AUDIO_TYPES[mime] };
   return imageStorageMeta(rawMime);
 }
 
@@ -71,6 +86,11 @@ export function mediaStorageMeta(rawMime) {
 export const SIGNABLE_MIMES = new Set([
   'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', // client SUPPORTED_IMAGE_MIMES
   'video/mp4', 'video/webm', 'video/quicktime',                      // gif→mp4 transcode + direct video paste/drop
+  // AUDIO (mp3 transcode output + passthrough wav/mp3). The client normalizes to audio/mpeg or
+  // audio/wav before signing; the extra variants keep an odd Finder mime from being refused.
+  'audio/mpeg', 'audio/mp3',
+  'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave',
+  'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/ogg', 'audio/flac',
 ]);
 export function isSignableMime(rawMime) {
   return SIGNABLE_MIMES.has(String(rawMime ?? '').trim().toLowerCase());

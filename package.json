@@ -44,7 +44,8 @@
     "use-sync-external-store": "^1.6.0",
     "wavesurfer.js": "^7.12.6",
     "world-atlas": "^2.0.2",
-    "yjs": "^13.6.31"
+    "yjs": "^13.6.31",
+    "@breezystack/lamejs": "^1.2.7"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

@@ -79,6 +79,47 @@ export function isSupportedMediaMime(type) {
   return SUPPORTED_IMAGE_MIMES.has(t) || SUPPORTED_VIDEO_MIMES.has(t);
 }
 
+// AUDIO drop/paste support (2026-07-24) — Johnny drops audio (wav / mp3 / m4a / a QuickTime ".qta"
+// voice memo). Audio lands as its OWN node type (audioBlock, a waveform strip) — never an imageBlock.
+// Weird containers are transcoded to mp3 client-side before upload (audio-transcode.js); wav/mp3 go
+// as-is. Every audio upload rides the SIGNED road (the base64 edge fn would coerce audio → png).
+//
+// DETECTION BY EXTENSION, NOT MIME ALONE (the .qta problem): a macOS voice memo ".qta" reports its
+// type as video/quicktime — or EMPTY — from Finder, so a MIME-only check would misroute it to the
+// video path (a broken <video>). We detect audio by a KNOWN AUDIO EXTENSION first (which wins the
+// .qta case over the shared video/quicktime mime) OR an explicit audio/* mime. The final proof that
+// a .qta really is decodable audio is decodeAudioData succeeding at transcode time (audio-transcode.js).
+export const SUPPORTED_AUDIO_MIMES = new Set([
+  'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave',
+  'audio/mpeg', 'audio/mp3',
+  'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac',
+  'audio/ogg', 'audio/opus', 'audio/flac', 'audio/x-flac',
+  'audio/aiff', 'audio/x-aiff', 'audio/basic',
+]);
+// Filename-extension gate — the load-bearing signal for the .qta (and any empty-typed audio). Ordered
+// alternation of the containers a browser's decodeAudioData can realistically decode plus the ones the
+// mp3 transcode handles.
+export const AUDIO_EXT_RE = /\.(wav|mp3|m4a|aac|qta|aif|aiff|caf|ogg|oga|opus|flac|weba|amr|3gp|wma)$/i;
+export function isAudioFile(file) {
+  const type = String(file?.type || '').toLowerCase();
+  if (SUPPORTED_AUDIO_MIMES.has(type)) return true;
+  // Extension wins over a misleading container mime (video/quicktime on a .qta) or an empty type.
+  if (AUDIO_EXT_RE.test(String(file?.name || ''))) return true;
+  return false;
+}
+
+// PURE TRANSCODE DECISION — 'passthrough' (already a web-playable mp3/wav, upload the bytes as-is,
+// NO needless re-encode) vs 'transcode' (m4a / aac / .qta / ogg / flac / anything else → mp3 via
+// audio-transcode.js). Exported so the convert-vs-pass boundary is a locked, testable contract with
+// NO WebAudio dependency (the encode itself is a live-browser path).
+export function audioTranscodeDecision(file) {
+  const type = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '');
+  const isMp3 = type === 'audio/mpeg' || type === 'audio/mp3' || /\.mp3$/i.test(name);
+  const isWav = type === 'audio/wav' || type === 'audio/x-wav' || type === 'audio/wave' || type === 'audio/vnd.wave' || /\.wav$/i.test(name);
+  return (isMp3 || isWav) ? 'passthrough' : 'transcode';
+}
+
 // ROUTE SPLIT — bytes travel one of two roads, both ending at the same bucket + the same
 // ~100-byte public URL in the doc:
 //   • small files → /api/script-image-upload (base64 JSON through the edge fn; proven path)
@@ -130,7 +171,11 @@ export function pickUploadRoute(sizeBytes) {
 // with a png Content-Type (a permanently broken render in every doc revision). This covers the
 // gif→mp4 transcode output AND direct video pastes/drops. Images route by size exactly as before.
 export function pickMediaUploadRoute(mime, sizeBytes) {
-  if (String(mime || '').toLowerCase().startsWith('video/')) return 'signed';
+  const m = String(mime || '').toLowerCase();
+  // Video AND audio always ride the signed road: only /api/script-image-sign speaks these media
+  // types (its local mediaStorageMeta). The base64 edge fn's shared imageStorageMeta would coerce
+  // them → image/png, serving the bytes with a png Content-Type (a permanently broken render/play).
+  if (m.startsWith('video/') || m.startsWith('audio/')) return 'signed';
   return pickUploadRoute(sizeBytes);
 }
 
@@ -164,6 +209,11 @@ export function pickMediaFiles(files) {
 // The id doubles as the upload's block_id, so the storage path names the block it feeds.
 export function mintImageBlockId() {
   return 'image_' + Math.random().toString(36).slice(2, 9);
+}
+
+// Audio block id — same shape, own prefix so the storage path (block_id) names it as audio.
+export function mintAudioBlockId() {
+  return 'audio_' + Math.random().toString(36).slice(2, 9);
 }
 
 // Caption default: the filename without its extension (editable later via attrs).
@@ -532,13 +582,18 @@ function shortMediaError(detail) {
   return d.length > 80 ? d.slice(0, 77) + '…' : d;
 }
 
-// Find the doc position of the imageBlock carrying this blockId (null = gone). Identity, never
+// Which node types the media upload machinery (placeholder swap / retry / remove) drives. Both
+// carry the same uploading/uploadError/src placeholder-attr contract, so one blockId lookup serves
+// image and audio alike (blockIds are globally unique, so there is no cross-type collision).
+const MEDIA_NODE_TYPES = new Set(['imageBlock', 'audioBlock']);
+
+// Find the doc position of the image/audio block carrying this blockId (null = gone). Identity, never
 // a raw position — so a swap survives concurrent edits that shifted the block.
 export function findImageBlockPos(state, id) {
   let at = null;
   state.doc.descendants((node, pos) => {
     if (at != null) return false;
-    if (node.type.name === 'imageBlock' && node.attrs.blockId === id) { at = pos; return false; }
+    if (MEDIA_NODE_TYPES.has(node.type.name) && node.attrs.blockId === id) { at = pos; return false; }
     return undefined;
   });
   return at;
@@ -599,7 +654,7 @@ export function swapMediaBlock(view, id, patch) {
   const pos = findImageBlockPos(view.state, id);
   if (pos == null) return false;
   const node = view.state.doc.nodeAt(pos);
-  if (!node || node.type.name !== 'imageBlock') return false;
+  if (!node || !MEDIA_NODE_TYPES.has(node.type.name)) return false;
   view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...patch }));
   return true;
 }
@@ -668,10 +723,15 @@ export function retryMediaUpload(view, id) {
   if (isReadOnly() || !view.editable) return;
   const file = pendingFiles.get(id);
   if (!file) return;
+  // Route the retry to the SAME pipeline the block's type uses — an audioBlock must re-run the
+  // convert+upload path (uploadAndSwapAudio), never the image path (which skips the mp3 transcode).
+  const pos = findImageBlockPos(view.state, id);
+  const isAudio = pos != null && view.state.doc.nodeAt(pos)?.type.name === 'audioBlock';
   if (!swapMediaBlock(view, id, { uploading: true, uploadError: null, src: '' })) { pendingFiles.delete(id); return; }
   activeUploads.add(id);
-  setMediaProgress(id, PLACEHOLDER_DEFAULT_LABEL);
-  uploadAndSwap(view, file, id);
+  setMediaProgress(id, isAudio ? PLACEHOLDER_DEFAULT_AUDIO_LABEL : PLACEHOLDER_DEFAULT_LABEL);
+  if (isAudio) uploadAndSwapAudio(view, file, id);
+  else uploadAndSwap(view, file, id);
 }
 
 // REMOVE (from the block's error card) — delete the interrupted/failed block. When it is the lone
@@ -697,11 +757,210 @@ export function removeMediaBlock(view, id) {
   view.dispatch(state.tr.delete(from, to));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// AUDIO — drop / paste an audio file (wav / mp3 / m4a / .qta) → an audioBlock waveform strip.
+// Same attr-driven placeholder model as the media PASTE path: the block lands IMMEDIATELY with
+// uploading:true, then the async convert(if needed)+upload swaps in the final mp3/wav src by
+// blockId (setNodeMarkup). One insert transaction, no appendTransaction (COLLAB LOOP LAW),
+// survives reload (interrupted → recoverable card), inherits the signed-road + dedupe + 413-heal
+// pipeline. DROP lands the strip AT THE CURSOR IN-CELL (like insertMediaAtPos); PASTE lands it as
+// its own full-width row (like startMediaPaste).
+
+const PLACEHOLDER_DEFAULT_AUDIO_LABEL = 'PREPARING AUDIO…';
+
+// Ensure a passthrough (wav/mp3) file carries a CANONICAL audio mime so the signed endpoint stores
+// the right Content-Type + extension — a Finder wav can arrive with an empty or non-canonical type,
+// which the server would otherwise coerce to png. Never re-encodes; just re-labels the wrapper.
+function normalizeAudioPassthrough(file) {
+  const name = String(file.name || 'audio');
+  const type = String(file.type || '').toLowerCase();
+  const isMp3 = /\.mp3$/i.test(name) || type === 'audio/mpeg' || type === 'audio/mp3';
+  const targetType = isMp3 ? 'audio/mpeg' : 'audio/wav';
+  if (type === targetType) return file;
+  try { return new File([file], name, { type: targetType }); } catch { return file; }
+}
+
+// Best-effort clip duration for the strip (persisted only when known). Reads metadata off a throwaway
+// <audio> element; a format the browser can't even preview resolves null (the nodeview reads it live
+// off WaveSurfer instead). Never throws; times out at 4s. Browser-only (no-op path is fine headless).
+function audioDurationSafe(file) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof Audio !== 'function' || typeof URL === 'undefined' || !URL.createObjectURL) return resolve(null);
+      const url = URL.createObjectURL(file);
+      const a = new Audio();
+      let done = false;
+      const finish = (d) => { if (done) return; done = true; try { URL.revokeObjectURL(url); } catch {} resolve(Number.isFinite(d) && d > 0 ? d : null); };
+      a.preload = 'metadata';
+      a.onloadedmetadata = () => finish(a.duration);
+      a.onerror = () => finish(null);
+      a.src = url;
+      setTimeout(() => finish(null), 4000);
+    } catch { resolve(null); }
+  });
+}
+
+// Convert a dropped audio file to an UPLOADABLE web-playable file: wav/mp3 pass through unchanged
+// (just re-labeled canonical); everything else is transcoded to mp3 (audio-transcode.js — decodeAudioData
+// → lamejs, ffmpeg.wasm fallback). Transcode failure THROWS so the caller marks the block uploadError —
+// NEVER a silent drop. onLabel narrates the stage into the block's status card.
+async function maybeTranscodeAudio(file, onLabel) {
+  if (audioTranscodeDecision(file) === 'passthrough') {
+    onLabel?.('UPLOADING AUDIO…');
+    return normalizeAudioPassthrough(file);
+  }
+  onLabel?.('CONVERTING TO MP3…');
+  const mod = await import('./audio-transcode.js');
+  const mp3 = await mod.transcodeToMp3(file);
+  onLabel?.('UPLOADING AUDIO…');
+  return mp3;
+}
+
+// Upload the (converted) audio, then RESOLVE the placeholder block: swap in the final src + mime +
+// duration, or mark it errored (retry keeps the original bytes). Same shape as uploadAndSwap.
+async function uploadAndSwapAudio(view, file, id) {
+  let url = null, detail = '', durationSec = null, mime = '';
+  try {
+    const upload = await maybeTranscodeAudio(file, (t) => setMediaProgress(id, t));
+    mime = upload.type || 'audio/mpeg';
+    durationSec = (typeof upload.__durationSec === 'number' && upload.__durationSec > 0)
+      ? upload.__durationSec
+      : await audioDurationSafe(upload);
+    const out = await runMediaUpload(upload, id);
+    if (out.url) url = out.url; else detail = out.error || '';
+  } catch (e) {
+    detail = e?.message || 'could not process audio';
+  }
+  activeUploads.delete(id);
+  setMediaProgress(id, null);
+  if (view.isDestroyed) { pendingFiles.delete(id); return; }
+  if (!url) {
+    swapMediaBlock(view, id, { uploading: false, uploadError: shortMediaError(detail) });
+    return;
+  }
+  pendingFiles.delete(id);
+  const patch = { uploading: false, uploadError: null, src: url, mime };
+  if (durationSec != null) patch.durationSec = durationSec;
+  if (!swapMediaBlock(view, id, patch)) {
+    toast('the audio’s row was removed before its upload finished');
+  }
+}
+
+// Refine a raw drop coordinate to a LEGAL audioBlock insertion point (PM dropPoint with an audioBlock
+// probe — lands INSIDE a tableCell, block+). null = no legal point → caller aborts. Mirrors resolveDropPos.
+export function resolveAudioDropPos(state, rawPos) {
+  const type = state.schema.nodes.audioBlock;
+  if (!type) return null;
+  const probe = new Slice(Fragment.from(type.create()), 0, 0);
+  return dropPoint(state.doc, rawPos, probe);
+}
+
+// DROP entry — insert one audioBlock per file AT THE CURSOR IN-CELL (refined via dropPoint), then kick
+// the convert+upload. ONE transaction for the whole drop; the first block is NodeSelected + the view is
+// focused so it is immediately clickable (mirrors the imageBlock post-insert focus). Returns true when
+// the caret had a legal in-cell spot; false when there is none (caller toasts). Exported so a future
+// downloads-hotkey can land an audio file identically.
+export function insertAudioAtCursor(view, files, rawPos) {
+  const pos = resolveAudioDropPos(view.state, rawPos);
+  if (pos == null) return false;
+  const type = view.state.schema.nodes.audioBlock;
+  if (!type) return false;
+  const items = [];
+  for (const file of files) {
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
+      continue;
+    }
+    items.push({ id: mintAudioBlockId(), file });
+  }
+  if (!items.length) return true; // oversize-only: toasted, nothing to insert (a legal spot existed)
+  // Register active BEFORE the insert so the mounting nodeview shows the converting spinner (not the
+  // interrupted-after-reload card). pendingFiles holds the bytes for a possible retry.
+  for (const it of items) { activeUploads.add(it.id); pendingFiles.set(it.id, it.file); setMediaProgress(it.id, PLACEHOLDER_DEFAULT_AUDIO_LABEL); }
+  const tr = view.state.tr;
+  let insertAt = pos;
+  for (const it of items) {
+    const node = type.create({ blockId: it.id, src: '', origName: String(it.file.name || ''), mime: '', uploading: true, uploadError: null });
+    tr.insert(insertAt, node);
+    insertAt += node.nodeSize;
+  }
+  try { tr.setSelection(NodeSelection.create(tr.doc, pos)); } catch {}
+  view.dispatch(tr.scrollIntoView());
+  try { view.focus(); } catch {}
+  for (const it of items) uploadAndSwapAudio(view, it.file, it.id);
+  return true;
+}
+
+// PASTE — build a full-width audio row: tableRow(cols:1, pairu_) > tableCell(role:'full') > audioBlock.
+// Returns null if the schema lacks a piece (bare pre-table doc) — caller falls back to a top-level insert.
+export function buildAudioRowNode(schema, { id, origName = '' }) {
+  const rowType = schema.nodes.tableRow;
+  const cellType = schema.nodes.tableCell;
+  const audType = schema.nodes.audioBlock;
+  if (!rowType || !cellType || !audType) return null;
+  const aud = audType.create({ blockId: id, src: '', origName, mime: '', uploading: true, uploadError: null });
+  return rowType.create({ cols: 1, pairId: mintUserPairId() }, cellType.create({ role: 'full' }, aud));
+}
+
+// Insert one audio placeholder row per item, AFTER the caret's outermost tableRow (mirrors
+// insertPlaceholderRows). ONE transaction. Returns true on success.
+function insertAudioPlaceholderRows(view, items) {
+  const { state } = view;
+  const schema = state.schema;
+  const $pos = state.selection.$from;
+  let rowDepth = 0;
+  for (let d = 1; d <= $pos.depth; d++) {
+    if ($pos.node(d).type.name === 'tableRow') { rowDepth = d; break; }
+  }
+  const tr = state.tr;
+  if (rowDepth > 0) {
+    let insertAt = $pos.after(rowDepth);
+    for (const it of items) {
+      const row = buildAudioRowNode(schema, it);
+      if (!row) return false;
+      tr.insert(insertAt, row);
+      insertAt += row.nodeSize;
+    }
+  } else {
+    const audType = schema.nodes.audioBlock;
+    if (!audType) return false;
+    let insertAt = $pos.depth > 0 ? $pos.after(1) : Math.min($pos.pos, state.doc.content.size);
+    for (const it of items) {
+      const aud = audType.create({ blockId: it.id, src: '', origName: it.origName || '', mime: '', uploading: true, uploadError: null });
+      tr.insert(insertAt, aud);
+      insertAt += aud.nodeSize;
+    }
+  }
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+// PASTE entry — one audio row per file, in clipboard order, then kick the convert+uploads.
+export function startAudioPaste(view, files) {
+  const items = [];
+  for (const file of files) {
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
+      continue;
+    }
+    items.push({ id: mintAudioBlockId(), origName: String(file.name || ''), file });
+  }
+  if (!items.length) return;
+  for (const it of items) { activeUploads.add(it.id); pendingFiles.set(it.id, it.file); setMediaProgress(it.id, PLACEHOLDER_DEFAULT_AUDIO_LABEL); }
+  const ok = insertAudioPlaceholderRows(view, items.map(({ id, origName }) => ({ id, origName })));
+  if (!ok) {
+    for (const it of items) { activeUploads.delete(it.id); pendingFiles.delete(it.id); setMediaProgress(it.id, null); }
+    toast('could not place the pasted audio — click into a row first, then paste');
+    return;
+  }
+  for (const it of items) uploadAndSwapAudio(view, it.file, it.id);
+}
+
 // Collect media files from a paste event — files first (a real image/video copy populates
 // clipboardData.files), then file-kind items as a fallback (some browsers only populate items for
 // a copied image). A plain-text / HTML / ProseMirror-slice paste carries NO file here, so this
 // returns [] and the paste falls through untouched (the writing-tool paste path is sacred).
-function mediaFilesFromClipboard(event) {
+function rawClipboardFiles(event) {
   const dt = event.clipboardData;
   if (!dt) return [];
   const out = [];
@@ -714,8 +973,15 @@ function mediaFilesFromClipboard(event) {
   };
   if (dt.files && dt.files.length) for (const f of dt.files) push(f);
   if (dt.items && dt.items.length) for (const it of dt.items) { if (it.kind === 'file') push(it.getAsFile()); }
-  const { media } = pickMediaFiles(out);
+  return out;
+}
+function mediaFilesFromClipboard(event) {
+  const { media } = pickMediaFiles(rawClipboardFiles(event));
   return media;
+}
+// AUDIO from the clipboard (extension-first, so a copied .qta routes to audio not video).
+function audioFilesFromClipboard(event) {
+  return rawClipboardFiles(event).filter(isAudioFile);
 }
 
 // Exported so the test mounts the EXACT production plugin on a bare EditorState.
@@ -803,19 +1069,30 @@ export function buildImageDropPlugin() {
           }
           event.preventDefault(); // NEVER navigate away on a file drop, whatever the file
           if (isReadOnly() || !view.editable) return true; // read-only: swallow silently
-          const { media, rejected } = pickMediaFiles(files);
-          if (!media.length) {
-            toast('only png / jpeg / webp / gif images or mp4 / webm / mov videos can be dropped into the script');
+          // AUDIO comes off FIRST (extension-based, so a .qta reporting video/quicktime routes to the
+          // audio waveform strip, not a broken <video>). Images/videos take the untouched path below.
+          const allDropped = Array.from(files);
+          const audioDropped = allDropped.filter(isAudioFile);
+          const restDropped = allDropped.filter((f) => !isAudioFile(f));
+          const { media, rejected } = pickMediaFiles(restDropped);
+          if (!media.length && !audioDropped.length) {
+            toast('only png / jpeg / webp / gif images, mp4 / webm / mov videos, or wav / mp3 / m4a audio can be dropped into the script');
             return true;
           }
           if (rejected.length) {
-            toast(`${rejected.length} file${rejected.length > 1 ? 's' : ''} skipped — only png / jpeg / webp / gif images or mp4 / webm / mov videos land here`);
+            toast(`${rejected.length} file${rejected.length > 1 ? 's' : ''} skipped — only images, videos, or audio land here`);
           }
           const raw = view.posAtCoords({ left: event.clientX, top: event.clientY });
           if (!raw) {
             toast('could not find a spot for that — drop it onto a row');
             return true;
           }
+          // AUDIO → a waveform strip AT THE CURSOR IN-CELL (insertAudioAtCursor: transcode weird
+          // formats → mp3, signed-road upload, dedupe/413-heal, post-insert focus).
+          if (audioDropped.length && !insertAudioAtCursor(view, audioDropped, raw.pos)) {
+            toast('no legal spot for audio there — try dropping onto a row');
+          }
+          if (!media.length) return true;
           // TRANSCRIPT DROP disambiguation — an image could be a still (MEDIA) or a screenshot of a
           // transcript (QUOTE). Offer the flat choice at the drop point; MEDIA runs the untouched
           // path below, QUOTE reads the first image with the vision endpoint and falls back to media
@@ -840,7 +1117,8 @@ export function buildImageDropPlugin() {
       // mediaFilesFromClipboard actually found a supported image/video file.
       handlePaste(view, event) {
         const media = mediaFilesFromClipboard(event);
-        if (!media.length) {
+        const audio = audioFilesFromClipboard(event);
+        if (!media.length && !audio.length) {
           // NOT a media paste. Before falling through to the sacred writing paste path, check whether
           // the plain-text clipboard IS a transcript soundbite (pure regex, instant). Only when it
           // matches AND the feature is on do we hijack — a normal paste is byte-untouched.
@@ -853,6 +1131,9 @@ export function buildImageDropPlugin() {
         }
         if (isReadOnly() || !view.editable) return true; // read-only share: swallow, never mutate
         event.preventDefault();
+        // AUDIO pastes land as their own full-width waveform rows (transcode weird formats → mp3).
+        if (audio.length) startAudioPaste(view, audio);
+        if (!media.length) return true;
         // TRANSCRIPT DROP disambiguation on a single-image paste — MEDIA (the untouched new-row paste)
         // or QUOTE (read it as a transcript). A video / multi-file paste is unambiguously media.
         const firstIsImage = SUPPORTED_IMAGE_MIMES.has(String(media[0]?.type || '').toLowerCase());
