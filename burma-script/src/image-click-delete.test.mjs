@@ -125,14 +125,21 @@ ok('deleting a gif→video imageBlock (src .mp4) behaves identically to a still'
 // we lock the two invariants a headless suite CAN prove.
 const blocksSrc = readFileSync(new URL('./extensions/blocks.js', import.meta.url), 'utf8');
 ok('the imageBlock nodeview installs a media mousedown handler that sets a NodeSelection (edit-only)', () => {
-  // The handler block: media.addEventListener('mousedown', …) that guards canEdit() and dispatches a
-  // PMNodeSelection. If a refactor drops it, the blurred-first-click race re-opens silently.
-  const m = blocksSrc.match(/media\.addEventListener\(\s*'mousedown'[\s\S]{0,600}?\}\);/);
-  assert.ok(m, "media has a 'mousedown' handler in the nodeview");
-  assert.match(m[0], /canEdit\(\)/, 'the handler is edit-only (read mode keeps click-to-zoom)');
-  assert.match(m[0], /PMNodeSelection\.create/, 'the handler sets a NodeSelection on the clicked node');
-  assert.match(m[0], /hasFocus\(\)[\s\S]*focus\(\)/, 'it focuses the view when blurred, before selecting');
-  assert.ok(!/preventDefault\(\)/.test(m[0]), 'it must NOT preventDefault — the node stays draggable');
+  // Authoritative selection lives in selectThisMedia() + a mousedown bound on the STABLE figure
+  // `dom` (gated on e.target === media), NOT on the swappable `media` element — that binding was the
+  // gif/video swap-loss regression (2026-07-24): paint() replaces `media` on an image↔video flip and
+  // the old media.addEventListener('mousedown') was silently stripped. If a refactor drops either
+  // piece, the blurred-first-click race re-opens silently (see media-click-race.test.mjs).
+  const sel = blocksSrc.match(/const selectThisMedia = \(\) => \{[\s\S]{0,500}?\n      \};/);
+  assert.ok(sel, 'selectThisMedia() exists');
+  assert.match(sel[0], /PMNodeSelection\.create/, 'it sets a NodeSelection on the clicked node');
+  assert.match(sel[0], /hasFocus\(\)[\s\S]*focus\(\)/, 'it focuses the view when blurred, before selecting');
+
+  const md = blocksSrc.match(/dom\.addEventListener\(\s*'mousedown'[\s\S]*?dom\.addEventListener\(\s*'click'/);
+  assert.ok(md, "the figure `dom` has a 'mousedown' handler in the nodeview");
+  assert.match(md[0], /canEdit\(\)/, 'the handler is edit-only (read mode keeps click-to-zoom)');
+  assert.match(md[0], /e\.target !== media/, 'the handler stays media-only (gated on e.target === media)');
+  assert.ok(!/preventDefault\(\)/.test(md[0]), 'it must NOT preventDefault — the node stays draggable');
 });
 
 ok('a NodeSelection on an image HOLDS through a benign remote-like transaction (no degrade)', () => {
