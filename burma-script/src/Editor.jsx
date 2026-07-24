@@ -33,6 +33,7 @@ import { ListShortcuts } from './extensions/list-shortcuts.js';
 import { VizPasteAdopt } from './extensions/viz-paste-adopt.js';
 import { FootnoteDeleteGuard } from './extensions/footnote-delete-guard.js';
 import { ChapterFocus } from './extensions/chapter-focus.js';
+import { RowPlacement } from './extensions/row-placement.js';
 import { RowNumbers } from './extensions/row-numbers.js';
 import { WorkspaceFilter } from './extensions/workspace-filter.js';
 import { readChecked, writeChecked } from './extensions/ws-checkoff.js';
@@ -513,6 +514,11 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       DayFold,
       SlashMenu,
       ConvertMenu,
+      // TRANSFER / COPY SECTION placement mode — decoration-only plugin (adds NO schema, dispatches
+      // NOTHING itself; chapter-focus is the template). Entered by the ConvertMenu's transfer/copy
+      // items via the wp-row-placement event; the single commit tr does the whole-row move/duplicate
+      // (row-transfer.js). Not mounted in ?read shares (returns []).
+      RowPlacement,
       PasteSanitize,
       // Find & Replace is a decoration-only plugin (adds NO schema) + editor commands. Safe to load
       // in read-only sessions too — the panel that drives it is edit-only (gated below), and its

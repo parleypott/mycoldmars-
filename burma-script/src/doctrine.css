@@ -482,6 +482,59 @@
 .wp-trow.wp-drop-before::before { top: -2px; }
 .wp-trow.wp-drop-after::after { bottom: -2px; }
 
+/* ─────────────────── TRANSFER / COPY SECTION — PLACEMENT MODE ───────────────────
+   Decoration-only interaction state (row-placement.js). FLAT IS LAW: no shadows,
+   no glow-blur — the "glow" is a crisp orange hairline + accent wash, the row-drag
+   drop indicator's family. The selected section LIFTS (opacity + a hair of lift),
+   every legal gap between rows becomes a clickable insert line. */
+.wp-placement-backdrop {
+  position: fixed; inset: 0; z-index: 480;
+  background: rgba(20, 18, 15, 0.14);
+}
+/* Raise the editor above the backdrop so the in-doc gap widgets stay clickable, and
+   let the lifted rows read against the dim. */
+.wp-placement-active .wp-editor { position: relative; z-index: 481; }
+/* The LIFTED section — dimmed + a touch de-emphasised so the gaps read as the action.
+   Never display:none (must stay measurable + in view while the author picks a gap). */
+.wp-placement-active .wp-placement-lift {
+  opacity: 0.45;
+  transition: opacity .14s var(--ease);
+}
+/* A GAP insert target. The row widget sits at a top-level boundary; the visible line is
+   an orange hairline that thickens + labels on hover. Full row width, generous hit zone. */
+.wp-placement-gap {
+  position: relative;
+  display: block;
+  height: 14px;
+  margin: -7px 0;              /* pull the hit zone to straddle the boundary, no layout shift */
+  cursor: pointer;
+  z-index: 6;
+}
+.wp-placement-gap-line {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--ep-accent);
+  border-radius: 2px;
+  opacity: 0.55;
+  transition: opacity .12s var(--ease), height .12s var(--ease);
+}
+.wp-placement-gap:hover .wp-placement-gap-line { opacity: 1; height: 3px; }
+.wp-placement-gap-label {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 1px 7px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--paper, #fff); background: var(--ep-accent);
+  border-radius: 2px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .12s var(--ease);
+}
+.wp-placement-gap:hover .wp-placement-gap-label { opacity: 1; }
+
 /* ───────────────────────── CELL PROSE BREATHING ROOM ─────────────────────────
    Roomier line-height inside table cells so stacked viz-tag chips get vertical
    air. Reads calc(--doc-lead + 0.28) so THE CONTROL UNIT's LEAD knob still moves

@@ -322,6 +322,20 @@ function deleteRows(editor, rowRefs) {
   return doDeleteRows(state, view.dispatch, positions);
 }
 
+// Enter PLACEMENT MODE for a transfer/copy section move. Fires the `wp-row-placement` window event
+// that row-placement.js listens for, carrying the rowRefs identity snapshot (re-resolved at commit,
+// collab-safe) and the mode ('transfer' | 'copy'). Dispatches NOTHING to the doc — placement mode is
+// pure decoration state until the user clicks a gap. Read-mode short-circuits (never entered here,
+// and the plugin itself doesn't mount in ?read).
+function enterPlacement(editor, rowRefs, mode) {
+  if (isReadOnly()) return false;
+  if (!Array.isArray(rowRefs) || !rowRefs.length) return false;
+  try {
+    window.dispatchEvent(new CustomEvent('wp-row-placement', { detail: { mode, rowRefs } }));
+  } catch { return false; }
+  return true;
+}
+
 // Render a real chip preview for a tag. A directionMark kind reuses the doc's own .wp-dhl[data-kind]
 // styling, so the menu previews EXACTLY what the tag will look like once applied. VO isn't a mark
 // (no .wp-dhl kind), so it gets its own small dark cap chip that reads like the block's VO corner tag.
@@ -341,6 +355,11 @@ function chipFor(item) {
 
 function pluralRows(n) {
   return `DELETE ${n} ROW${n === 1 ? '' : 'S'}`;
+}
+
+// "THIS SECTION" reads oddly for one row — say "THIS ROW" then, "THIS SECTION" for a real band.
+function pluralSection(n) {
+  return n === 1 ? 'THIS ROW' : 'THIS SECTION';
 }
 
 // A single live menu instance. Rendered into <body>, positioned near the pointer, closed on Escape,
@@ -366,7 +385,15 @@ function createConvertMenu(editor, x, y, clickedRole) {
   // TIMECODE TAG — the deterministic bake, last in the utility row. Always offered on a non-empty
   // selection (the menu only opens on one); it no-ops with a shake when the selection holds no code.
   entries.push({ type: 'timecode' });
-  if (rowCount > 0) entries.push({ type: 'delete' });
+  // TRANSFER / COPY THIS SECTION — the whole-row node MOVE / DUPLICATE. Offered on any multi-row
+  // (>=1 row) selection, ABOVE the destructive delete. Instead of mutating immediately, picking one
+  // enters PLACEMENT MODE (row-placement.js) carrying the SAME rowRefs snapshot the delete consumes
+  // — the doc isn't touched until the user clicks a gap. See row-transfer.js for the engine.
+  if (rowCount > 0) {
+    entries.push({ type: 'transfer' });
+    entries.push({ type: 'copy' });
+    entries.push({ type: 'delete' });
+  }
 
   // Pressed-state paint at open (the bubble's `.active` equivalent), computed against the SAME
   // snapshot + lane scoping the writes will use, so the paint can never promise the wrong toggle.
@@ -413,6 +440,13 @@ function createConvertMenu(editor, x, y, clickedRole) {
       return;
     }
     close();
+    if (entry.type === 'transfer' || entry.type === 'copy') {
+      // Enter PLACEMENT MODE — hand off the rowRefs identity snapshot + the mode. row-placement.js
+      // (mounted alongside this menu) catches the event, lifts the section, and paints glowing gap
+      // targets. NOTHING mutates the doc until the user clicks a gap (COLLAB LOOP LAW).
+      enterPlacement(editor, rowRefs, entry.type);
+      return;
+    }
     if (entry.type === 'delete') {
       deleteRows(editor, rowRefs);
     } else if (entry.type === 'span') {
@@ -489,6 +523,28 @@ function createConvertMenu(editor, x, y, clickedRole) {
       button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
       buttons.push(button);
       ensureUtilRow().appendChild(button);
+      return;
+    }
+    if (entry.type === 'transfer' || entry.type === 'copy') {
+      // TRANSFER / COPY THIS SECTION — a slash-item that enters placement mode. A hairline is drawn
+      // once, before the FIRST of the pair (transfer), to separate them from the utility row above.
+      if (entry.type === 'transfer') menu.appendChild(el('div', 'wp-slash-sep'));
+      const isTransfer = entry.type === 'transfer';
+      const button = el('button', 'wp-convert-item wp-slash-item wp-bulk-move', {
+        type: 'button',
+        role: 'menuitem',
+        'data-action': isTransfer ? 'transfer-section' : 'copy-section',
+      });
+      const glyph = el('span', 'wp-bulk-move-glyph', { 'aria-hidden': 'true' });
+      glyph.textContent = isTransfer ? '⇅' : '⧉';
+      const label = el('span', 'wp-convert-label');
+      label.textContent = isTransfer ? `TRANSFER ${pluralSection(rowCount)}` : `COPY ${pluralSection(rowCount)}`;
+      button.appendChild(glyph);
+      button.appendChild(label);
+      button.addEventListener('mouseenter', () => { activeIndex = index; paintActive(); });
+      button.addEventListener('mousedown', (e) => { e.preventDefault(); pick(index); });
+      buttons.push(button);
+      menu.appendChild(button);
       return;
     }
     if (entry.type === 'delete') {
