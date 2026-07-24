@@ -13,7 +13,8 @@ export type BlockType =
   | "note" | "jh-note"
   | "none" // "born" block: chrome-less line until the writer picks a type
   | "bin"  // holding bin: unplaced SOTs / "words words words"
-  | "image"; // reference frame / inspo still — renders inline in the rack (additive; Burma/Palau docs carry none)
+  | "image" // reference frame / inspo still — renders inline in the rack (additive; Burma/Palau docs carry none)
+  | "audio"; // dropped audio (wav/mp3/m4a/.qta voice memo) — renders as a waveform strip (additive; converts weird formats → mp3)
 
 // VO has a THREE-state status (JH's elegant tri-checkbox): not started → recorded → in the edit
 export type VOStatus = "todo" | "recorded" | "in-edit";
@@ -72,6 +73,14 @@ export interface Block {
   videoRate?: number;        // playbackRate; absent = 1× (never persisted as 1)
   videoTrimIn?: number;      // loop window start, seconds; absent = 0
   videoTrimOut?: number;     // loop window end, seconds; absent = full duration
+  // audio blocks (type:"audio") — ADDITIVE, mirrors the image-block placeholder attrs. The doc
+  // NEVER carries audio bytes: the uploaded (mp3, or passthrough wav) public URL is the only payload.
+  audioSrc?: string;         // uploaded public CDN URL (mp3 after transcode, or the original wav/mp3)
+  audioOrigName?: string;    // original dropped filename (download name + the strip's label)
+  audioMime?: string;        // stored file's mime (audio/mpeg, audio/wav) — download extension hint
+  audioDurationSec?: number; // clip length in seconds; absent = unknown (nodeview reads it live)
+  audioUploading?: boolean;  // converting/uploading placeholder state — present ONLY while unresolved
+  audioUploadError?: string; // convert/upload failure message — present ONLY when it failed
   // editor workflow
   done?: boolean;            // SOT/note "done → green"
   width?: "full" | "half";   // for the drag-to-A/V two-column pairing

@@ -702,6 +702,26 @@ function blockToTypedNode(b, opts) {
         },
       };
 
+    case 'audio':
+      // ADDITIVE audio support: an ATOM node — the src / filename / mime / duration live entirely in
+      // attrs (reconstruction-complete, WP-13), no editable content. Burma/Palau blocks arrays contain
+      // no type:"audio", so this branch never fires for them and their docs are byte-identical.
+      return {
+        type: 'audioBlock',
+        attrs: {
+          blockId: id,
+          src: b.audioSrc || '',
+          origName: b.audioOrigName || '',
+          mime: b.audioMime || '',
+          durationSec: (typeof b.audioDurationSec === 'number' && Number.isFinite(b.audioDurationSec) && b.audioDurationSec > 0) ? b.audioDurationSec : null,
+          // Placeholder state — absent on every landed audio block (byte-identical). A block rebuilt
+          // from a doc saved mid-convert keeps uploading:true so the nodeview shows the interrupted card.
+          uploading: !!b.audioUploading,
+          uploadError: typeof b.audioUploadError === 'string' ? b.audioUploadError : null,
+          flavor: b.flavor ?? null,
+        },
+      };
+
     case 'none':
       // A "born" block with no chosen type yet — a chrome-less editable line. It still routes
       // its body through inlineContent so anything already typed (chips included) survives.
@@ -775,6 +795,8 @@ function rowHasVisibleWords(row) {
     // An image block carries no TEXT but is absolutely visible content — the empty-row culler
     // must never drop it (its words live in attrs.alt, not in text nodes).
     if (block?.type === 'imageBlock') return true;
+    // An audio block is likewise word-less but real content — never let the empty-row cull drop it.
+    if (block?.type === 'audioBlock') return true;
     // A bookmark is a visible glyph AND a deep-link target — like an imageBlock it carries no text,
     // so the empty-row culler must never treat a bookmark-bearing block as word-less.
     if (hasBookmarkedRow(block)) return true;
@@ -1026,6 +1048,7 @@ const NODE_TO_TYPE = {
   noteBlock: null,
   binBlock: 'bin',
   imageBlock: 'image',
+  audioBlock: 'audio',
 };
 
 // Tree-walk a node to its plain text, RE-SERIALIZING the inline span marks back into
@@ -1245,6 +1268,18 @@ function nodeToBlock(node, i) {
     // overwhelming steady state) carries neither, so its derived block is byte-identical.
     if (a.uploading) block.imageUploading = true;
     if (typeof a.uploadError === 'string' && a.uploadError) block.imageUploadError = a.uploadError;
+  }
+  else if (node.type === 'audioBlock') {
+    // Audio blocks are attr-complete atoms: src / filename / mime / duration round-trip via attrs, no text.
+    block.audioSrc = a.src || '';
+    block.audioOrigName = a.origName || '';
+    if (a.mime) block.audioMime = a.mime;
+    // Emit duration ONLY when known → an unmeasured clip serializes byte-identical.
+    if (typeof a.durationSec === 'number' && Number.isFinite(a.durationSec) && a.durationSec > 0) block.audioDurationSec = a.durationSec;
+    // Placeholder state emitted ONLY while a convert/upload is unresolved — a landed clip carries
+    // neither, so its derived block is byte-identical.
+    if (a.uploading) block.audioUploading = true;
+    if (typeof a.uploadError === 'string' && a.uploadError) block.audioUploadError = a.uploadError;
   }
   else { block.text = text; }
   return block;

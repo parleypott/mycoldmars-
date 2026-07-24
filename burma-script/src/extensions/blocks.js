@@ -2324,10 +2324,412 @@ export const ImageBlock = Node.create({
   },
 });
 
+// ═══ AUDIO BLOCK — a flat waveform strip with play / download (WaveSurfer.js) ═══════════════
+// Johnny drops audio (wav / mp3 / m4a / a QuickTime ".qta" voice memo) into the rack. Weird
+// containers are transcoded to mp3 client-side (audio-transcode.js) BEFORE upload; the doc only
+// ever carries the ~100-byte public URL (BYTES-NEVER-IN-THE-DOC, same as imageBlock). Rendered as a
+// small FLAT strip: a PLAY/PAUSE button, a mono-chrome waveform (one accent for played progress,
+// click-to-seek), the filename + running duration, and a DOWNLOAD button. An ATOM/leaf like
+// imageBlock: src / origName / mime / durationSec / uploading / uploadError all live in attrs, so it
+// round-trips docToBlocks + the mirror-schema save-gate byte-exact (audio-block.test.mjs).
+//
+// LAZY WAVEFORM (video-preload discipline): WaveSurfer decodes the audio to draw the waveform, which
+// is expensive — so a doc with 20 audio blocks must NOT decode all of them on load. We init WaveSurfer
+// only when the strip scrolls into view (IntersectionObserver) OR on the first PLAY click, whichever
+// comes first. Off-screen blocks stay cheap.
+//
+// COLLAB LOOP LAW: playback (play/pause/seek/currentTime) is DOM-ONLY — it NEVER becomes a
+// transaction and is never persisted. The only writes this nodeview makes are user-initiated attr
+// commits (none today beyond the upload swap, which image-drop.js owns) — no appendTransaction.
+// ?read: playback + download YES; select/delete/insert NO (gated on canEdit, like imageBlock).
+
+// Only ONE audio block plays at a time across the whole rack — starting one pauses whichever was
+// playing. Module-level so every nodeview shares the single "now playing" slot.
+let audioNowPlaying = null; // { id, pause() } | null
+function claimAudioPlayback(id, pauseFn) {
+  if (audioNowPlaying && audioNowPlaying.id !== id) { try { audioNowPlaying.pause(); } catch {} }
+  audioNowPlaying = { id, pause: pauseFn };
+}
+function releaseAudioPlayback(id) {
+  if (audioNowPlaying && audioNowPlaying.id === id) audioNowPlaying = null;
+}
+
+// mm:ss (or h:mm:ss past an hour). Pure + exported so the strip's clock is a locked, testable format.
+export function formatAudioClock(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const two = (n) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+}
+
+// Read a themed color off the mounted DOM so the waveform tracks all 6 schemes (light/dark/…): the
+// unplayed wave uses a muted label ink, the played-progress uses the episode accent. Fallbacks keep
+// it drawable if a var is ever missing.
+function cssVar(el, name, fallback) {
+  try {
+    const v = getComputedStyle(el).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch { return fallback; }
+}
+
+// Download the audio file itself (serve the stored bytes). Cross-origin CDN srcs need the
+// fetch→blob→objectURL dance; the download name is the original filename (sanitized) + the real ext.
+async function downloadAudioFile(src, origName, mime, button) {
+  if (!src) return;
+  const base = mediaDownloadBase(origName);
+  const label = button.textContent;
+  button.disabled = true;
+  try {
+    button.textContent = '…';
+    const res = await fetch(src);
+    if (!res.ok) throw new Error('http ' + res.status);
+    const blob = await res.blob();
+    const ext = mediaDownloadExt(src, mime || blob.type);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = base + '.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  } catch (e) {
+    try { window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'audio download failed (' + (e?.message || 'network') + ') — try again' } })); } catch {}
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+export const AudioBlock = Node.create({
+  name: 'audioBlock',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      ...baseAttrs(),
+      src: { default: '' },
+      origName: { default: '' },
+      mime: { default: '' },
+      // Clip length in seconds (optional). A plain number survives PM-JSON toJSON/fromJSON; default
+      // null keeps every existing doc byte-identical and is emitted only when known.
+      durationSec: { default: null },
+      // CONVERT/UPLOAD placeholder state (mirror imageBlock). A dropped audio lands IMMEDIATELY as a
+      // real block with uploading:true + empty src; the async transcode/upload swaps in the final src
+      // (uploading:false) or sets uploadError. Both default to the resting state so a landed audio
+      // block serializes byte-identical (docToBlocks emits them only when set).
+      uploading: { default: false },
+      uploadError: { default: null },
+    };
+  },
+  // CLIPBOARD / HTML round-trip (mirror imageBlock): a copied audio block reconstructs through this
+  // getAttrs (PM's clipboard path is DOM-parse, not fromJSON). blockId is DELIBERATELY not parsed so
+  // a paste never resurrects a duplicate id (docToBlocks mints a fresh one on the next save).
+  parseHTML() {
+    return [{
+      tag: 'figure[data-audio]',
+      getAttrs: (dom) => {
+        const audio = dom.querySelector('audio');
+        const cap = dom.querySelector('figcaption');
+        const durRaw = parseFloat(dom.getAttribute('data-duration') || '');
+        return {
+          src: dom.getAttribute('data-src') || (audio && audio.getAttribute('src')) || '',
+          origName: dom.getAttribute('data-orig-name') || (cap && cap.textContent) || '',
+          mime: dom.getAttribute('data-mime') || '',
+          durationSec: Number.isFinite(durRaw) && durRaw > 0 ? durRaw : null,
+        };
+      },
+    }];
+  },
+  renderHTML({ node }) {
+    const a = node.attrs;
+    const pending = (a.uploading || a.uploadError) && !a.src;
+    const children = [];
+    if (pending) {
+      children.push(['div', { class: 'wp-media-status', contenteditable: 'false' },
+        a.uploadError ? String(a.uploadError) : 'converting…']);
+    } else {
+      // A plain <audio> element is the export/no-JS fallback; the live nodeview replaces it with the
+      // WaveSurfer strip. preload=none so an HTML export never eagerly fetches every clip.
+      children.push(['audio', { src: a.src || '', controls: '', preload: 'none', class: 'wp-audio-native' }]);
+    }
+    if (a.origName) children.push(['figcaption', { class: 'wp-audio-name' }, a.origName]);
+    const figAttrs = { 'data-audio': '', 'data-block-id': a.blockId || '', class: 'wp-audio' };
+    if (a.src) figAttrs['data-src'] = a.src;
+    if (a.origName) figAttrs['data-orig-name'] = a.origName;
+    if (a.mime) figAttrs['data-mime'] = a.mime;
+    if (Number.isFinite(a.durationSec) && a.durationSec > 0) figAttrs['data-duration'] = String(a.durationSec);
+    if (a.uploading) figAttrs['data-uploading'] = '1';
+    if (a.uploadError) figAttrs['data-error'] = '1';
+    return ['figure', mergeAttributes(sharedRenderAttrs(node, figAttrs)), ...children];
+  },
+  // The filename is reference metadata, not script words — contribute nothing to text exports (like
+  // imageBlock's caption). Keeps docToBlocks text + the integrity audit byte-identical.
+  renderText() { return ''; },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      let attrs = node.attrs;
+      const blockId = attrs.blockId || '';
+      const dom = el('figure', 'wp-audio', { 'data-audio': '', contenteditable: 'false' });
+      if (blockId) dom.setAttribute('data-block-id', blockId);
+      syncSharedDomAttrs(dom, attrs);
+
+      // The flat strip: [▶] [────waveform────] [name · time] [⇩]
+      const box = el('div', 'wp-audio-box');
+      const playBtn = el('button', 'wp-audio-play', { type: 'button', title: 'play / pause', 'aria-label': 'play or pause audio' });
+      playBtn.textContent = '►';
+      const waveWrap = el('div', 'wp-audio-wave');
+      const meta = el('div', 'wp-audio-meta');
+      const nameEl = el('span', 'wp-audio-name-inline');
+      const timeEl = el('span', 'wp-audio-time');
+      meta.appendChild(nameEl); meta.appendChild(timeEl);
+      const dlBtn = el('button', 'wp-audio-dl', { type: 'button', title: 'download audio' });
+      dlBtn.textContent = '⇩';
+      box.appendChild(playBtn);
+      box.appendChild(waveWrap);
+      box.appendChild(meta);
+      box.appendChild(dlBtn);
+      dom.appendChild(box);
+
+      // CONVERT/UPLOAD status overlay (reuses the imageBlock status classes) — covers the strip while
+      // a dropped clip is converting/uploading, and shows a retry/remove card if it failed / was
+      // interrupted by a reload. Purely presentational; the buttons dispatch real transactions via
+      // image-drop.js so a failed drop is never a silent vanish.
+      const statusEl = el('div', 'wp-media-status', { contenteditable: 'false', hidden: '' });
+      const statusRow = el('div', 'wp-media-status-row');
+      const statusSpin = el('span', 'wp-media-status-spin');
+      const statusLabel = el('span', 'wp-media-status-label');
+      statusRow.appendChild(statusSpin); statusRow.appendChild(statusLabel);
+      const statusActions = el('div', 'wp-media-status-actions');
+      const retryBtn = el('button', 'wp-media-status-btn wp-media-status-retry', { type: 'button' });
+      retryBtn.textContent = 'RETRY';
+      const removeBtn = el('button', 'wp-media-status-btn wp-media-status-remove', { type: 'button' });
+      removeBtn.textContent = 'REMOVE';
+      statusActions.appendChild(retryBtn); statusActions.appendChild(removeBtn);
+      statusEl.appendChild(statusRow); statusEl.appendChild(statusActions);
+      box.appendChild(statusEl);
+      retryBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (blockId) retryMediaUpload(editor.view, blockId); });
+      removeBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (blockId) removeMediaBlock(editor.view, blockId); });
+      const onProgress = (e) => {
+        if (!e?.detail || e.detail.id !== blockId) return;
+        if (attrs.uploading && mediaUploadIsActive(blockId)) statusLabel.textContent = e.detail.label || 'UPLOADING…';
+      };
+      window.addEventListener(MEDIA_PROGRESS_EVENT, onProgress);
+
+      const canEdit = () => { try { return editor.isEditable && !isReadOnly(); } catch { return false; } };
+
+      // ── LAZY WAVESURFER ──────────────────────────────────────────────────────────────────────
+      let ws = null;            // the WaveSurfer instance (null until first init)
+      let wsInitStarted = false;
+      let wsReady = false;
+      let pendingPlay = false;  // a play click that arrived before init finished
+      const setClock = () => {
+        const dur = ws && wsReady ? ws.getDuration() : (Number.isFinite(attrs.durationSec) ? attrs.durationSec : 0);
+        const cur = ws && wsReady ? ws.getCurrentTime() : 0;
+        timeEl.textContent = dur ? `${formatAudioClock(cur)} / ${formatAudioClock(dur)}` : (dur === 0 && Number.isFinite(attrs.durationSec) ? formatAudioClock(attrs.durationSec) : '');
+      };
+      const paintPlaying = (playing) => {
+        playBtn.textContent = playing ? '⏸' : '►';
+        playBtn.classList.toggle('is-playing', playing);
+        dom.classList.toggle('wp-audio--playing', playing);
+      };
+      const initWave = () => {
+        if (wsInitStarted || !attrs.src) return;
+        wsInitStarted = true;
+        import('wavesurfer.js').then(({ default: WaveSurfer }) => {
+          if (!WaveSurfer || dom.__destroyed) return;
+          try {
+            ws = WaveSurfer.create({
+              container: waveWrap,
+              url: attrs.src,
+              height: 34,
+              waveColor: cssVar(dom, '--label-3', '#b9b4a8'),
+              progressColor: cssVar(dom, '--ep-accent', '#d23b2c'),
+              cursorColor: cssVar(dom, '--ink', '#1f1d18'),
+              cursorWidth: 1,
+              barWidth: 2,
+              barGap: 1,
+              barRadius: 1,
+              normalize: true,
+              dragToSeek: true,
+              // WaveSurfer manages its own <audio>/WebAudio element — no separate media element.
+            });
+            ws.on('ready', () => { wsReady = true; setClock(); if (pendingPlay) { pendingPlay = false; try { ws.play(); } catch {} } });
+            ws.on('timeupdate', () => setClock());
+            ws.on('play', () => { paintPlaying(true); claimAudioPlayback(blockId, () => { try { ws.pause(); } catch {} }); });
+            ws.on('pause', () => { paintPlaying(false); releaseAudioPlayback(blockId); });
+            ws.on('finish', () => { paintPlaying(false); releaseAudioPlayback(blockId); setClock(); });
+            ws.on('error', () => { /* leave the strip; download still works */ });
+          } catch { ws = null; }
+        }).catch(() => { ws = null; });
+      };
+      // Init when the strip scrolls into view (near the viewport) — decode only what's on screen.
+      let io = null;
+      try {
+        io = new IntersectionObserver((entries) => {
+          for (const en of entries) {
+            if (en.isIntersecting && attrs.src && !attrs.uploading && !attrs.uploadError) { initWave(); if (io) { io.disconnect(); io = null; } break; }
+          }
+        }, { rootMargin: '200px 0px' });
+        io.observe(dom);
+      } catch { io = null; }
+
+      const togglePlay = () => {
+        if (!attrs.src) return;
+        if (!ws) { pendingPlay = true; initWave(); return; }
+        if (!wsReady) { pendingPlay = !pendingPlay; return; }
+        try { ws.playPause(); } catch {}
+      };
+      // Playback is a READ op — allowed in read-only shares too. mousedown for snappy feel.
+      playBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); togglePlay(); });
+      dlBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); downloadAudioFile(attrs.src, attrs.origName, attrs.mime, dlBtn); });
+
+      // FOCUS-RACE FIX (mirror imageBlock): clicking the strip while the editor is blurred races the
+      // browser's focus-driven caret placement against PM's NodeSelection and the frame flashes then
+      // vanishes. On mousedown take authoritative control: focus + NodeSelection, BEFORE the browser
+      // resolves. NOT preventDefault (stays draggable). Edit-only. A click on the play/dl/wave chrome
+      // is stopped there (stopEvent below) so this only fires on the strip frame itself.
+      box.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || !canEdit()) return;
+        if (e.target === playBtn || e.target === dlBtn || waveWrap.contains(e.target) || statusEl.contains(e.target)) return;
+        try {
+          const pos = getPos();
+          if (typeof pos !== 'number') return;
+          const live = editor.state.doc.nodeAt(pos);
+          if (!live || live.type.name !== 'audioBlock') return;
+          if (!editor.view.hasFocus()) editor.view.focus();
+          editor.view.dispatch(editor.state.tr.setSelection(PMNodeSelection.create(editor.state.doc, pos)));
+        } catch {}
+      });
+
+      // RIGHT-CLICK → DELETE (deterministic, never depends on click-to-select). Edit-only; a
+      // read-only share keeps the browser's native menu. Also selects so the frame confirms which.
+      dom.addEventListener('contextmenu', (e) => {
+        if (!canEdit()) return;
+        e.preventDefault(); e.stopPropagation();
+        try {
+          const pos = getPos();
+          if (typeof pos === 'number') editor.view.dispatch(editor.state.tr.setSelection(PMNodeSelection.create(editor.state.doc, pos)));
+        } catch {}
+        openAudioContextMenu(editor, getPos, e.clientX, e.clientY);
+      });
+
+      const paintAll = (a) => {
+        const prevSrc = attrs.src;
+        attrs = a;
+        nameEl.textContent = a.origName || 'audio';
+        dom.classList.toggle('wp-audio--editable', canEdit());
+        const active = !!a.uploading && mediaUploadIsActive(blockId);
+        const interrupted = !!a.uploading && !active;
+        const errored = !a.uploading && !!a.uploadError;
+        const pending = !!a.uploading || errored;
+        dom.classList.toggle('wp-audio--pending', pending);
+        dom.classList.toggle('wp-audio--error', errored || interrupted);
+        statusEl.hidden = !pending;
+        statusSpin.hidden = !active;
+        if (active) statusLabel.textContent = mediaUploadLabel(blockId) || 'UPLOADING…';
+        else if (interrupted) statusLabel.textContent = 'UPLOAD INTERRUPTED';
+        else if (errored) statusLabel.textContent = String(a.uploadError || 'UPLOAD FAILED');
+        statusActions.hidden = active || !pending;
+        retryBtn.hidden = !(interrupted || errored) || !mediaUploadCanRetry(blockId) || !canEdit();
+        removeBtn.hidden = !(interrupted || errored) || !canEdit();
+        // Strip chrome is inert while pending; live once a src lands.
+        playBtn.disabled = pending || !a.src;
+        dlBtn.disabled = pending || !a.src;
+        setClock();
+        // The upload just resolved (src appeared) — if the strip is on screen, draw the waveform now.
+        if (a.src && a.src !== prevSrc && !pending) {
+          try { if (dom.getBoundingClientRect().top < window.innerHeight + 200) initWave(); } catch {}
+        }
+      };
+
+      paintAll(attrs);
+
+      return {
+        dom,
+        ignoreMutation: () => true,
+        stopEvent: (event) => {
+          const t = event.target;
+          // The play/download buttons, the waveform (click-to-seek), and the status card are all
+          // nodeview-owned chrome — PM's drag/selection machinery must never see their events.
+          if (t === playBtn || t === dlBtn) return true;
+          if (waveWrap.contains(t)) return true;
+          if (statusEl.contains(t)) return true;
+          return false;
+        },
+        update(updated) {
+          if (updated.type.name !== 'audioBlock') return false;
+          paintAll(updated.attrs);
+          syncSharedDomAttrs(dom, updated.attrs);
+          return true;
+        },
+        destroy() {
+          dom.__destroyed = true;
+          try { if (io) io.disconnect(); } catch {}
+          releaseAudioPlayback(blockId);
+          try { if (ws) ws.destroy(); } catch {}
+          window.removeEventListener(MEDIA_PROGRESS_EVENT, onProgress);
+        },
+      };
+    };
+  },
+});
+
+// RIGHT-CLICK CONTEXT ENTRY for an audio node: a one-item "DELETE AUDIO" floating menu. Reuses the
+// block-menu open/close singletons (one menu at a time) so it can't collide with the grip/image
+// menus. Deletes via a NodeSelection deleteSelection (mirrors deleteMediaNode). Edit-only.
+function openAudioContextMenu(editor, getPos, x, y) {
+  closeBlockMenu();
+  const menu = el('div', 'wp-blockmenu', { contenteditable: 'false', role: 'menu' });
+  const del = el('button', 'wp-bm-item wp-bm-del', { type: 'button' });
+  del.textContent = 'DELETE AUDIO';
+  del.addEventListener('mousedown', (e) => { e.preventDefault(); deleteAudioNode(editor, getPos); closeBlockMenu(); });
+  makeItemKeyActivatable(del);
+  menu.appendChild(del);
+  document.body.appendChild(menu);
+  menu.style.position = 'fixed';
+  const place = () => {
+    const w = menu.offsetWidth || 160, h = menu.offsetHeight || 40;
+    menu.style.top = `${Math.min(y, window.innerHeight - h - 4)}px`;
+    menu.style.left = `${Math.min(x, window.innerWidth - w - 4)}px`;
+  };
+  place();
+  openMenuEl = menu;
+  openMenuReposition = place;
+  openMenuReturnFocus = null;
+  window.addEventListener('scroll', place, true);
+  window.addEventListener('resize', place);
+  openMenuKeydown = attachMenuKeynav(menu, closeBlockMenu);
+  setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
+}
+
+function deleteAudioNode(editor, getPos) {
+  if (!editor.view.editable) return;
+  const pos = typeof getPos === 'function' ? getPos() : getPos;
+  if (typeof pos !== 'number') return;
+  const { state, view } = editor;
+  const node = state.doc.nodeAt(pos);
+  if (!node || node.type.name !== 'audioBlock') return;
+  const savedY = window.scrollY;
+  try {
+    const tr = state.tr.setSelection(PMNodeSelection.create(state.doc, pos)).deleteSelection();
+    view.dispatch(tr);
+  } catch {
+    try { view.dispatch(state.tr.delete(pos, pos + node.nodeSize)); } catch {}
+  }
+  view.focus();
+  window.scrollTo(window.scrollX, savedY);
+  requestAnimationFrame(() => window.scrollTo(window.scrollX, savedY));
+}
+
 export const BURMA_NODES = [
   ChapterBlock, SceneBlock, VoBlock, OncamBlock,
   SotBlock, BrollBlock, MontageBlock, NoneBlock, ScriptStart, NoteBlock, BinBlock,
-  ImageBlock,
+  ImageBlock, AudioBlock,
   DirectionChip, DirectionBreak,
   // FACT-CHECK FOOTNOTE (inline atom) — one registration here reaches the live editor,
   // migrate-doc's mirror/save-gate schema, and the collab schema alike.

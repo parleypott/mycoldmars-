@@ -3168,6 +3168,113 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   50% { opacity: .35; }
 }
 
+/* ═══ AUDIO WAVEFORM STRIP (blocks.js AudioBlock NodeView) ══════════════════════════════════
+   FLAT doctrine: a single outlined strip, no shadow, no fill gradient. [▶] [──waveform──]
+   [name · time] [⇩]. Mono chrome; the played-progress is the one episode accent (set on the
+   WaveSurfer canvas via progressColor, so it tracks all six schemes). The native <audio>
+   fallback (export / no-JS) is hidden — the nodeview owns the live chrome. */
+.wp-audio {
+  position: relative;
+  display: block;
+  margin: 0 0 11px;
+  max-width: 100%;
+}
+.wp-audio .wp-audio-native { display: none; }
+.wp-audio > figcaption { display: none; } /* the filename lives inline in the strip, not below */
+.wp-audio .wp-audio-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 640px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 11px;
+  background: var(--face);
+}
+.wp-trow[data-cols="2"] .wp-audio .wp-audio-box,
+.wp-trow[data-cols="3"] .wp-audio .wp-audio-box { max-width: 100%; }
+.wp-audio .wp-audio-play,
+.wp-audio .wp-audio-dl {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--face);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wp-audio .wp-audio-play { font-size: 11px; }
+.wp-audio .wp-audio-play.is-playing { background: var(--ep-accent, #d23b2c); color: var(--paper, #fff); border-color: var(--ep-accent, #d23b2c); }
+.wp-audio .wp-audio-play:hover,
+.wp-audio .wp-audio-dl:hover { background: var(--ink); color: var(--face); }
+.wp-audio .wp-audio-play:disabled,
+.wp-audio .wp-audio-dl:disabled { opacity: .4; cursor: default; }
+.wp-audio .wp-audio-wave {
+  flex: 1 1 auto;
+  min-width: 40px;
+  height: 34px;
+  cursor: pointer;   /* click-to-seek (WaveSurfer) */
+}
+/* Until WaveSurfer draws, a faint baseline stands in so the strip never looks broken. */
+.wp-audio .wp-audio-wave:empty {
+  border-bottom: 1.5px solid var(--label-3, #b9b4a8);
+  align-self: center;
+  height: 0;
+  margin: 16px 0;
+  opacity: .5;
+}
+.wp-audio .wp-audio-meta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 200px;
+}
+.wp-audio .wp-audio-name-inline {
+  font-family: var(--mono);
+  font-size: var(--chrome-size-sm, 10px);
+  letter-spacing: .02em;
+  color: var(--ep-kind-label);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wp-audio .wp-audio-time {
+  font-family: var(--mono);
+  font-size: var(--chrome-size-sm, 10px);
+  letter-spacing: .06em;
+  color: var(--label-3);
+  font-variant-numeric: tabular-nums;
+}
+/* PENDING / ERROR — reuse the shared media-status card over the strip. */
+.wp-audio--pending .wp-audio-play,
+.wp-audio--pending .wp-audio-dl,
+.wp-audio--pending .wp-audio-wave,
+.wp-audio--pending .wp-audio-meta { visibility: hidden; }
+.wp-audio--pending .wp-audio-box {
+  min-height: 46px;
+  border-style: dashed;
+  opacity: .9;
+}
+.wp-audio--error .wp-audio-box { border-color: var(--ep-accent, #d23b2c); border-style: solid; opacity: 1; }
+/* SELECTION FRAME — a tight accent hairline hugging the strip, like the imageBlock frame. */
+.wp-audio.ProseMirror-selectednode { outline: none; }
+.wp-audio.ProseMirror-selectednode .wp-audio-box {
+  outline: 1.5px solid rgba(255,91,31,.9);
+  outline-offset: 2px;
+  border-radius: 13px;
+}
+
 /* ═══ READ / EDIT MODE — the sticky top-center switch ═══════════════════════════
    Every session starts in READ (edit-mode.js). The switch is the ONE way to arm
    editing; while in READ every write affordance inside the editor surface is
