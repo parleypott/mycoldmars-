@@ -275,4 +275,76 @@ ok('cloneWithFreshIds re-mints ids recursively and shares text nodes', () => {
   for (const id of newIds) assert.ok(!origIds.includes(id), 'no cloned blockId collides with an original');
 });
 
+// ── 6: COLLAB CONTIGUITY GUARD — a remote relocation / interloper insert mid-placement must NOT ───
+//      sweep in unselected rows. Refs are built from a SEPARATE "pre-edit" doc (node !== so identity
+//      falls to blockId, exactly like a remote y-sync that replaced the node instances), then
+//      resolved against a "post-edit" doc that a teammate reshaped while placement mode was open.
+const singleRow = (id) => ({
+  type: 'tableRow', attrs: { cols: 1, pairId: null, bookmarkId: null },
+  content: [{ type: 'tableCell', attrs: { role: 'full' }, content: [none(id, id)] }],
+});
+const docOf = (...ids) => docFrom({ type: 'doc', content: ids.map(singleRow) });
+// Refs carry a blockId (rowFirstBlockId) but a node from the PRE-edit doc, so findRowByIdentity
+// resolves them by blockId against the post-edit doc — the real collab path.
+const refsByBlockId = (preDoc, indices) => indices.map((i) => {
+  const node = preDoc.child(i);
+  return { node, blockId: rowFirstBlockId(node), pairId: node.attrs?.pairId || null };
+});
+
+ok('CONTIGUITY GUARD: a remote RELOCATION of a selected row → resolveRowRange refuses (no sweep)', () => {
+  const pre = docOf('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9');
+  const refs = refsByBlockId(pre, [2, 3, 4]);                         // user selected r2, r3, r4
+  // Teammate relocates r3 to the very end while placement mode is open.
+  const post = docOf('r0', 'r1', 'r2', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r3');
+  // r2→2, r4→3, r3→9: indices {2,3,9} are NOT contiguous → refuse rather than sweep r5..r8 in.
+  assert.equal(resolveRowRange(post, refs), null, 'non-contiguous relocation refused');
+  const state = makeState(post.toJSON());
+  let dispatched = false;
+  assert.equal(moveRowRange(state, () => { dispatched = true; }, refs, 0), false, 'move refused');
+  assert.equal(copyRowRange(state, () => { dispatched = true; }, refs, 0), false, 'copy refused');
+  assert.equal(dispatched, false, 'nothing dispatched — the wrong-rows move never fires');
+});
+
+ok('CONTIGUITY GUARD: a remote INSERT inside the band → resolveRowRange refuses (no interloper)', () => {
+  const pre = docOf('r0', 'r1', 'r2', 'r3', 'r4', 'r5');
+  const refs = refsByBlockId(pre, [1, 2, 3]);                         // user selected r1, r2, r3
+  // Teammate inserts a foreign row between r2 and r3.
+  const post = docOf('r0', 'r1', 'r2', 'rNEW', 'r3', 'r4', 'r5');
+  // r1→1, r2→2, r3→4: indices {1,2,4} skip the interloper at 3 → refuse (would sweep rNEW along).
+  assert.equal(resolveRowRange(post, refs), null, 'interloper insert refused');
+  const state = makeState(post.toJSON());
+  let dispatched = false;
+  assert.equal(moveRowRange(state, () => { dispatched = true; }, refs, 6), false, 'move refused');
+  assert.equal(dispatched, false, 'the foreign row is never carried into the move');
+});
+
+ok('CONTIGUITY GUARD: a uniform remote SHIFT still resolves + moves EXACTLY the selection', () => {
+  const pre = docOf('r0', 'r1', 'r2', 'r3', 'r4', 'r5');
+  const refs = refsByBlockId(pre, [1, 2, 3]);                         // user selected r1, r2, r3
+  // Teammate PREPENDS a row — every selected row shifts +1 but the band stays contiguous.
+  const post = docOf('rNEW', 'r0', 'r1', 'r2', 'r3', 'r4', 'r5');
+  const range = resolveRowRange(post, refs);
+  assert.ok(range, 'uniform shift still resolves (guard does not over-refuse)');
+  assert.deepEqual([range.startIndex, range.endIndex], [2, 5], 'band tracked to its shifted position');
+  let state = makeState(post.toJSON());
+  const dispatch = (tr) => { state = state.apply(tr); };
+  assert.equal(moveRowRange(state, dispatch, refs, 0), true, 'move commits');
+  // The moved band is EXACTLY r1,r2,r3 (rNEW and r0 stay put) — no unselected sweep.
+  assert.deepEqual(rowOrder(state.doc), ['r1', 'r2', 'r3', 'rNEW', 'r0', 'r4', 'r5'], 'only the selection moved');
+});
+
+ok('CONTIGUITY GUARD: a remote DELETE of a selected row collapses the rest → still contiguous, moves', () => {
+  const pre = docOf('r0', 'r1', 'r2', 'r3', 'r4', 'r5');
+  const refs = refsByBlockId(pre, [1, 2, 3]);                         // user selected r1, r2, r3
+  // Teammate deletes r2; r1 and r3 close up (contiguous). The vanished ref drops, survivors resolve.
+  const post = docOf('r0', 'r1', 'r3', 'r4', 'r5');
+  const range = resolveRowRange(post, refs);
+  assert.ok(range, 'survivors resolve after a mid-band delete');
+  assert.deepEqual([range.startIndex, range.endIndex], [1, 3], 'r1,r3 form a contiguous 2-row band');
+  let state = makeState(post.toJSON());
+  const dispatch = (tr) => { state = state.apply(tr); };
+  assert.equal(moveRowRange(state, dispatch, refs, 5), true, 'move commits the survivors only');
+  assert.deepEqual(rowOrder(state.doc), ['r0', 'r4', 'r5', 'r1', 'r3'], 'exactly r1,r3 relocated to the end');
+});
+
 console.log(`row-transfer.test.mjs: ${pass} assertions passed`);

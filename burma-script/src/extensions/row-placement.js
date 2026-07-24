@@ -74,11 +74,20 @@ export function buildPlacementDecorations(doc, session) {
     const node = doc.child(i);
     decos.push(Decoration.node(from, from + node.nodeSize, { class: 'wp-placement-lift' }));
   }
-  // GAP targets — every top-level boundary in [0, childCount] EXCEPT the section's own edges and
-  // interior ([startIndex, endIndex]): those are a no-op (own edges) or a self-nest (interior) for
-  // transfer, and suppressed for copy too so the affordance reads identically in both modes.
+  // GAP targets — every top-level boundary in [0, childCount], with mode-specific suppression:
+  //   • TRANSFER suppresses the whole CLOSED range [startIndex, endIndex]: the two edges are no-ops
+  //     (moving the section flush against itself) and the interior is a self-nest — none are real
+  //     transfer targets.
+  //   • COPY suppresses ONLY the strict INTERIOR (startIndex < g < endIndex): a duplicate dropped
+  //     between two origin rows would interleave into the source. But the two EDGE gaps g=startIndex
+  //     (flush ABOVE the origin) and g=endIndex (flush BELOW the origin) are the two most natural
+  //     copy targets — "duplicate this right next to the original so I can tweak it" — so copy keeps
+  //     them. copyRowRange already accepts them (it never no-ops); withholding them was purely a
+  //     cosmetic "read identically in both modes" and it hid the most-wanted targets.
+  const isCopy = session.mode === 'copy';
   for (let g = 0; g <= doc.childCount; g++) {
-    if (g >= startIndex && g <= endIndex) continue;
+    if (isCopy) { if (g > startIndex && g < endIndex) continue; }
+    else if (g >= startIndex && g <= endIndex) continue;
     const pos = posOfChildIndex(doc, g);
     decos.push(Decoration.widget(pos, () => buildGapDOM(g, session.mode), {
       key: 'wp-gap-' + g, side: -1, ignoreSelection: true,

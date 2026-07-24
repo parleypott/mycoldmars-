@@ -86,13 +86,34 @@ ok('lifts the section rows and paints a gap at every legal boundary', () => {
   assert.deepEqual(gapIndices, [0, 4, 5], 'gaps only outside the section + its edges');
 });
 
-ok('a single-row section suppresses only its own two edges', () => {
+ok('a single-row TRANSFER section suppresses its own two edges', () => {
   const doc = docFrom(fiveRowJson());
-  // Section [2,3): row r2. Suppress gaps 2,3 → gaps 0,1,4,5.
+  // Section [2,3): row r2. Transfer suppresses gaps 2,3 (both no-op edges) → gaps 0,1,4,5.
+  const set = buildPlacementDecorations(doc, { mode: 'transfer', rowRefs: refsForIndices(doc, [2]) });
+  const { lifts, gapIndices } = summarize(set, doc);
+  assert.equal(lifts, 1, 'one row lifted');
+  assert.deepEqual(gapIndices, [0, 1, 4, 5], 'both edges of the single row suppressed for transfer');
+});
+
+// ── COPY keeps the adjacent (flush above/below) gaps — the two most natural duplicate targets ─────
+ok('COPY keeps the gaps flush above/below the origin (only strict interior suppressed)', () => {
+  const doc = docFrom(fiveRowJson());
+  // Section [1,3): rows r1, r2 (startIndex=1, endIndex=3). Copy suppresses only strict interior
+  // (gap 2, between r1 and r2). Gaps 1 (flush above r1) and 3 (flush below r2) STAY, plus 0,4,5.
+  const set = buildPlacementDecorations(doc, { mode: 'copy', rowRefs: refsForIndices(doc, [1, 2]) });
+  const { lifts, gapIndices } = summarize(set, doc);
+  assert.equal(lifts, 2, 'two rows lifted');
+  assert.deepEqual(gapIndices, [0, 1, 3, 4, 5], 'copy keeps both edge gaps, drops only interior gap 2');
+});
+
+ok('a single-row COPY section keeps BOTH adjacent gaps (nothing to suppress)', () => {
+  const doc = docFrom(fiveRowJson());
+  // Section [2,3): row r2 (startIndex=2, endIndex=3). No strict interior exists, so every boundary
+  // stays — including gap 2 (flush above) and gap 3 (flush below), the copy-next-to-source targets.
   const set = buildPlacementDecorations(doc, { mode: 'copy', rowRefs: refsForIndices(doc, [2]) });
   const { lifts, gapIndices } = summarize(set, doc);
   assert.equal(lifts, 1, 'one row lifted');
-  assert.deepEqual(gapIndices, [0, 1, 4, 5], 'both edges of the single row suppressed');
+  assert.deepEqual(gapIndices, [0, 1, 2, 3, 4, 5], 'copy offers a duplicate target flush above and below');
 });
 
 // ── 2: purity ───────────────────────────────────────────────────────────────────────────────────
@@ -114,6 +135,20 @@ ok('a section that no longer resolves degrades to an empty set', () => {
   // Null/empty session → empty too.
   assert.equal(buildPlacementDecorations(doc, null), DecorationSet.empty, 'null session → empty');
   assert.equal(buildPlacementDecorations(doc, { mode: 'transfer', rowRefs: [] }), DecorationSet.empty, 'no refs → empty');
+});
+
+// ── 3b: a remote interloper mid-placement makes the band non-contiguous → overlay degrades empty ──
+ok('a foreign row inserted inside the band mid-placement degrades the overlay to empty', () => {
+  // Refs built from a PRE-edit doc (node !== so identity falls to blockId, the collab path).
+  const pre = docFrom(fiveRowJson());
+  const refs = refsForIndices(pre, [1, 2, 3]);
+  // Teammate inserts a foreign row between r1 and r2 → resolved indices {1, 3, 4} non-contiguous.
+  const post = docFrom({ type: 'doc', content: [
+    row('r0', 'zero'), row('r1', 'one'), row('rNEW', 'new'), row('r2', 'two'),
+    row('r3', 'three'), row('r4', 'four'),
+  ] });
+  const set = buildPlacementDecorations(post, { mode: 'transfer', rowRefs: refs });
+  assert.equal(set, DecorationSet.empty, 'no lift + no gaps: the interloper is never swept in');
 });
 
 // ── 4: whole-doc selection leaves no gap ────────────────────────────────────────────────────────

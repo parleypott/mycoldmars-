@@ -77,15 +77,29 @@ function isDev() {
 
 // ── resolveRowRange — rowRefs (identity triples) → the CONTIGUOUS top-level range they cover ──────
 // Each ref is re-resolved to its CURRENT position via findRowByIdentity (collab-safe: a remote edit
-// that shifted positions while placement mode was open still finds the right rows). Refs that
+// that merely SHIFTED positions while placement mode was open still finds the right rows). Refs that
 // vanished (deleted remotely) are dropped. The surviving rows' top-level child indices define the
-// section as the CONTIGUOUS span [startIndex, endIndex) from the lowest to the highest resolved
-// index — so the moving unit is always a clean top-level row range (moveChapter's shape). Returns
-// null when nothing resolves. `movingNodes` are the SAME immutable node instances (transfer reuses
-// them; copy clones from them).
+// section as the span [startIndex, endIndex) from the lowest to the highest resolved index.
+//
+// ── CONTIGUITY GUARD (the collab losslessness invariant) ─────────────────────────────────────────
+// A uniform remote SHIFT keeps the selection contiguous, so the span is exactly the selected rows.
+// But a remote RELOCATION (a selected row torn out and dropped elsewhere) or a remote INSERT that
+// lands a FOREIGN row inside the band makes the resolved indices NON-contiguous — the raw [min,max)
+// span would then sweep in rows the user never selected (relocation) or an interloper (insert) and
+// move/duplicate them too. That silently violates losslessness ("moves exactly the selected
+// section") and assertReorderInvariant can't catch it — a wrong-rows move is still a pure
+// permutation. So we REFUSE: the resolved child-indices must be EXACTLY the contiguous run
+// [startIndex, endIndex) with no gaps and no interlopers (maxIndex - startIndex + 1 === the count of
+// distinct resolved rows). If not, we return null and the caller cancels the placement cleanly
+// rather than sweeping the interior. Refusing is the safe failure — the user re-selects.
+//
+// Returns null when nothing resolves OR the surviving rows are no longer a clean contiguous band.
+// `movingNodes` are the SAME immutable node instances (transfer reuses them; copy clones from them).
 export function resolveRowRange(doc, rowRefs) {
   if (!doc || !Array.isArray(rowRefs) || !rowRefs.length) return null;
-  const indices = [];
+  // A Set dedupes (two refs can never resolve to the same physical row, but be defensive) and gives
+  // the contiguity check a clean distinct-index count.
+  const indexSet = new Set();
   for (const ref of rowRefs) {
     const pos = findRowByIdentity(doc, ref);
     if (pos == null) continue;
@@ -93,16 +107,20 @@ export function resolveRowRange(doc, rowRefs) {
     const idx = childIndexOfPos(doc, pos);
     if (idx == null || idx >= doc.childCount) continue;
     if (doc.child(idx).type.name !== 'tableRow') continue;
-    indices.push(idx);
+    indexSet.add(idx);
   }
-  if (!indices.length) return null;
+  if (!indexSet.size) return null;
   // min/max WITHOUT a spread: a section can span the whole doc (hundreds of rows), and
   // Math.min(...bigArray) risks a call-stack overflow on very large arrays (the repo's
   // spread-overflow gate). A plain fold is O(n) and unbounded-safe.
-  let startIndex = indices[0];
-  let endIndex = indices[0];
-  for (const i of indices) { if (i < startIndex) startIndex = i; if (i > endIndex) endIndex = i; }
-  endIndex += 1;                                     // exclusive
+  let startIndex = Infinity;
+  let maxIndex = -Infinity;
+  for (const i of indexSet) { if (i < startIndex) startIndex = i; if (i > maxIndex) maxIndex = i; }
+  // CONTIGUITY GUARD — a set of distinct integers is exactly [min, max] iff (max - min + 1) === size.
+  // A relocation (span > selection) or a foreign insert inside the band (span > selection) fails this
+  // and is refused; a uniform shift (still contiguous) passes.
+  if (maxIndex - startIndex + 1 !== indexSet.size) return null;
+  const endIndex = maxIndex + 1;                     // exclusive
   const movingNodes = [];
   for (let i = startIndex; i < endIndex; i++) movingNodes.push(doc.child(i));
   return { startIndex, endIndex, movingNodes };
