@@ -33,7 +33,7 @@ import { BURMA_NODES } from './blocks.js';
 import {
   BURMA_TABLE_NODES, cellColumnAt, columnCrossed, columnScopedCells,
   columnScopeDecorations, columnScopeForDrag, columnSelectEnabled, collectIntersectingRows,
-  columnSelectPlugin, activeColumnScopeRole,
+  columnSelectPlugin, activeColumnScopeRole, shiftClickColumnScope, colSelectKey,
 } from './table.js';
 import { __setReadOnlyForTest } from '../read-mode.js';
 import { BURMA_MARKS } from './marks.js';
@@ -291,5 +291,129 @@ ok('activeColumnScopeRole degrades to null on a plugin-less / garbage / null vie
   assert.equal(activeColumnScopeRole({}), null, 'garbage view → null');
   assert.equal(activeColumnScopeRole(null), null, 'null view → null (caught, not thrown)');
 });
+
+// ── 11. shiftClickColumnScope — the SHIFT-CLICK lane decision (mirrors columnScopeForDrag) ─────
+// Johnny 2026-07-24: "shift-click the left column 10 rows up → select ONLY the left column across
+// those rows, just like dragging." The scope decision must be BYTE-IDENTICAL to a same-lane drag,
+// so shiftClickColumnScope is a thin wrapper over columnScopeForDrag. Lock the equivalence so a
+// future refactor of either can't let the two gestures diverge.
+ok('shiftClickColumnScope: same-lane multi-row → that lane; cross-lane / non-2col anchor → null', () => {
+  const anchor = { role: 'said', cellIndex: 0, colCount: 2, rowPos: 10 };
+  const sameLaneUp = { role: 'said', cellIndex: 0, colCount: 2, rowPos: 90 };
+  const otherLane = { role: 'shown', cellIndex: 1, colCount: 2, rowPos: 90 };
+  const fullRowUp = { role: 'full', cellIndex: 0, colCount: 1, rowPos: 90 };
+  const fullAnchor = { role: 'full', cellIndex: 0, colCount: 1, rowPos: 10 };
+  assert.equal(shiftClickColumnScope(anchor, sameLaneUp), 'said', 'same said lane across rows → scope said');
+  assert.equal(shiftClickColumnScope(anchor, fullRowUp), 'said', 'a full-width row in the span joins the lane');
+  assert.equal(shiftClickColumnScope(anchor, otherLane), null, 'shift-click the OTHER lane → null (native both-column)');
+  assert.equal(shiftClickColumnScope(fullAnchor, sameLaneUp), null, 'a full-width anchor never scopes');
+  assert.equal(shiftClickColumnScope(null, sameLaneUp), null, 'no prior anchor cell → null');
+  // Equivalence with the drag brain, exhaustively over the shared cases.
+  for (const h of [sameLaneUp, otherLane, fullRowUp, { ...anchor }, null]) {
+    assert.equal(shiftClickColumnScope(anchor, h), columnScopeForDrag(anchor, h),
+      'shift-click and drag share ONE scope decision');
+  }
+});
+
+// ── 12. LIVE onMouseDown shift-click branch — the real handler, driven headless ───────────────
+// Drives columnSelectPlugin's REAL onMouseDown with a synthetic shift+left-mousedown (the same
+// event shape a browser delivers) against a minimal DOM stub (media-click-race convention). Proves
+// the whole gesture end-to-end: same-lane shift-click sets a span selection + engages the lane in
+// ONE dispatch; cross-lane falls through to native (no column scope); a shift-click on a sanctioned
+// media target bails with zero dispatch (the media NodeSelection is safe).
+(() => {
+  // minimal DOM stub — only closest()/addEventListener capture is needed (no layout).
+  class El {
+    constructor(tag) { this.tagName = String(tag || 'div').toUpperCase(); this.className = ''; this.attrs = {}; this.style = {}; this.parentNode = null; this.children = []; this.listeners = {}; }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+    appendChild(c) { c.parentNode = this; this.children.push(c); return c; }
+    addEventListener(t, fn) { (this.listeners[t] ||= []).push(fn); }
+    removeEventListener(t, fn) { const a = this.listeners[t]; if (a) { const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); } }
+    matches(sel) {
+      return String(sel).split(',').map((s) => s.trim()).filter(Boolean).some((tok) => {
+        if (tok[0] === '.') return this.className.split(/\s+/).includes(tok.slice(1));
+        if (tok[0] === '[') { const name = tok.slice(1, -1).split('=')[0]; return name in this.attrs; }
+        return false;
+      });
+    }
+    closest(sel) { let n = this; while (n) { if (n.matches && n.matches(sel)) return n; n = n.parentNode; } return null; }
+  }
+  globalThis.document = globalThis.document || { createElement: (t) => new El(t), documentElement: new El('html'), body: new El('body'), addEventListener() {}, removeEventListener() {} };
+  globalThis.window = globalThis.window || { addEventListener() {}, removeEventListener() {} };
+
+  const doc = docFrom({ type: 'doc', content: [splitRow(1, 'aaa', 'bbb'), splitRow(2, 'ccc', 'ddd'), splitRow(3, 'eee', 'fff')] });
+  const cells = leafCells(doc);
+  const said = cells.filter((c) => c.role === 'said');   // rows 1,2,3
+  const shown = cells.filter((c) => c.role === 'shown');
+  const plugin = columnSelectPlugin();
+
+  // A plain .wp-tcell target (native gesture), and a sanctioned media target (must bail).
+  const tcell = new El('div'); tcell.className = 'wp-tcell';
+  const figure = new El('figure'); figure.className = 'wp-image';
+  const videoEl = new El('video'); videoEl.className = 'wp-image-img'; videoEl.parentNode = figure; figure.children.push(videoEl);
+
+  let nextPos = null;   // what posAtCoords resolves the click to
+  function freshView(caretPos) {
+    let state = EditorState.create({ schema, doc, plugins: [plugin], selection: TextSelection.create(doc, caretPos) });
+    const dispatched = [];
+    const view = {
+      dom: new El('div'),
+      get state() { return state; },
+      dispatch(tr) { dispatched.push(tr); state = state.apply(tr); },
+      posAtCoords() { return nextPos == null ? null : { pos: nextPos }; },
+      hasFocus() { return true; }, focus() {}, editable: true,
+    };
+    plugin.spec.view(view); // attaches onMouseDown
+    const onMouseDown = (view.dom.listeners.mousedown || [])[0];
+    return { view, dispatched, onMouseDown, role: () => colSelectKey.getState(view.state)?.role || null };
+  }
+  const evt = (target) => { let prevented = false; return { e: { button: 0, shiftKey: true, target, clientX: 10, clientY: 10, preventDefault() { prevented = true; }, stopPropagation() {} }, wasPrevented: () => prevented }; };
+
+  // (a) SAME-LANE shift-click: caret in row3 said, shift-click row1 said → single 'said' scope over
+  //     the whole span, in ONE dispatch, and the selection brackets all three rows.
+  ok('onMouseDown shift-click same lane → span selection + said scope in ONE dispatch (whole rows)', () => {
+    const { view, dispatched, onMouseDown, role } = freshView(said[2].inner); // prior caret: row3 said
+    nextPos = said[0].inner;                                                   // shift-click: row1 said
+    const { e, wasPrevented } = evt(tcell);
+    onMouseDown(e);
+    assert.equal(dispatched.length, 1, 'exactly ONE gesture dispatch (collab-safe)');
+    assert.equal(wasPrevented(), true, 'native shift-extend suppressed so our selection wins');
+    assert.equal(role(), 'said', 'the said lane is engaged (only the left column paints)');
+    const sel = view.state.selection;
+    assert.equal(sel.from, Math.min(said[0].inner, said[2].inner), 'selection.from spans up to row1');
+    assert.equal(sel.to, Math.max(said[0].inner, said[2].inner), 'selection.to spans down to row3');
+    // Row-ops read the range as WHOLE rows even though only the left column paints.
+    const rows = collectIntersectingRows(doc, sel.from, sel.to);
+    assert.equal(rows.length, 3, 'all three rows are in range (row-ops/transfer/tag read whole rows)');
+    // The decoration set lights ONLY the three said cells.
+    const decoSet = plugin.props.decorations(view.state);
+    assert.equal(decoSet ? decoSet.find().length : 0, 3, 'three said cells decorated, shown lane dark');
+  });
+
+  // (b) CROSS-LANE shift-click: caret in row3 said, shift-click row1 SHOWN → native both-column,
+  //     NO column scope engaged, and we do NOT preventDefault (the browser does the extend).
+  ok('onMouseDown shift-click cross lane → null scope (native both-column), no preventDefault', () => {
+    const { view, onMouseDown, role } = freshView(said[2].inner); // prior caret: row3 said
+    nextPos = shown[0].inner;                                      // shift-click: row1 shown (other lane)
+    const { e, wasPrevented } = evt(tcell);
+    onMouseDown(e);
+    assert.equal(role(), null, 'no column scope — native both-column selection');
+    assert.equal(wasPrevented(), false, 'the native shift-extend is left to the browser');
+  });
+
+  // (c) SANCTIONED shift-click: a shift-click on media bails BEFORE any scope work — zero dispatch,
+  //     no preventDefault, the scope is untouched (the media NodeSelection stays safe).
+  ok('onMouseDown shift-click on a media target bails: zero dispatch, no preventDefault', () => {
+    const { dispatched, onMouseDown, role } = freshView(said[2].inner);
+    nextPos = said[0].inner; // would-be same-lane head, but the media bail must fire first
+    const { e, wasPrevented } = evt(videoEl);
+    onMouseDown(e);
+    assert.equal(dispatched.length, 0, 'a shift-click on media dispatches nothing (media selection unharmed)');
+    assert.equal(wasPrevented(), false, 'the media handler owns the event; we never preventDefault');
+    assert.equal(role(), null, 'no column scope engaged over media');
+  });
+  nextPos = null;
+})();
 
 console.log(`column-select.test.mjs: ${pass} assertions passed`);

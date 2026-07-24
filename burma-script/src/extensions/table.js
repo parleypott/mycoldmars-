@@ -892,6 +892,17 @@ export function columnScopeForDrag(anchor, head) {
   return anchor.role;
 }
 
+// The lane a SHIFT-CLICK should scope to. A shift-click extends the PRIOR selection anchor cell to
+// the shift-clicked head cell — the SAME outcome as if the user had dragged the anchor down to the
+// head. So the scope decision is byte-identical to columnScopeForDrag: a same-lane said|shown span
+// across 2-col rows scopes to that lane; the OTHER lane, a full-width/1-col anchor, or a missing
+// anchor falls back to null (native both-column selection). Kept as a thin, separately-named
+// wrapper so the shift-click and the drag can never diverge — one brain, two gestures. Pure
+// (anchor, head) -> role | null, exported for the headless suite.
+export function shiftClickColumnScope(anchor, head) {
+  return columnScopeForDrag(anchor, head);
+}
+
 // The leaf tableCells intersecting [from,to] that belong to the anchor's lane — the cells the
 // column-scoped decoration paints. Walks every LEAF tableCell (descending THROUGH Palau wrapper
 // cells to the inner said|shown|full leaves) and keeps whole-cell spans whose role matches the
@@ -1010,6 +1021,38 @@ export function columnSelectPlugin() {
         if (canClosest && (dragSourceSanctioned(t)
           || t.closest('.wp-slash-menu, .wp-convert-menu, .wp-bulk-menu, .wp-rowmenu, .wp-addrows-menu, .wp-tc-tag, [data-tc], [data-dchip]'))) {
           return;
+        }
+        // SHIFT + left-click INSIDE a cell → extend the PRIOR selection into a column-scoped span,
+        // exactly as if the user had DRAGGED from the last click/caret to here (Johnny 2026-07-24:
+        // "click the left column, go up 10 rows, shift-click the left column — select ONLY the left
+        // column across those rows"). Anchor = the PRIOR selection anchor cell; head = the
+        // shift-clicked cell. Same said|shown lane across 2-col rows → set the underlying PM
+        // selection to span anchor..head AND engage the lane scope so ONLY that column paints — a
+        // SINGLE gesture dispatch (selection + meta in ONE tr), so it stays outside the collab-loop
+        // risk class. Cross-lane / a non-2-col anchor → shiftClickColumnScope returns null and we
+        // fall through to the native both-column shift-extend (the fall-through's setScope(null)
+        // clears any stale lane). This sits AFTER the sanctioned/media bail so a shift-click on an
+        // image/gif/video still bails there and never perturbs the media NodeSelection.
+        if (e.shiftKey && canClosest && t.closest('.wp-tcell')) {
+          const coords = editorView.posAtCoords({ left: e.clientX, top: e.clientY });
+          const headPos = coords ? coords.pos : null;
+          const doc = editorView.state.doc;
+          const anchorPos = editorView.state.selection.anchor;
+          const anchorCell = cellColumnAt(doc, anchorPos);
+          const headCell = headPos != null ? cellColumnAt(doc, headPos) : null;
+          const role = shiftClickColumnScope(anchorCell, headCell);
+          if (role && headPos != null) {
+            e.preventDefault();          // stop the native shift-extend from clobbering our selection
+            colDragging = false;
+            colDragAnchor = null;
+            const sel = TextSelection.create(doc, anchorPos, headPos);
+            editorView.dispatch(
+              editorView.state.tr.setSelection(sel).setMeta(colSelectKey, { role }),
+            );
+            return;
+          }
+          // Cross-lane or non-scoping anchor: let the native both-column shift-extend run and let the
+          // fall-through below clear any stale column scope. (No preventDefault, no dispatch here.)
         }
         colDragging = false;
         colDragAnchor = null;
