@@ -50,6 +50,7 @@ import { isReadOnly } from '../read-mode.js';
 import { getEpisode, episodeFlag } from '../episode-config.js';
 import { mintUserPairId } from './table.js';
 import { offerMediaOrQuote, startImageQuote, parseTranscriptText, insertQuoteRow } from './transcript-drop.js';
+import { detectFilepathDrop, insertFilepathChip } from './filepath-drop.js';
 
 export const imageDropKey = new PluginKey('burmaImageDrop');
 
@@ -1077,6 +1078,19 @@ export function buildImageDropPlugin() {
       // us) carry no dataTransfer.files, return false, and proceed untouched.
       handleDOMEvents: {
         drop(view, event) {
+          // FILEPATH DROP (folder, or a non-media file exposing a file:// path) → green code-path
+          // chip. This branch runs FIRST: a dropped folder surfaces in dataTransfer.files as a bogus
+          // zero-byte entry, so without this it would fall into the "only images/videos" reject toast
+          // below. detectFilepathDrop returns null for image/video/audio-media drops (they carry no
+          // folder entry and this branch never claims them), so the upload path stays sacred. One
+          // localized hook — the parallel audio-blocks branch reconciles alongside it.
+          if (!isReadOnly() && view.editable) {
+            const fp = detectFilepathDrop(event);
+            if (fp) {
+              const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+              if (at) { event.preventDefault(); insertFilepathChip(view, fp.path, at.pos); return true; }
+            }
+          }
           const files = event.dataTransfer && event.dataTransfer.files;
           if (!files || !files.length) {
             // NO FILES — a TEXT drag (selected transcript text). If it matches the transcript shape

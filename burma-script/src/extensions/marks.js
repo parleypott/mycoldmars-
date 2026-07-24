@@ -306,6 +306,37 @@ export const TrimSpan = Mark.create({
   // a click does NOTHING.
 });
 
+// FILEPATH mark — the green CODE-PATH chip. Johnny drags a folder (or file) from Finder into the
+// script, or types /filepath, and the location on his computer renders as a monospace green code
+// token (e.g. /Users/johnnyharris/Desktop/Boat Nile.qta). It's a VISUAL POINTER — it does NOT read
+// or upload any bytes; the path IS the text and the only payload (no attrs, exactly like visualSpan/
+// trimSpan). inclusive:true so the slash-armed caret keeps typing INSIDE the chip — a path can carry
+// spaces ("Boat Nile.qta") and every keystroke should stay green, matching directionMark's arm-and-
+// type flow. INERT (no Workshop click). Round-trips as a literal `…` backtick token via document-
+// builder wrapToken/inlineContent (backtick is the natural code delimiter and is claimed by nothing
+// else — the {}/[]/~~ tokens all own their own glyphs). Johnny never sees the backticks; they are the
+// internal round-trip envelope, stripped on load exactly like [visual] brackets and ~~trim~~ tildes.
+export const FilepathSpan = Mark.create({
+  name: 'filepathSpan',
+  inclusive: true,
+  parseHTML() { return [{ tag: 'span[data-filepath]' }]; },
+  renderHTML() { return ['span', { 'data-filepath': '', class: 'wp-filepath' }, 0]; },
+  addCommands() {
+    return {
+      setFilepathSpan: () => ({ commands }) => commands.setMark('filepathSpan'),
+      unsetFilepathSpan: () => ({ commands }) => commands.unsetMark('filepathSpan'),
+      toggleFilepathSpan: () => ({ commands }) => commands.toggleMark('filepathSpan'),
+    };
+  },
+  // Live self-mark: `path` wraps the moment the closing backtick lands. The input rule replaces the
+  // match with the captured group, stripping the literal backticks (mirrors visualSpan stripping []),
+  // exactly how document-builder stores loaded filepaths — so no double ``path`` on a live-typed path.
+  addInputRules() { return [markInputRule({ find: /`([^`]+)`$/, type: this.type })]; },
+  addPasteRules() { return [markPasteRule({ find: /`([^`]+)`/g, type: this.type })]; },
+  // NO addProseMirrorPlugins: filepath chips are deliberately INERT — they render as a green code
+  // token and round-trip, but a click does NOTHING (it's a reference to a location, not an action).
+});
+
 // TIMECODE mark — the DATA-INTEGRITY chip. EVERY broadcast timecode (HH:MM:SS:FF) embedded
 // anywhere in any block's prose becomes a small clickable tag that COPIES the timecode on
 // click (Johnny: "a little tag you can click and it copies"). Mirrors the SOT LCD copy flow
@@ -1001,4 +1032,4 @@ export const TimecodeMark = Mark.create({
   },
 });
 
-export const BURMA_MARKS = [TkSpan, FactCheckSpan, VisualSpan, TimecodeMark, TrimSpan];
+export const BURMA_MARKS = [TkSpan, FactCheckSpan, VisualSpan, TimecodeMark, TrimSpan, FilepathSpan];

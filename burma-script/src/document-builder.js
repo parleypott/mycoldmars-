@@ -395,7 +395,7 @@ function inlineContent(rawText, type) {
   // broadcast timecode. Order in the alternation lets a timecode INSIDE a {tk …} stay part
   // of the brace token (the brace alternative wins because it starts earlier / is matched
   // first at that index). Standalone timecodes in plain prose get their own chip.
-  const re = /(\{[^{}]*\}|\[[^\[\]]*\]|~~[^~]+~~)/g;
+  const re = /(\{[^{}]*\}|\[[^\[\]]*\]|~~[^~]+~~|`[^`]+`)/g;
   let last = 0;
   let m;
   while ((m = re.exec(text)) !== null) {
@@ -406,6 +406,10 @@ function inlineContent(rawText, type) {
     const isBrace = tok[0] === '{';
     const isTrim = tok[0] === '~';
     const isBracket = tok[0] === '[';
+    // A `…` backtick token is a FILEPATH chip (filepathSpan's export envelope) — a green code path.
+    // Routed before the isFc/tk/visual fork below; the path text is kept verbatim, only the backticks
+    // are structural (stripped like [visual] brackets / ~~trim~~ tildes).
+    const isPath = tok[0] === '`';
     // A {…} brace token is EITHER a fact-check ask ({fc …}/{fact …}) or a {tk …} writing
     // ask. Sniff the keyword to route to the right mark — the two are visually distinct and
     // open the Workshop hub in different modes (fc → verify; tk → 5 options).
@@ -431,17 +435,19 @@ function inlineContent(rawText, type) {
       last = m.index + tok.length;
       continue;
     }
-    const markType = isTrim ? 'trimSpan' : (isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan');
+    const markType = isPath ? 'filepathSpan' : (isTrim ? 'trimSpan' : (isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan'));
     // Strip only the STRUCTURAL braces/brackets — KEEP the leading keyword ("tk"/"fc") in the
     // visible chip text, matching the CARTRIDGES reference ("tk fractured-shape", "tk ~one
     // fifth"). This is also the integrity-correct behaviour: the keyword is a real word in the
     // original script, so keeping it means no words are dropped (the audit sees every word).
     // nodeText.wrapToken is keyword-aware so the export round-trip stays single-keyword.
-    const inner = isTrim
-      ? tok.slice(2, -2)                                  // keep struck words verbatim, drop only the ~~
-      : (isBrace
-        ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
-        : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim());
+    const inner = isPath
+      ? tok.slice(1, -1)                                  // keep the path verbatim, drop only the ` `
+      : (isTrim
+        ? tok.slice(2, -2)                                // keep struck words verbatim, drop only the ~~
+        : (isBrace
+          ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
+          : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim()));
     if (episodeFlag('palauTimecodes') && isBracket && PALAU_BRACKET_DURATION_RE.test(inner)) {
       // Palau interview durations are not readable prose; the IN/OUT stamps already carry the
       // useful timing. Drop the visible "[4.8]" token so it can't leak beside the seq tag.
@@ -1080,6 +1086,10 @@ export function wrapToken(text, kind) {
     if (/^~~.*~~$/s.test(t.trim())) return t;            // already struck
     return '~~' + t.replace(/^\s+|\s+$/g, '') + '~~';
   }
+  if (kind === 'filepathSpan') {
+    if (/^`.*`$/s.test(t.trim())) return t;              // already backticked
+    return '`' + t.replace(/^\s+|\s+$/g, '') + '`';
+  }
   return t;
 }
 
@@ -1118,7 +1128,7 @@ export function nodeText(node) {
   // into several tokens on the round-trip — "[B roll … 00:09:19:03]" became
   // "[B roll …][00:09:19:03]" and "{tk … 02:02:01:07 …}" became three {tk …} tokens.
   // Reuniting same-span runs first re-serializes each span as exactly one token.
-  const pieces = []; // { span: 'tkSpan'|'factCheckSpan'|'visualSpan'|'trimSpan'|null, text }
+  const pieces = []; // { span: 'tkSpan'|'factCheckSpan'|'visualSpan'|'trimSpan'|'filepathSpan'|null, text }
   (function walk(n) {
     // Separate block-level siblings (sibling paragraphs, and the paragraph inside each
     // list item) with a single line boundary so their words never run together on the
@@ -1134,7 +1144,7 @@ export function nodeText(node) {
     }
     if (n.text) {
       const marks = n.marks || [];
-      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan' || m.type === 'trimSpan');
+      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan' || m.type === 'trimSpan' || m.type === 'filepathSpan');
       const spanType = span ? span.type : null;
       const prev = pieces[pieces.length - 1];
       // Merge into the previous piece only when both carry the SAME (non-null) span —

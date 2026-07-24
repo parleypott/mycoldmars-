@@ -52,7 +52,7 @@ const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }
 // isn't one of these gets dropped rather than corrupting the block. Kept identical across every
 // script block so the rack is uniform. (Editor.jsx + migrate-doc.js both import these nodes, so the
 // allowlist stays in lockstep automatically — no second edit site to drift.)
-const MARKS_ALLOWLIST = 'timecode tkSpan factCheckSpan visualSpan trimSpan bold italic strike link';
+const MARKS_ALLOWLIST = 'timecode tkSpan factCheckSpan visualSpan trimSpan filepathSpan bold italic strike link';
 
 // chapter genre → ACT tag shown top-right of a chapter cartridge body.
 const ACT_TAG_FALLBACK = { coldopen: 'HISTORY', history: 'HISTORY', ground: 'GROUND', inquiry: 'GROUND', latm: 'GROUND', other: '' };
