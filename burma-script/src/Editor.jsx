@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
+import { Spellcheck } from './extensions/spellcheck.js';
 import { DirectionMark } from './extensions/direction-chip.js';
 import { mintNoteId } from './extensions/footnote.js';
 import { ChapterFrames } from './extensions/chapter-frames.js';
@@ -508,6 +509,12 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
         .configure({ types: ['paragraph'], alignments: ['left', 'center', 'right'], defaultAlignment: 'left' }),
       ...BURMA_TABLE_NODES,
       ...BURMA_NODES,
+      // SPELLCHECK — registered BEFORE ...BURMA_MARKS so its contextmenu handler wins the
+      // empty-selection right-click ahead of TimecodeMark's retro-convert (ProseMirror runs
+      // handleDOMEvents in plugin order until one returns true). On a misspelled word it opens the
+      // flat custom menu; otherwise it returns false so native / the (now row-scoped) timecode menu
+      // fall through. See extensions/spellcheck.js.
+      Spellcheck,
       ...BURMA_MARKS,
       DirectionMark,
       ChapterFrames,

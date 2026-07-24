@@ -2220,6 +2220,10 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
    interviews + DAY string-outs), so it must scroll rather than run off-screen. Burma's short
    DAY 1/2/3 menu is well under this height, so the cap never clips it. */
 .wp-tcmenu { max-height: 60vh; overflow-y: auto; }
+/* Spellcheck suggestion menu — inherits the flat .wp-blockmenu chrome (paper fill, ink hairline
+   border, mono, NO shadow) so it reads as one of the app's calm menus, not a browser popup. Cap
+   height for the rare long suggestion list. */
+.wp-spellmenu { max-height: 60vh; overflow-y: auto; min-width: 170px; }
 .wp-bm-del { color: var(--red); }
 .wp-bm-del:hover { background: rgba(232,65,43,.08); }
 /* "+ Add DAY N" / "+ Add sequence…" — a quiet, secondary affordance: a touch lighter than a real pick
