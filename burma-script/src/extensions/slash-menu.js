@@ -164,6 +164,20 @@ function setDirectionMark(editor, range, kind, seedText) {
   return chain.run();
 }
 
+// /filepath — arm the green CODE-PATH chip at the caret. Deletes the "/filepath" trigger text, then
+// stores the filepathSpan mark so the NEXT typed (or pasted) characters render as a green monospace
+// path token. filepathSpan is inclusive:true, so a path carrying spaces ("Boat Nile.qta") stays green
+// keystroke by keystroke — identical arm-and-type flow to directionMark. No insert, no seed: Johnny
+// types or pastes the path himself. The chip stores nothing but the path text (the path IS the mark).
+function setFilepathMark(editor, range) {
+  return editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .setMark('filepathSpan')
+    .run();
+}
+
 // archiveOwnLine flag (Burma + Palau + library scripts): /archive pops onto its OWN
 // small-indented line. We delete the "/archive" text, split the current textblock so the
 // archive starts a fresh paragraph, then store the mark so the next typed characters carry
@@ -549,6 +563,8 @@ export const SLASH_ITEMS = [
   makeItem('broll',     [],               (editor, range) => setDirectionMark(editor, range, 'broll')),
   makeItem('map-data',  ['map', 'mapdata', 'cartography', 'carto'], (editor, range) => setDirectionMark(editor, range, 'mapdata')),
   makeItem('direction', [],               (editor, range) => setDirectionMark(editor, range, 'direction')),
+  // /filepath — arm the green code-path chip; Johnny types/pastes a location on his computer.
+  makeItem('filepath',  ['path', 'file'],  (editor, range) => setFilepathMark(editor, range), { hint: '/…' }),
   // /pending — flag the host CELL "no visual plan yet" (alert-red fill). Toggle; cleared by
   // any VISUAL command above (PENDING_CLEARING_KINDS) in the same transaction.
   makeItem('pending',   ['pvp', 'visual-plan', 'pendingvisualplan'], (editor, range) => togglePendingVisualPlan(editor, range), { label: 'pending visual plan', hint: 'PVP' }),
