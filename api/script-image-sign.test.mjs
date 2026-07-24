@@ -30,6 +30,23 @@ ok('mediaStorageMeta: the video set resolves locally (mp4 transcode + direct web
   assert.deepEqual(mediaStorageMeta('VIDEO/QUICKTIME'), { mime: 'video/quicktime', ext: 'mov' });
 });
 
+ok('mediaStorageMeta: the audio set resolves locally (mp3 transcode output + passthrough wav)', () => {
+  // Audio rides the signed road only; the local wrapper stores the right extension for each mime.
+  assert.deepEqual(mediaStorageMeta('audio/mpeg'), { mime: 'audio/mpeg', ext: 'mp3' });
+  assert.deepEqual(mediaStorageMeta('  AUDIO/WAV  '), { mime: 'audio/wav', ext: 'wav' });
+  assert.deepEqual(mediaStorageMeta('audio/x-wav'), { mime: 'audio/x-wav', ext: 'wav' });
+  assert.deepEqual(mediaStorageMeta('audio/mp4'), { mime: 'audio/mp4', ext: 'm4a' });
+  assert.deepEqual(mediaStorageMeta('AUDIO/AAC'), { mime: 'audio/aac', ext: 'aac' });
+});
+
+ok('THE SHARED QSS MAP IS UNCHANGED FOR AUDIO: imageStorageMeta still coerces audio/mpeg → png', () => {
+  // Same load-bearing negative test as the video one below — the audio allowance must live ONLY in
+  // this endpoint's local mediaStorageMeta wrapper, never in the shared imageStorageMeta (which would
+  // open every QSS public bucket to audio uploads).
+  assert.deepEqual(imageStorageMeta('audio/mpeg'), { mime: 'image/png', ext: 'png' });
+  assert.deepEqual(imageStorageMeta('audio/wav'), { mime: 'image/png', ext: 'png' });
+});
+
 ok('mediaStorageMeta defers every non-video type to imageStorageMeta unchanged', () => {
   for (const m of ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'text/html', 'image/svg+xml', '', null]) {
     assert.deepEqual(mediaStorageMeta(m), imageStorageMeta(m), `defers for ${JSON.stringify(m)}`);

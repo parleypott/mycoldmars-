@@ -46,21 +46,31 @@ async function t(name, fn) {
 }
 
 /* ---- the pure allowlist mirrors the client media map exactly ---- */
-await t('SIGNABLE_MIMES is exactly the client image map + the video set', async () => {
-  // SUPPORTED_IMAGE_MIMES + SUPPORTED_VIDEO_MIMES in burma-script/src/extensions/image-drop.js —
-  // kept literal here so a drift on either side goes red (the extension module is too heavy to
-  // import headlessly).
+await t('SIGNABLE_MIMES is exactly the client image map + the video set + the audio set', async () => {
+  // SUPPORTED_IMAGE_MIMES + SUPPORTED_VIDEO_MIMES + the audio mimes in
+  // burma-script/src/extensions/image-drop.js — kept literal here so a drift on either side goes red
+  // (the extension module is too heavy to import headlessly).
   const clientImages = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
   const clientVideos = ['video/mp4', 'video/webm', 'video/quicktime'];
-  assert.deepEqual([...SIGNABLE_MIMES].sort(), [...clientImages, ...clientVideos].sort());
+  // Audio rides the signed road only (base64 would coerce audio → png). The client normalizes to
+  // audio/mpeg or audio/wav before signing; the extra variants keep an odd Finder mime from a 415.
+  const clientAudio = [
+    'audio/mpeg', 'audio/mp3',
+    'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave',
+    'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/ogg', 'audio/flac',
+  ];
+  assert.deepEqual([...SIGNABLE_MIMES].sort(), [...clientImages, ...clientVideos, ...clientAudio].sort());
 });
 
-await t('isSignableMime: trims + lowercases, accepts the video set, refuses everything off-map', async () => {
+await t('isSignableMime: trims + lowercases, accepts the video + audio sets, refuses everything off-map', async () => {
   assert.equal(isSignableMime('  IMAGE/PNG '), true);
   assert.equal(isSignableMime('video/mp4'), true);
   assert.equal(isSignableMime('VIDEO/WEBM'), true, 'webm allowed (direct paste)');
   assert.equal(isSignableMime(' video/quicktime '), true, 'mov allowed (direct paste)');
-  for (const bad of ['text/html', 'image/svg+xml', 'application/pdf', 'video/avi', 'video/x-matroska', '', null, undefined]) {
+  assert.equal(isSignableMime('audio/mpeg'), true, 'mp3 allowed (transcode output + passthrough)');
+  assert.equal(isSignableMime(' AUDIO/WAV '), true, 'wav passthrough allowed');
+  assert.equal(isSignableMime('audio/mp4'), true, 'm4a source allowed (though the client transcodes it)');
+  for (const bad of ['text/html', 'image/svg+xml', 'application/pdf', 'video/avi', 'video/x-matroska', 'audio/midi', '', null, undefined]) {
     assert.equal(isSignableMime(bad), false, `must refuse ${JSON.stringify(bad)}`);
   }
 });
@@ -88,8 +98,12 @@ await t('handler 413-refuses over-cap sizeBytes before minting', async () => {
 });
 
 /* ---- the happy road is untouched (gif + the transcoded mp4 both still sign) ---- */
-await t('handler still signs the real roads: image/gif, the video set, and jpg', async () => {
-  const roads = [['image/gif', 'gif'], ['video/mp4', 'mp4'], ['video/webm', 'webm'], ['video/quicktime', 'mov'], ['IMAGE/JPG', 'jpg']];
+await t('handler still signs the real roads: image/gif, the video set, jpg, and the audio set', async () => {
+  const roads = [
+    ['image/gif', 'gif'], ['video/mp4', 'mp4'], ['video/webm', 'webm'], ['video/quicktime', 'mov'], ['IMAGE/JPG', 'jpg'],
+    // Audio: the mp3 transcode output + a passthrough wav both sign, storing the right extension.
+    ['audio/mpeg', 'mp3'], ['audio/wav', 'wav'], ['AUDIO/MP4', 'm4a'],
+  ];
   for (const [mime, ext] of roads) {
     const res = await handler(post({ project: 'burma', block_id: 'b1', mimeType: mime, sizeBytes: 78 * 1024 * 1024 }));
     assert.equal(res.status, 200, `expected 200 for ${mime}`);
