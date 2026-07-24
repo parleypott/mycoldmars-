@@ -261,6 +261,57 @@ ok('COPY duplicates a section at the gap with FRESH unique ids, origin intact', 
   assert.equal(clonedPaired.child(0).textContent, 'said two', 'clone keeps said text');
 });
 
+// ── 5b: COPY at the ADJACENT gaps (flush above/below the origin) — the last-commit behavior
+//        (fb11cc4 "copy adjacent-gap targets"). These two gaps ARE the two edges transfer REFUSES
+//        (isLegalTransferTarget rejects g===startIndex and g===endIndex as no-ops), so copy's
+//        legality MUST diverge. The overlay (row-placement.js) offers these gaps for copy; if a
+//        future refactor "unified" copy's legality onto isLegalTransferTarget, clicking the
+//        most-wanted copy target ("duplicate right next to the original") would silently return
+//        false → the overlay cancels → nothing happens, with NO other test catching it. Lock the
+//        engine-level result here so that regression goes RED.
+ok('COPY at the flush-ABOVE gap (g===startIndex) duplicates above, origin intact', () => {
+  let state = makeState(sixRowJson());
+  const idsBefore = collectBlockIds(state.doc);
+  const refs = refsForIndices(state.doc, [1, 2, 3]);       // startIndex=1, endIndex=4
+  const dispatch = (tr) => { state = state.apply(tr); };
+
+  // Guardrail assertion: this gap is exactly the edge TRANSFER refuses — copy must NOT reuse it.
+  assert.equal(isLegalTransferTarget(state.doc, 1, 4, 1), false, 'transfer refuses its own start edge');
+
+  assert.equal(copyRowRange(state, dispatch, refs, 1), true, 'copy flush-above commits (not a no-op)');
+  assert.equal(state.doc.childCount, 9, 'row count grew by 3');
+  // Origin band pushed down to indices 4,5,6, intact and by identity.
+  assert.equal(rowFirstBlockId(state.doc.child(4)), 'r1', 'origin r1 intact below the clones');
+  assert.equal(state.doc.child(5).attrs.pairId, 'pair_2', 'origin paired row untouched');
+  assert.equal(state.doc.child(6).attrs.bookmarkId, 'bm_x', 'origin bookmark untouched');
+  assert.equal(rowFirstBlockId(state.doc.child(0)), 'r0', 'row above the section unmoved');
+  // Clones sit at 1,2,3 with fresh, globally-unique ids; paired clone re-minted, bookmark dropped.
+  const afterIds = collectBlockIds(state.doc);
+  assert.equal(new Set(afterIds).size, afterIds.length, 'all block ids globally unique after copy');
+  assert.equal(afterIds.length, idsBefore.length + 4, 'four fresh block ids minted');
+  assert.equal(state.doc.child(2).attrs.cols, 2, 'clone paired row still 2 cols');
+  assert.notEqual(state.doc.child(2).attrs.pairId, 'pair_2', 'clone pairId re-minted');
+  assert.equal(state.doc.child(3).attrs.bookmarkId, null, 'clone bookmarkId dropped');
+});
+
+ok('COPY at the flush-BELOW gap (g===endIndex) duplicates below, origin intact', () => {
+  let state = makeState(sixRowJson());
+  const refs = refsForIndices(state.doc, [1, 2, 3]);       // startIndex=1, endIndex=4
+  const dispatch = (tr) => { state = state.apply(tr); };
+
+  // The other edge transfer refuses — copy keeps it.
+  assert.equal(isLegalTransferTarget(state.doc, 1, 4, 4), false, 'transfer refuses its own end edge');
+
+  assert.equal(copyRowRange(state, dispatch, refs, 4), true, 'copy flush-below commits (not a no-op)');
+  assert.equal(state.doc.childCount, 9, 'row count grew by 3');
+  // Origin stays put at 0..3; clones at 4,5,6; the rows that followed slide to 7,8.
+  assert.deepEqual(rowOrder(state.doc).slice(0, 4), ['r0', 'r1', 'r2s', 'r3'], 'origin band unmoved above the clones');
+  assert.equal(state.doc.child(3).attrs.bookmarkId, 'bm_x', 'origin bookmark untouched');
+  assert.equal(rowFirstBlockId(state.doc.child(7)), 'r4', 'row below the section slid down past the clones');
+  // The middle clone (of the paired origin row) carries a fresh user pairId.
+  assert.ok((state.doc.child(5).attrs.pairId || '').startsWith('pairu_'), 'clone pairId is a fresh user-mint');
+});
+
 ok('cloneWithFreshIds re-mints ids recursively and shares text nodes', () => {
   const doc = docFrom(sixRowJson());
   const paired = doc.child(2);
