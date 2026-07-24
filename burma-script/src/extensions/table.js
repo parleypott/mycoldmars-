@@ -928,8 +928,9 @@ export function columnScopeDecorations(doc, selection, role) {
 }
 
 // The plugin's PluginKey — also read by convert-menu.js so a bulk tag can scope to the DRAGGED
-// column (not just the right-clicked one).
-const colSelectKey = new PluginKey('wpColSelect');
+// column (not just the right-clicked one). Exported so the media-click-race guard suite can engage a
+// live column scope and prove a media mousedown never dispatches a scope-clear over it.
+export const colSelectKey = new PluginKey('wpColSelect');
 
 // The active column-scope lane ('said' | 'shown') for THIS view, or null when there is no
 // column-scoped selection. convert-menu.js consults this so a tag applied after a single-column
@@ -997,14 +998,23 @@ export function columnSelectPlugin() {
         // Only a LEFT-button press starts a fresh selection gesture. A right-click (button 2) must
         // NOT clear the scope — the convert menu reads it to scope the tag to the dragged lane.
         if (e.button !== 0) return;
+        const t = e.target;
+        const canClosest = t && typeof t.closest === 'function';
+        // SANCTIONED / CHROME TARGET → bail BEFORE any dispatch (Johnny 2026-07-24, media-click race):
+        // a mousedown on an image/gif/video (.wp-image), a row grip, or a menu/chip has just set (or
+        // is about to own) its OWN selection — the imageBlock nodeview's authoritative NodeSelection
+        // for media above all. This handler must be provably INERT on those targets: reordered ahead
+        // of the setScope(null) below so it can never dispatch a scope-clear that perturbs the fresh
+        // media NodeSelection during the focus transition. (The grips/images own their own drags;
+        // menus/chips own their own clicks.)
+        if (canClosest && (dragSourceSanctioned(t)
+          || t.closest('.wp-slash-menu, .wp-convert-menu, .wp-bulk-menu, .wp-rowmenu, .wp-addrows-menu, .wp-tc-tag, [data-tc], [data-dchip]'))) {
+          return;
+        }
         colDragging = false;
         colDragAnchor = null;
         setScope(null); // any prior column highlight ends when a new drag begins
-        const t = e.target;
-        if (!(t && typeof t.closest === 'function')) return;
-        // The grips/images own their own drags; menus/chips own their own clicks.
-        if (dragSourceSanctioned(t)) return;
-        if (t.closest('.wp-slash-menu, .wp-convert-menu, .wp-bulk-menu, .wp-rowmenu, .wp-addrows-menu, .wp-tc-tag, [data-tc], [data-dchip]')) return;
+        if (!canClosest) return;
         if (!t.closest('.wp-tcell')) return;
         const anchor = anchorAt(e.clientX, e.clientY);
         // Only engage when the anchor is a genuine 2-column lane cell (said|shown). A full-width

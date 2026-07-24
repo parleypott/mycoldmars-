@@ -2167,15 +2167,58 @@ export const ImageBlock = Node.create({
       // no stray caret to lose to. NOT preventDefault: the node stays draggable (draggable:true) and
       // native drag-reorder is untouched. Edit-only, media-only: a text-caret click and the
       // read-mode click-to-zoom below are both unaffected.
-      media.addEventListener('mousedown', (e) => {
-        if (e.button !== 0 || !canEdit()) return;
+      //
+      // BIND TO THE STABLE FIGURE, NOT THE SWAPPABLE `media` (Johnny 2026-07-24: "i cant click gifs
+      // or videos — it tweaks out, I see the box, then it deselects"). paint() REPLACES the `media`
+      // element whenever the src flips image↔video (makeMediaEl + replaceWith): a gif transcodes to
+      // mp4 and a freshly-pasted/dropped video lands as an uploading:true placeholder that renders as
+      // an <img> first, then the upload swaps in the .mp4 src and the element becomes a <video>. That
+      // swap re-bound only load/loadedmetadata/timeupdate — the authoritative mousedown above was
+      // SILENTLY LOST on the new <video>, so gif/video clicks fell back to the native
+      // selectClickedLeaf path and the focus race returned. Static images never swap element type, so
+      // they kept their handler and stayed clickable — the exact gif/video-only fingerprint. Binding
+      // on the figure `dom` (never replaced) and gating on `e.target === media` (a live closure ref
+      // that always names the CURRENT element) makes the handler swap-proof and still media-only.
+      const selectThisMedia = () => {
+        const pos = getPos();
+        if (typeof pos !== 'number') return null;
+        const live = editor.state.doc.nodeAt(pos);
+        if (!live || live.type.name !== 'imageBlock') return null;
+        if (!editor.view.hasFocus()) editor.view.focus();
+        editor.view.dispatch(editor.state.tr.setSelection(PMNodeSelection.create(editor.state.doc, pos)));
+        return pos;
+      };
+      dom.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || !canEdit() || e.target !== media) return;
         try {
-          const pos = getPos();
-          if (typeof pos !== 'number') return;
-          const live = editor.state.doc.nodeAt(pos);
-          if (!live || live.type.name !== 'imageBlock') return;
-          if (!editor.view.hasFocus()) editor.view.focus();
-          editor.view.dispatch(editor.state.tr.setSelection(PMNodeSelection.create(editor.state.doc, pos)));
+          const pos = selectThisMedia();
+          if (pos == null) return;
+          // RACE-CLASS DEFENSE (belt-and-braces with the authoritative dispatch above): a browser
+          // focus transition can still place a native DOM caret AFTER our dispatch and collapse the
+          // NodeSelection on this very click — the "flickers then deselects" the user reported, which
+          // headless CANNOT reproduce (it can't model the real focus transition). Re-assert on the
+          // next frame IFF the selection has collapsed to a caret sitting at/inside THIS node while
+          // the view still holds focus — the exact focus-race signature. A real click-away lands its
+          // selection elsewhere (not empty-at-node) → no re-assert; a click that already holds the
+          // NodeSelection → no-op. Selection-only tr → never a doc step → collab-loop safe.
+          const raf = (typeof requestAnimationFrame === 'function')
+            ? requestAnimationFrame : (fn) => setTimeout(fn, 0);
+          raf(() => {
+            try {
+              const view = editor.view;
+              if (!view || view.isDestroyed || !view.hasFocus()) return;
+              const sel = view.state.selection;
+              if (sel instanceof PMNodeSelection && sel.from === pos) return; // already held — done
+              if (!sel.empty) return;                                        // real range/click-away
+              const cur = getPos();
+              if (typeof cur !== 'number') return;
+              const node = view.state.doc.nodeAt(cur);
+              if (!node || node.type.name !== 'imageBlock') return;
+              if (sel.from >= cur && sel.from <= cur + node.nodeSize) {
+                view.dispatch(view.state.tr.setSelection(PMNodeSelection.create(view.state.doc, cur)));
+              }
+            } catch {}
+          });
         } catch {}
       });
 
@@ -2187,8 +2230,10 @@ export const ImageBlock = Node.create({
         e.preventDefault(); e.stopPropagation();
         openMediaLightbox(attrs);
       });
-      media.addEventListener('dblclick', (e) => {
-        if (!canEdit()) return;
+      // Bound on the stable figure (not the swappable `media`, same swap-loss reason as the mousedown
+      // above) and gated on `e.target === media` so double-click-to-crop keeps working on a video too.
+      dom.addEventListener('dblclick', (e) => {
+        if (!canEdit() || e.target !== media) return;
         e.preventDefault(); e.stopPropagation();
         enterCropMode();
       });
