@@ -32,7 +32,7 @@ import { isReadOnly } from '../read-mode.js';
 import { setEditMode } from '../edit-mode.js';
 import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 import { inlineTextMap } from './marks.js';
-import { resolveWord, spellDecision, buildReplaceTr } from './spellcheck-core.js';
+import { resolveWord, spellDecision, buildReplaceTr, contextmenuGuard } from './spellcheck-core.js';
 
 // ── LAZY ENGINE WARM ────────────────────────────────────────────────────────────────────────────
 // The engine chunk (nspell + dictionary) is fetched once, in the background, so the contextmenu
@@ -212,17 +212,29 @@ export const Spellcheck = Extension.create({
         props: {
           handleDOMEvents: {
             contextmenu: (view, event) => {
-              // ?read share OR sticky read mode → don't take over; let native/timecode-narrowed
-              // menu through. Showing suggestions is moot when we can't replace anyway.
-              if (isReadOnly() || !view.editable) return false;
-              // Never steal a right-click that landed ON a chip (timecode / legacy dchip) — that chip
-              // owns its own context menu (marks.js), which runs after us. Mirrors convert-menu.js.
-              const onChip = event.target && event.target.closest
-                ? event.target.closest('span.wp-tc-tag, span[data-tc], span[data-dchip]')
-                : null;
-              if (onChip) return false;
-              // Engine not warm yet → yield to native, warm for next time. Never a dead end.
-              if (!engineMod) { warmEngine(); return false; }
+              // The ordered early guard (contextmenuGuard, pure/tested) decides whether we take over.
+              // Only an EMPTY-selection, on-a-word, engine-warm, editable, non-read right-click that
+              // did NOT land on a chip proceeds. Everything else yields (return false), letting the
+              // native / timecode-narrowed / ConvertMenu chain through:
+              //   • read      → ?read share or non-editable surface (replace impossible)
+              //   • selection → NON-EMPTY selection belongs to ConvertMenu (bulk viz-tag / transfer /
+              //                 copy-section / column-scoped), registered AFTER us — we own only the
+              //                 caret right-click. Mirrors marks.js retro-convert's own guard.
+              //   • chip      → pointer landed ON a timecode / legacy dchip; that chip owns its menu
+              //   • cold      → engine chunk not warm yet; yield to native this once, warm for next
+              const onChip = !!(event.target && event.target.closest
+                && event.target.closest('span.wp-tc-tag, span[data-tc], span[data-dchip]'));
+              const reason = contextmenuGuard({
+                readOnly: isReadOnly(),
+                editable: view.editable,
+                selectionEmpty: view.state.selection.empty,
+                onChip,
+                engineReady: !!engineMod,
+              });
+              if (reason !== 'proceed') {
+                if (reason === 'cold') warmEngine(); // never a dead end — next click works
+                return false;
+              }
               const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
               if (!coords) return false;
               const resolved = resolveWordAt(view.state, coords.pos);

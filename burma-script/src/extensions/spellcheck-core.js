@@ -125,6 +125,28 @@ export function spellDecision(misspelled, suggestionCount) {
   return 'none';
 }
 
+// THE EARLY GUARD. The ordered set of conditions the contextmenu handler checks BEFORE it ever
+// resolves a word — pulled out pure so the selection-emptiness gate (the one thing that keeps the
+// bulk-tag / transfer / copy-section / column-scoped ConvertMenu reachable on a non-empty
+// right-click) is locked by a test instead of living only in a comment. Returns a reason; ONLY
+// 'proceed' means "take over — resolve the word and run spellDecision". Every other value means
+// "return false" at the call site (yield to the native / timecode-narrowed / ConvertMenu chain).
+// Order matters and mirrors the handler:
+//   • read      — ?read share or a non-editable surface: no replace is possible, never take over
+//   • selection — a NON-EMPTY selection belongs to ConvertMenu (registered AFTER us); we own ONLY
+//                 the empty-selection (caret) right-click. This is the guard whose absence let
+//                 spellcheck steal the bulk-convert / column-scope right-click.
+//   • chip      — the pointer landed ON a timecode / legacy dchip, which owns its own menu
+//   • cold      — the Hunspell chunk isn't warm yet: yield to native this once (caller warms it)
+//   • proceed   — take over
+export function contextmenuGuard({ readOnly, editable, selectionEmpty, onChip, engineReady }) {
+  if (readOnly || !editable) return 'read';
+  if (!selectionEmpty) return 'selection';
+  if (onChip) return 'chip';
+  if (!engineReady) return 'cold';
+  return 'proceed';
+}
+
 // Build the ONE transaction that swaps [from,to] for `suggestion`, carrying the misspelled word's
 // OWN marks (read off its text node) so bold / direction / span runs survive the replace. COLLAB
 // SAFETY: if the live text at [from,to] no longer equals the word the menu was built for (a remote

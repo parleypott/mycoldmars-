@@ -6,6 +6,7 @@ import {
   shouldCheck,
   isWordChar,
   buildReplaceTr,
+  contextmenuGuard,
   PERSONAL_DICT_KEY,
   loadPersonalDict,
   addToPersonalDictStore,
@@ -178,6 +179,45 @@ ok('spellDecision: misspelled + NO suggestion → native (passthrough, no dead e
 ok('spellDecision: correctly spelled → none (no takeover)', () => {
   assert.equal(spellDecision(false, 0), 'none');
   assert.equal(spellDecision(false, 5), 'none'); // count irrelevant when not misspelled
+});
+
+// ── contextmenuGuard (the ordered early guard; who owns the right-click) ─────────────────────────
+// The ONE test that would have caught the regression: a NON-EMPTY selection right-click must yield
+// to ConvertMenu (bulk viz-tag / transfer / copy-section / column-scoped selection), which is
+// registered AFTER spellcheck. Spellcheck owns ONLY the empty-selection (caret) right-click.
+const READY = { readOnly: false, editable: true, selectionEmpty: true, onChip: false, engineReady: true };
+
+ok('contextmenuGuard: empty-selection, warm, on a word, editable → proceed (we take over)', () => {
+  assert.equal(contextmenuGuard(READY), 'proceed');
+});
+
+ok('contextmenuGuard: NON-EMPTY selection → yield to ConvertMenu (THE regression guard)', () => {
+  // Johnny drag-selects rough text to bulk-convert it and right-clicks ON a misspelled word inside
+  // the selection. Without this guard spellcheck stole the right-click and mangled one word instead
+  // of tagging the selection. selection non-empty must ALWAYS yield, even fully warm and on a word.
+  assert.equal(contextmenuGuard({ ...READY, selectionEmpty: false }), 'selection');
+  // A column-scoped drag is likewise a non-empty selection → same yield.
+  assert.equal(contextmenuGuard({ ...READY, selectionEmpty: false, onChip: false }), 'selection');
+});
+
+ok('contextmenuGuard: read/non-editable outranks everything → read (no takeover, no replace path)', () => {
+  assert.equal(contextmenuGuard({ ...READY, readOnly: true }), 'read');
+  assert.equal(contextmenuGuard({ ...READY, editable: false }), 'read');
+  // read is checked BEFORE selection: a ?read share with a selection still reports 'read'.
+  assert.equal(contextmenuGuard({ ...READY, readOnly: true, selectionEmpty: false }), 'read');
+});
+
+ok('contextmenuGuard: selection outranks chip and cold (order lock)', () => {
+  assert.equal(contextmenuGuard({ ...READY, selectionEmpty: false, onChip: true }), 'selection');
+  assert.equal(contextmenuGuard({ ...READY, selectionEmpty: false, engineReady: false }), 'selection');
+});
+
+ok('contextmenuGuard: on-chip empty-selection → chip (chip owns its own menu)', () => {
+  assert.equal(contextmenuGuard({ ...READY, onChip: true }), 'chip');
+});
+
+ok('contextmenuGuard: engine cold (empty selection, on a word) → cold (yield once, warm next)', () => {
+  assert.equal(contextmenuGuard({ ...READY, engineReady: false }), 'cold');
 });
 
 // ── personal dictionary (localStorage, namespaced, dedupe, live isIn) ────────────────────────────
