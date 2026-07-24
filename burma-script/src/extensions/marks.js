@@ -383,7 +383,7 @@ const tcChipAttrs = (match) => ({ day: match[1] ? Number(match[1]) : null, tc: m
 // digits+colons; \s in the day-branch would only ever pair a code with a "DAY N" in the SAME block —
 // a boundary '\n' can't fabricate a cross-block pairing that a real caret-typed line wouldn't). Its
 // mapped position is the block's own pos; matches never start ON it, so that position is inert.
-function inlineTextMap(state, from, to) {
+export function inlineTextMap(state, from, to) {
   let text = '';
   const posOf = [];
   state.doc.nodesBetween(from, to, (node, p) => {
@@ -1019,8 +1019,15 @@ export const TimecodeMark = Mark.create({
             const paraFrom = $p.start();
             const paraTo = $p.end();
             const rowHasCodes = convertTimecodesInRange(view.state, paraFrom, paraTo, null); // dry probe
-            const docHasCodes = convertTimecodesInRange(view.state, 0, view.state.doc.content.size, null);
-            if (!rowHasCodes && !docHasCodes) return false;
+            // SUBORDINATED (spellcheck 2026-07): fire ONLY when the CLICKED ROW has dead codes.
+            // The old whole-doc `docHasCodes` auto-trigger hijacked EVERY plain-word right-click
+            // anywhere in a script that held a single dead timecode — stealing the spellcheck /
+            // native context menu Johnny wanted (a plain word need not be near any code). Gating on
+            // the clicked row alone frees a plain-word right-click for the Spellcheck plugin (which
+            // runs first) or the browser's native menu. The whole-script sweep still surfaces INSIDE
+            // openTcConvertMenu (docHits > rowHits) whenever you right-click a row that DOES carry a
+            // code, so "Convert all N timecodes in script" is never lost.
+            if (!rowHasCodes) return false;
             event.preventDefault();
             const r = { left: event.clientX, top: event.clientY, bottom: event.clientY, right: event.clientX };
             openTcConvertMenu(view, paraFrom, paraTo, r);
