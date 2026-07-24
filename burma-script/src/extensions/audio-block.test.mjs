@@ -40,7 +40,9 @@ import {
   isAudioFile, audioTranscodeDecision, pickMediaUploadRoute, pickMediaFiles,
   SUPPORTED_AUDIO_MIMES, AUDIO_EXT_RE, mintAudioBlockId,
   resolveAudioDropPos, insertAudioAtCursor, buildAudioRowNode, buildImageDropPlugin,
+  audioSizeCeiling, audioOversizeToast, MAX_AUDIO_TRANSCODE_BYTES, MAX_IMAGE_BYTES,
 } from './image-drop.js';
+import { encodePcmChunked, macrotaskYield, YIELD_EVERY_FRAMES } from './audio-transcode.js';
 import { docToBlocks, buildEditorDocument } from '../document-builder.js';
 import { setEpisode } from '../episode-config.js';
 import { __setReadOnlyForTest } from '../read-mode.js';
@@ -50,6 +52,10 @@ setEpisode(BURMA);
 
 let pass = 0;
 const ok = (label, fn) => { fn(); pass++; };
+// Async companion — the encode-yield tests are inherently async (they await the encode loop). Collected
+// here and drained at the very end (top-level await) so they finish before the pass-count is printed.
+const asyncTests = [];
+const okAsync = (label, fn) => asyncTests.push({ label, fn });
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
 const schema = getSchema([
@@ -290,5 +296,113 @@ ok('formatAudioClock: mm:ss under an hour, h:mm:ss past it', () => {
   assert.equal(formatAudioClock(-3), '0:00', 'negatives floor to zero');
   assert.equal(formatAudioClock(NaN), '0:00');
 });
+
+// ── 9: ENCODE STAYS RESPONSIVE (the transcode no longer freezes the tab) ──────────────────────
+// The bug: encodePcmToMp3's sample loop had no yield, so the whole ~4.3s encode of the real 128s .qta
+// ran in one synchronous burst — the tab froze, the spinner couldn't animate, clicks queued. The fix
+// is encodePcmChunked: it releases the main thread every YIELD_EVERY_FRAMES frames. These pin that it
+// (a) yields the RIGHT number of times, (b) still encodes EVERY sample (no data lost to chunking), and
+// (c) yields via a MACROTASK — the property that actually unfreezes the tab (a microtask would not).
+
+// A fake lamejs encoder: records every sample it's handed and emits one byte per encodeBuffer call, so
+// the test can assert nothing is dropped by the slicing without pulling in AudioContext or real lamejs.
+function fakeEncoder() {
+  let samples = 0, calls = 0;
+  return {
+    samples: () => samples, calls: () => calls,
+    encodeBuffer(l16 /*, r16 */) { calls++; samples += l16.length; return new Uint8Array([calls & 0xff]); },
+    flush() { return new Uint8Array([0xff]); },
+  };
+}
+
+okAsync('encodePcmChunked yields a macrotask every yieldEvery frames and encodes EVERY sample', async () => {
+  const LAME_BLOCK = 1152;
+  const frames = 10;
+  const length = LAME_BLOCK * frames;            // exactly 10 full MPEG frames
+  const left = new Float32Array(length).fill(0.5);
+  const enc = fakeEncoder();
+  let sleeps = 0;
+  const progress = [];
+  const chunks = await encodePcmChunked({
+    left, right: null, length, encoder: enc,
+    yieldEvery: 4,                                // deterministic: yields after frames 4 and 8, never the last
+    sleep: async () => { sleeps++; },
+    onProgress: (p) => progress.push(p),
+  });
+  assert.equal(sleeps, 2, 'yields exactly twice (after the 4th and 8th of 10 frames; never after the last)');
+  assert.equal(enc.samples(), length, 'every PCM sample reached the encoder — the slicing loses nothing');
+  assert.equal(enc.calls(), frames, 'one encodeBuffer call per frame slice');
+  assert.equal(chunks.length, frames + 1, 'a byte per frame plus the flush tail');
+  assert.equal(progress[progress.length - 1], 1, 'progress ends at 1 (100%)');
+  assert.ok(progress.every((p, i) => i === 0 || p >= progress[i - 1]), 'progress is monotonic non-decreasing');
+});
+
+okAsync('a large input yields many times but the loop is finite and covers all samples (stereo)', async () => {
+  const LAME_BLOCK = 1152;
+  const frames = YIELD_EVERY_FRAMES * 5 + 7;      // several real yield boundaries at the production cadence
+  const length = LAME_BLOCK * frames;
+  const left = new Float32Array(length).fill(-0.9);
+  const right = new Float32Array(length).fill(0.9);
+  const enc = fakeEncoder();
+  let sleeps = 0;
+  await encodePcmChunked({ left, right, length, encoder: enc, sleep: async () => { sleeps++; } });
+  // frames-1 non-final frames, a yield every YIELD_EVERY_FRAMES of them.
+  assert.equal(sleeps, Math.floor((frames - 1) / YIELD_EVERY_FRAMES), 'yield count matches the production cadence');
+  assert.equal(enc.samples(), length, 'all samples encoded even across many yields');
+});
+
+okAsync('macrotaskYield is a MACROTASK, not a microtask — the property that actually unfreezes the tab', async () => {
+  // A microtask yield (queueMicrotask/Promise.resolve) would drain back into the encode loop before the
+  // browser paints, so it would NOT unfreeze the tab. Prove macrotaskYield defers to the macrotask queue:
+  // a setTimeout(0) queued BEFORE it must win (FIFO), which a microtask yield could never allow.
+  const order = [];
+  setTimeout(() => order.push('macrotask'), 0);
+  await macrotaskYield();
+  order.push('after-yield');
+  assert.deepEqual(order, ['macrotask', 'after-yield'], 'the pre-queued timer runs during the yield → real macrotask release');
+});
+
+// ── 10: TRANSCODE-INPUT SIZE CAP (decode+encode cost scales with duration, not the 100MB image cap) ──
+ok('audioSizeCeiling: transcode formats get the small cap; passthrough wav/mp3 keep the media cap', () => {
+  assert.ok(MAX_AUDIO_TRANSCODE_BYTES < MAX_IMAGE_BYTES, 'the transcode cap is strictly smaller than the image cap');
+  assert.equal(audioSizeCeiling({ name: 'Boat Nile.qta', type: 'video/quicktime' }), MAX_AUDIO_TRANSCODE_BYTES);
+  assert.equal(audioSizeCeiling({ name: 'memo.m4a', type: 'audio/mp4' }), MAX_AUDIO_TRANSCODE_BYTES);
+  assert.equal(audioSizeCeiling({ name: 'take.wav', type: 'audio/wav' }), MAX_IMAGE_BYTES, 'wav is passthrough → full cap');
+  assert.equal(audioSizeCeiling({ name: 'vo.mp3', type: 'audio/mpeg' }), MAX_IMAGE_BYTES, 'mp3 is passthrough → full cap');
+});
+
+ok('audioOversizeToast: names the right cap; passes real material; rejects the pathological transcode drop', () => {
+  const MB = 1024 * 1024;
+  // Johnny's real Boat Nile .qta (8.3MB) sails through.
+  assert.equal(audioOversizeToast({ name: 'Boat Nile.qta', type: 'video/quicktime', size: Math.round(8.3 * MB) }), null);
+  // A 40MB .qta (tens of minutes; would decode to hundreds of MB of PCM) is rejected against the 30MB cap.
+  const bigQta = audioOversizeToast({ name: 'huge.qta', type: 'video/quicktime', size: 40 * MB });
+  assert.ok(bigQta && /over 30MB/.test(bigQta), 'the .qta names the 30MB transcode cap');
+  // A 40MB wav is PASSTHROUGH — it is never decoded, so it keeps the 100MB cap and is allowed.
+  assert.equal(audioOversizeToast({ name: 'session.wav', type: 'audio/wav', size: 40 * MB }), null, 'a 40MB wav passes (passthrough)');
+  // A 120MB wav still trips the 100MB media cap, and the message says so.
+  const hugeWav = audioOversizeToast({ name: 'session.wav', type: 'audio/wav', size: 120 * MB });
+  assert.ok(hugeWav && /over 100MB/.test(hugeWav), 'the oversized wav names the 100MB media cap');
+});
+
+ok('insertAudioAtCursor REJECTS an oversize .qta (transcode cap) — no audioBlock inserted, legal spot still reported', () => {
+  const docJson = { type: 'doc', content: [fullRow([{ type: 'noneBlock', attrs: { blockId: 'blk_1' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'here' }] }] }])] };
+  const doc0 = docFrom(docJson);
+  let state = EditorState.create({ schema, doc: doc0, plugins: [history(), buildImageDropPlugin()], selection: TextSelection.near(doc0.resolve(1), 1) });
+  let dispatched = 0;
+  const view = { get state() { return state; }, editable: true, isDestroyed: false, hasFocus() { return true; }, focus() {}, dispatch(tr) { dispatched += 1; state = state.apply(tr); } };
+  let rawPos = null;
+  doc0.descendants((node, pos) => { if (rawPos == null && node.type.name === 'paragraph') rawPos = pos + 1; });
+  const bigQta = { name: 'huge.qta', type: 'video/quicktime', size: 40 * 1024 * 1024 };
+  const ret = insertAudioAtCursor(view, [bigQta], rawPos);
+  assert.equal(ret, true, 'a legal in-cell spot existed (return is about placement, not size)');
+  assert.equal(dispatched, 0, 'no transaction — the oversize .qta was toasted and skipped, never inserted');
+  let found = false;
+  state.doc.descendants((node) => { if (node.type.name === 'audioBlock') found = true; });
+  assert.equal(found, false, 'no audioBlock landed for the over-cap transcode input');
+});
+
+// Drain the async encode-yield tests, THEN print the count (top-level await; bun runs this as a module).
+for (const t of asyncTests) { await t.fn(); pass++; }
 
 console.log(`audio-block.test.mjs: ${pass} assertions passed`);

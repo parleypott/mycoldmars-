@@ -120,6 +120,29 @@ export function audioTranscodeDecision(file) {
   return (isMp3 || isWav) ? 'passthrough' : 'transcode';
 }
 
+// Non-passthrough audio (m4a/aac/.qta/ogg/flac) rides the decode→encode transcode path, whose cost —
+// full float PCM in memory (a 128s stereo clip ≈ 45MB) plus a CPU-bound re-encode — scales with
+// DURATION, not just byte count. The 100MB image ceiling is far too generous for it: a compressed
+// container that large is tens of minutes long and would decode into hundreds of MB of PCM and take
+// tens of seconds to encode. So the transcode INPUT gets its own, much smaller ceiling. Bytes are a
+// coarse proxy for duration (compression ratios vary), so this is a blunt guard against the pathological
+// drop, deliberately well above Johnny's real material (his Boat Nile .qta is 8.3MB). Passthrough
+// wav/mp3 keep MAX_IMAGE_BYTES — they're never decoded, just uploaded.
+export const MAX_AUDIO_TRANSCODE_BYTES = 30 * 1024 * 1024;
+
+// The oversize ceiling for a given audio file: the small transcode cap for convert-me formats, the
+// full media cap for passthrough wav/mp3. Exported so the boundary is a locked, testable contract.
+export function audioSizeCeiling(file) {
+  return audioTranscodeDecision(file) === 'transcode' ? MAX_AUDIO_TRANSCODE_BYTES : MAX_IMAGE_BYTES;
+}
+// null when the file fits; otherwise the exact toast to show. Keeps the message honest about WHICH cap
+// (a 40MB .qta is "over 30MB", a 120MB wav is "over 100MB") so the reason is never mysterious.
+export function audioOversizeToast(file) {
+  const cap = audioSizeCeiling(file);
+  if (!(file?.size > cap)) return null;
+  return `"${file?.name}" is over ${Math.round(cap / 1024 / 1024)}MB — too big for the script rack`;
+}
+
 // ROUTE SPLIT — bytes travel one of two roads, both ending at the same bucket + the same
 // ~100-byte public URL in the doc:
 //   • small files → /api/script-image-upload (base64 JSON through the edge fn; proven path)
@@ -811,7 +834,13 @@ async function maybeTranscodeAudio(file, onLabel) {
   }
   onLabel?.('CONVERTING TO MP3…');
   const mod = await import('./audio-transcode.js');
-  const mp3 = await mod.transcodeToMp3(file);
+  // The encode yields the main thread mid-loop and ticks progress, so narrate a live percent into the
+  // status card (0..1 → "CONVERTING TO MP3… 42%"). Proof the tab is alive, not the frozen 4s burst.
+  const mp3 = await mod.transcodeToMp3(file, {
+    onProgress: (p) => {
+      if (typeof p === 'number' && p > 0) onLabel?.(`CONVERTING TO MP3… ${Math.min(100, Math.round(p * 100))}%`);
+    },
+  });
   onLabel?.('UPLOADING AUDIO…');
   return mp3;
 }
@@ -867,10 +896,8 @@ export function insertAudioAtCursor(view, files, rawPos) {
   if (!type) return false;
   const items = [];
   for (const file of files) {
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
-      continue;
-    }
+    const oversize = audioOversizeToast(file);
+    if (oversize) { toast(oversize); continue; }
     items.push({ id: mintAudioBlockId(), file });
   }
   if (!items.length) return true; // oversize-only: toasted, nothing to insert (a legal spot existed)
@@ -939,10 +966,8 @@ function insertAudioPlaceholderRows(view, items) {
 export function startAudioPaste(view, files) {
   const items = [];
   for (const file of files) {
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast(`"${file.name}" is over ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB — too big for the script rack`);
-      continue;
-    }
+    const oversize = audioOversizeToast(file);
+    if (oversize) { toast(oversize); continue; }
     items.push({ id: mintAudioBlockId(), origName: String(file.name || ''), file });
   }
   if (!items.length) return;

@@ -27,11 +27,61 @@
 
 const MP3_KBPS = 128;              // transparent for voice/reference; ~1MB/min
 const LAME_BLOCK = 1152;           // one MPEG frame's worth of samples per encodeBuffer call
+// The encode is pure CPU with NO awaits of its own, so left un-chunked it runs to completion in one
+// synchronous burst — the builder measured 4.3s for the real 128s Boat Nile .qta, during which the
+// tab is frozen (the 'CONVERTING…' spinner can't even animate and clicks queue). We break the sample
+// loop into slices and hand the event loop a macrotask every YIELD_EVERY_FRAMES MPEG frames so the UI
+// keeps painting and stays responsive. 32 frames ≈ 32×1152/44100 ≈ 0.84s of audio per slice — enough
+// work per turn that scheduling overhead is negligible, small enough that no single turn janks.
+export const YIELD_EVERY_FRAMES = 32;
+
+// One macrotask turn — setTimeout(0), NOT a microtask (queueMicrotask/Promise.resolve). A microtask
+// yield would drain back into this same loop before the browser gets to paint, so it would NOT unfreeze
+// the tab. A macrotask lets a render frame + queued input run between slices. Injectable for tests.
+export function macrotaskYield() {
+  return new Promise((r) => setTimeout(r));
+}
 
 // Clamp a float sample to [-1,1] and scale to signed 16-bit (lamejs wants Int16 PCM).
 function floatToInt16(x) {
   const s = Math.max(-1, Math.min(1, x || 0));
   return s < 0 ? s * 0x8000 : s * 0x7fff;
+}
+
+// PURE, INJECTABLE chunked encode loop — the responsiveness fix lives here, isolated from AudioContext
+// and lamejs so it is unit-testable under bun. Walks the float PCM in LAME_BLOCK slices, feeds each to
+// `encoder` (duck-typed: encodeBuffer(l16[, r16]) → bytes, flush() → bytes), and AWAITS `sleep()` every
+// YIELD_EVERY_FRAMES frames so the main thread is released mid-encode. Reusing the l16/r16 scratch
+// buffers across yields is safe: encodeBuffer copies its input synchronously before we ever await.
+// onProgress(0..1) fires at each yield boundary and once at the end. Returns the mp3 byte chunks.
+export async function encodePcmChunked({
+  left, right, length, encoder,
+  onProgress, yieldEvery = YIELD_EVERY_FRAMES, sleep = macrotaskYield,
+}) {
+  const l16 = new Int16Array(LAME_BLOCK);
+  const r16 = right ? new Int16Array(LAME_BLOCK) : null;
+  const chunks = [];
+  let framesSinceYield = 0;
+  for (let i = 0; i < length; i += LAME_BLOCK) {
+    const n = Math.min(LAME_BLOCK, length - i);
+    for (let j = 0; j < n; j++) {
+      l16[j] = floatToInt16(left[i + j]);
+      if (r16) r16[j] = floatToInt16(right[i + j]);
+    }
+    const enc16L = l16.subarray(0, n);
+    const buf = r16 ? encoder.encodeBuffer(enc16L, r16.subarray(0, n)) : encoder.encodeBuffer(enc16L);
+    if (buf && buf.length) chunks.push(new Uint8Array(buf));
+    // Yield only BETWEEN slices, never after the final one (the flush + return happen right below).
+    if (++framesSinceYield >= yieldEvery && i + LAME_BLOCK < length) {
+      framesSinceYield = 0;
+      try { onProgress?.(Math.min(0.99, (i + n) / length)); } catch {}
+      await sleep();
+    }
+  }
+  const tail = encoder.flush();
+  if (tail && tail.length) chunks.push(new Uint8Array(tail));
+  try { onProgress?.(1); } catch {}
+  return chunks;
 }
 
 // decodeAudioData with both the modern promise form and the legacy callback form (Safari), on a
@@ -58,7 +108,7 @@ async function decodeToPcm(arrayBuffer) {
 // AudioBuffer (float PCM) → mp3 File via lamejs. Mono or stereo (down to ≤2 channels — mp3 is
 // stereo max; extra channels are dropped, which is correct for a voice memo/reference). Returns a
 // File(audio/mpeg) carrying its measured duration on __durationSec so the caller can persist it.
-async function encodePcmToMp3(audioBuf, name) {
+async function encodePcmToMp3(audioBuf, name, { onProgress } = {}) {
   const mod = await import('@breezystack/lamejs');
   const Mp3Encoder = (mod.default || mod).Mp3Encoder;
   if (typeof Mp3Encoder !== 'function') throw new Error('mp3 encoder unavailable');
@@ -69,22 +119,8 @@ async function encodePcmToMp3(audioBuf, name) {
 
   const left = audioBuf.getChannelData(0);
   const right = channels > 1 ? audioBuf.getChannelData(1) : null;
-  const len = left.length;
-  const l16 = new Int16Array(LAME_BLOCK);
-  const r16 = right ? new Int16Array(LAME_BLOCK) : null;
-  const chunks = [];
-  for (let i = 0; i < len; i += LAME_BLOCK) {
-    const n = Math.min(LAME_BLOCK, len - i);
-    for (let j = 0; j < n; j++) {
-      l16[j] = floatToInt16(left[i + j]);
-      if (r16) r16[j] = floatToInt16(right[i + j]);
-    }
-    const enc16L = l16.subarray(0, n);
-    const buf = r16 ? enc.encodeBuffer(enc16L, r16.subarray(0, n)) : enc.encodeBuffer(enc16L);
-    if (buf && buf.length) chunks.push(new Uint8Array(buf));
-  }
-  const tail = enc.flush();
-  if (tail && tail.length) chunks.push(new Uint8Array(tail));
+  // Chunked + yielding so the encode never freezes the tab (see encodePcmChunked).
+  const chunks = await encodePcmChunked({ left, right, length: left.length, encoder: enc, onProgress });
 
   const blob = new Blob(chunks, { type: 'audio/mpeg' });
   if (!blob.size) throw new Error('empty mp3 output');
@@ -119,8 +155,10 @@ async function transcodeViaFfmpeg(file) {
 // Transcode any browser-undecodable-or-non-web audio File to a 128kbps mp3 File. decodeAudioData →
 // lamejs is the default; ffmpeg.wasm is the last resort when the browser can't decode at all. THROWS
 // on total failure — the caller (image-drop.js) turns that into a visible uploadError, never a silent
-// vanish. onProgress(0..1) is optional (encode is fast enough that we don't wire it today).
-export async function transcodeToMp3(file /*, { onProgress } = {} */) {
+// vanish. onProgress(0..1) narrates encode progress into the block's status card AND is what makes the
+// long transcode feel alive — the encode now yields the main thread mid-loop (encodePcmChunked), so the
+// spinner animates and these ticks actually land instead of arriving all at once after a frozen burst.
+export async function transcodeToMp3(file, { onProgress } = {}) {
   const bytes = await file.arrayBuffer();
   let audioBuf = null;
   try {
@@ -135,5 +173,5 @@ export async function transcodeToMp3(file /*, { onProgress } = {} */) {
       throw new Error('this audio format could not be converted to mp3');
     }
   }
-  return encodePcmToMp3(audioBuf, file.name);
+  return encodePcmToMp3(audioBuf, file.name, { onProgress });
 }
