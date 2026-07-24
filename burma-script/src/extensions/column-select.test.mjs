@@ -33,6 +33,7 @@ import { BURMA_NODES } from './blocks.js';
 import {
   BURMA_TABLE_NODES, cellColumnAt, columnCrossed, columnScopedCells,
   columnScopeDecorations, columnScopeForDrag, columnSelectEnabled, collectIntersectingRows,
+  columnSelectPlugin, activeColumnScopeRole,
 } from './table.js';
 import { __setReadOnlyForTest } from '../read-mode.js';
 import { BURMA_MARKS } from './marks.js';
@@ -247,6 +248,48 @@ ok('columnSelectEnabled: false on a read-only share, true in a normal edit sessi
   } finally {
     __setReadOnlyForTest(false); // never leak read-only into a later test
   }
+});
+
+// ── 9. columnSelectPlugin reducer + activeColumnScopeRole — the convert-menu bridge ───────────
+// The pure helpers above are covered, but the LIVE SEAM between the gesture and a bulk tag was not:
+// convert-menu.js scopes a bulk tag with `activeColumnScopeRole(view) || clickedCellRole(...)` so a
+// tag lands in the DRAGGED lane even if the right-click drifts into the other column ("honor the
+// selected cells", Johnny 2026-07-24). That reads the plugin's apply-reducer state through the
+// MODULE-PRIVATE colSelectKey. If a refactor breaks the reducer's meta handling or the key match,
+// activeColumnScopeRole silently returns null and the tag falls back to the pointer lane — the exact
+// pre-fix "tags land in both columns" behavior, with no other test catching it. Drive the REAL
+// reducer end-to-end (setMeta on the plugin instance ⇔ getMeta(colSelectKey) by shared key string).
+ok('columnSelectPlugin reducer + activeColumnScopeRole: engage → read back the dragged lane; collapse clears it', () => {
+  const doc = docFrom({ type: 'doc', content: [splitRow(1, 'aaa', 'bbb'), splitRow(2, 'ccc', 'ddd'), splitRow(3, 'eee', 'fff')] });
+  const saidCells = leafCells(doc).filter((c) => c.role === 'said');
+  const plugin = columnSelectPlugin();
+  let state = EditorState.create({
+    schema, doc, plugins: [plugin],
+    selection: TextSelection.create(doc, saidCells[0].inner, saidCells[2].inner),
+  });
+  // Mounted, no scope yet → the bridge reads null so convert-menu falls to the pointer lane.
+  assert.equal(activeColumnScopeRole({ state }), null, 'no scope engaged → null (pointer-lane fallback)');
+  // Engage a said scope via a meta tr (the gesture handler's setScope path).
+  state = state.apply(state.tr.setMeta(plugin, { role: 'said' }));
+  assert.equal(activeColumnScopeRole({ state }), 'said', 'reducer honored the meta; bridge reads the dragged lane');
+  // The reactive decoration set follows the scope: one node deco per said cell in the span.
+  const decoSet = plugin.props.decorations(state);
+  assert.equal(decoSet ? decoSet.find().length : 0, 3, 'three said cells decorated across the run');
+  // Collapsing the selection clears the scope so a later click can't inherit a stale lane.
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, saidCells[0].inner, saidCells[0].inner)));
+  assert.equal(activeColumnScopeRole({ state }), null, 'collapsed selection clears the scope');
+});
+
+// ── 10. activeColumnScopeRole degradation — never throws on a plugin-less / garbage view ──────
+// On a ?read share the plugin is NOT mounted (columnSelectEnabled gate), so convert-menu still calls
+// activeColumnScopeRole on a view whose state lacks the plugin. It must degrade to null (fall through
+// to clickedCellRole), never throw — the try/catch + optional-chaining safety net.
+ok('activeColumnScopeRole degrades to null on a plugin-less / garbage / null view (never throws)', () => {
+  const doc = docFrom({ type: 'doc', content: [splitRow(1, 'aaa', 'bbb')] });
+  const plainState = EditorState.create({ schema, doc }); // plugin NOT mounted (mirrors a read share)
+  assert.equal(activeColumnScopeRole({ state: plainState }), null, 'plugin not mounted → null (read-share fallthrough)');
+  assert.equal(activeColumnScopeRole({}), null, 'garbage view → null');
+  assert.equal(activeColumnScopeRole(null), null, 'null view → null (caught, not thrown)');
 });
 
 console.log(`column-select.test.mjs: ${pass} assertions passed`);
