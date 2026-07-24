@@ -1041,11 +1041,19 @@ export function columnSelectPlugin() {
           const anchorCell = cellColumnAt(doc, anchorPos);
           const headCell = headPos != null ? cellColumnAt(doc, headPos) : null;
           const role = shiftClickColumnScope(anchorCell, headCell);
+          // Build the selection BEFORE preventDefault (review NIT 2026-07-24): if TextSelection.create
+          // ever threw on a degenerate anchor (e.g. a NodeSelection over an in-cell image left the
+          // anchor at a non-inline pos), suppressing the native shift-extend first would leave a DEAD
+          // shift-click. Computing it first means a throw falls through to the native both-column path
+          // instead of a no-op. Mirrors the defensive TextSelection.create sites at 709/788.
+          let sel = null;
           if (role && headPos != null) {
+            try { sel = TextSelection.create(doc, anchorPos, headPos); } catch { sel = null; }
+          }
+          if (sel) {
             e.preventDefault();          // stop the native shift-extend from clobbering our selection
             colDragging = false;
             colDragAnchor = null;
-            const sel = TextSelection.create(doc, anchorPos, headPos);
             editorView.dispatch(
               editorView.state.tr.setSelection(sel).setMeta(colSelectKey, { role }),
             );
