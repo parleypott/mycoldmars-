@@ -98,6 +98,7 @@
     color:var(--ink-soft);background:transparent;border:1.5px solid var(--line);border-radius:4px;
     padding:8px 13px;cursor:pointer}
   .bb-btn:active{border-color:var(--orange);color:var(--orange)}
+  #btn-refresh.has-update{color:var(--orange);border-color:var(--orange);font-weight:700}
   /* ── the listener ── */
   #btn-listen{border-color:var(--orange);color:var(--orange);white-space:nowrap}
   #btn-listen.live{background:var(--orange);color:#fff;border-color:var(--orange)}
@@ -386,6 +387,7 @@
   <button class="bb-btn" id="btn-mode" title="switch between pages and scrolling">≡ scroll</button>
   <button class="bb-btn" id="btn-style" title="reading style — British Energy or System 6">british</button>
   <button class="bb-btn" id="btn-theme" title="night mode" aria-label="night mode">◐</button>
+  <button class="bb-btn" id="btn-refresh" title="check for the newest version" aria-label="refresh">↻</button>
   <button class="bb-btn" id="btn-chapters" title="contents" aria-label="contents">ch</button>
 </footer>
 
@@ -1669,6 +1671,66 @@ flushNoteQueue();
 // when the app comes back to the foreground and on a slow heartbeat
 document.addEventListener('visibilitychange', () => { if (!document.hidden) flushNoteQueue(); });
 setInterval(() => { if (queuedNotes().length) flushNoteQueue(); }, 60000);
+
+/* ── live updates ──────────────────────────────────────────────────────────
+   Johnny publishes several times a day. Detect when a newer book.json has
+   shipped and (a) light the ↻ button, (b) reload when the reader clearly is
+   not mid-read (tab just returned after a while, or long-idle). The reader's
+   place memory (bg-place2 = "ci:pi|first-40-chars") re-finds their exact spot
+   across a republish, so a plain reload keeps them where they were. */
+(function () {
+  let loadedVersion = null, updateReady = false, lastActive = Date.now(), hiddenSince = 0;
+  ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(e =>
+    addEventListener(e, () => { lastActive = Date.now(); }, { passive: true }));
+
+  const curVersion = () => { try { return (BOOK && (BOOK.version || BOOK.published_at)) || null; } catch { return null; } };
+
+  async function remoteVersion() {
+    try {
+      const r = await fetch('/burgundy/book.json?v=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return null;
+      const b = await r.json();
+      return (b && typeof b === 'object') ? (b.version || b.published_at || null) : null;
+    } catch { return null; }
+  }
+
+  function markUpdate() {
+    updateReady = true;
+    const b = document.getElementById('btn-refresh');
+    if (b) { b.classList.add('has-update'); b.title = 'a new version was published — tap to load it'; }
+  }
+
+  function reloadKeepingPlace() {
+    // pin the current spot one more time before the reload (belt + braces;
+    // the scroll handler already saves it continuously)
+    try {
+      const el = [...document.querySelectorAll('p[data-key]')].find(p => p.getBoundingClientRect().bottom > 90);
+      if (el && typeof placeValueFor === 'function' && typeof safeSet === 'function') safeSet('bg-place2', placeValueFor(el));
+    } catch {}
+    location.reload();
+  }
+
+  async function check(kind, awayMs) {
+    if (!loadedVersion) loadedVersion = curVersion();
+    if (!loadedVersion) return;                       // book not loaded yet
+    const v = await remoteVersion();
+    if (!v || v === loadedVersion) return;            // nothing new
+    markUpdate();
+    if (kind === 'return' && (awayMs || 0) > 15000) return reloadKeepingPlace();   // came back after a while
+    if (kind === 'idle' && (Date.now() - lastActive) > 4 * 60000) return reloadKeepingPlace();  // sat idle
+  }
+
+  // manual button: always reloads to the newest version, keeping the spot
+  const wire = () => { const b = document.getElementById('btn-refresh'); if (b && !b._wired) { b._wired = 1; b.addEventListener('click', reloadKeepingPlace); } };
+  wire(); addEventListener('DOMContentLoaded', wire);
+
+  setTimeout(() => { loadedVersion = curVersion(); }, 2500);   // capture after boot()
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenSince = Date.now(); return; }
+    check('return', hiddenSince ? Date.now() - hiddenSince : 0);
+  });
+  setInterval(() => { if (!document.hidden) check('idle'); }, 90000);
+})();
 </script>
 </body>
 </html>
