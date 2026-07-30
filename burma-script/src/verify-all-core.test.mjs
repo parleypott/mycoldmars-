@@ -13,7 +13,7 @@
 //   5. CANCEL: stops the queue and aborts in-flight work.
 
 import assert from 'node:assert';
-import { planRuns, runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, INFRA_FAILURE_LIMIT, isInfraFailure } from './verify-all-core.js';
+import { planRuns, runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, INFRA_FAILURE_LIMIT, isInfraFailure, isUnavailable } from './verify-all-core.js';
 
 let pass = 0, fail = 0;
 function ok(name, cond) {
@@ -201,6 +201,24 @@ ok('isInfraFailure: 429 yes', isInfraFailure('HTTP 429') === true);
 ok('isInfraFailure: rate limited yes', isInfraFailure('rate limited') === true);
 ok('isInfraFailure: timed out NO (per-claim)', isInfraFailure('timed out') === false);
 ok('isInfraFailure: model error NO (per-claim)', isInfraFailure('marker too long') === false);
+
+
+// ── 7. 501 = definitive, stop on the FIRST one ──────────────────────────────
+{
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  let hits = 0;
+  const res = await runVerifyAll({
+    runs: Array.from({ length: 20 }, (_, i) => R2(`c${i}`)), storage: memStorage(), concurrency: 1, corpusFor: null,
+    fetchImpl: async () => { hits++; return { ok: false, status: 501, text: async () => JSON.stringify({ error: 'deep_unavailable', message: 'Deep fact-check is off on this deployment' }) }; },
+  });
+  ok('501: stops on the FIRST hit, not after a streak', hits === 1);
+  ok('501: says it can be re-run later', /re-run/i.test(res.stoppedReason || ''));
+  ok('501: surfaces the server message', /unavailable|off on this deployment/i.test(res.stoppedReason || ''));
+}
+ok('isUnavailable: deep_unavailable yes', isUnavailable('deep_unavailable') === true);
+ok('isUnavailable: retrieval_not_configured yes', isUnavailable('retrieval_not_configured') === true);
+ok('isUnavailable: 502 NO', isUnavailable('server error (502)') === false);
+ok('isUnavailable: 429 NO', isUnavailable('HTTP 429') === false);
 
 assert.ok(true);
 console.log(`verify-all-core: ${pass} passed, ${fail} failed`);

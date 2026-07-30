@@ -57,6 +57,14 @@ export const INFRA_FAILURE_LIMIT = 3;
 // (502/503/504), the shared rate bucket (429), and the safe-parse fallback for a
 // non-JSON platform error page all mean "every other claim will hit this too". A timeout
 // or a model-level error is per-claim and must NOT count — the next claim deserves its turn.
+// A DEFINITIVE "not available here" — the server telling us this mode is switched off on
+// this deployment. Distinct from isInfraFailure: that's a streak (could be a blip), this is
+// proof on the first hit. Matches the 501 bodies from burma-tk (deep_unavailable) and
+// citations-search (retrieval_not_configured).
+export function isUnavailable(msg) {
+  return /\b501\b|_unavailable|not_configured|not available on this deployment/i.test(String(msg || ''));
+}
+
 export function isInfraFailure(msg) {
   return /\b(429|50[234])\b|rate limit|too many requests|server error \(/i.test(String(msg || ''));
 }
@@ -163,7 +171,13 @@ export async function runVerifyAll({
           // Per-claim failures (a bad marker, one timeout) must NOT trip this — they're
           // independent and the next claim deserves its turn. Only consecutive
           // infrastructure-shaped failures count, and the streak resets on any success.
-          if (isInfraFailure(msg)) {
+          // A 501 is DEFINITIVE, not a streak: the server is saying this mode is not
+          // available on this deployment. One is proof; there is no point spending two
+          // more claims confirming it.
+          if (isUnavailable(msg)) {
+            ctl.cancel();
+            stoppedReason = `${msg} Nothing was lost — re-run once it's enabled and this picks up where it left off.`;
+          } else if (isInfraFailure(msg)) {
             infraStreak++;
             if (infraStreak >= INFRA_FAILURE_LIMIT) {
               ctl.cancel();

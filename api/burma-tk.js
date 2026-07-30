@@ -318,6 +318,30 @@ async function innerHandler(req) {
   // Cost guard — mirror research-claude.js. Cap the marker length too.
   if (marker.length > 1200) return json({ error: 'marker too long' }, 413);
 
+  // DEEP-MODE PLATFORM GATE (production incident 2026-07-30).
+  //
+  // fc-deep budgets FC_DEEP_TIMEOUT_MS (240s). This deployment enforces the 60s clamp the
+  // header above warns about, so every deep call was killed mid-run and returned a 502.
+  // Shallow fc budgets 50s and fits, which is why only the deep path died.
+  //
+  // The real damage was second-order: each 502 failed FAST and still consumed a token from
+  // the per-identity bucket below — the SAME bucket the writers' interactive VERIFY CLAIM
+  // uses — so a Verify All batch starved a working feature for the whole team. Hence this
+  // gate sits ABOVE the rate limiter: a request that cannot possibly succeed must not cost
+  // anyone their budget.
+  //
+  // Env-driven so re-enabling needs no deploy: set FC_DEEP_ENABLED=1 once the function's
+  // real ceiling is confirmed >= FC_DEEP_TIMEOUT_MS (declare api/burma-tk.js in vercel.json
+  // `functions` alongside cutter/transcribe, or raise the plan). 501 (not 502) because this
+  // is "not available on this deployment", never "upstream hiccup, retry might work" — the
+  // client stops the batch on 501 instead of grinding every remaining claim.
+  if (mode === 'fc-deep' && !process.env.FC_DEEP_ENABLED) {
+    return json({
+      error: 'deep_unavailable',
+      message: 'Deep fact-check is off on this deployment: it needs a longer function time limit than is currently configured. The normal VERIFY CLAIM check still works.',
+    }, 501);
+  }
+
   // RATE LIMIT — only genuine, validated requests (which are the ones that would call Anthropic) count
   // against the bucket; cheap 400/405/413 rejects above do not consume tokens. Keyed per identity.
   const rl = rateLimitCheck(identityKey(req));
