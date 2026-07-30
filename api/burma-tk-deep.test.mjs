@@ -158,6 +158,83 @@ const ARGS = { marker: 'the junta controls about 21% of the country', block: 'B'
   }
 }
 
+
+// ---- 8. ANTHROPIC KEY FAILOVER (2026-07-30: primary spend cap emptied mid-fact-check) ----
+{
+  const realFetch = globalThis.fetch;
+  const savedPrimary = process.env.ANTHROPIC_API_KEY;
+  const savedBackup = process.env.ANTHROPIC_API_KEY_BACKUP;
+  process.env.ANTHROPIC_API_KEY = 'primary-key';
+  process.env.ANTHROPIC_API_KEY_BACKUP = 'backup-key';
+  process.env.BURMA_TK_TIMEOUT_MS = '2000';
+
+  const okBody = JSON.stringify({ content: [{ type: 'tool_use', name: 'emit_verdict', input: { verdict: 'true', finding: 'f', suggestedEdit: 'e', sources: [] } }] });
+  const mk = (status, body) => ({ ok: status >= 200 && status < 300, status, text: async () => body, clone() { return this; }, json: async () => JSON.parse(body) });
+
+  // A quota 400 on the primary must roll over to the backup and SUCCEED.
+  {
+    const keys = [];
+    globalThis.fetch = async (_u, init) => {
+      keys.push(init.headers['x-api-key']);
+      if (init.headers['x-api-key'] === 'primary-key') {
+        return mk(400, JSON.stringify({ error: { message: 'You have reached your specified API usage limits. You will regain access on 2026-08-01 at 00:00 UTC.' } }));
+      }
+      return mk(200, okBody);
+    };
+    const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok('failover: quota 400 rolls over to the backup key', keys.length === 2 && keys[0] === 'primary-key' && keys[1] === 'backup-key');
+    ok('failover: the request then SUCCEEDS on the backup', r.status === 200);
+  }
+
+  // A malformed-request 400 must NOT failover — it fails identically on any key.
+  {
+    const keys = [];
+    globalThis.fetch = async (_u, init) => { keys.push(init.headers['x-api-key']); return mk(400, JSON.stringify({ error: { message: 'messages.0.content: expected array' } })); };
+    const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok('failover: a plain 400 does NOT burn the backup key', keys.length === 1);
+    ok('failover: plain 400 surfaces as 422, not 502', r.status === 422);
+  }
+
+  // 429 and 401 are account-shaped -> failover.
+  for (const st of [429, 401]) {
+    const keys = [];
+    globalThis.fetch = async (_u, init) => { keys.push(init.headers['x-api-key']); return init.headers['x-api-key'] === 'primary-key' ? mk(st, '{}') : mk(200, okBody); };
+    const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok(`failover: ${st} rolls over`, keys.length === 2 && r.status === 200);
+  }
+
+  // 5xx is Anthropic being unwell, not this key.
+  {
+    const keys = [];
+    globalThis.fetch = async (_u, init) => { keys.push(init.headers['x-api-key']); return mk(503, 'upstream down'); };
+    const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok('failover: 5xx does NOT failover (not a key problem)', keys.length === 1);
+    ok('failover: 5xx stays 502', r.status === 502);
+  }
+
+  // Both cards refused -> report it, so nobody tops up the wrong account.
+  {
+    globalThis.fetch = async () => mk(400, JSON.stringify({ error: { message: 'You have reached your specified API usage limits.' } }));
+    const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok('failover: both refused -> triedBackupKey flagged', r.body && r.body.triedBackupKey === true);
+    ok('failover: both refused -> the real message survives', r.body && /usage limits/i.test(r.body.message || ''));
+  }
+
+  // No backup configured -> behave exactly as before.
+  {
+    delete process.env.ANTHROPIC_API_KEY_BACKUP;
+    const keys = [];
+    globalThis.fetch = async (_u, init) => { keys.push(init.headers['x-api-key']); return mk(400, JSON.stringify({ error: { message: 'usage limits' } })); };
+    await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok('failover: no backup configured -> exactly one call', keys.length === 1);
+  }
+
+  globalThis.fetch = realFetch;
+  if (savedPrimary !== undefined) process.env.ANTHROPIC_API_KEY = savedPrimary; else delete process.env.ANTHROPIC_API_KEY;
+  if (savedBackup !== undefined) process.env.ANTHROPIC_API_KEY_BACKUP = savedBackup; else delete process.env.ANTHROPIC_API_KEY_BACKUP;
+  delete process.env.BURMA_TK_TIMEOUT_MS;
+}
+
 assert.ok(true);
 console.log(`burma-tk-deep: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

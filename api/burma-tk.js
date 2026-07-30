@@ -375,23 +375,57 @@ async function innerHandler(req) {
   // the upstream promise is the only pending work), which would silently disarm the deadline.
   // The race clears it the moment either branch settles, so it can't leak.
   let deadlineTimer;
+  // Surfaced on the response so a run that quietly moved to the second card is visible in
+  // the network tab rather than being indistinguishable from a normal one.
+  let usedBackupKey = false;
+
   const deadline = new Promise((resolve) => {
     deadlineTimer = setTimeout(() => { ac.abort(); resolve(TIMED_OUT); }, timeoutMs);
+  });
+
+  const callAnthropic = (key) => fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(payload),
+    signal: ac.signal,
   });
 
   const upstream = (async () => {
     let res;
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(payload),
-        signal: ac.signal,
-      });
+      res = await callAnthropic(apiKey);
+
+      // KEY FAILOVER. On 2026-07-30 the primary key's spend cap emptied mid-fact-check and
+      // every remaining claim died — with a whole script still to verify and a hard reset
+      // date days away. ANTHROPIC_API_KEY_BACKUP is the second card.
+      //
+      // Retry ONLY on account-shaped refusals, and only ONCE:
+      //   401/403 → key revoked or wrong
+      //   429     → this key is rate-limited; a different account may not be
+      //   400     → ONLY when the body reads as quota/credit/usage-limit. A plain 400 is a
+      //             malformed REQUEST and would fail identically on any key — retrying it
+      //             would just burn a second call and double the latency for nothing.
+      // 5xx is Anthropic being unwell, not this key, so it doesn't failover either.
+      //
+      // Cheap by construction: every one of these refusals returns immediately, so the retry
+      // costs milliseconds against the request deadline rather than a second full attempt.
+      const backupKey = process.env.ANTHROPIC_API_KEY_BACKUP;
+      if (!res.ok && backupKey && backupKey !== apiKey) {
+        const st = Number(res.status);
+        let shouldFailover = st === 401 || st === 403 || st === 429;
+        if (st === 400) {
+          const peek = await res.clone().text().catch(() => '');
+          shouldFailover = /usage limit|credit balance|quota|billing|insufficient/i.test(peek);
+        }
+        if (shouldFailover) {
+          usedBackupKey = true;
+          res = await callAnthropic(backupKey);
+        }
+      }
     } catch (err) {
       if (err?.name === 'AbortError') return TIMED_OUT;
       return json({ error: `anthropic unreachable: ${err?.message || err}` }, 502);
@@ -423,6 +457,8 @@ async function innerHandler(req) {
         error: passthrough ? 'upstream_rejected' : `anthropic ${res.status}: ${detail}`,
         message: passthrough ? `Anthropic (${upstreamStatus}): ${detail}` : undefined,
         upstreamStatus,
+        // Both cards refused — say so, or the operator tops up the wrong account.
+        triedBackupKey: usedBackupKey || undefined,
       }, outStatus);
     }
 
