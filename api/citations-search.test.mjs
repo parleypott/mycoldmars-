@@ -23,7 +23,7 @@ function mkReq({ method = 'POST', headers = {}, jsonThrows = false, jsonValue = 
 // env snapshot / helpers — bun auto-loads .env, so mutate explicitly per test.
 const snap = { ...process.env };
 function resetEnv() {
-  for (const k of ['ACCESS_CODE', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'SUPABASE_SERVICE_ROLE_KEY']) {
+  for (const k of ['ACCESS_CODE', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'RAG_SUPABASE_URL', 'RAG_SUPABASE_SERVICE_KEY']) {
     delete process.env[k];
   }
 }
@@ -115,6 +115,53 @@ function resetEnv() {
   ok(/JINA_API_KEY/.test(body.message || ''), 'message names the missing var so it is actionable');
 
   if (jinaSnap !== undefined) process.env.JINA_API_KEY = jinaSnap;
+}
+
+
+// 10. CORPUS/APP DATABASE SPLIT (2026-07-30: production's SUPABASE_URL pointed at the
+//     legacy app DB while the corpus lived elsewhere -> PGRST202 on every retrieval).
+//     RAG_SUPABASE_* must WIN so retrieval can be aimed at the corpus independently.
+{
+  resetEnv();
+  process.env.SUPABASE_URL = 'https://app-db.supabase.co';
+  process.env.SUPABASE_SERVICE_KEY = 'app-key';
+  process.env.RAG_SUPABASE_URL = 'https://corpus-db.supabase.co';
+  process.env.RAG_SUPABASE_SERVICE_KEY = 'corpus-key';
+  process.env.JINA_API_KEY = 'jina-test-key';
+
+  const realFetch = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (u, init) => {
+    seen.push(String(u));
+    if (String(u).includes('jina.ai')) {
+      return { ok: true, status: 200, json: async () => ({ data: [{ embedding: Array.from({ length: 1024 }, () => 0.01) }] }) };
+    }
+    return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+  };
+  try {
+    await handler(mkReq({ jsonValue: { query: 'a claim' } }));
+    const rpc = seen.find((u) => u.includes('/rpc/search_rag_chunks')) || '';
+    ok(rpc.includes('corpus-db'), `RPC goes to the CORPUS project (got ${rpc || 'no rpc call'})`);
+    ok(!rpc.includes('app-db'), 'RPC does NOT go to the app project');
+  } finally { globalThis.fetch = realFetch; }
+}
+{
+  // Fallback intact: with no RAG_* set, the app pair is still used (today's behaviour).
+  resetEnv();
+  process.env.SUPABASE_URL = 'https://app-db.supabase.co';
+  process.env.SUPABASE_SERVICE_KEY = 'app-key';
+  process.env.JINA_API_KEY = 'jina-test-key';
+  const realFetch = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (u) => {
+    seen.push(String(u));
+    if (String(u).includes('jina.ai')) return { ok: true, status: 200, json: async () => ({ data: [{ embedding: Array.from({ length: 1024 }, () => 0.01) }] }) };
+    return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+  };
+  try {
+    await handler(mkReq({ jsonValue: { query: 'a claim' } }));
+    ok((seen.find((u) => u.includes('/rpc/')) || '').includes('app-db'), 'no RAG_* set -> falls back to the app project');
+  } finally { globalThis.fetch = realFetch; }
 }
 
 // restore env

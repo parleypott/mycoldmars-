@@ -62,10 +62,24 @@ export default async function handler(req) {
     : typeof body.claim === 'string' ? body.claim.trim() : '';
   if (!query) return json({ error: 'query is required' }, 400);
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // THE CORPUS IS NOT THE APP'S DATABASE.
+  //
+  // This endpoint reads ONE thing — rag.chunks, an internal research corpus — and nothing
+  // else. It has no reason to live in the same project as script docs, users, or projects.
+  // On 2026-07-30 that coupling bit: production's SUPABASE_URL still points at the legacy
+  // app database, the corpus lives in the newer project, and every retrieval returned
+  // "PGRST202 — function public.search_rag_chunks not found". The corpus was fine; we were
+  // asking the wrong database.
+  //
+  // So RAG_SUPABASE_* takes precedence, falling back to the app's pair when unset. Setting
+  // the two RAG vars points retrieval straight at the corpus regardless of where app data
+  // lives — which means the RAG does NOT have to wait on the database migration, and will
+  // keep working unchanged once that migration lands.
+  const supabaseUrl = process.env.RAG_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.RAG_SUPABASE_SERVICE_KEY
+    || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseKey) {
-    return json({ error: 'Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_KEY)' }, 500);
+    return json({ error: 'Supabase is not configured (RAG_SUPABASE_URL / SUPABASE_URL)' }, 500);
   }
 
   // FEATURE GATE — sits with the other config checks, before the paid embed (same
