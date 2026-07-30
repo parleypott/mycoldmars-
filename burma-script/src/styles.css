@@ -2308,6 +2308,18 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
    runtime as a link to liveblocks.io; we never link there ourselves, so hide it wholesale. */
 a[href*="liveblocks.io"] { display: none !important; }
 
+/* ---- PROGRESS BARS (progress-counts.js) — document-wide FC / TK / archive strip under the
+   header. Flat, mono chrome to match the telemetry line. Pure read-only display, no interaction. */
+.wp-prog { display: flex; gap: 24px; align-items: flex-start; padding: 9px 4px 11px; border-bottom: 1px solid rgba(0,0,0,.10); }
+.wp-prog-item { flex: 1 1 0; min-width: 92px; }
+.wp-prog-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-family: var(--mono); font-size: var(--chrome-size-sm, 11px); letter-spacing: .06em; }
+.wp-prog-lab { text-transform: uppercase; color: var(--label, #6b6255); }
+.wp-prog-val { white-space: nowrap; color: var(--ink, #1f1d18); }
+.wp-prog-val b { font-weight: 700; }
+.wp-prog-track { margin-top: 6px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.10); overflow: hidden; }
+.wp-prog-fill { height: 100%; border-radius: 3px; transition: width .24s ease; }
+
 /* ---- HYPERLINKS (Cmd+K) — quiet editorial links: body ink, hairline underline that warms
    to the accent on hover. Cmd/Ctrl+click opens while editing; plain click just places the
    caret. FLAT: no button chrome, links are typography. */
