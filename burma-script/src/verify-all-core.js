@@ -121,7 +121,15 @@ export async function runVerifyAll({
           throw new Error(`server error (${res.status || 'network'})`);
         }
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-        persist(run.text, { verdict: data, verdictError: '' });
+        // Record whether the corpus actually reached the model. Retrieval degrades
+        // silently by design, and on a CITATIONS feature "grounded in Newpress research"
+        // vs "web-only because the RAG was down" must not look identical after the fact.
+        // 0 = web-only (no RAG, no hits, or a degraded call); N = N vetted chunks sent.
+        persist(run.text, {
+          verdict: data,
+          verdictError: '',
+          corpusUsed: Array.isArray(corpus) ? corpus.length : 0,
+        });
         done++;
       } catch (err) {
         if (!ctl.cancelled) {

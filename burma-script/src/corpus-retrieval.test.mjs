@@ -200,6 +200,29 @@ const verdictFetch = (sink) => async (_url, init) => {
   });
   ok('an empty corpus omits the key entirely', sent[0].corpus === undefined);
 }
+
+// ── 7. corpusUsed marker — grounded vs web-only must be distinguishable ─────
+{
+  const storage = memStorage();
+  await runVerifyAll({
+    runs: [R('claim six')], fetchImpl: verdictFetch([]), storage,
+    corpusFor: async () => [{ label: 'L', text: 'T', url: 'U' }, { label: 'L2', text: 'T2', url: '' }],
+  });
+  ok('corpusUsed records how many chunks reached the model', storage.peek()['claim six'].corpusUsed === 2);
+}
+{
+  const storage = memStorage();
+  await runVerifyAll({
+    runs: [R('claim seven')], fetchImpl: verdictFetch([]), storage,
+    corpusFor: async () => { throw new Error('RAG down'); },
+  });
+  ok('a degraded run is marked corpusUsed:0, not left ambiguous', storage.peek()['claim seven'].corpusUsed === 0);
+}
+{
+  const storage = memStorage();
+  await runVerifyAll({ runs: [R('claim eight')], fetchImpl: verdictFetch([]), storage, corpusFor: null });
+  ok('web-only opt-out is marked corpusUsed:0', storage.peek()['claim eight'].corpusUsed === 0);
+}
 {
   const sent = [];
   await runVerifyAll({ runs: [R('claim five')], fetchImpl: verdictFetch(sent), storage: memStorage(), corpusFor: null });
