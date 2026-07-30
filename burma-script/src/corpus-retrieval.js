@@ -65,8 +65,34 @@ export function toCorpusChunks(matches, { limit = CORPUS_LIMIT, minSimilarity = 
 // then silence, is the honest behavior. Module-scoped, so a page reload re-probes — which
 // is exactly what you want the moment the key IS set (no code change to re-enable).
 let _notConfigured = false;
+
+// CONSECUTIVE-FAILURE LATCH (2026-07-30, second incident). The 501 latch above only catches
+// a server that says "not provisioned". When the endpoint is provisioned but BROKEN — a bad
+// key in the deployment env, a dead upstream — every claim fails identically with a 502, and
+// the original design deliberately did not latch those on the grounds that a 502 might be
+// transient. Across a 45-claim batch that reasoning produces 45 identical errors for a
+// condition that fixed itself zero times.
+//
+// So: transient still gets the benefit of the doubt, but only for a WHILE. Three consecutive
+// failures of any shape and retrieval stands down for the session. Any success resets the
+// count, so a genuine blip costs at most a couple of claims their corpus.
+export const CORPUS_FAILURE_LIMIT = 3;
+let _consecutiveFail = 0;
+
 export function retrievalDisabled() { return _notConfigured; }
-export function resetRetrievalLatch() { _notConfigured = false; } // tests + manual re-probe
+export function resetRetrievalLatch() { _notConfigured = false; _consecutiveFail = 0; } // tests + manual re-probe
+
+// Every failure path funnels through here so the counter can't be bypassed by a new branch.
+function noteFailure(reason, onError) {
+  _consecutiveFail += 1;
+  if (_consecutiveFail >= CORPUS_FAILURE_LIMIT) {
+    _notConfigured = true;
+    if (onError) onError(`corpus retrieval failed ${_consecutiveFail}x (${reason}) — standing down for this session; fact-checks continue web-only`);
+  } else if (onError) {
+    onError(reason);
+  }
+  return [];
+}
 
 // Build the corpusFor(run) function the batch engine and the dock both take.
 // Returns an ASYNC fn — callers must await it (verify-all-core does).
@@ -96,7 +122,7 @@ export function makeCorpusFor({
       });
       const raw = await res.text();
       let data;
-      try { data = raw ? JSON.parse(raw) : {}; } catch { return []; }
+      try { data = raw ? JSON.parse(raw) : {}; } catch { return noteFailure(`non-JSON response (${res.status})`, onError); }
       // 501 = this deployment has no retrieval provisioned. Latch off for the session so a
       // batch reports it ONCE instead of once per claim. Any other error stays per-call —
       // a 429 or a transient 502 may well succeed on the next claim.
@@ -106,14 +132,13 @@ export function makeCorpusFor({
         return [];
       }
       if (!res.ok || data.error) {
-        if (onError) onError(data.error || `HTTP ${res.status}`);
-        return [];
+        return noteFailure(data.error || `HTTP ${res.status}`, onError);
       }
+      _consecutiveFail = 0; // a success proves the path is healthy
       return toCorpusChunks(data.matches, { limit, minSimilarity });
     } catch (e) {
-      // Includes the abort. Silent by default — the fact-check proceeds web-only.
-      if (onError) onError(String((e && e.message) || e));
-      return [];
+      // Includes the abort. The fact-check proceeds web-only either way.
+      return noteFailure(String((e && e.message) || e), onError);
     } finally {
       if (killer) clearTimeout(killer);
     }

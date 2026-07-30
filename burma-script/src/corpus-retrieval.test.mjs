@@ -16,7 +16,7 @@
 import assert from 'node:assert';
 import {
   hostOf, labelFor, toCorpusChunks, makeCorpusFor,
-  CORPUS_LIMIT, CORPUS_MIN_SIMILARITY, CORPUS_ENDPOINT, retrievalDisabled, resetRetrievalLatch,
+  CORPUS_LIMIT, CORPUS_MIN_SIMILARITY, CORPUS_ENDPOINT, retrievalDisabled, resetRetrievalLatch, CORPUS_FAILURE_LIMIT,
 } from './corpus-retrieval.js';
 import { runVerifyAll } from './verify-all-core.js';
 
@@ -97,7 +97,11 @@ const okFetch = (body, status = 200) => {
 }
 
 // ── 5. makeCorpusFor — degrade, never block ─────────────────────────────────
+// Each block resets the module-level latch: the consecutive-failure counter is per SESSION
+// by design (see corpus-retrieval.js), so back-to-back error cases would otherwise trip it
+// mid-section and the later blocks would assert against a short-circuited call.
 {
+  resetRetrievalLatch();
   const f = okFetch({ matches: [M()] });
   const corpusFor = makeCorpusFor({ fetchImpl: f });
   ok('empty run text short-circuits to []', (await corpusFor({ text: '   ' })).length === 0);
@@ -105,30 +109,36 @@ const okFetch = (body, status = 200) => {
   ok('missing run object returns []', (await corpusFor(undefined)).length === 0);
 }
 {
+  resetRetrievalLatch();
   const errs = [];
   const corpusFor = makeCorpusFor({ fetchImpl: okFetch({ error: 'rate limited' }, 429), onError: (e) => errs.push(e) });
   ok('429 degrades to []', (await corpusFor({ text: 'q' })).length === 0);
   ok('429 surfaces via onError', errs[0] === 'rate limited');
 }
 {
+  resetRetrievalLatch();
   const corpusFor = makeCorpusFor({ fetchImpl: okFetch({ error: 'search failed: supabase 502' }, 200) });
   ok('200 with {error} degrades to []', (await corpusFor({ text: 'q' })).length === 0);
 }
 {
+  resetRetrievalLatch();
   const f = async () => ({ ok: true, status: 200, text: async () => '<html>gateway timeout</html>' });
   ok('non-JSON body degrades to []', (await makeCorpusFor({ fetchImpl: f })({ text: 'q' })).length === 0);
 }
 {
+  resetRetrievalLatch();
   const f = async () => ({ ok: true, status: 200, text: async () => '' });
   ok('empty body degrades to []', (await makeCorpusFor({ fetchImpl: f })({ text: 'q' })).length === 0);
 }
 {
+  resetRetrievalLatch();
   const f = async () => { throw new Error('network down'); };
   const errs = [];
   ok('thrown fetch degrades to []', (await makeCorpusFor({ fetchImpl: f, onError: (e) => errs.push(e) })({ text: 'q' })).length === 0);
   ok('thrown fetch surfaces via onError', errs[0].includes('network down'));
 }
 {
+  resetRetrievalLatch();
   const f = (url, init) => new Promise((_res, rej) => {
     if (init.signal) init.signal.addEventListener('abort', () => rej(new Error('aborted')));
   });
@@ -138,6 +148,7 @@ const okFetch = (body, status = 200) => {
   ok('timeout fires on its own bound, not the batch deadline', Date.now() - started < 3000);
 }
 {
+  resetRetrievalLatch();
   const f = okFetch({ matches: 'not-an-array' });
   ok('malformed matches degrades to []', (await makeCorpusFor({ fetchImpl: f })({ text: 'q' })).length === 0);
 }
@@ -272,6 +283,37 @@ const verdictFetch = (sink) => async (_url, init) => {
   await corpusFor({ text: 'a' }); await corpusFor({ text: 'b' });
   ok('429 does NOT latch — the budget refills', retrievalDisabled() === false);
   ok('429 keeps trying each claim', calls.length === 2);
+  resetRetrievalLatch();
+}
+
+
+// ── 9. CONSECUTIVE-FAILURE LATCH — a broken endpoint stops after 3, not 45 ──
+{
+  resetRetrievalLatch();
+  const calls = [];
+  const errs = [];
+  const f = async (u) => { calls.push(u); return { ok: false, status: 502, text: async () => JSON.stringify({ error: 'embedding failed: jina 401' }) }; };
+  const corpusFor = makeCorpusFor({ fetchImpl: f, onError: (e) => errs.push(e) });
+  for (let i = 0; i < 20; i++) await corpusFor({ text: `claim ${i}` });
+  ok('fail-latch: stops after CORPUS_FAILURE_LIMIT', calls.length === CORPUS_FAILURE_LIMIT);
+  ok('fail-latch: final message says it stood down', /standing down/i.test(errs[errs.length - 1] || ''));
+  ok('fail-latch: message keeps the underlying reason', /jina 401/i.test(errs[errs.length - 1] || ''));
+  ok('fail-latch: reassures that checks continue', /web-only/i.test(errs[errs.length - 1] || ''));
+  resetRetrievalLatch();
+}
+{
+  // A success in between resets the streak — a genuine blip costs at most a claim or two.
+  resetRetrievalLatch();
+  let n = 0;
+  const calls = [];
+  const f = async (u) => {
+    calls.push(u); n++;
+    if (n % 3 === 0) return { ok: true, status: 200, text: async () => JSON.stringify({ matches: [] }) };
+    return { ok: false, status: 502, text: async () => JSON.stringify({ error: 'blip' }) };
+  };
+  const corpusFor = makeCorpusFor({ fetchImpl: f });
+  for (let i = 0; i < 12; i++) await corpusFor({ text: `c${i}` });
+  ok('fail-latch: intermittent failure never latches', calls.length === 12 && retrievalDisabled() === false);
   resetRetrievalLatch();
 }
 
