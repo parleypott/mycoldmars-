@@ -46,7 +46,12 @@ export function VerifyAllBar({ editor }) {
     try {
       const summary = await startVerifyAll(editor, { controller: ctl, onProgress: (p) => setProgress(p) });
       window.dispatchEvent(new CustomEvent('wp-toast', {
-        detail: summary.cancelled
+        // stoppedReason FIRST: the circuit breaker cancels the controller to halt the
+        // queue, so `cancelled` is true even though the user never clicked cancel.
+        // Reporting "cancelled" there would blame them for a server outage.
+        detail: summary.stoppedReason
+          ? { tone: 'error', msg: `verify all stopped — ${summary.stoppedReason}` }
+          : summary.cancelled
           ? { msg: `verify all cancelled — ${summary.done} finished first` }
           : summary.failed
             ? { tone: 'error', msg: `fact checks done — ${summary.done} checked, ${summary.failed} failed (they'll retry on the next run)` }

@@ -13,7 +13,7 @@
 //   5. CANCEL: stops the queue and aborts in-flight work.
 
 import assert from 'node:assert';
-import { planRuns, runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS } from './verify-all-core.js';
+import { planRuns, runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, INFRA_FAILURE_LIMIT, isInfraFailure } from './verify-all-core.js';
 
 let pass = 0, fail = 0;
 function ok(name, cond) {
@@ -141,6 +141,66 @@ const okResponse = (body) => ({ ok: true, status: 200, text: async () => JSON.st
 }
 
 ok('const: client timeout sits above the 240s server bound', DEEP_CLIENT_TIMEOUT_MS === 260_000);
+
+
+// ── 6. CIRCUIT BREAKER (production incident 2026-07-30) ─────────────────────
+// A deployment-level failure is identical for every remaining claim. Grinding through
+// them drains the SAME rate bucket the writers' interactive VERIFY CLAIM uses, so a
+// broken batch degrades a working feature for the whole team.
+{
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  const runs = Array.from({ length: 20 }, (_, i) => R2(`claim ${i}`));
+  let hits = 0;
+  const store = memStorage();
+  const res = await runVerifyAll({
+    runs, storage: store, concurrency: 1, corpusFor: null,
+    fetchImpl: async () => { hits++; return { ok: false, status: 502, text: async () => '<html>Bad Gateway</html>' }; },
+  });
+  ok('breaker: stops well short of all 20 claims', hits <= INFRA_FAILURE_LIMIT + 1);
+  ok('breaker: reports why it stopped', /consecutive server failures/.test(res.stoppedReason || ''));
+  ok('breaker: tells the user nothing was lost', /re-run/i.test(res.stoppedReason || ''));
+}
+{
+  // 429 — the shared-bucket case — must also trip it.
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  let hits = 0;
+  const res = await runVerifyAll({
+    runs: Array.from({ length: 20 }, (_, i) => R2(`c${i}`)), storage: memStorage(), concurrency: 1, corpusFor: null,
+    fetchImpl: async () => { hits++; return { ok: false, status: 429, text: async () => JSON.stringify({ error: 'rate limited' }) }; },
+  });
+  ok('breaker: 429 trips it too', hits <= INFRA_FAILURE_LIMIT + 1 && !!res.stoppedReason);
+}
+{
+  // Per-claim failures must NOT trip it — all 20 deserve their turn.
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  let hits = 0;
+  const res = await runVerifyAll({
+    runs: Array.from({ length: 20 }, (_, i) => R2(`c${i}`)), storage: memStorage(), concurrency: 1, corpusFor: null,
+    fetchImpl: async () => { hits++; return { ok: false, status: 400, text: async () => JSON.stringify({ error: 'marker too long' }) }; },
+  });
+  ok('breaker: per-claim 400s do NOT trip it', hits === 20 && !res.stoppedReason);
+  ok('breaker: all 20 still recorded as failed', res.failed === 20);
+}
+{
+  // A success in the middle resets the streak.
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  let n = 0;
+  const res = await runVerifyAll({
+    runs: Array.from({ length: 9 }, (_, i) => R2(`c${i}`)), storage: memStorage(), concurrency: 1, corpusFor: null,
+    fetchImpl: async () => {
+      n++;
+      if (n === 3 || n === 6) return { ok: true, status: 200, text: async () => JSON.stringify({ verdict: 'true', sources: [] }) };
+      return { ok: false, status: 502, text: async () => '<html>Bad Gateway</html>' };
+    },
+  });
+  ok('breaker: a success resets the streak (2 fails, ok, 2 fails, ok, ...)', res.done === 2 && n >= 8);
+}
+
+ok('isInfraFailure: 502 yes', isInfraFailure('server error (502)') === true);
+ok('isInfraFailure: 429 yes', isInfraFailure('HTTP 429') === true);
+ok('isInfraFailure: rate limited yes', isInfraFailure('rate limited') === true);
+ok('isInfraFailure: timed out NO (per-claim)', isInfraFailure('timed out') === false);
+ok('isInfraFailure: model error NO (per-claim)', isInfraFailure('marker too long') === false);
 
 assert.ok(true);
 console.log(`verify-all-core: ${pass} passed, ${fail} failed`);
