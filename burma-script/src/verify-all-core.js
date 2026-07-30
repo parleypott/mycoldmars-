@@ -16,11 +16,16 @@
 
 // Server bounds fc-deep at 240s; the client belt-and-suspenders sits above it.
 export const DEEP_CLIENT_TIMEOUT_MS = 260_000;
+// Shallow batch bound. Mirrors the interactive contract in Workshop.jsx (70s client vs the
+// 50s FC_UPSTREAM_TIMEOUT_MS server deadline) — the client bound must always sit ABOVE its
+// server deadline or the UI gives up on a request the server would still have answered.
+export const SHALLOW_CLIENT_TIMEOUT_MS = 70_000;
+export const clientBoundFor = (mode) => (mode === 'fc-deep' ? DEEP_CLIENT_TIMEOUT_MS : SHALLOW_CLIENT_TIMEOUT_MS);
 
 // Which runs actually need work. Skips: duplicate claim texts (first instance wins) and
 // spans that already carry a clean verdict (unless force) — a re-run after a partial
 // failure only re-checks the failed/unchecked ones.
-export function planRuns(runs, stored, { force = false } = {}) {
+export function planRuns(runs, stored, { force = false, mode = 'fc-deep' } = {}) {
   const toRun = [];
   const skipped = [];
   const seen = new Set();
@@ -28,10 +33,26 @@ export function planRuns(runs, stored, { force = false } = {}) {
     if (seen.has(r.text)) { skipped.push(r); continue; }
     seen.add(r.text);
     const rec = stored[r.text];
-    if (!force && rec && rec.verdict && !rec.verdictError) { skipped.push(r); continue; }
+    if (!force && rec && rec.verdict && !rec.verdictError && satisfies(rec, mode)) { skipped.push(r); continue; }
     toRun.push(r);
   }
   return { toRun, skipped };
+}
+
+// Does an existing verdict already meet the depth being asked for?
+//
+// THE TRAP THIS EXISTS TO PREVENT: run a shallow batch today (deep is gated off by the
+// platform limit), then enable deep tomorrow and click VERIFY ALL — without this, every
+// shallow verdict reads as "already verified" and gets skipped, so the deep pass silently
+// never happens on a single claim and the script looks fully checked when it isn't.
+//
+// Depth is ordered: a deep verdict satisfies a shallow request (it's strictly more work),
+// a shallow verdict does NOT satisfy a deep request. Records written before mode-stamping
+// existed carry no `mode`; they came from the deep-only era, so treat them as deep.
+export function satisfies(rec, mode = 'fc-deep') {
+  const have = rec && rec.mode ? rec.mode : 'fc-deep';
+  if (mode === 'fc-deep') return have === 'fc-deep';
+  return true; // a shallow request is met by either depth
 }
 
 // Cancellation shared across the whole batch: cancel() flips the flag (stops the queue)
@@ -53,18 +74,18 @@ export function makeBatchController() {
 // the remaining N would fail identically.
 export const INFRA_FAILURE_LIMIT = 3;
 
-// Is this failure about the DEPLOYMENT rather than this particular claim? Platform kills
-// (502/503/504), the shared rate bucket (429), and the safe-parse fallback for a
-// non-JSON platform error page all mean "every other claim will hit this too". A timeout
-// or a model-level error is per-claim and must NOT count — the next claim deserves its turn.
-// A DEFINITIVE "not available here" — the server telling us this mode is switched off on
-// this deployment. Distinct from isInfraFailure: that's a streak (could be a blip), this is
-// proof on the first hit. Matches the 501 bodies from burma-tk (deep_unavailable) and
+// A DEFINITIVE "not available here" — the server saying this mode is switched off on this
+// deployment. Distinct from isInfraFailure: that's a streak (could be a blip), this is proof
+// on the first hit. Matches the 501 bodies from burma-tk (deep_unavailable) and
 // citations-search (retrieval_not_configured).
 export function isUnavailable(msg) {
   return /\b501\b|_unavailable|not_configured|not available on this deployment/i.test(String(msg || ''));
 }
 
+// Is this failure about the DEPLOYMENT rather than this particular claim? Platform kills
+// (502/503/504), the shared rate bucket (429), and the safe-parse fallback for a
+// non-JSON platform error page all mean "every other claim will hit this too". A timeout
+// or a model-level error is per-claim and must NOT count — the next claim deserves its turn.
 export function isInfraFailure(msg) {
   return /\b(429|50[234])\b|rate limit|too many requests|server error \(/i.test(String(msg || ''));
 }
@@ -83,10 +104,16 @@ export async function runVerifyAll({
   onProgress,
   corpusFor,
   force = false,
-  timeoutMs = DEEP_CLIENT_TIMEOUT_MS,
+  mode = 'fc-deep',
+  timeoutMs = null, // null = derive from the ACTIVE mode (it can downgrade mid-batch)
 }) {
   const ctl = controller || makeBatchController();
-  const { toRun, skipped } = planRuns(runs, storage.load(), { force });
+  const { toRun, skipped } = planRuns(runs, storage.load(), { force, mode });
+  // The depth actually in use. Starts at the caller's request and DOWNGRADES on the first
+  // deep_unavailable, so one click gets the best depth this deployment can serve instead of
+  // failing outright. Every record is stamped with the depth that produced it.
+  let activeMode = mode;
+  let downgraded = false;
   const total = toRun.length;
   let done = 0;
   let failed = 0;
@@ -116,9 +143,9 @@ export async function runVerifyAll({
       const run = queue.shift();
       const ac = typeof AbortController !== 'undefined' ? new AbortController() : { abort() {}, signal: undefined };
       const untrack = ctl.track(ac);
-      const killer = setTimeout(() => ac.abort(), timeoutMs);
+      const killer = setTimeout(() => ac.abort(), timeoutMs || clientBoundFor(activeMode));
       try {
-        const body = { mode: 'fc-deep', marker: run.text, block: run.block || '', context: run.context || '' };
+        const body = { mode: activeMode, marker: run.text, block: run.block || '', context: run.context || '' };
         // Corpus pre-flight. AWAITED — corpusFor is async now that it's wired to the
         // citations RAG over HTTP (corpus-retrieval.js); the earlier sync call would have
         // handed Array.isArray a Promise and silently dropped every chunk.
@@ -127,7 +154,7 @@ export async function runVerifyAll({
         // failure must degrade this run to web-only, never mark it failed. Letting it fall
         // to the outer catch would turn "the RAG was down" into "the fact-check failed".
         let corpus = null;
-        if (corpusFor) {
+        if (corpusFor && activeMode === 'fc-deep') { // shallow mode has no corpus seam server-side
           try { corpus = await corpusFor(run); } catch { corpus = null; }
         }
         if (Array.isArray(corpus) && corpus.length) body.corpus = corpus;
@@ -153,6 +180,9 @@ export async function runVerifyAll({
           verdict: data,
           verdictError: '',
           corpusUsed: Array.isArray(corpus) ? corpus.length : 0,
+          // STAMP THE DEPTH. This is what lets a later deep pass find the shallow ones
+          // instead of skipping them as "already verified" (see satisfies()).
+          mode: activeMode,
         });
         done++;
         infraStreak = 0; // a success proves the deployment is healthy — forget the streak
@@ -175,8 +205,19 @@ export async function runVerifyAll({
           // available on this deployment. One is proof; there is no point spending two
           // more claims confirming it.
           if (isUnavailable(msg)) {
-            ctl.cancel();
-            stoppedReason = `${msg} Nothing was lost — re-run once it's enabled and this picks up where it left off.`;
+            // Deep is off on this deployment. If we were asked for deep, DOWNGRADE to
+            // shallow and keep going — the writer-grade check still fits the platform's
+            // time limit, so one click gets the best available depth. Re-queue this claim
+            // so it isn't lost to the failed attempt. Only give up if shallow fails too.
+            if (activeMode === 'fc-deep') {
+              activeMode = 'fc';
+              downgraded = true;
+              failed--; // the deep attempt doesn't count; shallow gets its turn
+              queue.unshift(run);
+            } else {
+              ctl.cancel();
+              stoppedReason = `${msg} Nothing was lost — re-run once it's enabled and this picks up where it left off.`;
+            }
           } else if (isInfraFailure(msg)) {
             infraStreak++;
             if (infraStreak >= INFRA_FAILURE_LIMIT) {
@@ -197,5 +238,5 @@ export async function runVerifyAll({
 
   const width = Math.max(1, Math.min(concurrency, toRun.length || 1));
   await Promise.all(Array.from({ length: width }, worker));
-  return { done, failed, total, skipped: skipped.length, cancelled: ctl.cancelled, stoppedReason };
+  return { done, failed, total, skipped: skipped.length, cancelled: ctl.cancelled, stoppedReason, mode: activeMode, downgraded };
 }

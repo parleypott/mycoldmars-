@@ -49,8 +49,13 @@ export function VerifyAllBar({ editor }) {
         // stoppedReason FIRST: the circuit breaker cancels the controller to halt the
         // queue, so `cancelled` is true even though the user never clicked cancel.
         // Reporting "cancelled" there would blame them for a server outage.
+        // The batch downgrades deep -> shallow when the deployment can't serve deep. Say so
+        // plainly: a shallow verdict is a REAL result, but it lacks the grounding quotes,
+        // and the writer needs to know which kind they're approving.
         detail: summary.stoppedReason
           ? { tone: 'error', msg: `verify all stopped — ${summary.stoppedReason}` }
+          : summary.downgraded
+          ? { tone: 'error', msg: `fact checks done — ${summary.done} checked at NORMAL depth (deep check is off on this deployment, so no grounding quotes). They're flagged; re-run VERIFY ALL once deep is enabled and only these get re-checked.` }
           : summary.cancelled
           ? { msg: `verify all cancelled — ${summary.done} finished first` }
           : summary.failed

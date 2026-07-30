@@ -13,7 +13,7 @@
 //   5. CANCEL: stops the queue and aborts in-flight work.
 
 import assert from 'node:assert';
-import { planRuns, runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, INFRA_FAILURE_LIMIT, isInfraFailure, isUnavailable } from './verify-all-core.js';
+import { planRuns, runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, INFRA_FAILURE_LIMIT, isInfraFailure, isUnavailable, satisfies, SHALLOW_CLIENT_TIMEOUT_MS, clientBoundFor } from './verify-all-core.js';
 
 let pass = 0, fail = 0;
 function ok(name, cond) {
@@ -203,18 +203,67 @@ ok('isInfraFailure: timed out NO (per-claim)', isInfraFailure('timed out') === f
 ok('isInfraFailure: model error NO (per-claim)', isInfraFailure('marker too long') === false);
 
 
-// ── 7. 501 = definitive, stop on the FIRST one ──────────────────────────────
+// ── 7. 501 on deep = DOWNGRADE to shallow, not death ────────────────────────
 {
+  // Deep is gated off by the platform limit, shallow fits. One click should still get
+  // the work done at the depth this deployment CAN serve.
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  const modes = [];
+  const store = memStorage();
+  const res = await runVerifyAll({
+    runs: Array.from({ length: 5 }, (_, i) => R2(`c${i}`)), storage: store, concurrency: 1, corpusFor: null,
+    fetchImpl: async (_u, init) => {
+      const m = JSON.parse(init.body).mode;
+      modes.push(m);
+      if (m === 'fc-deep') return { ok: false, status: 501, text: async () => JSON.stringify({ error: 'deep_unavailable' }) };
+      return { ok: true, status: 200, text: async () => JSON.stringify({ verdict: 'true', sources: [] }) };
+    },
+  });
+  ok('downgrade: tries deep exactly once', modes.filter((m) => m === 'fc-deep').length === 1);
+  ok('downgrade: all 5 claims still get checked', res.done === 5);
+  ok('downgrade: the deep attempt is not counted as a failure', res.failed === 0);
+  ok('downgrade: reports the depth actually used', res.mode === 'fc' && res.downgraded === true);
+  ok('downgrade: the claim that hit 501 is not lost', modes.filter((m) => m === 'fc').length === 5);
+
+  // THE FLAG: every record is stamped shallow so a later deep pass finds them.
+  const map = store.peek();
+  ok('downgrade: records stamped mode fc', Object.values(map).every((v) => v.mode === 'fc'));
+  ok('downgrade: a shallow record does NOT satisfy a deep request', satisfies({ mode: 'fc' }, 'fc-deep') === false);
+  ok('downgrade: a shallow record DOES satisfy a shallow request', satisfies({ mode: 'fc' }, 'fc') === true);
+  ok('downgrade: a deep record satisfies both', satisfies({ mode: 'fc-deep' }, 'fc-deep') === true && satisfies({ mode: 'fc-deep' }, 'fc') === true);
+  ok('downgrade: a legacy record with no mode counts as deep', satisfies({}, 'fc-deep') === true);
+
+  // And the payoff: re-running at deep re-checks every shallow one.
+  const runs2 = Array.from({ length: 5 }, (_, i) => R2(`c${i}`));
+  const plan = planRuns(runs2, store.peek(), { mode: 'fc-deep' });
+  ok('downgrade: a later DEEP run re-checks all 5 shallow verdicts', plan.toRun.length === 5);
+  const planShallow = planRuns(runs2, store.peek(), { mode: 'fc' });
+  ok('downgrade: a later SHALLOW run skips them (already satisfied)', planShallow.toRun.length === 0);
+}
+{
+  // If shallow ALSO reports unavailable, then genuinely stop.
   const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
   let hits = 0;
   const res = await runVerifyAll({
     runs: Array.from({ length: 20 }, (_, i) => R2(`c${i}`)), storage: memStorage(), concurrency: 1, corpusFor: null,
-    fetchImpl: async () => { hits++; return { ok: false, status: 501, text: async () => JSON.stringify({ error: 'deep_unavailable', message: 'Deep fact-check is off on this deployment' }) }; },
+    fetchImpl: async () => { hits++; return { ok: false, status: 501, text: async () => JSON.stringify({ error: 'deep_unavailable' }) }; },
   });
-  ok('501: stops on the FIRST hit, not after a streak', hits === 1);
+  ok('501: when shallow is unavailable too, stop immediately (2 attempts, not 20)', hits === 2);
   ok('501: says it can be re-run later', /re-run/i.test(res.stoppedReason || ''));
-  ok('501: surfaces the server message', /unavailable|off on this deployment/i.test(res.stoppedReason || ''));
 }
+{
+  // Explicit shallow request never attempts deep at all.
+  const R2 = (t) => ({ text: t, from: 1, to: 2, block: 'B', context: 'C' });
+  const modes = [];
+  await runVerifyAll({
+    runs: [R2('a'), R2('b')], storage: memStorage(), concurrency: 1, corpusFor: null, mode: 'fc',
+    fetchImpl: async (_u, init) => { modes.push(JSON.parse(init.body).mode); return { ok: true, status: 200, text: async () => JSON.stringify({ verdict: 'true' }) }; },
+  });
+  ok('explicit shallow: never attempts deep', modes.every((m) => m === 'fc') && modes.length === 2);
+}
+ok('bounds: shallow client bound sits above the 50s server deadline', SHALLOW_CLIENT_TIMEOUT_MS === 70_000 && SHALLOW_CLIENT_TIMEOUT_MS > 50_000);
+ok('bounds: clientBoundFor picks per mode', clientBoundFor('fc-deep') === DEEP_CLIENT_TIMEOUT_MS && clientBoundFor('fc') === SHALLOW_CLIENT_TIMEOUT_MS);
+
 ok('isUnavailable: deep_unavailable yes', isUnavailable('deep_unavailable') === true);
 ok('isUnavailable: retrieval_not_configured yes', isUnavailable('retrieval_not_configured') === true);
 ok('isUnavailable: 502 NO', isUnavailable('server error (502)') === false);
