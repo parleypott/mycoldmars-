@@ -1,0 +1,102 @@
+// Guard-rail lock for api/citations-search.js — the citations-RAG fact-check
+// retrieval endpoint. These assertions cover the paths that must NOT reach the
+// paid Jina embed / Supabase RPC: method, access gate, body validation, and the
+// missing-config 500. The live retrieval path (real Jina embed → pgvector RPC)
+// is verified end-to-end out of band (it needs the real corpus + keys), not here.
+//
+// Run: bun api/citations-search.test.mjs   (auto-discovered by `bun run test`)
+
+import handler from './citations-search.js';
+
+let pass = 0, fail = 0;
+const fails = [];
+function ok(cond, msg) { if (cond) pass++; else { fail++; fails.push(msg); } }
+
+function mkReq({ method = 'POST', headers = {}, jsonThrows = false, jsonValue = {} } = {}) {
+  return {
+    method,
+    headers: new Headers(headers),
+    async json() { if (jsonThrows) throw new Error('bad json'); return jsonValue; },
+  };
+}
+
+// env snapshot / helpers — bun auto-loads .env, so mutate explicitly per test.
+const snap = { ...process.env };
+function resetEnv() {
+  for (const k of ['ACCESS_CODE', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'SUPABASE_SERVICE_ROLE_KEY']) {
+    delete process.env[k];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 1. Non-POST → 405 (before any gate/spend).
+{
+  resetEnv();
+  const res = await handler(mkReq({ method: 'GET' }));
+  ok(res.status === 405, `GET → 405 (got ${res.status})`);
+}
+
+// 2. Access gate: ACCESS_CODE set + no credentials → 401 (before embed/RPC).
+{
+  resetEnv();
+  process.env.ACCESS_CODE = 'secret-code';
+  const res = await handler(mkReq({ method: 'POST', jsonValue: { query: 'x' } }));
+  ok(res.status === 401, `gated, no code → 401 (got ${res.status})`);
+}
+
+// 3. Access gate: correct x-access-code passes the gate (then 400 on missing query,
+//    proving we got PAST the gate without a valid query — and without embedding).
+{
+  resetEnv();
+  process.env.ACCESS_CODE = 'secret-code';
+  const res = await handler(mkReq({ headers: { 'x-access-code': 'secret-code' }, jsonValue: {} }));
+  ok(res.status === 400, `valid code, no query → 400 (got ${res.status})`);
+  const body = await res.json();
+  ok(/query is required/.test(body.error || ''), 'missing query → "query is required"');
+}
+
+// 4. Malformed body → 400 (dev-mode gate open).
+{
+  resetEnv();
+  const res = await handler(mkReq({ jsonThrows: true }));
+  ok(res.status === 400, `bad json → 400 (got ${res.status})`);
+}
+
+// 5. Non-object body (array) → 400.
+{
+  resetEnv();
+  const res = await handler(mkReq({ jsonValue: [1, 2, 3] }));
+  ok(res.status === 400, `array body → 400 (got ${res.status})`);
+}
+
+// 6. Missing query → 400 (dev-mode gate open).
+{
+  resetEnv();
+  const res = await handler(mkReq({ jsonValue: { notquery: 'hi' } }));
+  ok(res.status === 400, `no query field → 400 (got ${res.status})`);
+}
+
+// 7. Supabase not configured → 500 BEFORE the Jina embed (config check precedes embed).
+//    If this ever 502s instead, the embed ran first — a real regression (paid call
+//    on an unconfigured server).
+{
+  resetEnv(); // clears SUPABASE_* — config missing
+  const res = await handler(mkReq({ jsonValue: { query: 'anything' } }));
+  ok(res.status === 500, `no supabase config → 500 (got ${res.status})`);
+  const body = await res.json();
+  ok(/Supabase is not configured/.test(body.error || ''), 'config error message present');
+}
+
+// 8. 'claim' is accepted as an alias for 'query' (still 500 here for missing config,
+//    proving it passed the query-presence check via the alias, not a 400).
+{
+  resetEnv();
+  const res = await handler(mkReq({ jsonValue: { claim: 'Ngo Dinh Diem' } }));
+  ok(res.status === 500, `claim alias accepted (→500 config, not 400) (got ${res.status})`);
+}
+
+// restore env
+process.env = snap;
+
+console.log(`citations-search: ${pass} passed, ${fail} failed`);
+if (fail) { console.log(fails.map((f) => '  ✗ ' + f).join('\n')); process.exit(1); }

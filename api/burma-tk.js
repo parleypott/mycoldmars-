@@ -22,7 +22,11 @@ import { checkAccess, readHeader } from './_lib/access.js';
 // api/nano-banana.js, which is nodejs + returns a web Response exactly like this handler), giving the web
 // search room to finish. Belt-and-suspenders: an in-handler AbortController (below) returns a clean JSON
 // timeout BEFORE the platform limit, so the client always gets JSON — never a platform error page.
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+// maxDuration 300 (was 60): mode:'fc-deep' runs up to 8 web_search uses with no time-budget
+// pressure — the whole point is that NOBODY is watching a spinner (batch/background flow), so
+// depth wins over latency. The interactive modes keep their own 50s deadline below; only deep
+// uses the long runway. 300 mirrors api/cutter.js / api/transcribe.js on this plan.
+export const config = { runtime: 'nodejs', maxDuration: 300 };
 
 // Current Sonnet (claude-sonnet-4-5-20250929 was the legacy pin). Sonnet 4.6 pairs with the
 // web_search_20260209 tool version (dynamic filtering — filters results in-container before they
@@ -37,6 +41,11 @@ const MODEL = 'claude-sonnet-4-6';
 //   client: Workshop.jsx carries its own 70s AbortController as the belt-and-suspenders bound.
 export const FC_UPSTREAM_TIMEOUT_MS = 50_000;
 
+// mode:'fc-deep' gets a 240s server deadline — under the 300s maxDuration with the same
+// our-timeout-is-JSON margin the 50s bound keeps under 60. The batch client (verify-all.js)
+// carries a 280s AbortController as its belt-and-suspenders bound.
+export const FC_DEEP_TIMEOUT_MS = 240_000;
+
 // ── Per-identity rate limit (in-memory token bucket) ──────────────────────────────────────────────
 // burma-tk calls Anthropic on EVERY hit, so even an authenticated-but-scripted caller could run up
 // real cost. This caps the burst + sustained rate PER identity (the caller's JWT when present, else
@@ -44,6 +53,11 @@ export const FC_UPSTREAM_TIMEOUT_MS = 50_000;
 // per-instance — same posture as access.js's JWT cache. It blunts abuse without any external store.
 // Limit: a burst of RL_BURST requests, refilling RL_PER_MIN per minute. Documented, not perfect: a
 // distributed spray across many edge instances is not fully bounded — that would need a shared KV.
+// Batch compatibility note (Verify All, 2026-07-17): the background runner fans out
+// mode:'fc-deep' at concurrency ≤3 with each call taking 1-4 minutes, so its steady-state
+// request rate (~1-3/min) sits comfortably inside this bucket — no batch carve-out needed.
+// If a future batch ever bursts past 20 fast calls/min, give it its own keyed budget rather
+// than loosening the interactive one.
 const RL_BURST = 20;
 const RL_PER_MIN = 20;
 const RL_MAX_KEYS = 1000;
@@ -124,6 +138,75 @@ const FC_TOOL = {
     required: ['verdict', 'finding', 'suggestedEdit', 'sources'],
   },
 };
+
+// mode:'fc-deep' — the BATCH-GRADE fact check. Same claim-in, verdict-out contract as fc,
+// but built for the background Verify All flow where nobody is watching a spinner, so the
+// latency ceiling lifts and the RIGOR floor rises. Methodology ported from the Kenneth
+// (Newpress Hermes) Iran-citation pipeline, June 2026 — the run that went from five
+// fabricated sources (monolithic drafting) to zero hallucinations across 90 rows by making
+// grounding quotes mandatory and schema-enforced: no verbatim quote, no source. The schema
+// is a superset of FC_TOOL's output, so the Workshop's verdict renderer works unchanged and
+// richer fields (claims[], per-source quotes) light up where the UI knows about them.
+const FC_DEEP_TOOL = {
+  name: 'emit_deep_verdict',
+  description: 'Return a deep, grounded fact-check: per-claim verdicts, a corrected edit, and sources each carrying a verbatim grounding quote.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      verdict: { type: 'string', enum: ['true', 'false', 'partly', 'unclear'], description: 'Overall verdict across all claims in the marker.' },
+      finding: { type: 'string', description: 'Two to four sentences: what the evidence establishes, including any conflict between sources.' },
+      suggestedEdit: { type: 'string', description: 'A corrected, ready-to-drop line that REPLACES the {fc} marker — the verified fact in the script\'s plain VO voice. No braces.' },
+      claims: {
+        type: 'array',
+        minItems: 1,
+        description: 'The marker decomposed into its distinct factual claims, each judged separately.',
+        items: {
+          type: 'object',
+          properties: {
+            claim: { type: 'string', description: 'One atomic factual claim extracted from the marker.' },
+            verdict: { type: 'string', enum: ['true', 'false', 'partly', 'unclear'] },
+            finding: { type: 'string', description: 'One line: what the evidence says about THIS claim.' },
+          },
+          required: ['claim', 'verdict'],
+        },
+      },
+      sources: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', description: 'Attribution in broadcast-citation form: author (if any), exact title as the publisher prints it, publication, date/pages. NEVER a guessed author — omit the author if unsure.' },
+            url: { type: 'string', description: 'Direct URL. Empty string if unavailable (books, archives).' },
+            quote: { type: 'string', description: 'VERBATIM ~20-50 word excerpt from THIS source that supports the specific claim — exact words, never a paraphrase. A source without a real quote must not be emitted at all.' },
+            kind: { type: 'string', enum: ['corpus', 'primary', 'news', 'encyclopedia', 'other'], description: "'corpus' when it came from the VETTED NEWPRESS SOURCES provided in the prompt." },
+          },
+          required: ['label', 'quote'],
+        },
+      },
+    },
+    required: ['verdict', 'finding', 'suggestedEdit', 'claims', 'sources'],
+  },
+};
+
+export function deepPrompt({ marker, block, context, corpus, today }) {
+  const corpusSection = corpus && corpus.length
+    ? `\nVETTED NEWPRESS SOURCES — research this team has already vetted and trusts. CHECK THESE FIRST: if a vetted source grounds a claim, cite it (kind: "corpus") before reaching for the open web. Use web_search only for claims these do not cover, or to check whether a vetted source has been superseded.\n\n${corpus.map((c, i) => `[NP-${i + 1}] ${c.label}${c.url ? ` <${c.url}>` : ''}\n${c.text}`).join('\n\n')}\n`
+    : '';
+  return `You are deep-fact-checking a claim in Johnny Harris's Burma/Myanmar documentary script. This runs in the BACKGROUND — no one is waiting on you, so favor rigor over speed. You have up to 8 web_search uses; search iteratively (search, read, refine, search again) until the evidence is settled or exhausted. Today is ${today} — anchor time-sensitive facts to this date and prefer the most recent authoritative reporting for anything still unfolding.
+
+CLAIM / FACT NEEDED: ${marker}
+
+Surrounding block: ${block || '(none)'}
+Nearby script: ${context || '(none)'}
+${corpusSection}
+METHOD — follow exactly:
+1. DECOMPOSE: break the marker into its distinct factual claims (dates, quantities, names, causation, quotes). Judge each claim separately in claims[].
+2. SOURCE RUBRIC: prefer primary documents (treaties, official records, contemporaneous reporting, scholarly monographs with page numbers) over brand-name encyclopedias. Copy titles exactly as the publisher prints them. NEVER guess an author, volume, or page number — omit what you are not sure of.
+3. CONFLICT RULE: when reputable sources disagree, the verdict is "partly" or "unclear" and the finding states both positions with their sources — never silently pick a side.
+4. HARD GROUNDING RULE — non-negotiable: every source you emit MUST carry a verbatim ~20-50 word quote from that source's own text (from a vetted Newpress source above or from a page you actually saw in web_search results) that supports the specific claim. If you cannot quote it, you cannot cite it. If no claim can be grounded, return verdict "unclear" with an empty sources array and say in the finding exactly what you searched and what was missing — never fabricate a plausible-sounding source.
+
+Then call emit_deep_verdict exactly once: overall verdict, finding, suggestedEdit (the corrected fact as a ready-to-drop line in the script's plain VO voice, no braces), claims[], and grounded sources[].`;
+}
 
 // mode:'quote' — the footnote RECHECK. Not a fresh verdict: a hunt for the SPECIFIC
 // quotation/blurb inside reputable sources that checks the fact, returned verbatim so the
@@ -216,10 +299,20 @@ async function innerHandler(req) {
   if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
   const body = parsed.body;
 
-  const mode = body.mode === 'fc' ? 'fc' : body.mode === 'quote' ? 'quote' : 'tk';
+  const mode = body.mode === 'fc' ? 'fc' : body.mode === 'quote' ? 'quote' : body.mode === 'fc-deep' ? 'fc-deep' : 'tk';
   const marker = typeof body.marker === 'string' ? body.marker.trim() : '';
   const block = typeof body.block === 'string' ? body.block.slice(0, 2000) : '';
   const context = typeof body.context === 'string' ? body.context.slice(0, 3000) : '';
+  // Corpus seam (deep mode only): pre-vetted Newpress research chunks the client (or a future
+  // retrieval layer) wants checked BEFORE the open web. Validated + clipped hard so a bad
+  // caller can't balloon the prompt: ≤12 chunks, each ≤1500 chars text / ≤200 label / ≤300 url.
+  const corpus = mode === 'fc-deep' && Array.isArray(body.corpus)
+    ? body.corpus.slice(0, 12).map((c) => ({
+        label: typeof c?.label === 'string' ? c.label.slice(0, 200) : '',
+        text: typeof c?.text === 'string' ? c.text.slice(0, 1500) : '',
+        url: typeof c?.url === 'string' ? c.url.slice(0, 300) : '',
+      })).filter((c) => c.text)
+    : [];
 
   if (!marker) return json({ error: 'marker required' }, 400);
   // Cost guard — mirror research-claude.js. Cap the marker length too.
@@ -238,8 +331,9 @@ async function innerHandler(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY not set on server' }, 500);
 
-  const isFc = mode === 'fc' || mode === 'quote'; // both are web_search modes (same latency budget)
-  const payload = buildPayload(mode, { marker, block, context });
+  const isFc = mode === 'fc' || mode === 'quote' || mode === 'fc-deep'; // all web_search modes
+  const isDeep = mode === 'fc-deep';
+  const payload = buildPayload(mode, { marker, block, context, corpus, today: new Date().toISOString().slice(0, 10) });
 
   // HARD DEADLINE via Promise.race — not just an AbortController on the fetch.
   //
@@ -257,7 +351,7 @@ async function innerHandler(req) {
   // instead of waiting 50 real seconds. Unset in prod → FC_UPSTREAM_TIMEOUT_MS.
   const timeoutMs = Number(process.env.BURMA_TK_TIMEOUT_MS) > 0
     ? Number(process.env.BURMA_TK_TIMEOUT_MS)
-    : FC_UPSTREAM_TIMEOUT_MS;
+    : isDeep ? FC_DEEP_TIMEOUT_MS : FC_UPSTREAM_TIMEOUT_MS;
   // NOTE: deliberately NOT unref()'d — an unref'd timer never fires once the loop drains (e.g.
   // the upstream promise is the only pending work), which would silently disarm the deadline.
   // The race clears it the moment either branch settles, so it can't leak.
@@ -292,7 +386,7 @@ async function innerHandler(req) {
     const data = await res.json();
     // Pull the tool_use block (the structured output). For fc the model may emit text +
     // server_tool_use (web_search) blocks too — find the one matching our tool name.
-    const toolName = mode === 'quote' ? QUOTE_TOOL.name : mode === 'fc' ? FC_TOOL.name : TK_TOOL.name;
+    const toolName = mode === 'quote' ? QUOTE_TOOL.name : mode === 'fc-deep' ? FC_DEEP_TOOL.name : mode === 'fc' ? FC_TOOL.name : TK_TOOL.name;
     let toolInput = null;
     for (const b of data.content ?? []) {
       if (b.type === 'tool_use' && b.name === toolName) { toolInput = b.input; break; }
@@ -307,6 +401,9 @@ async function innerHandler(req) {
 
     if (mode === 'quote') {
       return json({ mode: 'quote', ...toolInput });
+    }
+    if (mode === 'fc-deep') {
+      return json({ mode: 'fc-deep', ...toolInput });
     }
     if (isFc) {
       return json({ mode: 'fc', ...toolInput });
@@ -326,9 +423,11 @@ async function innerHandler(req) {
   clearTimeout(deadlineTimer);
   if (winner === TIMED_OUT) {
     return json({
-      error: isFc
-        ? `couldn't verify in ${Math.round(timeoutMs / 1000)}s — the web search ran long. Try again, or shorten the claim.`
-        : `the writing helper timed out — try again.`,
+      error: isDeep
+        ? `deep check hit the ${Math.round(timeoutMs / 1000)}s ceiling — the claim may be very compound. Re-run it, or split the marker.`
+        : isFc
+          ? `couldn't verify in ${Math.round(timeoutMs / 1000)}s — the web search ran long. Try again, or shorten the claim.`
+          : `the writing helper timed out — try again.`,
       timeout: true,
     }, 504);
   }
@@ -338,17 +437,21 @@ async function innerHandler(req) {
 // Exported for tests: the exact Anthropic request body per mode. fc gets the current-generation
 // web_search tool (20260209 — dynamic filtering, results filtered before they hit context) capped
 // at 3 uses (was 5 — the biggest single latency lever), on the current Sonnet.
-export function buildPayload(mode, { marker, block, context }) {
-  const webMode = mode === 'fc' || mode === 'quote'; // both search; tk is generation-only
-  const tool = mode === 'quote' ? QUOTE_TOOL : mode === 'fc' ? FC_TOOL : TK_TOOL;
+export function buildPayload(mode, { marker, block, context, corpus, today }) {
+  const webMode = mode === 'fc' || mode === 'quote' || mode === 'fc-deep'; // tk is generation-only
+  const tool = mode === 'quote' ? QUOTE_TOOL : mode === 'fc-deep' ? FC_DEEP_TOOL : mode === 'fc' ? FC_TOOL : TK_TOOL;
   const prompt = mode === 'quote' ? quotePrompt({ marker, block, context })
+    : mode === 'fc-deep' ? deepPrompt({ marker, block, context, corpus, today })
     : mode === 'fc' ? fcPrompt({ marker, block, context })
     : tkPrompt({ marker, block, context });
+  // Deep: 8 searches (vs 3 interactive) + a bigger output ceiling — claims[] + per-source
+  // grounding quotes are materially larger than the shallow verdict.
+  const maxUses = mode === 'fc-deep' ? 8 : 3;
   return {
     model: MODEL,
-    max_tokens: 2000,
+    max_tokens: mode === 'fc-deep' ? 4000 : 2000,
     tools: webMode
-      ? [tool, { type: 'web_search_20260209', name: 'web_search', max_uses: 3 }]
+      ? [tool, { type: 'web_search_20260209', name: 'web_search', max_uses: maxUses }]
       : [tool],
     tool_choice: webMode ? { type: 'auto' } : { type: 'tool', name: tool.name },
     messages: [{ role: 'user', content: prompt }],

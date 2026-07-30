@@ -2308,6 +2308,18 @@ body:has(.wp-control-body[aria-hidden="false"]) .wp-rail {
    runtime as a link to liveblocks.io; we never link there ourselves, so hide it wholesale. */
 a[href*="liveblocks.io"] { display: none !important; }
 
+/* ---- PROGRESS BARS (progress-counts.js) — document-wide FC / TK / archive strip under the
+   header. Flat, mono chrome to match the telemetry line. Pure read-only display, no interaction. */
+.wp-prog { display: flex; gap: 24px; align-items: flex-start; padding: 9px 4px 11px; border-bottom: 1px solid rgba(0,0,0,.10); }
+.wp-prog-item { flex: 1 1 0; min-width: 92px; }
+.wp-prog-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-family: var(--mono); font-size: var(--chrome-size-sm, 11px); letter-spacing: .06em; }
+.wp-prog-lab { text-transform: uppercase; color: var(--label, #6b6255); }
+.wp-prog-val { white-space: nowrap; color: var(--ink, #1f1d18); }
+.wp-prog-val b { font-weight: 700; }
+.wp-prog-track { margin-top: 6px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.10); overflow: hidden; }
+.wp-prog-fill { height: 100%; border-radius: 3px; transition: width .24s ease; }
+
 /* ---- HYPERLINKS (Cmd+K) — quiet editorial links: body ink, hairline underline that warms
    to the accent on hover. Cmd/Ctrl+click opens while editing; plain click just places the
    caret. FLAT: no button chrome, links are typography. */
@@ -3653,3 +3665,109 @@ body:has(.wp-save-banner) .wp-page[data-chfocus] .wp-mode { top: 96px; }
   .wp-keys, .wp-keys-veil { display: none !important; }
 }
 /* ══ end SHORTCUTS OVERLAY ══ */
+
+/* ══ VERIFY ALL — batch fact-check bar + deep-check dock additions (2026-07-17) ══
+   The bar sits bottom-CENTER: the save pill owns bottom-right (bottom-left while the
+   dock is open, ux-06), and the Workshop dock owns the right edge — center is the one
+   lane nothing else claims. */
+.wp-verifyall {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: #17171a;
+  border: 1px solid #333;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.wp-va-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+}
+.wp-va-run { background: #c0392b; }        /* the fc red — this button retires red washes */
+.wp-va-run:hover { background: #d64535; }
+.wp-va-review { background: #1e7a46; }     /* the receipt green — the approve lane */
+.wp-va-review:hover { background: #249253; }
+.wp-va-cancel { background: #3a3a40; }
+.wp-va-cancel:hover { background: #4a4a52; }
+.wp-va-label { color: #ddd; white-space: nowrap; }
+.wp-va-spin {
+  width: 12px; height: 12px;
+  border: 2px solid #555;
+  border-top-color: #eee;
+  border-radius: 50%;
+  animation: wp-va-rot 0.9s linear infinite;
+}
+@keyframes wp-va-rot { to { transform: rotate(360deg); } }
+
+/* dock: DEEP CHECK — secondary to VERIFY CLAIM, same width rhythm */
+.wp-ws-deep {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 10px;
+  background: transparent;
+  border: 1px dashed #b34;
+  border-radius: 6px;
+  color: #d66;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.wp-ws-deep:hover { background: rgba(200, 50, 60, 0.08); }
+
+/* dock: per-claim decomposition list (deep results) */
+.wp-ws-claims { margin: 8px 0 2px; display: flex; flex-direction: column; gap: 6px; }
+.wp-claim { font-size: 12px; line-height: 1.45; }
+.wp-claim-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.wp-claim-badge.v-true { background: #164; color: #cfc; }
+.wp-claim-badge.v-false { background: #712; color: #fdd; }
+.wp-claim-badge.v-partly { background: #740; color: #fec; }
+.wp-claim-badge.v-unclear { background: #444; color: #ddd; }
+.wp-claim-text { color: #ccc; }
+.wp-claim-finding { margin: 2px 0 0 2px; color: #999; font-size: 11px; }
+
+/* dock: grounding quote under a deep source — the verbatim words that back the claim */
+.wp-src-quote {
+  margin: 3px 0 6px 10px;
+  padding-left: 8px;
+  border-left: 2px solid #3a5;
+  color: #9b9;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.4;
+}
+.wp-src-corpus {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #1c3;
+  color: #041;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  vertical-align: 1px;
+}
+/* ══ end VERIFY ALL ══ */

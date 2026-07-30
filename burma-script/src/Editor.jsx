@@ -43,6 +43,7 @@ import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './do
 import { LinkPopover } from './LinkPopover.jsx';
 import { FindReplacePanel } from './FindReplace.jsx';
 import { Workshop } from './Workshop.jsx';
+import { VerifyAllBar } from './VerifyAllBar.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, primeVersionFloor, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
@@ -978,6 +979,10 @@ export const BurmaEditor = memo(function BurmaEditor({ sourceBlocks, onTelemetry
       {/* Find & Replace panel — Cmd/Ctrl+F opens it. Edit-only chrome. */}
       {!readOnly && <FindReplacePanel editor={editor} />}
       {!readOnly && <Workshop />}
+      {/* VERIFY ALL — batch background fact-check. Edit-only chrome like the dock; the batch
+          itself writes localStorage only (approval via the dock's footnote flow stays the one
+          doc write). */}
+      {!readOnly && <VerifyAllBar editor={editor} />}
     </>
   );
 });

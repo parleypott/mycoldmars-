@@ -82,6 +82,7 @@ export function Workshop() {
   const [vetted, setVetted] = useState(false);   // options came from the fact-checked research
   const [chapter, setChapter] = useState('');
   const [verdict, setVerdict] = useState(null);
+  const [deepRun, setDeepRun] = useState(false); // true while a DEEP CHECK is in flight (label + timeout)
   // QUIET LANDING (Johnny: "it snaps me over to its result and stops me from working").
   // When a generate/verify finishes while he's writing in the editor, the result is STASHED
   // here behind a calm "result ready" chip instead of taking over the dock — he clicks it
@@ -208,18 +209,28 @@ export function Workshop() {
   // error — no matter what the platform does with the connection. 70s > server 50s + network slop,
   // so in normal operation the server's own JSON timeout arrives first.
   const FC_CLIENT_TIMEOUT_MS = 70_000;
+  // DEEP CHECK client bound — above the server's own 240s fc-deep deadline (see api/burma-tk.js).
+  const DEEP_CLIENT_TIMEOUT_MS = 260_000;
 
-  // Regenerate live via the backend. mode 'tk' → 5 options; mode 'fc' → verdict.
-  async function generate() {
+  // Regenerate live via the backend. mode 'tk' → 5 options; mode 'fc' → verdict;
+  // deep=true → mode 'fc-deep': the Kenneth-grade grounded check (8 searches, claims
+  // decomposed, verbatim grounding quotes, ~minutes not seconds). NOTE: callers must pass
+  // an explicit boolean — a bare onClick={generate} would smuggle the click event in as
+  // a truthy `deep`.
+  async function generate(deep) {
     if (!span) return;
-    const mode = span.kind === 'fc' ? 'fc' : 'tk';
+    const isDeepRun = deep === true && span.kind === 'fc';
+    const mode = span.kind === 'fc' ? (isDeepRun ? 'fc-deep' : 'fc') : 'tk';
+    setDeepRun(isDeepRun);
     setLoading(true); setError(''); setElapsed(0); setReady(null);
     if (mode === 'tk') { setOptions([]); setVetted(false); } else setVerdict(null);
     // Tick the button label ("Checking… 12s") so the wait feels determinate, never infinite.
     const t0 = Date.now();
     const ticker = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
     const ac = new AbortController();
-    const killer = setTimeout(() => ac.abort(), FC_CLIENT_TIMEOUT_MS);
+    // Deep runs get the long leash (server bounds itself at 240s); interactive keeps 70s.
+    const clientTimeout = isDeepRun ? DEEP_CLIENT_TIMEOUT_MS : FC_CLIENT_TIMEOUT_MS;
+    const killer = setTimeout(() => ac.abort(), clientTimeout);
     try {
       // Endpoint is configurable per episode (cloud.tkApi); every current episode uses the
       // shared burma-tk backend, so that stays the default.
@@ -264,7 +275,7 @@ export function Workshop() {
     } catch (err) {
       setError(
         err?.name === 'AbortError'
-          ? `The check timed out after ${Math.round(FC_CLIENT_TIMEOUT_MS / 1000)}s. Try again — or shorten the claim.`
+          ? `The check timed out after ${Math.round(clientTimeout / 1000)}s. Try again — or shorten the claim.`
           : (err?.message || String(err))
       );
     } finally {
@@ -290,9 +301,15 @@ export function Workshop() {
   }
 
   // Join whatever source material the dock currently holds into one pasteable string.
+  // Deep-check sources append their verbatim grounding quote — the receipt keeps the exact
+  // words that back the claim (Kenneth lineage: the quote IS the evidence, not the URL).
   function currentSources() {
     const list = isFc ? ((verdict && verdict.sources) || []) : sources;
-    return (list || []).map((s) => s.url || s.claim || s.label || '').filter(Boolean).join('\n');
+    return (list || []).map((s) => {
+      const base = [s.label || s.claim || '', s.url || ''].filter(Boolean).join(' — ') || '';
+      if (!base) return '';
+      return s.quote ? `${base} — “${s.quote}”` : base;
+    }).filter(Boolean).join('\n');
   }
 
   // CREATE FOOTNOTE — drop the green ✓ receipt right AFTER the marker in the doc. The
@@ -366,8 +383,17 @@ export function Workshop() {
 
       {/* TK / FC: the live action (regenerate / verify) */}
       {(isTk || isFc) && (
-        <button class="wp-ws-generate" onClick={generate} disabled={loading} data-kind={span.kind} data-secondary={isTk && vetted ? '1' : null}>
-          {loading ? `${isFc ? 'Checking…' : 'Writing 5…'}${elapsed > 0 ? ` ${elapsed}s` : ''}` : genLabel}
+        <button class="wp-ws-generate" onClick={() => generate(false)} disabled={loading} data-kind={span.kind} data-secondary={isTk && vetted ? '1' : null}>
+          {loading ? `${isFc ? (deepRun ? 'Deep checking…' : 'Checking…') : 'Writing 5…'}${elapsed > 0 ? ` ${elapsed}s` : ''}` : genLabel}
+        </button>
+      )}
+
+      {/* FC only: the Kenneth-grade deep check — grounded quotes, decomposed claims, up to
+          ~4 minutes. For the reviewer pass ("adjust the text and rerun"), not the writer flow. */}
+      {isFc && !loading && (
+        <button class="wp-ws-deep" onClick={() => generate(true)}
+          title="Deep check — up to 8 searches, claims judged separately, every source carries a verbatim quote. Takes a few minutes; the result lands quietly.">
+          DEEP CHECK
         </button>
       )}
 
@@ -414,6 +440,10 @@ export function Workshop() {
           {(isTk ? sources : verdict.sources).map((s, i) => (
             <div class="wp-src" key={i}>
               {s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{s.claim || s.label || s.url}</a> : (s.claim || s.label || '')}
+              {s.kind === 'corpus' && <span class="wp-src-corpus" title="From the vetted Newpress research corpus">NP VETTED</span>}
+              {/* Deep-check grounding: the verbatim words from the source that back the claim.
+                  Kenneth rule — a source without a quote was never allowed to exist. */}
+              {s.quote && <div class="wp-src-quote">“{s.quote}”</div>}
             </div>
           ))}
         </div>
@@ -424,6 +454,19 @@ export function Workshop() {
         <div class="wp-ws-verdict">
           <div class={`wp-verdict-badge v-${verdict.verdict}`}>{(verdict.verdict || 'unclear').toUpperCase()}</div>
           {verdict.finding && <div class="wp-verdict-finding">{verdict.finding}</div>}
+          {/* Deep-check decomposition: each atomic claim judged on its own. A compound marker
+              with one bad fact shows exactly WHICH fact broke. */}
+          {Array.isArray(verdict.claims) && verdict.claims.length > 0 && (
+            <div class="wp-ws-claims">
+              {verdict.claims.map((c, i) => (
+                <div class="wp-claim" key={i}>
+                  <span class={`wp-claim-badge v-${c.verdict}`}>{(c.verdict || 'unclear').toUpperCase()}</span>
+                  <span class="wp-claim-text">{c.claim}</span>
+                  {c.finding && <div class="wp-claim-finding">{c.finding}</div>}
+                </div>
+              ))}
+            </div>
+          )}
           {verdict.suggestedEdit && (
             <button class="wp-opt wp-opt-edit"
               onClick={() => pick(verdict.suggestedEdit, { note: verdict.finding || '', source: currentSources(), verdict: verdict.verdict || '' })}

@@ -31,6 +31,7 @@ import { moveChapter, walkChapters } from './extensions/chapter-reorder.js';
 import { countCheckedMembers } from './extensions/ws-checkoff.js';
 import { WS_MAP_KEY, parseWsFlag, setWsInHash, setWsInSearch } from './ws-route.js';
 import { mapModel } from './script-map.js';
+import { countProgress } from './progress-counts.js';
 import { ScriptMap } from './ScriptMap.jsx';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
@@ -983,6 +984,53 @@ function VersionPill() {
       <span class="wp-version-pill-mark" />
       NEW VERSION — RELOAD
     </button>
+  );
+}
+
+// ── PROGRESS BARS — always-visible, document-wide FC / TK / archive progress, read straight off
+// the live doc via the pure countProgress() (progress-counts.js). FC = checked fact-check claims /
+// total; TK = open {tk} placeholders remaining (no fraction — a TK is resolved by removal); ARCHIVE
+// = 'found' archive chips / total. Pure READ of the doc — never dispatches a transaction, never
+// touches the collab loop. Re-reads whenever telemetry ticks (i.e. on every doc change).
+function ProgItem({ label, done, total, pct, count, tint }) {
+  const isCount = count != null;
+  return (
+    <div class="wp-prog-item">
+      <div class="wp-prog-head">
+        <span class="wp-prog-lab">{label}</span>
+        <span class="wp-prog-val">
+          {isCount ? <><b>{count}</b> LEFT</> : <><b>{done}/{total}</b> · {pct}%</>}
+        </span>
+      </div>
+      {!isCount && (
+        <div class="wp-prog-track"><div class="wp-prog-fill" style={{ width: pct + '%', background: tint }} /></div>
+      )}
+    </div>
+  );
+}
+
+function ProgressBars({ getDoc, tick }) {
+  const [p, setP] = useState(null);
+  const recompute = useCallback(() => {
+    try { const doc = typeof getDoc === 'function' ? getDoc() : null; if (doc) setP(countProgress(doc)); } catch { /* keep last good reading */ }
+  }, [getDoc]);
+  useEffect(() => { recompute(); }, [tick, recompute]);
+  useEffect(() => {
+    // Robustness: the editor can mount a beat AFTER the first telemetry tick, and a statically loaded
+    // doc fires no edits — so also recompute on save/dirty events and a few times just after mount.
+    window.addEventListener('wp-saved', recompute);
+    window.addEventListener('wp-dirty', recompute);
+    const ts = [setTimeout(recompute, 400), setTimeout(recompute, 1500), setTimeout(recompute, 4000)];
+    return () => { window.removeEventListener('wp-saved', recompute); window.removeEventListener('wp-dirty', recompute); ts.forEach(clearTimeout); };
+  }, [recompute]);
+  // Don't render an all-zero strip (a doc with nothing flagged yet).
+  if (!p || (p.fc.total === 0 && p.tk.open === 0 && p.archive.total === 0)) return null;
+  return (
+    <div class="wp-prog" role="status" aria-label="Script progress">
+      <ProgItem label="FACT CHECK" done={p.fc.done} total={p.fc.total} pct={p.fc.pct} tint="#1f8a72" />
+      <ProgItem label="TK" count={p.tk.open} tint="#a03a2e" />
+      <ProgItem label="ARCHIVE" done={p.archive.done} total={p.archive.total} pct={p.archive.pct} tint="#b56b6b" />
+    </div>
   );
 }
 
@@ -2108,6 +2156,9 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
             {words.toLocaleString()} <span class="wp-tel-unit">WORDS</span>
           </div>
         </header>
+
+        {/* PROGRESS BARS — document-wide FC / TK / archive, always visible under the header. */}
+        <ProgressBars getDoc={() => { try { return editorRef.current?.getJSON() || null; } catch { return null; } }} tick={tel} />
 
         {/* WORKSPACE HUB — the craft's dashboard, above the editor while a workspace is
             active. The SCRIPT MAP route renders its (stage-4) host instead of the hub. */}
