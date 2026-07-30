@@ -2310,7 +2310,32 @@ a[href*="liveblocks.io"] { display: none !important; }
 
 /* ---- PROGRESS BARS (progress-counts.js) — document-wide FC / TK / archive strip under the
    header. Flat, mono chrome to match the telemetry line. Pure read-only display, no interaction. */
-.wp-prog { display: flex; gap: 24px; align-items: flex-start; padding: 9px 4px 11px; border-bottom: 1px solid rgba(0,0,0,.10); }
+/* STICKY: the bars ride the top of the viewport so progress stays readable while scrolling
+   a long script — that's the whole point of a progress bar, and a script is thousands of
+   words. Needs an OPAQUE background (a transparent sticky element lets the script scroll
+   visibly through it) and a z-index above the prose but below the menus (60/70) and the
+   save banners (998+), which must always win. */
+.wp-prog {
+  display: flex; gap: 24px; align-items: flex-start;
+  padding: 9px 4px 11px;
+  border-bottom: 1px solid rgba(0,0,0,.10);
+  position: sticky; top: 0; z-index: 40;
+  background: var(--face, #faf6ee);
+  /* Only once it's actually stuck does it need to separate from the text sliding under it.
+     `top: -1px` + `:stuck`-style detection isn't portable, so this stays subtle enough to
+     read as chrome in both states rather than flickering a shadow on and off. */
+  box-shadow: 0 1px 0 rgba(0,0,0,.04);
+}
+/* With a workspace open, .wp-wsbar is fixed at top:0 (z-index 530) and .wp-page gets
+   padding-top:56px to clear it. A sticky bar at top:0 would slide UNDERNEATH that bar and
+   vanish — so park it directly below instead. Keep this offset in sync with .wp-wsbar's
+   height if that bar's padding ever changes. */
+.wp-page[data-ws] .wp-prog { top: 56px; }
+@media print {
+  /* Sticky is screen furniture: printing wants the bars in document flow, once, where they
+     belong — not floated over the first page of prose. */
+  .wp-prog { position: static; box-shadow: none; }
+}
 .wp-prog-item { flex: 1 1 0; min-width: 92px; }
 .wp-prog-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   font-family: var(--mono); font-size: var(--chrome-size-sm, 11px); letter-spacing: .06em; }

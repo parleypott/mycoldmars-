@@ -7,10 +7,10 @@
 
 import { findPendingFcRuns } from './extensions/marks.js';
 import { getEpisodeStorage } from './episode-config.js';
-import { runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS } from './verify-all-core.js';
+import { runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, SHALLOW_CLIENT_TIMEOUT_MS } from './verify-all-core.js';
 import { makeCorpusFor } from './corpus-retrieval.js';
 
-export { makeBatchController, DEEP_CLIENT_TIMEOUT_MS };
+export { makeBatchController, DEEP_CLIENT_TIMEOUT_MS, SHALLOW_CLIENT_TIMEOUT_MS };
 
 // Every fc span still awaiting verification (pending OR solid), with the same shape the
 // per-span dock sends the backend: text + range + surrounding block + nearby context.
@@ -61,7 +61,7 @@ export function reviewableRuns(editor, stored) {
 // Opt-out is explicit — pass `corpusFor: null` for web-only (the tests do this, and
 // it's the escape hatch if the RAG ever needs to be cut out in a hurry). Passing a
 // custom function still overrides. Only `undefined` gets the default.
-export function startVerifyAll(editor, { onProgress, controller, force, corpusFor } = {}) {
+export function startVerifyAll(editor, { onProgress, controller, force, corpusFor, mode = 'fc-deep' } = {}) {
   return runVerifyAll({
     runs: collectFcRuns(editor),
     fetchImpl: (...args) => fetch(...args),
@@ -69,6 +69,7 @@ export function startVerifyAll(editor, { onProgress, controller, force, corpusFo
     onProgress,
     controller,
     force,
+    mode,
     corpusFor: corpusFor === undefined ? makeCorpusFor() : corpusFor,
   });
 }
