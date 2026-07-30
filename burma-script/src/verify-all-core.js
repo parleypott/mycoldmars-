@@ -48,9 +48,23 @@ export function makeBatchController() {
   };
 }
 
+// How many CONSECUTIVE infrastructure-shaped failures end the batch. Three, because one
+// is noise and two can be coincidence, but three in a row is the deployment telling you
+// the remaining N would fail identically.
+export const INFRA_FAILURE_LIMIT = 3;
+
+// Is this failure about the DEPLOYMENT rather than this particular claim? Platform kills
+// (502/503/504), the shared rate bucket (429), and the safe-parse fallback for a
+// non-JSON platform error page all mean "every other claim will hit this too". A timeout
+// or a model-level error is per-claim and must NOT count — the next claim deserves its turn.
+export function isInfraFailure(msg) {
+  return /\b(429|50[234])\b|rate limit|too many requests|server error \(/i.test(String(msg || ''));
+}
+
 // The batch engine. Fan-out at bounded concurrency; each span POSTs mode:'fc-deep' and
 // persists its own result the moment it lands (data-loss law: a crash mid-batch keeps
-// every finished verdict). Failures persist a verdictError and DON'T stop the queue.
+// every finished verdict). Per-claim failures persist a verdictError and DON'T stop the
+// queue; a run of INFRA_FAILURE_LIMIT deployment-level failures DOES (see circuit breaker).
 export async function runVerifyAll({
   runs,
   fetchImpl,
@@ -68,6 +82,8 @@ export async function runVerifyAll({
   const total = toRun.length;
   let done = 0;
   let failed = 0;
+  let infraStreak = 0;   // consecutive deployment-level failures; any success resets it
+  let stoppedReason = ''; // set when the circuit breaker trips, surfaced to the caller
   const report = () => {
     if (onProgress) onProgress({ done, failed, total, skipped: skipped.length, cancelled: ctl.cancelled });
   };
@@ -131,10 +147,31 @@ export async function runVerifyAll({
           corpusUsed: Array.isArray(corpus) ? corpus.length : 0,
         });
         done++;
+        infraStreak = 0; // a success proves the deployment is healthy — forget the streak
       } catch (err) {
         if (!ctl.cancelled) {
-          persist(run.text, { verdictError: err && err.name === 'AbortError' ? 'timed out' : ((err && err.message) || String(err)) });
+          const msg = err && err.name === 'AbortError' ? 'timed out' : ((err && err.message) || String(err));
+          persist(run.text, { verdictError: msg });
           failed++;
+          // CIRCUIT BREAKER (production incident 2026-07-30). A DEPLOYMENT-level failure —
+          // the platform killing the function (502) or the shared rate bucket emptying (429)
+          // — is identical for every remaining claim. Grinding through them all does three
+          // harmful things: it can't succeed, it drains the SAME token bucket the writers'
+          // interactive VERIFY CLAIM button uses (so a broken batch degrades a working
+          // feature for everyone), and it buries the real cause under N console errors.
+          //
+          // Per-claim failures (a bad marker, one timeout) must NOT trip this — they're
+          // independent and the next claim deserves its turn. Only consecutive
+          // infrastructure-shaped failures count, and the streak resets on any success.
+          if (isInfraFailure(msg)) {
+            infraStreak++;
+            if (infraStreak >= INFRA_FAILURE_LIMIT) {
+              ctl.cancel();
+              stoppedReason = `stopped after ${infraStreak} consecutive server failures (${msg}) — the remaining claims would fail the same way. Nothing was lost: re-run to pick up where this left off.`;
+            }
+          } else {
+            infraStreak = 0;
+          }
         }
       } finally {
         clearTimeout(killer);
@@ -146,5 +183,5 @@ export async function runVerifyAll({
 
   const width = Math.max(1, Math.min(concurrency, toRun.length || 1));
   await Promise.all(Array.from({ length: width }, worker));
-  return { done, failed, total, skipped: skipped.length, cancelled: ctl.cancelled };
+  return { done, failed, total, skipped: skipped.length, cancelled: ctl.cancelled, stoppedReason };
 }
