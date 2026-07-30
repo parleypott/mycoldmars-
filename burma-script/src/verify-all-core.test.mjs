@@ -266,6 +266,13 @@ ok('bounds: clientBoundFor picks per mode', clientBoundFor('fc-deep') === DEEP_C
 
 ok('isUnavailable: deep_unavailable yes', isUnavailable('deep_unavailable') === true);
 ok('isUnavailable: retrieval_not_configured yes', isUnavailable('retrieval_not_configured') === true);
+// The CLIENT half of the 2026-07-30 incident fix: the server labels an upstream account
+// condition (spend cap / bad key) `upstream_rejected` (burma-tk.js), and a spend cap's own
+// text carries "usage limits". Both are DEFINITIVE for the whole batch — every remaining
+// claim hits the same wall — so isUnavailable must latch on them. Drop either and a spend
+// cap grinds all N claims into the same billing wall, burning the shared rate budget.
+ok('isUnavailable: upstream_rejected yes (server 4xx passthrough)', isUnavailable('upstream_rejected') === true);
+ok('isUnavailable: "usage limits" yes (spend-cap message text)', isUnavailable('You have reached your specified API usage limits.') === true);
 ok('isUnavailable: 502 NO', isUnavailable('server error (502)') === false);
 ok('isUnavailable: 429 NO', isUnavailable('HTTP 429') === false);
 
