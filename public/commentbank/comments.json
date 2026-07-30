@@ -1,5 +1,247 @@
 [
   {
+    "id": "F0BLT7RKR45",
+    "name": "Screenshot 2026-07-30 at 8.26.25 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28219,
+    "local_path": "images/F0BLT7RKR45.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "3 hour video from Johnny is all I want! Thanks!",
+      "commenter": "pulkitverma593",
+      "sentiment": "praise",
+      "themes": [
+        "long form",
+        "host",
+        "content request",
+        "gratitude"
+      ],
+      "video_hint": "A video by a creator named Johnny, likely a long-form content channel",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:44.639Z"
+  },
+  {
+    "id": "F0BLWG977NE",
+    "name": "Screenshot 2026-07-30 at 8.26.14 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 36321,
+    "local_path": "images/F0BLWG977NE.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "3 HOURS!!!!! What a movie! <3 leme get the popcorn.",
+      "commenter": "SPARTA96117",
+      "sentiment": "praise",
+      "themes": [
+        "length",
+        "excitement",
+        "movie",
+        "engagement"
+      ],
+      "video_hint": "A video approximately 3 hours long, described or perceived as movie-like",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:44.899Z"
+  },
+  {
+    "id": "F0BLWG96PC2",
+    "name": "Screenshot 2026-07-30 at 8.49.24 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28956,
+    "local_path": "images/F0BLWG96PC2.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "Every single multi-hour video by Johnny is a masterpiece. Including this one.",
+      "commenter": "PhilipGu-l2l",
+      "sentiment": "praise",
+      "themes": [
+        "long-form content",
+        "host",
+        "quality",
+        "video format"
+      ],
+      "video_hint": "A multi-hour video by a creator named Johnny",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:45.018Z"
+  },
+  {
+    "id": "F0BLYE9SBDF",
+    "name": "Screenshot 2026-07-30 at 8.25.29 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 44922,
+    "local_path": "images/F0BLYE9SBDF.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "I absolutely love that you are now officially in the 3 hour videos era now, Johnny and team. See you in Newpress!",
+      "commenter": "@jayforcinema",
+      "sentiment": "praise",
+      "themes": [
+        "long-form content",
+        "host",
+        "video length",
+        "community"
+      ],
+      "video_hint": "A video approximately 3 hours long by a creator named Johnny; references a place or event called Newpress",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:45.788Z"
+  },
+  {
+    "id": "F0BLF5E0B4P",
+    "name": "Screenshot 2026-07-30 at 8.24.22 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 27881,
+    "local_path": "images/F0BLF5E0B4P.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "Johnny, man... amazing! The quality of your videos is absolutely incredible!",
+      "commenter": "@Zwänzg",
+      "sentiment": "praise",
+      "themes": [
+        "video quality",
+        "host",
+        "production value"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:47.881Z"
+  },
+  {
+    "id": "F0BLT7SP9L5",
+    "name": "Screenshot 2026-07-30 at 8.25.22 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30762,
+    "local_path": "images/F0BLT7SP9L5.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "Wow, thank you so much Johnny, I appreciate your effort to make the 3hour long video!",
+      "commenter": "lloydlazaro6567",
+      "sentiment": "praise",
+      "themes": [
+        "appreciation",
+        "video length",
+        "effort",
+        "host"
+      ],
+      "video_hint": "A 3-hour long video by a creator named Johnny",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:48.053Z"
+  },
+  {
+    "id": "F0BLUGRT1CN",
+    "name": "Screenshot 2026-07-30 at 8.24.38 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 33796,
+    "local_path": "images/F0BLUGRT1CN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "this video is longer than christopher nolan's the odyssey!",
+      "commenter": "carfo",
+      "sentiment": "funny",
+      "themes": [
+        "video length",
+        "christopher nolan",
+        "humor",
+        "the odyssey"
+      ],
+      "video_hint": "A notably long video; commenter jokes it exceeds the runtime of Christopher Nolan's upcoming film The Odyssey",
+      "is_question": false,
+      "is_criticism": true
+    },
+    "analyzed_at": "2026-07-30T13:08:49.514Z"
+  },
+  {
+    "id": "F0BLQ94KV27",
+    "name": "Screenshot 2026-07-30 at 8.24.08 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 49524,
+    "local_path": "images/F0BLQ94KV27.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "Thanks for helping people understand the greatest threat to United States and the world, it is the \"Military Industrial Complex\".",
+      "commenter": "@johnhaggerty6009",
+      "sentiment": "insightful",
+      "themes": [
+        "military industrial complex",
+        "geopolitics",
+        "national security",
+        "united states"
+      ],
+      "video_hint": "Video likely covers the Military Industrial Complex or related US foreign policy/defense spending topic",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:49.615Z"
+  },
+  {
+    "id": "F0BLUGXHQDC",
+    "name": "Screenshot 2026-07-30 at 8.26.11 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 17162,
+    "local_path": "images/F0BLUGXHQDC.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785415942.778069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785415942778069",
+    "posted_at": "2026-07-30T12:52:22.778Z",
+    "analysis": {
+      "comment_text": "Need a theatre release !",
+      "commenter": "rishin07",
+      "sentiment": "other",
+      "themes": [
+        "theatrical release",
+        "distribution",
+        "demand",
+        "exhibition"
+      ],
+      "video_hint": "Likely a film or documentary being released digitally/streaming only",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-07-30T13:08:50.656Z"
+  },
+  {
     "id": "F0BHSU3GH71",
     "name": "Screenshot 2026-07-18 at 9.57.47 AM.png",
     "ext": "png",
