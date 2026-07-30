@@ -8,6 +8,7 @@
 import { findPendingFcRuns } from './extensions/marks.js';
 import { getEpisodeStorage } from './episode-config.js';
 import { runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS } from './verify-all-core.js';
+import { makeCorpusFor } from './corpus-retrieval.js';
 
 export { makeBatchController, DEEP_CLIENT_TIMEOUT_MS };
 
@@ -53,9 +54,13 @@ export function reviewableRuns(editor, stored) {
   });
 }
 
-// Kick the batch with live wiring. corpusFor stays a pass-through seam: tonight's
-// embedding session plugs retrieval in here (run → top-k vetted chunks) with zero
-// changes to the engine or the API contract.
+// Kick the batch with live wiring. The corpusFor seam is now FILLED by default:
+// every run is pre-flighted against the Newpress citations RAG, so fc-deep checks
+// this team's own vetted sources before reaching for the open web.
+//
+// Opt-out is explicit — pass `corpusFor: null` for web-only (the tests do this, and
+// it's the escape hatch if the RAG ever needs to be cut out in a hurry). Passing a
+// custom function still overrides. Only `undefined` gets the default.
 export function startVerifyAll(editor, { onProgress, controller, force, corpusFor } = {}) {
   return runVerifyAll({
     runs: collectFcRuns(editor),
@@ -64,6 +69,6 @@ export function startVerifyAll(editor, { onProgress, controller, force, corpusFo
     onProgress,
     controller,
     force,
-    corpusFor,
+    corpusFor: corpusFor === undefined ? makeCorpusFor() : corpusFor,
   });
 }

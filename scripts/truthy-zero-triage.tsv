@@ -48,3 +48,4 @@ public/burgundy/index.html	parseFloat(getComputedStyle(document.documentElement)
 burma-script/src/extensions/blocks.js	Number(dpr)||1	SAFE	devicePixelRatio is always >=1; a 0/NaN dpr is not a real display density, so || 1 only catches an absent value (pickInlineWidth)
 burma-script/src/extensions/blocks.js	Number(boxWidthPx)||720	SAFE	a 0 box width means "not laid out / unknown" — we must NOT request a 0-width transform; falling to the 720 default column width is the intended behavior (pickInlineWidth)
 burma-script/src/extensions/blocks.js	Number(quality)||78	SAFE	JPEG/WebP quality 0 is not meaningful (useful range 1..100, clamped right after); 0/NaN correctly falls to the 78 default (supabaseInlineSrc)
+api/citations-search.js	Number(body.limit)||12	SAFE	Math.max(1,Math.min(Number(body.limit)||12,50)) — limit 1-50, 0 invalid

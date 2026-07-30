@@ -95,7 +95,17 @@ export async function runVerifyAll({
       const killer = setTimeout(() => ac.abort(), timeoutMs);
       try {
         const body = { mode: 'fc-deep', marker: run.text, block: run.block || '', context: run.context || '' };
-        const corpus = corpusFor ? corpusFor(run) : null;
+        // Corpus pre-flight. AWAITED — corpusFor is async now that it's wired to the
+        // citations RAG over HTTP (corpus-retrieval.js); the earlier sync call would have
+        // handed Array.isArray a Promise and silently dropped every chunk.
+        //
+        // Its own try/catch, INSIDE the run's: retrieval is an enhancement, so a corpus
+        // failure must degrade this run to web-only, never mark it failed. Letting it fall
+        // to the outer catch would turn "the RAG was down" into "the fact-check failed".
+        let corpus = null;
+        if (corpusFor) {
+          try { corpus = await corpusFor(run); } catch { corpus = null; }
+        }
         if (Array.isArray(corpus) && corpus.length) body.corpus = corpus;
         const res = await fetchImpl(endpoint, {
           method: 'POST',
