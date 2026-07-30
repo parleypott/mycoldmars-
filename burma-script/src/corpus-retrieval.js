@@ -57,6 +57,17 @@ export function toCorpusChunks(matches, { limit = CORPUS_LIMIT, minSimilarity = 
     }));
 }
 
+// SESSION LATCH — once the server answers 501 retrieval_not_configured, stop asking.
+//
+// Retrieval is provisioned by an env var (JINA_API_KEY). When it is absent EVERY call is
+// doomed identically, so a Verify All batch over N claims produced N identical console
+// errors for a feature that cannot succeed until someone edits the Vercel env. One report,
+// then silence, is the honest behavior. Module-scoped, so a page reload re-probes — which
+// is exactly what you want the moment the key IS set (no code change to re-enable).
+let _notConfigured = false;
+export function retrievalDisabled() { return _notConfigured; }
+export function resetRetrievalLatch() { _notConfigured = false; } // tests + manual re-probe
+
 // Build the corpusFor(run) function the batch engine and the dock both take.
 // Returns an ASYNC fn — callers must await it (verify-all-core does).
 export function makeCorpusFor({
@@ -69,6 +80,7 @@ export function makeCorpusFor({
 } = {}) {
   const doFetch = fetchImpl || ((...a) => fetch(...a));
   return async function corpusFor(run) {
+    if (_notConfigured) return []; // latched off — don't spend a round-trip per claim
     const query = (run && typeof run.text === 'string' ? run.text : '').trim();
     if (!query) return [];
     // Own AbortController per call: the batch's per-run controller governs the
@@ -85,6 +97,14 @@ export function makeCorpusFor({
       const raw = await res.text();
       let data;
       try { data = raw ? JSON.parse(raw) : {}; } catch { return []; }
+      // 501 = this deployment has no retrieval provisioned. Latch off for the session so a
+      // batch reports it ONCE instead of once per claim. Any other error stays per-call —
+      // a 429 or a transient 502 may well succeed on the next claim.
+      if (res.status === 501) {
+        _notConfigured = true;
+        if (onError) onError('corpus retrieval is not configured on this deployment — running web-only for the rest of this session');
+        return [];
+      }
       if (!res.ok || data.error) {
         if (onError) onError(data.error || `HTTP ${res.status}`);
         return [];
