@@ -16,7 +16,7 @@
 import assert from 'node:assert';
 import {
   hostOf, labelFor, toCorpusChunks, makeCorpusFor,
-  CORPUS_LIMIT, CORPUS_MIN_SIMILARITY, CORPUS_ENDPOINT,
+  CORPUS_LIMIT, CORPUS_MIN_SIMILARITY, CORPUS_ENDPOINT, retrievalDisabled, resetRetrievalLatch,
 } from './corpus-retrieval.js';
 import { runVerifyAll } from './verify-all-core.js';
 
@@ -227,6 +227,52 @@ const verdictFetch = (sink) => async (_url, init) => {
   const sent = [];
   await runVerifyAll({ runs: [R('claim five')], fetchImpl: verdictFetch(sent), storage: memStorage(), corpusFor: null });
   ok('corpusFor:null is the web-only opt-out', sent[0].corpus === undefined);
+}
+
+// ── 8. 501 LATCH — an unprovisioned deployment reports once, not once per claim ──
+{
+  resetRetrievalLatch();
+  const calls = [];
+  const f = async (url, init) => {
+    calls.push(url);
+    return { ok: false, status: 501, text: async () => JSON.stringify({ error: 'retrieval_not_configured' }) };
+  };
+  const errs = [];
+  const corpusFor = makeCorpusFor({ fetchImpl: f, onError: (e) => errs.push(e) });
+
+  ok('501 degrades to []', (await corpusFor({ text: 'claim one' })).length === 0);
+  ok('501 sets the latch', retrievalDisabled() === true);
+  ok('501 reports once', errs.length === 1 && /not configured/i.test(errs[0]));
+
+  // The whole point: the next 9 claims must not each fire a doomed request.
+  for (let i = 0; i < 9; i++) await corpusFor({ text: `claim ${i + 2}` });
+  ok('latched: no further fetches for the rest of the batch', calls.length === 1);
+  ok('latched: no further error reports', errs.length === 1);
+  ok('latched calls still return []', (await corpusFor({ text: 'x' })).length === 0);
+
+  resetRetrievalLatch();
+  ok('reset re-probes (a reload picks the key up with no code change)', retrievalDisabled() === false);
+}
+{
+  // A transient failure must NOT latch — the next claim may well succeed.
+  resetRetrievalLatch();
+  const calls = [];
+  const f = async (url) => { calls.push(url); return { ok: false, status: 502, text: async () => JSON.stringify({ error: 'upstream boom' }) }; };
+  const corpusFor = makeCorpusFor({ fetchImpl: f });
+  await corpusFor({ text: 'a' }); await corpusFor({ text: 'b' });
+  ok('502 does NOT latch — transient errors stay per-call', retrievalDisabled() === false);
+  ok('502 keeps trying each claim', calls.length === 2);
+  resetRetrievalLatch();
+}
+{
+  resetRetrievalLatch();
+  const calls = [];
+  const f = async (url) => { calls.push(url); return { ok: false, status: 429, text: async () => JSON.stringify({ error: 'Too many requests. Wait a minute.' }) }; };
+  const corpusFor = makeCorpusFor({ fetchImpl: f });
+  await corpusFor({ text: 'a' }); await corpusFor({ text: 'b' });
+  ok('429 does NOT latch — the budget refills', retrievalDisabled() === false);
+  ok('429 keeps trying each claim', calls.length === 2);
+  resetRetrievalLatch();
 }
 
 assert.ok(true);

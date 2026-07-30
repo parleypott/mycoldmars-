@@ -95,6 +95,28 @@ function resetEnv() {
   ok(res.status === 500, `claim alias accepted (→500 config, not 400) (got ${res.status})`);
 }
 
+// 9. Supabase configured but JINA_API_KEY missing → 501 retrieval_not_configured,
+//    NOT 502. Regression lock for a production incident (2026-07-30): the missing key
+//    fell through to embedQuery(), threw, and was caught as a 502 — so a Verify All
+//    batch emitted one 502 per claim. 502 says "upstream failed, retry may work"; an
+//    unset env var can never succeed until a human sets it. The distinct 501 is what
+//    lets corpus-retrieval.js latch off after a single hit instead of asking N times.
+{
+  resetEnv();
+  process.env.SUPABASE_URL = 'https://example.supabase.co';
+  process.env.SUPABASE_SERVICE_KEY = 'service-key-not-real';
+  const jinaSnap = process.env.JINA_API_KEY;
+  delete process.env.JINA_API_KEY;
+
+  const res = await handler(mkReq({ jsonValue: { query: 'Burma was annexed in 1826.' } }));
+  ok(res.status === 501, `no JINA key → 501, not 502 (got ${res.status})`);
+  const body = await res.json();
+  ok(body.error === 'retrieval_not_configured', `error is the latchable sentinel (got ${body.error})`);
+  ok(/JINA_API_KEY/.test(body.message || ''), 'message names the missing var so it is actionable');
+
+  if (jinaSnap !== undefined) process.env.JINA_API_KEY = jinaSnap;
+}
+
 // restore env
 process.env = snap;
 

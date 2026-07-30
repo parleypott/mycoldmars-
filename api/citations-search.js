@@ -68,6 +68,20 @@ export default async function handler(req) {
     return json({ error: 'Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_KEY)' }, 500);
   }
 
+  // FEATURE GATE — sits with the other config checks, before the paid embed (same
+  // principle test 7 locks for Supabase: never spend on an unconfigured server).
+  //
+  // This used to fall through to embedQuery(), which throws 'JINA_API_KEY is not set'
+  // and was caught below as a 502. Wrong twice over: 502 means an UPSTREAM call failed
+  // and retrying might work, but a missing env var can NEVER succeed until someone sets
+  // it — so a Verify All batch fired one doomed request per claim and filled the console
+  // with 502s (observed in production 2026-07-30). 501 + <feature>_not_configured is the
+  // repo idiom (asana-progress, prawn), and is distinguishable enough that the client
+  // latches off after a single hit instead of asking N times.
+  if (!process.env.JINA_API_KEY) {
+    return json({ error: 'retrieval_not_configured', message: 'JINA_API_KEY is not set on the server.' }, 501);
+  }
+
   const limit = Math.max(1, Math.min(Number(body.limit) || 12, 50));
   const filterVideo = (typeof body.video === 'string' && body.video.trim()) ? body.video.trim() : null;
   const citedOnly = body.citedOnly === true;
