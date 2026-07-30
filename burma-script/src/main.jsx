@@ -1009,7 +1009,11 @@ function ProgItem({ label, done, total, pct, count, tint }) {
   );
 }
 
-function ProgressBars({ getDoc, tick }) {
+// ONE walk, TWO renderers. App owns the reading and hands it to both the full bars under
+// the masthead and the compact readout in the scrolled sticky strip. Deliberately a hook
+// rather than per-component state: countProgress walks the whole doc, and this codebase's
+// rule (see WorkspaceHub) is that no second full-doc walk ever lands on the keystroke path.
+export function useProgress(getDoc, tick) {
   const [p, setP] = useState(null);
   const recompute = useCallback(() => {
     try { const doc = typeof getDoc === 'function' ? getDoc() : null; if (doc) setP(countProgress(doc)); } catch { /* keep last good reading */ }
@@ -1023,8 +1027,40 @@ function ProgressBars({ getDoc, tick }) {
     const ts = [setTimeout(recompute, 400), setTimeout(recompute, 1500), setTimeout(recompute, 4000)];
     return () => { window.removeEventListener('wp-saved', recompute); window.removeEventListener('wp-dirty', recompute); ts.forEach(clearTimeout); };
   }, [recompute]);
-  // Don't render an all-zero strip (a doc with nothing flagged yet).
-  if (!p || (p.fc.total === 0 && p.tk.open === 0 && p.archive.total === 0)) return null;
+  return p;
+}
+
+// True when there is nothing flagged yet — don't render an all-zero strip.
+export function progEmpty(p) {
+  return !p || (p.fc.total === 0 && p.tk.open === 0 && p.archive.total === 0);
+}
+
+// The COMPACT readout that rides the sticky strip once the masthead scrolls off. Numbers
+// only plus a hairline fill — the strip is 40px and already carries OUTLINE, the title,
+// workspaces and share, so full labelled tracks would crowd it out. Same values, same
+// tints as the big bars; this is a second PLACEMENT, not a second source of truth.
+function ProgStrip({ p }) {
+  if (progEmpty(p)) return null;
+  const cell = (lab, txt, pct, tint) => (
+    <span class="wp-shprog-item" title={`${lab} ${txt}`}>
+      <span class="wp-shprog-lab">{lab}</span>
+      <span class="wp-shprog-val">{txt}</span>
+      {pct != null && (
+        <span class="wp-shprog-track"><span class="wp-shprog-fill" style={{ width: pct + '%', background: tint }} /></span>
+      )}
+    </span>
+  );
+  return (
+    <span class="wp-shprog" role="status" aria-label="Script progress">
+      {cell('FC', `${p.fc.done}/${p.fc.total}`, p.fc.pct, '#1f8a72')}
+      {cell('TK', String(p.tk.open), null, '#a03a2e')}
+      {cell('ARCH', `${p.archive.done}/${p.archive.total}`, p.archive.pct, '#b56b6b')}
+    </span>
+  );
+}
+
+function ProgressBars({ p }) {
+  if (progEmpty(p)) return null;
   return (
     <div class="wp-prog" role="status" aria-label="Script progress">
       <ProgItem label="FACT CHECK" done={p.fc.done} total={p.fc.total} pct={p.fc.pct} tint="#1f8a72" />
@@ -1498,7 +1534,7 @@ function WorkspacesMenu({ getDoc, onPick, placement = 'masthead' }) {
 // stickyHeaderVisible() (sticky-header.js), tested headless. The workspaces menu and share are
 // the SAME components as the masthead — a second placement, not a fork; the selected-workspace
 // state lives in App, so nothing here can desync.
-function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project, outlineOpen, onToggleOutline, hasOutline }) {
+function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project, outlineOpen, onToggleOutline, hasOutline, prog }) {
   const [mastheadVisible, setMastheadVisible] = useState(true);
   useEffect(() => {
     // The masthead (with its workspaces menu) is present in BOTH owner and ?read shares now,
@@ -1531,6 +1567,9 @@ function StickyHeader({ title, readOnly, ws, chFocus, getDoc, onPick, project, o
         </button>
       )}
       <span class="wp-stickyhead-title" title={title}>{title}</span>
+      {/* Progress rides here rather than in a strip of its own: this is the bar that already
+          appears on scroll, so the counters stay with the chrome the writer is looking at. */}
+      <ProgStrip p={prog} />
       <span class="wp-stickyhead-spacer" />
       <WorkspacesMenu getDoc={getDoc} onPick={onPick} placement="sticky" />
       {/* SHARE is an owner write-surface (PATCHes is_public) — never in a ?read share's strip. */}
@@ -1634,6 +1673,13 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
   const [tel, setTel] = useState(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
+  // ONE progress reading per telemetry tick, shared by the full bars under the masthead and
+  // the compact readout in the sticky strip. getJSON is stable via useCallback so the hook's
+  // recompute identity doesn't churn on every render.
+  const getProgDoc = useCallback(() => {
+    try { return editorRef.current?.getJSON() || null; } catch { return null; }
+  }, []);
+  const prog = useProgress(getProgDoc, tel);
   // READ/EDIT MODE — mirror of the edit-mode module for rendering (the module is the truth;
   // this state just re-renders the switch + data-mode attr when the broadcast lands).
   const [editUi, setEditUi] = useState(isEditMode());
@@ -2080,6 +2126,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
           can still switch workspace after scrolling — it drops the owner-only SHARE control there
           (StickyHeader gates share on readOnly internally). */}
       <StickyHeader
+        prog={prog}
         title={DOC_TITLE}
         readOnly={readOnly}
         ws={ws}
@@ -2158,7 +2205,7 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
         </header>
 
         {/* PROGRESS BARS — document-wide FC / TK / archive, always visible under the header. */}
-        <ProgressBars getDoc={() => { try { return editorRef.current?.getJSON() || null; } catch { return null; } }} tick={tel} />
+        <ProgressBars p={prog} />
 
         {/* WORKSPACE HUB — the craft's dashboard, above the editor while a workspace is
             active. The SCRIPT MAP route renders its (stage-4) host instead of the hub. */}

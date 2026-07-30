@@ -2310,32 +2310,10 @@ a[href*="liveblocks.io"] { display: none !important; }
 
 /* ---- PROGRESS BARS (progress-counts.js) — document-wide FC / TK / archive strip under the
    header. Flat, mono chrome to match the telemetry line. Pure read-only display, no interaction. */
-/* STICKY: the bars ride the top of the viewport so progress stays readable while scrolling
-   a long script — that's the whole point of a progress bar, and a script is thousands of
-   words. Needs an OPAQUE background (a transparent sticky element lets the script scroll
-   visibly through it) and a z-index above the prose but below the menus (60/70) and the
-   save banners (998+), which must always win. */
-.wp-prog {
-  display: flex; gap: 24px; align-items: flex-start;
-  padding: 9px 4px 11px;
-  border-bottom: 1px solid rgba(0,0,0,.10);
-  position: sticky; top: 0; z-index: 40;
-  background: var(--face, #faf6ee);
-  /* Only once it's actually stuck does it need to separate from the text sliding under it.
-     `top: -1px` + `:stuck`-style detection isn't portable, so this stays subtle enough to
-     read as chrome in both states rather than flickering a shadow on and off. */
-  box-shadow: 0 1px 0 rgba(0,0,0,.04);
-}
-/* With a workspace open, .wp-wsbar is fixed at top:0 (z-index 530) and .wp-page gets
-   padding-top:56px to clear it. A sticky bar at top:0 would slide UNDERNEATH that bar and
-   vanish — so park it directly below instead. Keep this offset in sync with .wp-wsbar's
-   height if that bar's padding ever changes. */
-.wp-page[data-ws] .wp-prog { top: 56px; }
-@media print {
-  /* Sticky is screen furniture: printing wants the bars in document flow, once, where they
-     belong — not floated over the first page of prose. */
-  .wp-prog { position: static; box-shadow: none; }
-}
+/* The full bars sit in flow under the masthead. They deliberately do NOT stick: the strip
+   that already appears on scroll (.wp-stickyhead) carries a compact readout instead, so
+   there is one piece of chrome at the top edge rather than two competing for it. */
+.wp-prog { display: flex; gap: 24px; align-items: flex-start; padding: 9px 4px 11px; border-bottom: 1px solid rgba(0,0,0,.10); }
 .wp-prog-item { flex: 1 1 0; min-width: 92px; }
 .wp-prog-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   font-family: var(--mono); font-size: var(--chrome-size-sm, 11px); letter-spacing: .06em; }
@@ -3426,6 +3404,26 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
   font-family: var(--mono);
 }
 .wp-stickyhead[data-show] { display: flex; }
+
+/* PROGRESS IN THE STICKY STRIP — the compact readout that replaces the full bars once the
+   masthead scrolls off. Numbers first, hairline fill second: the strip is 40px and already
+   carries OUTLINE, the title, workspaces and share, so labelled tracks would crowd it out.
+   min-width:0 + the title's own ellipsis mean a long script name yields space rather than
+   pushing the counters off the end. Hidden on narrow viewports where the title and the
+   right-hand controls already compete for the row. */
+.wp-shprog { display: inline-flex; align-items: center; gap: 14px; flex: none; min-width: 0; }
+.wp-shprog-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wp-shprog-lab {
+  font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--label, #6b6255);
+}
+.wp-shprog-val { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--ink, #1f1d18); }
+.wp-shprog-track {
+  display: inline-block; width: 34px; height: 3px; border-radius: 2px;
+  background: rgba(0,0,0,.12); overflow: hidden;
+}
+.wp-shprog-fill { display: block; height: 100%; border-radius: 2px; transition: width .24s ease; }
+@media (max-width: 900px) { .wp-shprog { display: none; } }
 /* The workspaces/share popovers collapse to max-height:0 when closed but, left in flow, their
    wide panel content would inflate the container's width and shove the visible toggle inward. In
    this flex strip (a grow-spacer exposes that intrinsic width) we take the CLOSED body out of flow

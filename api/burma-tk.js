@@ -318,27 +318,22 @@ async function innerHandler(req) {
   // Cost guard — mirror research-claude.js. Cap the marker length too.
   if (marker.length > 1200) return json({ error: 'marker too long' }, 413);
 
-  // DEEP-MODE PLATFORM GATE (production incident 2026-07-30).
+  // DEEP-MODE KILL SWITCH.
   //
-  // fc-deep budgets FC_DEEP_TIMEOUT_MS (240s). This deployment enforces the 60s clamp the
-  // header above warns about, so every deep call was killed mid-run and returned a 502.
-  // Shallow fc budgets 50s and fits, which is why only the deep path died.
+  // HISTORY, because the first version of this gate was wrong: on 2026-07-30 deep calls
+  // returned 502 and I read that as the platform's 60s function clamp killing a 240s run.
+  // It wasn't. Anthropic's spend cap was exhausted and returned a plain 400, which the
+  // upstream handler below was mapping to 502 for every status. The tell was there from the
+  // start — 15 deep checks SUCCEEDED before the failures began, which cannot happen if the
+  // platform kills every deep run. Deep fits fine.
   //
-  // The real damage was second-order: each 502 failed FAST and still consumed a token from
-  // the per-identity bucket below — the SAME bucket the writers' interactive VERIFY CLAIM
-  // uses — so a Verify All batch starved a working feature for the whole team. Hence this
-  // gate sits ABOVE the rate limiter: a request that cannot possibly succeed must not cost
-  // anyone their budget.
-  //
-  // Env-driven so re-enabling needs no deploy: set FC_DEEP_ENABLED=1 once the function's
-  // real ceiling is confirmed >= FC_DEEP_TIMEOUT_MS (declare api/burma-tk.js in vercel.json
-  // `functions` alongside cutter/transcribe, or raise the plan). 501 (not 502) because this
-  // is "not available on this deployment", never "upstream hiccup, retry might work" — the
-  // client stops the batch on 501 instead of grinding every remaining claim.
-  if (mode === 'fc-deep' && !process.env.FC_DEEP_ENABLED) {
+  // So this is now OPT-OUT, not opt-in: deep is on by default (as the evidence says it
+  // should be) and FC_DEEP_DISABLED=1 is a lever to switch it off without a deploy if it
+  // ever genuinely needs killing. 501 stays the shape, so the client latches off cleanly.
+  if (mode === 'fc-deep' && process.env.FC_DEEP_DISABLED) {
     return json({
       error: 'deep_unavailable',
-      message: 'Deep fact-check is off on this deployment: it needs a longer function time limit than is currently configured. The normal VERIFY CLAIM check still works.',
+      message: 'Deep fact-check is switched off on this deployment. The normal VERIFY CLAIM check still works.',
     }, 501);
   }
 
@@ -404,7 +399,31 @@ async function innerHandler(req) {
 
     if (!res.ok) {
       const t = await res.text();
-      return json({ error: `anthropic ${res.status}: ${t.slice(0, 400)}` }, 502);
+      // DON'T call everything a gateway failure. This mapped EVERY upstream status to 502,
+      // and on 2026-07-30 that turned Anthropic's plain 400 "You have reached your specified
+      // API usage limits. You will regain access on 2026-08-01" into "502 Bad Gateway" —
+      // which reads as a platform/infra fault and cost hours chasing function time limits
+      // instead of a billing cap anyone could have raised in a minute.
+      //
+      // A 4xx from upstream is a REQUEST/ACCOUNT condition (bad key, quota, spend cap, rate
+      // limit): it will not fix itself on retry and the operator needs to read it. Pass the
+      // status through so the message reaches the writer verbatim. Only genuine upstream
+      // faults (5xx, unreachable) stay 502.
+      // Explicit rather than `Number(res.status) || 502`: a truthiness gate would also
+      // rewrite a legitimate 0, and "is this a usable HTTP status" is the actual question.
+      const rawStatus = Number(res.status);
+      const upstreamStatus = Number.isFinite(rawStatus) && rawStatus >= 100 ? rawStatus : 502;
+      const passthrough = upstreamStatus >= 400 && upstreamStatus < 500;
+      // 429 keeps its own meaning (retry later); other 4xx surface as 422 so they are never
+      // confused with THIS server's own gates (401 access, 501 not-configured).
+      const outStatus = passthrough ? (upstreamStatus === 429 ? 429 : 422) : 502;
+      let detail = t.slice(0, 400);
+      try { const j = JSON.parse(t); if (j?.error?.message) detail = j.error.message; } catch { /* keep raw */ }
+      return json({
+        error: passthrough ? 'upstream_rejected' : `anthropic ${res.status}: ${detail}`,
+        message: passthrough ? `Anthropic (${upstreamStatus}): ${detail}` : undefined,
+        upstreamStatus,
+      }, outStatus);
     }
 
     const data = await res.json();
