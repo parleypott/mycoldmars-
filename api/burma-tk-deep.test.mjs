@@ -19,6 +19,10 @@ import assert from 'node:assert';
 import handler, { deepPrompt, buildPayload, FC_UPSTREAM_TIMEOUT_MS, FC_DEEP_TIMEOUT_MS } from './burma-tk.js';
 
 delete process.env.ANTHROPIC_API_KEY;
+// fc-deep is gated behind FC_DEEP_ENABLED in production (the 2026-07-30 platform-clamp
+// incident — see the DEEP-MODE PLATFORM GATE note in burma-tk.js). That gate is a
+// DEPLOYMENT concern; these tests exercise the deep LOGIC, so opt in explicitly.
+process.env.FC_DEEP_ENABLED = '1';
 
 let pass = 0, fail = 0;
 function ok(name, cond) {
@@ -112,6 +116,46 @@ const ARGS = { marker: 'the junta controls about 21% of the country', block: 'B'
 {
   ok('deadlines: FC_DEEP_TIMEOUT_MS = 240s', FC_DEEP_TIMEOUT_MS === 240_000);
   ok('deadlines: interactive bound unchanged at 50s', FC_UPSTREAM_TIMEOUT_MS === 50_000);
+}
+
+
+// ---- 6. DEEP-MODE PLATFORM GATE (incident 2026-07-30) ----
+// Without FC_DEEP_ENABLED, fc-deep must 501 — NOT 502, and NOT reach Anthropic.
+// The 501 is what lets the batch stop on the first hit instead of grinding every claim.
+{
+  const saved = process.env.FC_DEEP_ENABLED;
+  delete process.env.FC_DEEP_ENABLED;
+  process.env.ANTHROPIC_API_KEY = 'test-key-not-real';
+  try {
+    const r = await call({ body: { mode: 'fc-deep', marker: 'Burma was annexed in 1826.' } });
+    ok('gate: fc-deep without FC_DEEP_ENABLED -> 501', r.status === 501);
+    ok('gate: body carries the latchable sentinel', r.body && r.body.error === 'deep_unavailable');
+    ok('gate: message points at the real cause (time limit)', r.body && /time limit/i.test(r.body.message || ''));
+    ok('gate: message reassures the shallow check still works', r.body && /VERIFY CLAIM/i.test(r.body.message || ''));
+
+    // THE POINT OF THE PLACEMENT: a doomed deep call must not consume a token from the
+    // bucket the writers' interactive check shares. Fire more than RL_BURST of them; the
+    // shallow path must still be servable afterwards.
+    for (let i = 0; i < 25; i++) await call({ body: { mode: 'fc-deep', marker: `claim ${i}` } });
+    const shallow = await call({ body: { mode: 'fc', marker: 'a shallow claim' } });
+    ok('gate: 25 gated deep calls do NOT rate-limit the shallow path', shallow.status !== 429);
+  } finally {
+    if (saved !== undefined) process.env.FC_DEEP_ENABLED = saved;
+    delete process.env.ANTHROPIC_API_KEY;
+  }
+}
+
+// ---- 7. gate does not touch the shallow modes ----
+{
+  const saved = process.env.FC_DEEP_ENABLED;
+  delete process.env.FC_DEEP_ENABLED;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    const r = await call({ body: { mode: 'fc', marker: 'still works' } });
+    ok('gate: shallow fc is NOT gated (fails on the missing key, not 501)', r.status !== 501);
+  } finally {
+    if (saved !== undefined) process.env.FC_DEEP_ENABLED = saved;
+  }
 }
 
 assert.ok(true);
