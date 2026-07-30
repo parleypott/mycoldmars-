@@ -41,8 +41,8 @@ export function planRuns(runs, stored, { force = false, mode = 'fc-deep' } = {})
 
 // Does an existing verdict already meet the depth being asked for?
 //
-// THE TRAP THIS EXISTS TO PREVENT: run a shallow batch today (deep is gated off by the
-// platform limit), then enable deep tomorrow and click VERIFY ALL — without this, every
+// THE TRAP THIS EXISTS TO PREVENT: run a shallow batch while deep is unavailable, then run
+// deep once it's back and click VERIFY ALL — without this, every
 // shallow verdict reads as "already verified" and gets skipped, so the deep pass silently
 // never happens on a single claim and the script looks fully checked when it isn't.
 //
@@ -79,7 +79,11 @@ export const INFRA_FAILURE_LIMIT = 3;
 // on the first hit. Matches the 501 bodies from burma-tk (deep_unavailable) and
 // citations-search (retrieval_not_configured).
 export function isUnavailable(msg) {
-  return /\b501\b|_unavailable|not_configured|not available on this deployment/i.test(String(msg || ''));
+  // upstream_rejected = the model provider refused on ACCOUNT grounds (spend cap, quota, bad
+  // key). Like a 501 it is definitive for the whole batch, not this one claim: every
+  // remaining claim hits the same wall, so stop on the first rather than burning 45 attempts
+  // and the shared rate budget discovering the same thing 45 times.
+  return /\b501\b|_unavailable|not_configured|upstream_rejected|usage limits|not available on this deployment/i.test(String(msg || ''));
 }
 
 // Is this failure about the DEPLOYMENT rather than this particular claim? Platform kills
