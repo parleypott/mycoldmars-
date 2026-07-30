@@ -184,6 +184,17 @@ const ARGS = { marker: 'the junta controls about 21% of the country', block: 'B'
     const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
     ok('failover: quota 400 rolls over to the backup key', keys.length === 2 && keys[0] === 'primary-key' && keys[1] === 'backup-key');
     ok('failover: the request then SUCCEEDS on the backup', r.status === 200);
+    // The whole point of usedBackupKey: a run that quietly moved to the second card and
+    // SUCCEEDED must NOT look identical to a normal one — surface the flag so the operator
+    // sees the primary draining while the backup still carries the batch.
+    ok('failover: a successful backup run surfaces usedBackupKey on the SUCCESS response', r.body && r.body.usedBackupKey === true);
+  }
+
+  // The normal path (primary key works) must stay byte-identical: no usedBackupKey field.
+  {
+    globalThis.fetch = async () => mk(200, okBody);
+    const r = await call({ body: { mode: 'fc', marker: 'a claim' } });
+    ok('failover: a normal primary success does NOT carry usedBackupKey', r.status === 200 && r.body && !('usedBackupKey' in r.body));
   }
 
   // A malformed-request 400 must NOT failover — it fails identically on any key.

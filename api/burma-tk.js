@@ -478,18 +478,22 @@ async function innerHandler(req) {
       return json({ error: 'model did not return structured output', raw: text.slice(0, 600) }, 502);
     }
 
+    // A run that succeeded ON THE BACKUP is the early-warning the operator actually wants:
+    // it means the primary is drained but the second card is still carrying the batch, so
+    // top it up NOW rather than discovering it only when both refuse and the batch dies.
+    // `|| undefined` keeps every normal (primary-key) success byte-identical.
     if (mode === 'quote') {
-      return json({ mode: 'quote', ...toolInput });
+      return json({ mode: 'quote', ...toolInput, usedBackupKey: usedBackupKey || undefined });
     }
     if (mode === 'fc-deep') {
-      return json({ mode: 'fc-deep', ...toolInput });
+      return json({ mode: 'fc-deep', ...toolInput, usedBackupKey: usedBackupKey || undefined });
     }
     if (isFc) {
-      return json({ mode: 'fc', ...toolInput });
+      return json({ mode: 'fc', ...toolInput, usedBackupKey: usedBackupKey || undefined });
     }
     // Defensive: ensure 5 options, each with the expected shape.
     const options = Array.isArray(toolInput.options) ? toolInput.options.slice(0, 5) : [];
-    return json({ mode: 'tk', options });
+    return json({ mode: 'tk', options, usedBackupKey: usedBackupKey || undefined });
   })().catch((err) => {
     // Any unexpected throw inside the upstream work (body read aborted mid-stream, bad JSON from a
     // proxy, …) resolves the race with clean JSON instead of crashing the function into a platform
