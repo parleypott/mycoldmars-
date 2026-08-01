@@ -1,5 +1,193 @@
 [
   {
+    "id": "F0BM40HDPSA",
+    "name": "Screenshot 2026-07-31 at 8.17.42 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 19229,
+    "local_path": "images/F0BM40HDPSA.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785502772.620409",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785502772620409",
+    "posted_at": "2026-07-31T12:59:32.620Z",
+    "analysis": {
+      "comment_text": "Max your content is A++",
+      "commenter": "jacobpayne89",
+      "sentiment": "praise",
+      "themes": [
+        "content quality",
+        "host",
+        "praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:01.277Z"
+  },
+  {
+    "id": "F0BN09ZUSP2",
+    "name": "Screenshot 2026-07-31 at 8.57.40 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 37527,
+    "local_path": "images/F0BN09ZUSP2.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785502772.620409",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785502772620409",
+    "posted_at": "2026-07-31T12:59:32.620Z",
+    "analysis": {
+      "comment_text": "My boomer relatives love this style of video , str8 to the point no fluff and ive actually turned them around on a few issues using your videos!",
+      "commenter": "Christiancartin",
+      "sentiment": "praise",
+      "themes": [
+        "pacing",
+        "audience",
+        "persuasion",
+        "style"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:04.784Z"
+  },
+  {
+    "id": "F0BM40JDX7G",
+    "name": "Screenshot 2026-07-31 at 8.57.48 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 50257,
+    "local_path": "images/F0BM40JDX7G.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785502772.620409",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785502772620409",
+    "posted_at": "2026-07-31T12:59:32.620Z",
+    "analysis": {
+      "comment_text": "Dear Max, I just wanted to say thank you, this subject is very important to my country, and I really appreciate that you dedicated a video to it.",
+      "commenter": "Kafkian_migrant",
+      "sentiment": "praise",
+      "themes": [
+        "gratitude",
+        "national relevance",
+        "host",
+        "topic appreciation"
+      ],
+      "video_hint": "A video covering a subject of national/political or cultural importance to the commenter's country",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:04.784Z"
+  },
+  {
+    "id": "F0BN09Z8JTA",
+    "name": "Screenshot 2026-07-31 at 8.17.28 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30183,
+    "local_path": "images/F0BN09Z8JTA.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1785502772.620409",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785502772620409",
+    "posted_at": "2026-07-31T12:59:32.620Z",
+    "analysis": {
+      "comment_text": "I live for Max's cork board....",
+      "commenter": "davidmunnery6668",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "editing",
+        "visual_element",
+        "engagement"
+      ],
+      "video_hint": "Video featuring a presenter named Max who uses a cork board",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:06.436Z"
+  },
+  {
+    "id": "F0BM1031E7N",
+    "name": "Screenshot 2026-07-30 at 9.21.19 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 27339,
+    "local_path": "images/F0BM1031E7N.png",
+    "slack_user": "U0A0SU6P8EN",
+    "slack_ts": "1785420917.613619",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785420917613619?thread_ts=1785415942.778069&cid=C084AQ5MNTS",
+    "posted_at": "2026-07-30T14:15:17.613Z",
+    "analysis": {
+      "comment_text": "Best way to start my work day",
+      "commenter": "trevorbanks1471",
+      "sentiment": "praise",
+      "themes": [
+        "morning routine",
+        "work",
+        "enjoyment",
+        "relatable"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:01.646Z"
+  },
+  {
+    "id": "F0BLFTJCATH",
+    "name": "Screenshot 2026-07-30 at 9.20.45 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 15418,
+    "local_path": "images/F0BLFTJCATH.png",
+    "slack_user": "U0A0SU6P8EN",
+    "slack_ts": "1785420917.613619",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785420917613619?thread_ts=1785415942.778069&cid=C084AQ5MNTS",
+    "posted_at": "2026-07-30T14:15:17.613Z",
+    "analysis": {
+      "comment_text": "last time i was this early, the house of Sauds were still reunifying the peninsua",
+      "commenter": "AzizFahmid",
+      "sentiment": "funny",
+      "themes": [
+        "early comment",
+        "history",
+        "saudi arabia",
+        "humor"
+      ],
+      "video_hint": "likely a video related to Middle Eastern history or Saudi Arabia",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:02.579Z"
+  },
+  {
+    "id": "F0BLV9SJWTG",
+    "name": "Screenshot 2026-07-30 at 9.18.34 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 15555,
+    "local_path": "images/F0BLV9SJWTG.png",
+    "slack_user": "U0A0SU6P8EN",
+    "slack_ts": "1785420917.613619",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1785420917613619?thread_ts=1785415942.778069&cid=C084AQ5MNTS",
+    "posted_at": "2026-07-30T14:15:17.613Z",
+    "analysis": {
+      "comment_text": "I'm about to get BAKED and watch this",
+      "commenter": "Bedrotking",
+      "sentiment": "funny",
+      "themes": [
+        "anticipation",
+        "casual viewing",
+        "cannabis",
+        "entertainment"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-01T00:05:05.895Z"
+  },
+  {
     "id": "F0BLT7RKR45",
     "name": "Screenshot 2026-07-30 at 8.26.25 AM.png",
     "ext": "png",
