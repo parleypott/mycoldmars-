@@ -1399,6 +1399,35 @@ function urlFor(i) {
   pr.catch(() => player.urls.delete(u.key));   // a failed fetch must not poison the cache
   return pr;
 }
+// ── gapless buffer ──────────────────────────────────────────────────────────
+// urlFor only resolves the mp3 URL; the <audio> element didn't start downloading
+// until src was set, so every paragraph opened with a network+decode stall (the
+// "couple-second gap" between paragraphs). blobFor fetches the ACTUAL bytes ahead
+// of time into an object URL, so the next paragraph plays instantly. We keep a
+// small window buffered around the play head and free the rest, so a 1,100-para
+// book never piles the whole audiobook into memory.
+const PREFETCH_AHEAD = 3;        // paragraphs of audio kept warm ahead of playback
+const blobs = new Map();         // key -> Promise<objectURL>
+function blobFor(i) {
+  const u = player.flat[i]; if (!u) return Promise.reject(new Error('out of range'));
+  if (blobs.has(u.key)) return blobs.get(u.key);
+  const pr = urlFor(i)
+    .then(url => fetch(url))
+    .then(r => { if (!r.ok) throw new Error('audio ' + r.status); return r.blob(); })
+    .then(b => URL.createObjectURL(b));
+  blobs.set(u.key, pr);
+  pr.catch(() => blobs.delete(u.key));   // a failed fetch must not poison the buffer
+  return pr;
+}
+function evictBlobs(i) {
+  const keep = new Set();
+  for (let n = -1; n <= PREFETCH_AHEAD + 1; n++) { const u = player.flat[i + n]; if (u) keep.add(u.key); }
+  for (const [key, pr] of blobs) {
+    if (keep.has(key)) continue;
+    blobs.delete(key);
+    Promise.resolve(pr).then(url => { try { URL.revokeObjectURL(url); } catch {} }, () => {});
+  }
+}
 function markSpeaking(i) {
   document.querySelectorAll('.chapter p.speaking').forEach(p => p.classList.remove('speaking'));
   const u = player.flat[i]; if (!u || !u.el.isConnected) return;
@@ -1430,7 +1459,7 @@ async function startAt(i) {
   markSpeaking(i); mediaMeta(i);
   updatePlayerChrome('loading');
   let url;
-  try { url = await urlFor(i); } catch { player.loading = false; return skipForward(seq, i); }
+  try { url = await blobFor(i); } catch { player.loading = false; return skipForward(seq, i); }
   if (seq !== playSeq || !player.on) { player.loading = false; return; }   // user moved on
   tts.src = url;
   tts.dataset.seq = String(seq);
@@ -1438,7 +1467,9 @@ async function startAt(i) {
   player.loading = false;
   safeSet(AUDIO_PLACE, player.flat[i].key);   // saved only once playback truly starts
   updatePlayerChrome();
-  urlFor(i + 1).catch(() => {});   // prefetch the next paragraph — the gap stays tiny
+  // warm the next few paragraphs' AUDIO (not just the URL) so playback never waits
+  for (let n = 1; n <= PREFETCH_AHEAD; n++) blobFor(i + n).catch(() => {});
+  evictBlobs(i);
 }
 function skipForward(seq, i) {
   if (seq !== playSeq || !player.on) return;
@@ -1477,6 +1508,8 @@ function openPlayer() {
 function closePlayer() {
   player.on = false; playSeq++; player.loading = false;
   try { tts.pause(); tts.removeAttribute('src'); tts.load(); } catch {}
+  for (const pr of blobs.values()) Promise.resolve(pr).then(url => { try { URL.revokeObjectURL(url); } catch {} }, () => {});
+  blobs.clear();
   if ('mediaSession' in navigator) {
     try {
       navigator.mediaSession.metadata = null;
