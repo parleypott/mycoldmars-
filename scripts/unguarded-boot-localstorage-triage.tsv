@@ -70,3 +70,5 @@ public/q1/index.html	localStorage.setItem(KEY,JSON.stringify(answers))	SAFE	save
 public/q1/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler only; not reached during synchronous boot.
 public/q1/index.html	constsaved=parseFloat(localStorage.getItem(POS)||'0')	SAFE	inside the audio loadedmetadata event handler (fires after media metadata loads, never at synchronous boot); no boot caller.
 public/q1/index.html	localStorage.setItem(POS,String(au.currentTime))	SAFE	inside the audio timeupdate event handler; not a boot path (the paired savePos write is already try/catch-guarded).
+public/q2/index.html	localStorage.setItem(KEY,JSON.stringify(R))	SAFE	save(): reached only from the click/input event handlers (bill-burgundy q2 edit proposal), never at boot; a storage-blocked write is a user-action no-op, not a boot brick.
+public/q2/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler only; not reached during synchronous boot.
