@@ -66,3 +66,7 @@ translation/src/db.js	localStorage.setItem(MIGRATION_KEY,JSON.stringify(	SAFE	as
 translation/src/db.js	localStorage.setItem(MIGRATION_KEY,JSON.stringify(	SAFE	async migrateLocalStorageToSupabase — a sync SecurityError becomes a rejected promise caught by main.js:7525 .catch(); not a boot brick
 translation/src/snapshot.js	constv=localStorage.getItem(snapKey(id))	SAFE	snapshotStats: no boot caller (only tests); deferred stats path; readIndex is array-guarded
 translation/src/sot-hunter.js	returnparseFeedbackList(localStorage.getItem(FEEDBACK_KEY))	SAFE	loadFeedback: deferred feedback ops (no boot caller), not module boot
+public/q1/index.html	localStorage.setItem(KEY,JSON.stringify(answers))	SAFE	save(): reached only from the click/input event handlers (bill-burgundy questionnaire), never at boot; a storage-blocked write is a user-action no-op, not a boot brick.
+public/q1/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler only; not reached during synchronous boot.
+public/q1/index.html	constsaved=parseFloat(localStorage.getItem(POS)||'0')	SAFE	inside the audio loadedmetadata event handler (fires after media metadata loads, never at synchronous boot); no boot caller.
+public/q1/index.html	localStorage.setItem(POS,String(au.currentTime))	SAFE	inside the audio timeupdate event handler; not a boot path (the paired savePos write is already try/catch-guarded).
