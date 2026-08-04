@@ -1,5 +1,5 @@
 {
- "generated": "2026-08-04T22:34:04.354Z",
+ "generated": "2026-08-04T23:18:52.908Z",
  "edits": [
   {
    "id": "E001",
@@ -203,7 +203,7 @@
    "title": "The moons & Twinrise",
    "type": "replace",
    "paras": [
-    "4:13"
+    "4:12"
    ]
   },
   {
@@ -211,7 +211,7 @@
    "title": "Parties stopped at ten",
    "type": "replace",
    "paras": [
-    "4:13"
+    "4:12"
    ]
   },
   {
@@ -219,9 +219,9 @@
    "title": "The quilt tradition & Essa",
    "type": "insert",
    "paras": [
+    "4:16",
     "4:17",
-    "4:18",
-    "4:19"
+    "4:18"
    ]
   },
   {
@@ -229,7 +229,7 @@
    "title": "two→three week break",
    "type": "replace",
    "paras": [
-    "4:29"
+    "4:28"
    ]
   },
   {
@@ -449,7 +449,7 @@
    "title": "pillows 7→8",
    "type": "replace",
    "paras": [
-    "11:24"
+    "11:26"
    ]
   },
   {
@@ -457,7 +457,7 @@
    "title": "Oz 1→2 years",
    "type": "replace",
    "paras": [
-    "11:44"
+    "11:46"
    ]
   },
   {
@@ -465,14 +465,14 @@
    "title": "The public descent",
    "type": "insert",
    "paras": [
-    "11:63",
-    "11:64",
     "11:65",
     "11:66",
     "11:67",
     "11:68",
     "11:69",
-    "11:70"
+    "11:70",
+    "11:71",
+    "11:72"
    ]
   },
   {
@@ -480,7 +480,7 @@
    "title": "Midsteam work",
    "type": "replace",
    "paras": [
-    "11:84"
+    "11:86"
    ]
   },
   {
