@@ -56,6 +56,21 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;   // note POSTs etc. go straight through
 
+  if (url.pathname === '/burgundy/book-author.json' || url.pathname === '/burgundy/edit-spans-author.json') {
+    // the author's edition data — same one-slot network-first policy as book.json
+    e.respondWith((async () => {
+      const cache = await caches.open(DATA);
+      try {
+        const res = await fetch(e.request);
+        if (res.ok) cache.put(url.pathname, res.clone());
+        return res;
+      } catch {
+        const hit = await cache.match(url.pathname);
+        if (hit) return hit;
+        throw new Error('offline, uncached');
+      }
+    })()); return;
+  }
   if (url.pathname === '/burgundy/book.json') {
     // exactly ONE slot for the book: freshest copy wins, cache can't grow
     e.respondWith((async () => {
@@ -97,7 +112,7 @@ self.addEventListener('fetch', (e) => {
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(cacheFirst(e.request, FONTS)); return;
   }
-  if (url.pathname === '/burgundy/' || url.pathname === '/burgundy/index.html' || url.pathname === '/burgundy') {
+  if (url.pathname === '/burgundy/' || url.pathname === '/burgundy/index.html' || url.pathname === '/burgundy' || /^\/burgundy\/johnny\/?$/.test(url.pathname)) {
     // ONE slot for the shell — the freshest build always wins offline
     e.respondWith((async () => {
       const cache = await caches.open(SHELL);
@@ -112,6 +127,39 @@ self.addEventListener('fetch', (e) => {
       }
     })()); return;
   }
+});
+
+/* per-CHAPTER audio download (author's edition): pulls one chapter's files
+   into the audiobook cache WITHOUT the full-download's prune step — chapters
+   accumulate independently. Merges the paragraph→url map into the manifest
+   so a localStorage wipe can't strand kept chapters. */
+self.addEventListener('message', (e) => {
+  const msg = e.data || {};
+  if (msg.type !== 'download-chapter-audio' || !Array.isArray(msg.urls)) return;
+  e.waitUntil((async () => {
+    const cache = await caches.open(BOOKAUDIO);
+    let done = 0, failed = 0;
+    const tell = async () => {
+      for (const c of await self.clients.matchAll()) c.postMessage({ type: 'chapter-audio-progress', chapter: msg.chapter, done, failed, total: msg.urls.length });
+    };
+    for (const u of msg.urls) {
+      try {
+        if (!(await cache.match(u))) {
+          const res = await fetch(u);
+          if (res.ok) await cache.put(u, res); else failed++;
+        }
+      } catch { failed++; }
+      done++;
+      if (done % 3 === 0 || done === msg.urls.length) await tell();
+    }
+    if (msg.map) {
+      let manifest = {};
+      try { const mf = await cache.match('/burgundy/audiobook-manifest'); if (mf) manifest = await mf.json(); } catch {}
+      Object.assign(manifest, msg.map);
+      await cache.put('/burgundy/audiobook-manifest', new Response(JSON.stringify(manifest), { headers: { 'Content-Type': 'application/json' } }));
+    }
+    await tell();
+  })());
 });
 
 /* the audiobook downloader: the page sends the full URL list; we pull each

@@ -1,0 +1,678 @@
+{
+ "generated": "2026-08-04T22:34:04.354Z",
+ "edits": [
+  {
+   "id": "E001",
+   "title": "Night after the 17th birthday",
+   "type": "insert",
+   "paras": [
+    "0:2",
+    "0:3",
+    "0:4",
+    "0:5",
+    "0:6"
+   ]
+  },
+  {
+   "id": "E002",
+   "title": "nineteen→seventeen",
+   "type": "replace",
+   "paras": [
+    "0:16"
+   ]
+  },
+  {
+   "id": "E003",
+   "title": "decade→nine years",
+   "type": "replace",
+   "paras": [
+    "0:17"
+   ]
+  },
+  {
+   "id": "E004",
+   "title": "The lozenge atrocity",
+   "type": "replace",
+   "paras": [
+    "0:19",
+    "0:20",
+    "0:21",
+    "0:22",
+    "0:23",
+    "0:24",
+    "0:25",
+    "0:26",
+    "0:27"
+   ]
+  },
+  {
+   "id": "E005",
+   "title": "ch1 tribute slot",
+   "type": "insert",
+   "paras": [
+    "0:36"
+   ]
+  },
+  {
+   "id": "E006",
+   "title": "Birthday feast restored",
+   "type": "replace",
+   "paras": [
+    "0:51",
+    "0:52",
+    "0:53",
+    "0:54",
+    "0:55"
+   ]
+  },
+  {
+   "id": "E008",
+   "title": "The recited road",
+   "type": "replace",
+   "paras": [
+    "0:59",
+    "0:60",
+    "0:61"
+   ]
+  },
+  {
+   "id": "E010",
+   "title": "Three villages dedup",
+   "type": "replace",
+   "paras": [
+    "1:1"
+   ]
+  },
+  {
+   "id": "E011",
+   "title": "ch2 Nicholas tutor slot",
+   "type": "insert",
+   "paras": [
+    "1:16"
+   ]
+  },
+  {
+   "id": "E012",
+   "title": "First-council arrival, the coat",
+   "type": "replace",
+   "paras": [
+    "1:17",
+    "1:19",
+    "1:20",
+    "1:21"
+   ]
+  },
+  {
+   "id": "E013",
+   "title": "Searching her face",
+   "type": "replace",
+   "paras": [
+    "1:27"
+   ]
+  },
+  {
+   "id": "E014",
+   "title": "First-council exchange",
+   "type": "replace",
+   "paras": [
+    "1:30",
+    "1:31",
+    "1:32"
+   ]
+  },
+  {
+   "id": "E015",
+   "title": "Grease and pockets",
+   "type": "insert",
+   "paras": [
+    "1:55"
+   ]
+  },
+  {
+   "id": "E016",
+   "title": "The King's speech",
+   "type": "replace",
+   "paras": [
+    "1:71",
+    "1:72",
+    "1:73",
+    "1:74",
+    "1:75",
+    "1:76",
+    "1:77",
+    "1:79"
+   ]
+  },
+  {
+   "id": "E019",
+   "title": "The classroom",
+   "type": "insert",
+   "paras": [
+    "3:4"
+   ]
+  },
+  {
+   "id": "E020",
+   "title": "The tour revelation",
+   "type": "insert",
+   "paras": [
+    "3:36",
+    "3:37",
+    "3:38",
+    "3:39",
+    "3:40",
+    "3:41"
+   ]
+  },
+  {
+   "id": "E021",
+   "title": "The age mirror",
+   "type": "insert",
+   "paras": [
+    "3:43"
+   ]
+  },
+  {
+   "id": "E022",
+   "title": "Flatten the laugh",
+   "type": "replace",
+   "paras": [
+    "3:46"
+   ]
+  },
+  {
+   "id": "E024",
+   "title": "Mira speaks the date",
+   "type": "insert",
+   "paras": [
+    "3:74"
+   ]
+  },
+  {
+   "id": "E026",
+   "title": "Stakes of discovery",
+   "type": "replace",
+   "paras": [
+    "3:80",
+    "3:81",
+    "3:82"
+   ]
+  },
+  {
+   "id": "E027",
+   "title": "The moons & Twinrise",
+   "type": "replace",
+   "paras": [
+    "4:13"
+   ]
+  },
+  {
+   "id": "E028",
+   "title": "Parties stopped at ten",
+   "type": "replace",
+   "paras": [
+    "4:13"
+   ]
+  },
+  {
+   "id": "E029",
+   "title": "The quilt tradition & Essa",
+   "type": "insert",
+   "paras": [
+    "4:17",
+    "4:18",
+    "4:19"
+   ]
+  },
+  {
+   "id": "E030",
+   "title": "two→three week break",
+   "type": "replace",
+   "paras": [
+    "4:29"
+   ]
+  },
+  {
+   "id": "E032",
+   "title": "Pepper-seller dedup (B)",
+   "type": "replace",
+   "paras": [
+    "5:24",
+    "5:25",
+    "5:26",
+    "5:27",
+    "5:28",
+    "5:29"
+   ]
+  },
+  {
+   "id": "E033",
+   "title": "ch7 square fact-tell slot",
+   "type": "insert",
+   "paras": [
+    "5:102"
+   ]
+  },
+  {
+   "id": "E036",
+   "title": "ch9 nineteen→seventeen",
+   "type": "replace",
+   "paras": [
+    "7:6"
+   ]
+  },
+  {
+   "id": "E037",
+   "title": "Tea-scene marker",
+   "type": "insert",
+   "paras": [
+    "7:31"
+   ]
+  },
+  {
+   "id": "E038",
+   "title": "Vharush's face",
+   "type": "replace",
+   "paras": [
+    "7:33"
+   ]
+  },
+  {
+   "id": "E039",
+   "title": "ch10 stale-disc slot",
+   "type": "insert",
+   "paras": [
+    "8:10"
+   ]
+  },
+  {
+   "id": "E040",
+   "title": "Crate sentence repair",
+   "type": "replace",
+   "paras": [
+    "8:25"
+   ]
+  },
+  {
+   "id": "E041",
+   "title": "The foundry mark + slot",
+   "type": "insert",
+   "paras": [
+    "8:27",
+    "8:28"
+   ]
+  },
+  {
+   "id": "E042",
+   "title": "Apron dedup",
+   "type": "replace",
+   "paras": [
+    "8:29"
+   ]
+  },
+  {
+   "id": "E043",
+   "title": "Birth of the plan",
+   "type": "insert",
+   "paras": [
+    "8:41",
+    "8:42"
+   ]
+  },
+  {
+   "id": "E044",
+   "title": "Gitz's courtesy",
+   "type": "insert",
+   "paras": [
+    "9:42"
+   ]
+  },
+  {
+   "id": "E045",
+   "title": "Cold walk-home restored",
+   "type": "replace",
+   "paras": [
+    "9:60",
+    "9:61"
+   ]
+  },
+  {
+   "id": "E046",
+   "title": "ch11 button",
+   "type": "replace",
+   "paras": [
+    "9:63"
+   ]
+  },
+  {
+   "id": "E047",
+   "title": "summer→Steam",
+   "type": "replace",
+   "paras": [
+    "10:3"
+   ]
+  },
+  {
+   "id": "E048",
+   "title": "Midsteam Descent (King)",
+   "type": "replace",
+   "paras": [
+    "10:8"
+   ]
+  },
+  {
+   "id": "E049",
+   "title": "Midsteam Descent (memory)",
+   "type": "replace",
+   "paras": [
+    "10:10"
+   ]
+  },
+  {
+   "id": "E050",
+   "title": "Tour-dread off Ghai marriages",
+   "type": "insert",
+   "paras": [
+    "10:11"
+   ]
+  },
+  {
+   "id": "E051",
+   "title": "King's Midsteam marker",
+   "type": "insert",
+   "paras": [
+    "10:18"
+   ]
+  },
+  {
+   "id": "E052",
+   "title": "Plan gets its date",
+   "type": "insert",
+   "paras": [
+    "10:20"
+   ]
+  },
+  {
+   "id": "E053",
+   "title": "ch12 counting slot",
+   "type": "insert",
+   "paras": [
+    "10:23"
+   ]
+  },
+  {
+   "id": "E054",
+   "title": "ch12 button",
+   "type": "insert",
+   "paras": [
+    "10:29"
+   ]
+  },
+  {
+   "id": "E055",
+   "title": "The 19th birthday",
+   "type": "insert",
+   "paras": [
+    "11:0",
+    "11:1",
+    "11:2",
+    "11:3",
+    "11:4",
+    "11:5",
+    "11:6",
+    "11:7",
+    "11:8",
+    "11:9",
+    "11:10",
+    "11:11",
+    "11:12"
+   ]
+  },
+  {
+   "id": "E056",
+   "title": "Next morning to the preserve",
+   "type": "replace",
+   "paras": [
+    "11:13"
+   ]
+  },
+  {
+   "id": "E057",
+   "title": "council watch 1→2 years",
+   "type": "replace",
+   "paras": [
+    "11:19"
+   ]
+  },
+  {
+   "id": "E058",
+   "title": "pillows 7→8",
+   "type": "replace",
+   "paras": [
+    "11:24"
+   ]
+  },
+  {
+   "id": "E059",
+   "title": "Oz 1→2 years",
+   "type": "replace",
+   "paras": [
+    "11:44"
+   ]
+  },
+  {
+   "id": "E060",
+   "title": "The public descent",
+   "type": "insert",
+   "paras": [
+    "11:63",
+    "11:64",
+    "11:65",
+    "11:66",
+    "11:67",
+    "11:68",
+    "11:69",
+    "11:70"
+   ]
+  },
+  {
+   "id": "E061",
+   "title": "Midsteam work",
+   "type": "replace",
+   "paras": [
+    "11:84"
+   ]
+  },
+  {
+   "id": "E062",
+   "title": "The King's one question",
+   "type": "replace",
+   "paras": [
+    "12:18"
+   ]
+  },
+  {
+   "id": "E063",
+   "title": "Essa detonation",
+   "type": "insert",
+   "paras": [
+    "12:19"
+   ]
+  },
+  {
+   "id": "E064",
+   "title": "Midsteam light",
+   "type": "replace",
+   "paras": [
+    "12:20"
+   ]
+  },
+  {
+   "id": "E065",
+   "title": "Mira 26→25",
+   "type": "replace",
+   "paras": [
+    "12:16"
+   ]
+  },
+  {
+   "id": "E066",
+   "title": "6→3 months",
+   "type": "replace",
+   "paras": [
+    "13:0"
+   ]
+  },
+  {
+   "id": "E067",
+   "title": "The want-engine",
+   "type": "replace",
+   "paras": [
+    "13:1",
+    "13:2"
+   ]
+  },
+  {
+   "id": "E068",
+   "title": "18mo→2yr",
+   "type": "replace",
+   "paras": [
+    "13:8"
+   ]
+  },
+  {
+   "id": "E069",
+   "title": "ch15 mining-disc slot",
+   "type": "insert",
+   "paras": [
+    "13:14"
+   ]
+  },
+  {
+   "id": "E070",
+   "title": "8→5 weeks",
+   "type": "replace",
+   "paras": [
+    "13:14"
+   ]
+  },
+  {
+   "id": "E071",
+   "title": "3→2 weeks disc",
+   "type": "replace",
+   "paras": [
+    "13:37"
+   ]
+  },
+  {
+   "id": "E072",
+   "title": "Nine months, to the machines",
+   "type": "insert",
+   "paras": [
+    "13:46"
+   ]
+  },
+  {
+   "id": "E073",
+   "title": "shipments 1→2 years",
+   "type": "replace",
+   "paras": [
+    "14:3"
+   ]
+  },
+  {
+   "id": "E074",
+   "title": "Mira's lean-year mention",
+   "type": "insert",
+   "paras": [
+    "14:6"
+   ]
+  },
+  {
+   "id": "E075",
+   "title": "Midsteam Descent (Cinder)",
+   "type": "replace",
+   "paras": [
+    "14:19"
+   ]
+  },
+  {
+   "id": "E076",
+   "title": "13→15 rope-line",
+   "type": "replace",
+   "paras": [
+    "14:39"
+   ]
+  },
+  {
+   "id": "E077",
+   "title": "fixes→fixed",
+   "type": "replace",
+   "paras": [
+    "14:46"
+   ]
+  },
+  {
+   "id": "E078",
+   "title": "Reunion line",
+   "type": "replace",
+   "paras": [
+    "15:5"
+   ]
+  },
+  {
+   "id": "E079a",
+   "title": "Tuck typo",
+   "type": "replace",
+   "paras": [
+    "15:16"
+   ]
+  },
+  {
+   "id": "E079",
+   "title": "Tuck's held square",
+   "type": "insert",
+   "paras": [
+    "15:17"
+   ]
+  },
+  {
+   "id": "E080",
+   "title": "The council-coat square",
+   "type": "insert",
+   "paras": [
+    "15:21"
+   ]
+  },
+  {
+   "id": "E081",
+   "title": "13→15 market",
+   "type": "replace",
+   "paras": [
+    "15:33"
+   ]
+  },
+  {
+   "id": "S1",
+   "title": "ch17 more than two years",
+   "type": "replace",
+   "paras": [
+    "15:59"
+   ]
+  },
+  {
+   "id": "S2",
+   "title": "Two shadows (editor's rec)",
+   "type": "replace",
+   "paras": [
+    "15:26"
+   ]
+  },
+  {
+   "id": "E009",
+   "title": "Chapter merge: I Rule Men",
+   "type": "structure",
+   "paras": []
+  }
+ ]
+}

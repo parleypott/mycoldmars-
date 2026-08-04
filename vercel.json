@@ -85,6 +85,14 @@
     {
       "source": "/structure/:slug/",
       "destination": "/structure/index.html"
+    },
+    {
+      "source": "/burgundy/johnny",
+      "destination": "/burgundy/index.html"
+    },
+    {
+      "source": "/burgundy/johnny/",
+      "destination": "/burgundy/index.html"
     }
   ],
   "redirects": [

@@ -334,6 +334,35 @@
   .sheet-sig button{background:none;border:none;color:var(--orange);font:inherit;letter-spacing:inherit;
     text-transform:inherit;cursor:pointer;padding:0}
   ::selection{background:rgba(232,75,34,.28)}
+
+  /* ── the author's edition: suggested edits ── */
+  .chapter p.edit-span{background:var(--hl-green);border-radius:3px;box-shadow:inset 3px 0 0 0 var(--green);
+    padding:.35em 10px .35em 14px;margin-left:-14px;margin-right:-10px;cursor:pointer;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone}
+  .chapter p.edit-span.edit-accepted{background:transparent;box-shadow:inset 3px 0 0 0 var(--green)}
+  .chapter p.edit-span.edit-accepted::after{content:' ✓';color:var(--green);font-family:var(--mono);font-size:.8em}
+  .chapter p.edit-span.edit-noted::after{content:' ✎';color:var(--orange);font-family:var(--mono);font-size:.8em}
+  .chapter p.slot-card{background:rgba(122,82,163,.12)!important;box-shadow:inset 3px 0 0 0 #7A52A3!important;
+    font-family:var(--mono);font-size:12.5px;line-height:1.6;text-indent:0!important;text-align:left;color:var(--ink-soft)}
+  .asheet-scrim{position:fixed;inset:0;z-index:72;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .25s}
+  .asheet{position:fixed;left:0;right:0;bottom:0;z-index:73;background:var(--paper-deep);border-top:1.5px solid var(--line);
+    border-radius:18px 18px 0 0;padding:14px 22px calc(env(safe-area-inset-bottom) + 18px);
+    transform:translateY(105%);transition:transform .3s cubic-bezier(.22,1,.36,1);max-width:720px;margin:0 auto}
+  body.asheet-on .asheet{transform:translateY(0)}
+  body.asheet-on .asheet-scrim{opacity:1;pointer-events:auto}
+  .as-title{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink);margin-bottom:4px}
+  .as-type{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
+  .asheet textarea{width:100%;min-height:84px;resize:none;border:1.5px solid var(--line);border-radius:8px;
+    background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.5;padding:12px 14px;outline:none}
+  .asheet textarea:focus{border-color:var(--orange)}
+  .sheet-btn.as-accept{background:var(--green);color:#fff;border-color:var(--green)}
+  .sheet-btn.as-bill{color:#346291;border-color:rgba(52,98,145,.5)}
+  .sheet-btn.as-self{color:#8a6b1f;border-color:rgba(212,149,31,.5)}
+  /* per-chapter offline toggle in the contents */
+  .toc-dl{margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:999px;
+    font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--ink-faint);padding:4px 9px;cursor:pointer}
+  .toc-dl.kept{color:var(--green);border-color:rgba(45,122,79,.5)}
+  .toc-dl.busy{color:var(--orange);border-color:var(--orange)}
 </style>
 </head>
 <body>
@@ -415,6 +444,21 @@
   <div class="sheet-sig" id="sheet-sig"></div>
 </div>
 
+<div class="asheet-scrim" id="asheet-scrim"></div>
+<div class="asheet" id="asheet">
+  <div class="sheet-grab"></div>
+  <div class="as-title" id="as-title"></div>
+  <div class="as-type" id="as-type"></div>
+  <textarea id="as-text" maxlength="4000" placeholder="a note on this edit — how you want it changed, or a reminder to yourself…"></textarea>
+  <div class="sheet-row">
+    <span class="saved-flash" id="as-flash" hidden>✓</span>
+    <button class="sheet-btn" id="as-cancel">close</button>
+    <button class="sheet-btn as-self" id="as-self">note to self</button>
+    <button class="sheet-btn as-bill" id="as-bill">note to Bill</button>
+    <button class="sheet-btn as-accept" id="as-accept">✓ accept</button>
+  </div>
+</div>
+
 <div class="namebox-scrim" id="namebox-scrim"></div>
 <div class="namebox" id="namebox" hidden>
   <div class="nb-head">Sign your notes</div>
@@ -434,6 +478,16 @@
    per-node mark wrapping, orphan-note strip, paragraph-based place memory. ═══ */
 const API = '/api/burgundy-notes';
 const $ = id => document.getElementById(id);
+/* ── AUTHOR'S EDITION ────────────────────────────────────────────────
+   /burgundy/johnny serves this same page (vercel rewrite). Same book, same
+   password, plus: the Big Edit's suggested edits render as tappable green
+   spans (accept / note-to-self / note-to-Bill → the q3 feedback space),
+   and every chapter gets a per-chapter offline-audio toggle. */
+const AUTHOR = /^\/burgundy\/johnny(\/|$)/.test(location.pathname);
+let EDITS = [];                    // [{id,title,type,paras:["ci:pi",…]}]
+let DECISIONS = [];                // author feedback rows (para_key "edit:<id>")
+let editingEdit = null;            // the edit open in the author sheet
+const decColor = { accept: 'green', bill: 'blue', self: 'amber' };
 let BOOK = null, NOTES = [], sel = null, editingNote = null, color = 'amber';
 let lastSelCollapse = 0, hadSelection = false;
 
@@ -449,6 +503,7 @@ function readerId() {
   // highlights on a second device. Hand each reader their own link before they
   // open it. Falls back to a per-device random id for anyone who opens the bare
   // URL. (2026-07-17 pre-onboarding identity fix)
+  if (AUTHOR) { READER = 'r-johnny'; return READER; }   // the author's edition is always Johnny's
   const tok = (new URLSearchParams(location.search).get('r') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
   if (tok) { READER = 'r-' + tok; safeSet('bg-reader', READER); return READER; }
   READER = safeGet('bg-reader');
@@ -462,9 +517,17 @@ async function boot() {
   try {
     // absolute path: /burgundy (no trailing slash) serves this page too, and a
     // relative fetch from there resolves book.json against the site root and 404s
-    const r = await fetch('/burgundy/book.json?t=' + Math.floor(Date.now() / 60000));
+    // author's edition: the working manuscript, falling back to the public book
+    let r = AUTHOR ? await fetch('/burgundy/book-author.json?t=' + Math.floor(Date.now() / 60000)).catch(() => null) : null;
+    if (!r || !r.ok) r = await fetch('/burgundy/book.json?t=' + Math.floor(Date.now() / 60000));
     if (!r.ok) throw new Error('no book');
     BOOK = await r.json();
+    if (AUTHOR) {
+      try {
+        const er = await fetch('/burgundy/edit-spans-author.json?t=' + Math.floor(Date.now() / 60000));
+        EDITS = er.ok ? ((await er.json()).edits || []) : [];
+      } catch { EDITS = []; }
+    }
   } catch (err) {
     const offlineish = !navigator.onLine || /fetch|network|load/i.test(String(err?.message || err));
     $('book').innerHTML = offlineish
@@ -486,8 +549,12 @@ async function boot() {
     // your own notes PLUS legacy rows saved before per-reader ids existed (reader
     // empty or the server default 'reader') — those belong to everyone and were
     // invisible in every margin. (audit 2026-07-19)
-    NOTES = all.filter(n => n.reader === readerId() || !n.reader || n.reader === 'reader');
-  } catch { NOTES = []; }
+    const mine = all.filter(n => n.reader === readerId() || !n.reader || n.reader === 'reader');
+    // author-feedback rows (para_key "edit:<id>") are decisions, not margin
+    // notes — they must never paint or orphan. Split them out in every mode.
+    NOTES = mine.filter(n => !String(n.para_key || '').startsWith('edit:'));
+    DECISIONS = all.filter(n => String(n.para_key || '').startsWith('edit:'));
+  } catch { NOTES = []; DECISIONS = []; }
   // offline: anything still in the device queue is YOURS — show it (skip delete-stubs,
   // which are queued tombstones, not paintable notes)
   NOTES = NOTES.concat(queuedNotes().filter(r => !r._delete).map(r => ({ ...r, id: r._lid || ('local-' + Math.random().toString(36).slice(2)), _local: true })));
@@ -558,8 +625,92 @@ function render() {
   el.innerHTML = `<div class="pages" id="pages">${html}</div>`;
   buildFolio();
   paintNotes();
+  if (AUTHOR) paintEditSpans();
   renderToc();
   observeChapters();
+}
+
+/* ── the author's suggested-edit layer ─────────────────────────────── */
+function latestDecision(editId) {
+  // newest row wins; rows arrive newest-first from the API
+  return DECISIONS.find(d => d.para_key === 'edit:' + editId) || null;
+}
+function decisionAction(d) {
+  if (!d) return '';
+  return d.color === 'green' ? 'accept' : d.color === 'blue' ? 'bill' : d.color === 'rose' ? 'self' : 'self';
+}
+function paintEditSpans() {
+  if (!AUTHOR || !EDITS.length) return;
+  for (const ed of EDITS) {
+    for (const key of ed.paras || []) {
+      const p = document.querySelector(`p[data-key="${CSS.escape(key)}"]`);
+      if (!p) continue;
+      p.classList.add('edit-span');
+      if ((p.textContent || '').startsWith('⟦')) p.classList.add('slot-card');
+      const ids = (p.dataset.editIds || '').split(',').filter(Boolean);
+      if (!ids.includes(ed.id)) ids.push(ed.id);
+      p.dataset.editIds = ids.join(',');
+    }
+    refreshEditChip(ed.id);
+  }
+}
+function refreshEditChip(editId) {
+  const d = latestDecision(editId);
+  const act = decisionAction(d);
+  document.querySelectorAll('p[data-edit-ids]').forEach(p => {
+    const ids = p.dataset.editIds.split(',');
+    if (!ids.includes(editId)) return;
+    // one chip per paragraph: the FIRST edit's state names it; ✓ beats notes
+    const states = ids.map(id => decisionAction(latestDecision(id)));
+    p.classList.toggle('edit-accepted', states.includes('accept'));
+    p.classList.toggle('edit-noted', !states.includes('accept') && states.some(Boolean));
+  });
+}
+function editsOfPara(p) {
+  return (p.dataset.editIds || '').split(',').filter(Boolean)
+    .map(id => EDITS.find(e => e.id === id)).filter(Boolean);
+}
+function openAuthorSheet(ed) {
+  editingEdit = ed;
+  const d = latestDecision(ed.id);
+  $('as-title').textContent = ed.id + ' — ' + ed.title;
+  $('as-type').textContent = ed.type + (d ? ' · last: ' + decisionAction(d) + (d.note ? ' — "' + String(d.note).slice(0, 80) + '"' : '') : '');
+  $('as-text').value = '';
+  document.body.classList.add('asheet-on');
+}
+function closeAuthorSheet() { document.body.classList.remove('asheet-on'); editingEdit = null; }
+async function saveDecision(action) {
+  if (!editingEdit) return;
+  const ed = editingEdit;
+  const text = $('as-text').value.trim();
+  const firstPara = (ed.paras || [])[0] || '';
+  const ci = firstPara ? +firstPara.split(':')[0] : 0;
+  const chid = safeBook(BOOK).chapters?.[ci]?.id || '';
+  const row = {
+    para_key: 'edit:' + ed.id,
+    quote: (ed.title || ed.id).slice(0, 300),
+    prefix: '',
+    note: (action === 'accept' && !text) ? 'ACCEPT' : text,
+    color: decColor[action] || 'amber',
+    chapter_idx: ci,
+    chapter_id: chid,
+    book_version: safeBook(BOOK).version || '',
+    reader: readerId(),
+    name: 'Johnny',
+    dedupe_key: 'dk-' + ((crypto?.randomUUID?.()) || (Date.now().toString(36) + Math.random().toString(36).slice(2))),
+  };
+  // paint-first, same doctrine as margin notes
+  DECISIONS.unshift({ ...row, id: 'local-' + Math.random().toString(36).slice(2), created_at: new Date().toISOString() });
+  refreshEditChip(ed.id);
+  const f = $('as-flash'); f.hidden = false; f.textContent = action === 'accept' ? '✓ accepted' : '✓ noted';
+  setTimeout(() => { f.hidden = true; closeAuthorSheet(); }, 550);
+  try {
+    const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row), signal: (AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined) });
+    const dd = await r.json().catch(() => ({}));
+    if (!r.ok || !dd.note) throw new Error('save failed');
+  } catch {
+    queueNote({ ...row, _lid: 'local-' + Math.random().toString(36).slice(2) });   // durable offline queue, same pipe
+  }
 }
 
 /* ── the folio: real book pages ──────────────────────────────────
@@ -1042,6 +1193,15 @@ function rerenderMarks() {
 
 /* tap an existing highlight → its note; tap open page → zen (not right after a selection) */
 document.addEventListener('click', e => {
+  // author's edition: tapping a suggested-edit span opens the decision sheet
+  // (unless the tap is a real text-selection tail or a highlight tap)
+  if (AUTHOR && !e.target.closest('mark')) {
+    const ep = e.target.closest('p.edit-span');
+    if (ep && document.getSelection()?.isCollapsed && Date.now() - lastSelCollapse >= 400 && !document.body.classList.contains('player-on')) {
+      const eds = editsOfPara(ep);
+      if (eds.length) { openAuthorSheet(eds[0]); return; }
+    }
+  }
   const m = e.target.closest('mark');
   if (m) {
     // ONLY on a real tap — not the tail of a selection that ended on a
@@ -1204,7 +1364,12 @@ function renderToc() {
     <button class="toc-item" data-toc="${i}">
       <span class="toc-num">${i + 1}</span>
       <span class="toc-name">${esc(bareTitle(c?.title) || 'Chapter ' + (i + 1))}</span>
+      ${AUTHOR ? `<span class="toc-dl${safeGet(chapterKeptKey(i)) ? ' kept' : ''}" data-dl="${i}" role="button" title="keep this chapter's audio on this device">${safeGet(chapterKeptKey(i)) ? '✓ offline' : '⤓ offline'}</span>` : ''}
     </button>`).join('');
+  if (AUTHOR) $('toc-list').querySelectorAll('.toc-dl').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();   // the toggle must not also jump chapters
+    offlineChapter(+b.dataset.dl, b);
+  }));
   $('toc-list').querySelectorAll('.toc-item').forEach(b => b.addEventListener('click', () => {
     const sec = document.querySelector(`.chapter[data-ch="${b.dataset.toc}"]`);
     document.body.classList.remove('toc-on');
@@ -1588,6 +1753,76 @@ $('btn-dl').addEventListener('click', async () => {
 setTimeout(() => dlChrome(), 1200);
 $('btn-prevp').addEventListener('click', () => startAt(Math.max(0, player.idx - 1)));
 $('btn-nextp').addEventListener('click', () => startAt(player.idx + 1));
+
+/* ── author sheet wiring ── */
+$('as-cancel').addEventListener('click', closeAuthorSheet);
+$('asheet-scrim').addEventListener('click', closeAuthorSheet);
+$('as-accept').addEventListener('click', () => saveDecision('accept'));
+$('as-bill').addEventListener('click', () => saveDecision('bill'));
+$('as-self').addEventListener('click', () => saveDecision('self'));
+
+/* ── per-chapter offline audio (author's edition) ────────────────────
+   A chapter's paragraphs resolve to their cached mp3 URLs and the SW pulls
+   them into the audiobook cache WITHOUT pruning other chapters. Paragraphs
+   the server has never narrated would cost a synthesis each — those are
+   counted first and confirmed before any spend. */
+const chDl = { busy: '' };
+function chapterKeptKey(ci) { return 'bg-ch-kept-' + (safeBook(BOOK).version || 'v') + '-' + ci; }
+async function offlineChapter(ci, btn) {
+  if (chDl.busy) return;
+  chDl.busy = String(ci);
+  btn.classList.add('busy'); btn.textContent = '…';
+  try {
+    try { navigator.storage?.persist?.(); } catch {}
+    const reg = await (navigator.serviceWorker?.ready || Promise.resolve(null));
+    if (!reg?.active) throw new Error('no sw');
+    const flat = flatParas().filter(u => u.key.startsWith(ci + ':'));
+    if (!flat.length) throw new Error('no paragraphs');
+    const map = ttsUrlMap();
+    const unknown = flat.filter(u => !map[u.key]).length;
+    if (unknown > 3 && !confirm(`${unknown} of ${flat.length} paragraphs in this chapter have never been narrated — generate their audio now? (each is made once, then cached forever)`)) {
+      throw new Error('declined');
+    }
+    const urls = [];
+    let done = 0;
+    for (const u of flat) {
+      const i = player.flat.length ? player.flat.findIndex(x => x.key === u.key) : -1;
+      try {
+        if (i >= 0) urls.push(await urlFor(i));
+        else {
+          // player not open: resolve directly through the same cache-first API
+          if (map[u.key]) { urls.push(map[u.key]); }
+          else {
+            const d = await fetch(TTS_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: u.text, voice_id: safeBook(BOOK).voice_id }) }).then(r => r.json());
+            if (!d.url) throw new Error(d.error || 'tts failed');
+            map[u.key] = d.url; safeSet('bg-tts-urls', JSON.stringify(map));
+            urls.push(d.url);
+          }
+        }
+      } catch {}
+      done++; btn.textContent = Math.round(done / flat.length * 50) + '%';
+    }
+    if (urls.length < flat.length) console.warn('[offline-ch]', flat.length - urls.length, 'paragraphs failed to resolve');
+    await new Promise((res) => {
+      const onMsg = (e) => {
+        const m = e.data || {};
+        if (m.type !== 'chapter-audio-progress' || String(m.chapter) !== String(ci)) return;
+        btn.textContent = 50 + Math.round(m.done / Math.max(1, m.total) * 50) + '%';
+        if (m.done >= m.total) { navigator.serviceWorker.removeEventListener('message', onMsg); res({ failed: m.failed }); }
+      };
+      navigator.serviceWorker.addEventListener('message', onMsg);
+      reg.active.postMessage({ type: 'download-chapter-audio', chapter: ci, urls, map: Object.fromEntries(flat.filter(u => map[u.key]).map(u => [u.key, map[u.key]])) });
+    });
+    // honest completeness: kept only when every paragraph resolved AND fetched
+    if (urls.length === flat.length) { safeSet(chapterKeptKey(ci), '1'); btn.classList.add('kept'); btn.textContent = '✓ offline'; }
+    else { btn.textContent = '⚠ partial'; }
+  } catch (e) {
+    btn.textContent = '⤓ offline';
+  } finally {
+    btn.classList.remove('busy');
+    chDl.busy = '';
+  }
+}
 
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 // restore manuscript inline formatting after escaping: ~~strike~~, ***bold-italic***,
