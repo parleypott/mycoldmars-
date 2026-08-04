@@ -23,8 +23,8 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:radial-gradient(120% 80% at 50% -10%, rgba(169,133,63,.10), transparent 60%),var(--paper);
-    color:var(--ink); font-family:var(--serif); font-size:17.5px; line-height:1.6; -webkit-font-smoothing:antialiased; padding-bottom:110px}
+  body{background:var(--paper);
+    color:var(--ink); font-family:var(--serif); font-size:17.5px; line-height:1.6; padding-bottom:110px}
   .wrap{max-width:860px; margin:0 auto; padding:0 20px}
   header.masthead{padding:52px 0 20px; text-align:center}
   .emblem{display:inline-flex; align-items:baseline; gap:.04em; font-family:var(--disp); font-size:60px; line-height:1}
@@ -46,12 +46,12 @@
 
   /* chapters */
   .chap{margin-top:44px}
-  .chap-head{display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:30; background:color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter:blur(8px); padding:10px 0; border-bottom:1px solid var(--rule)}
+  .chap-head{display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:30; background:var(--paper); padding:10px 0; border-bottom:1px solid var(--rule)}
   .chap-head h2{font-family:var(--disp); font-weight:600; font-size:24px; margin:0}
   .chap-head .cnt{font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; color:var(--ink-faint); text-transform:uppercase}
 
   /* edit cards */
-  .ed{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:16px 18px; margin:14px 0; box-shadow:var(--shadow); border-left-width:4px; border-left-style:solid}
+  .ed{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:16px 18px; margin:14px 0; border-left-width:4px; border-left-style:solid; content-visibility:auto; contain-intrinsic-size:auto 280px}
   .ed[data-t="age-fix"], .ed[data-t="line-edit"], .ed[data-t="timing-marker"]{border-left-color:var(--gold)}
   .ed[data-t="new-paragraph"]{border-left-color:var(--green)}
   .ed[data-t="new-scene"], .ed[data-t="new-chapter"]{border-left-color:var(--oxblood)}
@@ -87,7 +87,7 @@
   .cmt input{width:100%; background:var(--paper); color:var(--ink); border:1px solid var(--rule); border-radius:8px; padding:8px 11px; font-family:var(--serif); font-size:14px}
   .cmt input:focus{outline:none; border-color:var(--oxblood)}
 
-  .bar{position:fixed; left:0; right:0; bottom:0; z-index:40; backdrop-filter:blur(10px); background:color-mix(in srgb, var(--paper) 86%, transparent); border-top:1px solid var(--rule)}
+  .bar{position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--paper); border-top:1px solid var(--rule)}
   .bar-in{max-width:860px; margin:0 auto; padding:11px 20px; display:flex; align-items:center; gap:14px}
   .progress{flex:1; display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:11.5px; color:var(--ink-soft)}
   .track{flex:1; height:6px; background:var(--rule); border-radius:6px; overflow:hidden; max-width:240px}
@@ -182,12 +182,20 @@ chapOrder.forEach(c=>{
 });
 
 function ruled(id){ const s=R[id]||{}; return !!(s.v || (s.c && s.c.trim())); }
-function refresh(){
-  let done=0; edits.forEach(e=>{ if(ruled(e.id)) done++; });
-  $('#pText').textContent = done+' of '+total+' ruled';
-  $('#fill').style.width=(total?done/total*100:0)+'%';
+const doneSet = new Set(edits.filter(e=>ruled(e.id)).map(e=>e.id));
+function refreshBar(){
+  $('#pText').textContent = doneSet.size+' of '+total+' ruled';
+  $('#fill').style.width=(total?doneSet.size/total*100:0)+'%';
 }
-function save(){ localStorage.setItem(KEY, JSON.stringify(R)); refresh(); }
+function refresh(){ doneSet.clear(); edits.forEach(e=>{ if(ruled(e.id)) doneSet.add(e.id); }); refreshBar(); }
+let saveTimer=null;
+function persist(){ localStorage.setItem(KEY, JSON.stringify(R)); }
+function persistSoon(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist, 400); }
+window.addEventListener('beforeunload', persist);
+window.addEventListener('pagehide', persist);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') persist(); });
+function updateOne(id){ if(ruled(id)) doneSet.add(id); else doneSet.delete(id); refreshBar(); }
+function save(){ persist(); refresh(); }
 
 document.body.addEventListener('click', ev=>{
   const b=ev.target.closest('.vbtn'); if(!b) return;
@@ -196,11 +204,12 @@ document.body.addEventListener('click', ev=>{
   R[id].v = R[id].v===v ? null : v;
   const card=document.querySelector('.ed[data-id="'+id+'"]');
   card.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on', x.dataset.v===R[id].v));
-  save();
+  updateOne(id); persist();
 });
 document.body.addEventListener('input', ev=>{
   const inp=ev.target.closest('.cmt input'); if(!inp) return;
-  const id=inp.dataset.id; R[id]=R[id]||{}; R[id].c=inp.value; save();
+  const id=inp.dataset.id; R[id]=R[id]||{}; R[id].c=inp.value;
+  updateOne(id); persistSoon();
 });
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1900); }
 
