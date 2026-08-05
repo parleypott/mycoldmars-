@@ -1,5 +1,5 @@
 {
- "generated": "2026-08-05T06:50:43.921Z",
+ "generated": "2026-08-05T15:28:47.804Z",
  "edits": [
   {
    "id": "E001",
@@ -18,7 +18,7 @@
    "title": "nineteen→seventeen",
    "type": "replace",
    "paras": [
-    "0:17"
+    "0:16"
    ]
   },
   {
@@ -26,7 +26,7 @@
    "title": "decade→nine years",
    "type": "replace",
    "paras": [
-    "0:18"
+    "0:17"
    ]
   },
   {
@@ -34,15 +34,15 @@
    "title": "The lozenge atrocity",
    "type": "replace",
    "paras": [
-    "0:22"
-   ]
-  },
-  {
-   "id": "E005",
-   "title": "ch1 tribute slot",
-   "type": "insert",
-   "paras": [
-    "0:38"
+    "0:19",
+    "0:20",
+    "0:21",
+    "0:22",
+    "0:23",
+    "0:24",
+    "0:25",
+    "0:26",
+    "0:27"
    ]
   },
   {
@@ -50,11 +50,11 @@
    "title": "Birthday feast restored",
    "type": "replace",
    "paras": [
-    "0:47",
-    "0:48",
-    "0:49",
-    "0:50",
-    "0:51"
+    "0:53",
+    "0:54",
+    "0:55",
+    "0:56",
+    "0:57"
    ]
   },
   {
@@ -62,9 +62,9 @@
    "title": "The recited road",
    "type": "replace",
    "paras": [
-    "0:68",
-    "0:69",
-    "0:70"
+    "0:61",
+    "0:62",
+    "0:63"
    ]
   },
   {
@@ -76,22 +76,14 @@
    ]
   },
   {
-   "id": "E011",
-   "title": "ch2 Nicholas tutor slot",
-   "type": "insert",
-   "paras": [
-    "1:20"
-   ]
-  },
-  {
    "id": "E012",
    "title": "First-council arrival, the coat",
    "type": "replace",
    "paras": [
-    "1:21",
-    "1:23",
-    "1:24",
-    "1:25"
+    "1:16",
+    "1:18",
+    "1:19",
+    "1:20"
    ]
   },
   {
@@ -99,7 +91,7 @@
    "title": "Searching her face",
    "type": "replace",
    "paras": [
-    "1:36"
+    "1:26"
    ]
   },
   {
@@ -107,17 +99,9 @@
    "title": "First-council exchange",
    "type": "replace",
    "paras": [
-    "1:41",
-    "1:42",
-    "1:43"
-   ]
-  },
-  {
-   "id": "E015",
-   "title": "Grease and pockets",
-   "type": "insert",
-   "paras": [
-    "1:72"
+    "1:29",
+    "1:30",
+    "1:31"
    ]
   },
   {
@@ -125,14 +109,14 @@
    "title": "The King's speech",
    "type": "replace",
    "paras": [
-    "1:88",
-    "1:89",
-    "1:90",
-    "1:91",
-    "1:92",
-    "1:93",
-    "1:94",
-    "1:96"
+    "1:61",
+    "1:62",
+    "1:63",
+    "1:64",
+    "1:65",
+    "1:66",
+    "1:67",
+    "1:69"
    ]
   },
   {
@@ -174,7 +158,7 @@
    "title": "two→three week break",
    "type": "replace",
    "paras": [
-    "4:35"
+    "4:31"
    ]
   },
   {
@@ -182,20 +166,10 @@
    "title": "Pepper-seller dedup (B)",
    "type": "replace",
    "paras": [
-    "5:34",
-    "5:35",
-    "5:28",
+    "5:27",
+    "5:29",
     "5:30",
-    "5:31",
-    "5:32"
-   ]
-  },
-  {
-   "id": "E033",
-   "title": "ch7 square fact-tell slot",
-   "type": "insert",
-   "paras": [
-    "5:112"
+    "5:31"
    ]
   },
   {
@@ -207,19 +181,19 @@
    ]
   },
   {
+   "id": "E037",
+   "title": "Tea-scene marker",
+   "type": "insert",
+   "paras": [
+    "7:31"
+   ]
+  },
+  {
    "id": "E038",
    "title": "Vharush's face",
    "type": "replace",
    "paras": [
-    "7:33"
-   ]
-  },
-  {
-   "id": "E039",
-   "title": "ch10 stale-disc slot",
-   "type": "insert",
-   "paras": [
-    "8:10"
+    "7:35"
    ]
   },
   {
@@ -227,7 +201,7 @@
    "title": "Crate sentence repair",
    "type": "replace",
    "paras": [
-    "8:25"
+    "8:24"
    ]
   },
   {
@@ -235,8 +209,7 @@
    "title": "The foundry mark + slot",
    "type": "insert",
    "paras": [
-    "8:28",
-    "8:29"
+    "8:26"
    ]
   },
   {
@@ -244,7 +217,7 @@
    "title": "Apron dedup",
    "type": "replace",
    "paras": [
-    "8:30"
+    "8:27"
    ]
   },
   {
@@ -252,8 +225,8 @@
    "title": "Birth of the plan",
    "type": "insert",
    "paras": [
-    "8:43",
-    "8:44"
+    "8:39",
+    "8:40"
    ]
   },
   {
@@ -269,8 +242,8 @@
    "title": "Cold walk-home restored",
    "type": "replace",
    "paras": [
-    "9:60",
-    "9:61"
+    "9:58",
+    "9:59"
    ]
   },
   {
@@ -278,7 +251,7 @@
    "title": "ch11 button",
    "type": "replace",
    "paras": [
-    "9:75"
+    "9:70"
    ]
   },
   {
@@ -294,7 +267,7 @@
    "title": "Midsteam Descent (King)",
    "type": "replace",
    "paras": [
-    "10:10"
+    "10:8"
    ]
   },
   {
@@ -302,7 +275,7 @@
    "title": "Midsteam Descent (memory)",
    "type": "replace",
    "paras": [
-    "10:12"
+    "10:10"
    ]
   },
   {
@@ -310,7 +283,7 @@
    "title": "Tour-dread off Ghai marriages",
    "type": "insert",
    "paras": [
-    "10:13"
+    "10:11"
    ]
   },
   {
@@ -318,7 +291,7 @@
    "title": "King's Midsteam marker",
    "type": "insert",
    "paras": [
-    "10:26"
+    "10:19"
    ]
   },
   {
@@ -326,15 +299,7 @@
    "title": "Plan gets its date",
    "type": "insert",
    "paras": [
-    "10:28"
-   ]
-  },
-  {
-   "id": "E053",
-   "title": "ch12 counting slot",
-   "type": "insert",
-   "paras": [
-    "10:31"
+    "10:21"
    ]
   },
   {
@@ -342,7 +307,7 @@
    "title": "ch12 button",
    "type": "insert",
    "paras": [
-    "10:40"
+    "10:30"
    ]
   },
   {
@@ -378,7 +343,7 @@
    "title": "council watch 1→2 years",
    "type": "replace",
    "paras": [
-    "11:20"
+    "11:19"
    ]
   },
   {
@@ -386,7 +351,7 @@
    "title": "pillows 7→8",
    "type": "replace",
    "paras": [
-    "11:30"
+    "11:26"
    ]
   },
   {
@@ -394,7 +359,7 @@
    "title": "Oz 1→2 years",
    "type": "replace",
    "paras": [
-    "11:52"
+    "11:46"
    ]
   },
   {
@@ -402,14 +367,14 @@
    "title": "The public descent",
    "type": "insert",
    "paras": [
-    "11:72",
-    "11:73",
-    "11:74",
-    "11:75",
-    "11:76",
-    "11:77",
-    "11:78",
-    "11:79"
+    "11:65",
+    "11:66",
+    "11:67",
+    "11:68",
+    "11:69",
+    "11:70",
+    "11:71",
+    "11:72"
    ]
   },
   {
@@ -417,7 +382,7 @@
    "title": "Midsteam work",
    "type": "replace",
    "paras": [
-    "11:93"
+    "11:86"
    ]
   },
   {
@@ -425,7 +390,7 @@
    "title": "The King's one question",
    "type": "replace",
    "paras": [
-    "12:19"
+    "12:18"
    ]
   },
   {
@@ -433,7 +398,7 @@
    "title": "Essa detonation",
    "type": "insert",
    "paras": [
-    "12:20"
+    "12:19"
    ]
   },
   {
@@ -441,7 +406,7 @@
    "title": "Midsteam light",
    "type": "replace",
    "paras": [
-    "12:21"
+    "12:20"
    ]
   },
   {
@@ -474,15 +439,7 @@
    "title": "18mo→2yr",
    "type": "replace",
    "paras": [
-    "13:10"
-   ]
-  },
-  {
-   "id": "E069",
-   "title": "ch15 mining-disc slot",
-   "type": "insert",
-   "paras": [
-    "13:16"
+    "13:8"
    ]
   },
   {
@@ -490,7 +447,7 @@
    "title": "8→5 weeks",
    "type": "replace",
    "paras": [
-    "13:16"
+    "13:14"
    ]
   },
   {
@@ -498,7 +455,7 @@
    "title": "3→2 weeks disc",
    "type": "replace",
    "paras": [
-    "13:50"
+    "13:42"
    ]
   },
   {
@@ -506,7 +463,7 @@
    "title": "Nine months, to the machines",
    "type": "insert",
    "paras": [
-    "13:63"
+    "13:51"
    ]
   },
   {
@@ -522,7 +479,7 @@
    "title": "Mira's lean-year mention",
    "type": "insert",
    "paras": [
-    "14:8"
+    "14:6"
    ]
   },
   {
@@ -530,7 +487,7 @@
    "title": "Midsteam Descent (Cinder)",
    "type": "replace",
    "paras": [
-    "14:23"
+    "14:20"
    ]
   },
   {
@@ -538,7 +495,7 @@
    "title": "13→15 rope-line",
    "type": "replace",
    "paras": [
-    "14:45"
+    "14:39"
    ]
   },
   {
@@ -546,7 +503,7 @@
    "title": "fixes→fixed",
    "type": "replace",
    "paras": [
-    "14:54"
+    "14:47"
    ]
   },
   {
@@ -562,7 +519,7 @@
    "title": "Tuck typo",
    "type": "replace",
    "paras": [
-    "15:20"
+    "15:16"
    ]
   },
   {
@@ -570,7 +527,7 @@
    "title": "Tuck's held square",
    "type": "insert",
    "paras": [
-    "15:21"
+    "15:17"
    ]
   },
   {
@@ -578,7 +535,7 @@
    "title": "The council-coat square",
    "type": "insert",
    "paras": [
-    "15:27"
+    "15:22"
    ]
   },
   {
@@ -586,7 +543,7 @@
    "title": "13→15 market",
    "type": "replace",
    "paras": [
-    "15:43"
+    "15:34"
    ]
   },
   {
@@ -594,7 +551,7 @@
    "title": "ch17 more than two years",
    "type": "replace",
    "paras": [
-    "15:70"
+    "15:60"
    ]
   },
   {
@@ -602,7 +559,7 @@
    "title": "Two shadows (editor's rec)",
    "type": "replace",
    "paras": [
-    "15:33"
+    "15:27"
    ]
   },
   {
