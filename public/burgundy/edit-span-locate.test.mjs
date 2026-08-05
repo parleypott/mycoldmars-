@@ -46,7 +46,11 @@ const spansPath = join(dir, 'edit-spans-author.json');
 {
   const book = JSON.parse(readFileSync(bookPath, 'utf8'));
   assert.equal(typeof book.title, 'string');
-  assert.ok(Array.isArray(book.chapters) && book.chapters.length === 21, '21 chapters after the merge');
+  // Floor, not an exact count: the author edition is regenerated from tool
+  // truth and GROWS as Johnny writes (21 at the merge → 28 by 2026-08-05, and
+  // climbing). A hardcoded == would false-RED on every new chapter; the real
+  // invariant is that the merge never SHRINKS the book below its baseline.
+  assert.ok(Array.isArray(book.chapters) && book.chapters.length >= 21, 'at least the 21 post-merge chapters survive');
   for (const c of book.chapters) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.id.length > 0);
