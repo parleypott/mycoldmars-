@@ -28,7 +28,14 @@ const spansPath = join(dir, 'edit-spans-author.json');
 {
   const book = JSON.parse(readFileSync(bookPath, 'utf8'));
   const spans = JSON.parse(readFileSync(spansPath, 'utf8')).edits;
-  assert.ok(Array.isArray(spans) && spans.length >= 70, `expected ~75 spans, got ${spans?.length}`);
+  // Low catastrophe-floor, NOT a ~count: unlike the chapters (which GROW as Johnny
+  // writes), edit spans SHRINK as he rules on and supersedes them — this refresh
+  // ruled 201 evaluations and dropped superseded spans, taking the set from ~75 to
+  // 64, and it keeps declining toward zero as the backlog is cleared. A high floor
+  // false-REDs on every curation pass; the real invariant is the locate check below
+  // (no shipped span points at a missing paragraph). This floor only trips on a
+  // broken regen that ships an empty/trivially-tiny spans file.
+  assert.ok(Array.isArray(spans) && spans.length >= 10, `spans file looks broken/empty, got ${spans?.length}`);
   const misses = [];
   for (const s of spans) {
     if (s.id === 'E009') continue;   // structural (chapter merge) — no paragraphs
