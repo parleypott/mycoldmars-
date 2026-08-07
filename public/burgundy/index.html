@@ -514,6 +514,10 @@ const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 /* ── load the book + notes ── */
 async function boot() {
+  // the browser's own scroll-restoration races our restorePlace() and, on a
+  // fresh reload, snaps the page back to 0 (the title) AFTER we've scrolled to
+  // the saved paragraph. Take the wheel: we restore place ourselves.
+  if ('scrollRestoration' in history) { try { history.scrollRestoration = 'manual'; } catch {} }
   try {
     // absolute path: /burgundy (no trailing slash) serves this page too, and a
     // relative fetch from there resolves book.json against the site root and 404s
@@ -1429,16 +1433,45 @@ function resolvePlace(v) {
   }
   return p;
 }
+// Lock the viewport to an element and KEEP it there for ~1.4s. A single
+// scrollIntoView at boot lands wrong: web fonts and late images reflow the
+// page after we've scrolled, and the browser's restore can stomp us. So we
+// re-seat every frame until it holds, re-align when fonts/images settle, and
+// bail the instant the reader does anything (wheel/touch/key/tap) — we never
+// fight a reader who's already moving.
+let __anchorStop = null;
+function anchorTo(el) {
+  if (!el) return;
+  if (__anchorStop) __anchorStop();
+  let done = false, frames = 0;
+  const align = () => {
+    if (done) return;
+    const y = Math.max(0, el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset) - 4);
+    window.scrollTo(0, y);
+  };
+  const evs = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+  const onUser = () => stop();
+  function stop() { done = true; evs.forEach(e => removeEventListener(e, onUser, true)); }
+  evs.forEach(e => addEventListener(e, onUser, { capture: true, passive: true }));
+  __anchorStop = stop;
+  (function tick() { if (done) return; align(); if (++frames < 90) requestAnimationFrame(tick); else stop(); })();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!done) align(); });
+  addEventListener('load', () => { if (!done) align(); }, { once: true });
+  setTimeout(() => { if (!done) align(); }, 300);
+  setTimeout(() => { if (!done) align(); }, 800);
+}
 function restorePlace() {
   const v = safeGet('bg-place2');
   if (pagedOn()) {
     layoutPages();
-    goToPage(v ? pageOfKey(v) : 0, false);
+    const seat = () => goToPage(v ? pageOfKey(v) : 0, false);
+    seat();
+    // fonts/late layout shift where the column breaks fall — re-seat once settled
+    if (v && document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutPages(); seat(); });
     return;
   }
   if (!v) return;
-  const p = resolvePlace(v);
-  if (p) requestAnimationFrame(() => p.scrollIntoView({ block: 'start' }));
+  anchorTo(resolvePlace(v));
 }
 $('btn-bigger').addEventListener('click', () => setSize(+1));
 $('btn-smaller').addEventListener('click', () => setSize(-1));
