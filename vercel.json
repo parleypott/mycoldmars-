@@ -105,6 +105,16 @@
   ],
   "redirects": [
     {
+      "source": "/novel",
+      "destination": "/burgundy",
+      "permanent": false
+    },
+    {
+      "source": "/novel/",
+      "destination": "/burgundy",
+      "permanent": false
+    },
+    {
       "source": "/",
       "has": [
         {
