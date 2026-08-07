@@ -93,6 +93,14 @@
     {
       "source": "/burgundy/johnny/",
       "destination": "/burgundy/index.html"
+    },
+    {
+      "source": "/burgundy/outline",
+      "destination": "/burgundy/outline/index.html"
+    },
+    {
+      "source": "/burgundy/outline/",
+      "destination": "/burgundy/outline/index.html"
     }
   ],
   "redirects": [
