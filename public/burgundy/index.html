@@ -1983,9 +1983,9 @@ setInterval(() => { if (queuedNotes().length) flushNoteQueue(); }, 60000);
     if (!loadedVersion) return;                       // book not loaded yet
     const v = await remoteVersion();
     if (!v || v === loadedVersion) return;            // nothing new
-    markUpdate();
-    if (kind === 'return' && (awayMs || 0) > 15000) return reloadKeepingPlace();   // came back after a while
-    if (kind === 'idle' && (Date.now() - lastActive) > 4 * 60000) return reloadKeepingPlace();  // sat idle
+    markUpdate();   // glow the refresh button ONLY — never auto-reload mid-read.
+    // (Auto-reload on return/idle was yanking the reader to the title page whenever a
+    //  new book.json was published; the reader taps the glowing ⟳ to update on their terms.)
   }
 
   // manual button: always reloads to the newest version, keeping the spot
