@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bill · BURGUNDY — The New Arc</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --paper:#f3ead9; --paper-2:#efe4cf; --card:#faf3e6; --ink:#211a14; --ink-soft:#5b4f42;
+    --ink-faint:#8a7c69; --rule:#d8c8ab; --oxblood:#7c2130; --red:#b8332c; --gold:#a9853f;
+    --green:#4a6741; --blue:#3d5a6e; --purple:#5d4a6e;
+    --shadow:0 1px 0 rgba(120,90,40,.08), 0 12px 34px -20px rgba(60,40,20,.55);
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --disp:"Hoefler Text","Iowan Old Style",Palatino,Georgia,serif;
+    --mono:"SF Mono",ui-monospace,"Menlo","Consolas",monospace;
+  }
+  html[data-theme="night"]{
+    --paper:#171310; --paper-2:#1d1813; --card:#221b15; --ink:#eadfce; --ink-soft:#c3b39a;
+    --ink-faint:#8c7c66; --rule:#3a2f24; --oxblood:#d98a92; --red:#e0776d; --gold:#d6b673;
+    --green:#8fb283; --blue:#8ab0c4; --purple:#b09ac4;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 14px 40px -22px rgba(0,0,0,.85);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);
+    color:var(--ink); font-family:var(--serif); font-size:17.5px; line-height:1.6; padding-bottom:110px}
+  .wrap{max-width:860px; margin:0 auto; padding:0 20px}
+  header.masthead{padding:52px 0 20px; text-align:center}
+  .emblem{display:inline-flex; align-items:baseline; gap:.04em; font-family:var(--disp); font-size:60px; line-height:1}
+  .emblem .b{color:var(--ink); font-weight:600; position:relative; padding-bottom:6px}
+  .emblem .b::after{content:""; position:absolute; left:2%; right:2%; bottom:0; height:4px; background:linear-gradient(90deg,var(--red),var(--oxblood)); border-radius:2px}
+  .spark{color:var(--gold); font-size:24px; transform:translateY(-20px); margin-left:2px}
+  .kicker{font-family:var(--mono); font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-faint); margin:20px 0 6px}
+  h1.title{font-family:var(--disp); font-weight:600; font-size:36px; line-height:1.1; margin:.1em 0 .15em}
+  .byline{font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--oxblood); margin-top:14px}
+  .rule{height:1px; background:linear-gradient(90deg,transparent,var(--rule) 15%,var(--rule) 85%,transparent); margin:28px 0}
+  .letter{background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:26px 28px 22px; box-shadow:var(--shadow); position:relative}
+  .letter::before{content:"how to use this"; position:absolute; top:-9px; left:22px; background:var(--card); padding:0 10px; font-family:var(--mono); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--gold)}
+  .letter p{margin:0 0 12px} .letter p:last-child{margin-bottom:0}
+
+  /* legend */
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 0}
+  .lg{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); border:1px solid var(--rule); border-radius:20px; padding:4px 11px}
+  .lg .sw{width:10px; height:10px; border-radius:3px; display:inline-block}
+
+  /* chapters */
+  .chap{margin-top:44px}
+  .chap-head{display:flex; align-items:center; gap:12px; background:var(--paper); padding:10px 0; border-bottom:1px solid var(--rule)}
+  .chap-head h2{font-family:var(--disp); font-weight:600; font-size:24px; margin:0}
+  .chap-head .cnt{font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; color:var(--ink-faint); text-transform:uppercase}
+
+  /* edit cards */
+  .ed{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:16px 18px; margin:14px 0; border-left-width:4px; border-left-style:solid}
+  .ed[data-t="age-fix"], .ed[data-t="line-edit"], .ed[data-t="timing-marker"]{border-left-color:var(--gold)}
+  .ed[data-t="new-paragraph"]{border-left-color:var(--green)}
+  .ed[data-t="new-scene"], .ed[data-t="new-chapter"]{border-left-color:var(--oxblood)}
+  .ed[data-t="restructure"]{border-left-color:var(--red)}
+  .ed[data-t="flashback-slot"], .ed[data-t="parked"]{border-left-color:var(--purple)}
+  .ed[data-t="open-question"]{border-left-color:var(--blue)}
+  .ed-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px}
+  .pill{font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; padding:3px 8px; border-radius:20px; border:1px solid var(--rule); color:var(--ink-soft)}
+  .pill.type{font-weight:600}
+  .ed[data-t="new-scene"] .pill.type, .ed[data-t="new-chapter"] .pill.type{color:var(--oxblood); border-color:var(--oxblood)}
+  .ed[data-t="new-paragraph"] .pill.type{color:var(--green); border-color:var(--green)}
+  .ed[data-t="restructure"] .pill.type{color:var(--red); border-color:var(--red)}
+  .ed[data-t="flashback-slot"] .pill.type, .ed[data-t="parked"] .pill.type{color:var(--purple); border-color:var(--purple)}
+  .ed[data-t="open-question"] .pill.type{color:var(--blue); border-color:var(--blue)}
+  .ed[data-t="age-fix"] .pill.type, .ed[data-t="line-edit"] .pill.type, .ed[data-t="timing-marker"] .pill.type{color:var(--gold); border-color:var(--gold)}
+  .ed h4{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 7px; line-height:1.25}
+  .ed .prop{margin:0 0 10px; font-size:16px}
+  .ed .prop p{margin:0 0 9px}
+  .ed .prop p:last-child{margin-bottom:0}
+  .ed .prop strong{font-weight:600}
+  .ed .prop .lead{color:var(--ink)}
+  .ed .prop ul.opts{list-style:none; margin:10px 0 2px; padding:0}
+  .ed .prop ul.opts li{position:relative; padding:6px 10px 6px 26px; margin:4px 0; background:var(--paper-2); border:1px solid var(--rule); border-radius:8px; font-size:15px; line-height:1.45}
+  .ed .prop ul.opts li:before{content:"▸"; position:absolute; left:9px; top:6px; color:var(--gold)}
+  .ed .prop .change{background:var(--paper-2); border:1px dashed var(--rule); border-radius:8px; padding:8px 12px; margin:8px 0; font-size:15px}
+  .ed .why{font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:0 0 10px}
+  .ed .draft{font-size:14.5px; color:var(--ink-soft); background:var(--paper-2); border:1px dashed var(--rule); border-radius:8px; padding:9px 12px; margin:0 0 10px}
+  .ed .draft b{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); font-weight:400; display:block; margin-bottom:4px}
+  .anchor{font-size:13px; color:var(--ink-faint); margin:0 0 12px; line-height:1.5}
+  .anchor .h,.anchor .t{font-style:italic}
+  .anchor b{font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-style:normal; color:var(--ink-faint); margin-right:4px}
+  .anchor .mark{color:var(--oxblood); font-weight:700; font-style:normal; padding:0 3px}
+
+  /* verdict row */
+  .verd{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .vbtn{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; padding:7px 14px; border-radius:8px; border:1px solid var(--rule); background:transparent; color:var(--ink-soft); cursor:pointer; transition:.12s}
+  .vbtn:hover{border-color:var(--ink-soft)}
+  .vbtn.acc.on{background:var(--green); border-color:var(--green); color:var(--paper)}
+  .vbtn.rej.on{background:var(--red); border-color:var(--red); color:var(--paper)}
+  .cmt{flex:1; min-width:160px}
+  .cmt input{width:100%; background:var(--paper); color:var(--ink); border:1px solid var(--rule); border-radius:8px; padding:8px 11px; font-family:var(--serif); font-size:14px}
+  .cmt input:focus{outline:none; border-color:var(--oxblood)}
+
+  .bar{position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--paper); border-top:1px solid var(--rule)}
+  .bar-in{max-width:860px; margin:0 auto; padding:11px 20px; display:flex; align-items:center; gap:14px}
+  .progress{flex:1; display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:11.5px; color:var(--ink-soft)}
+  .track{flex:1; height:6px; background:var(--rule); border-radius:6px; overflow:hidden; max-width:240px}
+  .fill{height:100%; width:0; background:linear-gradient(90deg,var(--oxblood),var(--gold)); transition:width .3s}
+  button.act{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--oxblood); color:var(--paper); background:var(--oxblood); padding:9px 14px; border-radius:8px; cursor:pointer}
+  button.ghost{background:transparent; color:var(--oxblood)}
+  .theme-btn{position:absolute; top:16px; right:18px; font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); background:transparent; border:1px solid var(--rule); border-radius:20px; padding:5px 11px; cursor:pointer}
+  .toast{position:fixed; bottom:70px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:var(--ink); color:var(--paper); padding:10px 18px; border-radius:10px; font-size:13.5px; font-family:var(--mono); transition:.25s; pointer-events:none; z-index:50}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  @media(max-width:640px){ h1.title{font-size:30px} .emblem{font-size:50px} .letter{padding:20px} .ed{padding:14px} }
+</style>
+</head>
+<body>
+<button class="theme-btn" id="themeBtn">☾ night</button>
+<div class="wrap">
+  <header class="masthead">
+    <div class="emblem"><span class="b">B</span><span class="spark">✦</span></div>
+    <div class="kicker">Bill · your story wizard</div>
+    <h1 class="title">BURGUNDY: The Edit Proposal</h1>
+    <div class="byline" id="byline"></div>
+  </header>
+
+  <div class="letter" id="intro"></div>
+
+  <div class="legend" id="legend"></div>
+
+  <div id="chapters"></div>
+</div>
+
+<div class="bar"><div class="bar-in">
+  <div class="progress"><span id="pText">0 ruled</span><span class="track"><span class="fill" id="fill"></span></span></div>
+  <button class="act ghost" id="accAllBtn" title="accept everything not yet ruled">accept rest</button>
+  <button class="act ghost" id="clearBtn">clear</button>
+  <button class="act" id="exportBtn">export ↧</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = {"intro":"**You just gave me a whole new arc — the depot, the dig, the dinners, the militant, and Hesta's decision to trust.** I've captured every beat and read it back below. Each card is one piece of the story with a real choice about *how it lands in the book* — its own chapter, a scene inside one, folded into what's there — plus the two calls only you can make: who the militant is, and how long the dig takes.\n\n**Nothing here is written yet.** Rule these the way you ruled the last two rounds, and each one becomes real prose on the round-trip — I draft it, your editor passes it, it goes into the manuscript as green edits. The full canon is saved at CANON-ADDENDUM-2026-08-07.\n\n**9 cards. Export when you're done and I'll start writing.**","edits":[{"chapter":"1","seq":1,"type":"casting","size":"ruling","title":"The militant — who is he?","proposal":"**One of the resistance distrusts Burgundy first, then commits hardest — and later says \"why don't we put weapons on the machines?\"** The codex already has two men who could carry that: **Skorn** (a hard, quiet miner-organizer, principled suspicion of Burgundy — the moral center of the room) and **Moss** (a silent ex-soldier whose military past does his talking).\n\nThe distrust arc fits Skorn. The weaponize instinct fits a soldier. My instinct: **Skorn is the militant** (suspicion → earned trust → \"arm them\"), and **Moss** is the one who confirms in the debate that it's actually feasible — the two of them are the hawk and the armorer.\n\n▸ Skorn is the militant — Moss backs the feasibility (my recommendation)\n▸ Moss is the militant — the ex-soldier wants the guns\n▸ Merge them into one character — tell me which name\n▸ Comment","head":"","tail":"","rationale":"casting the distrust→militant arc","draft":""},{"chapter":"1","seq":2,"type":"beat","size":"big","title":"Hesta's trust moment — the hinge of the alliance","proposal":"**The first time Burgundy meets Hesta, she has to see the danger and decide to trust him anyway — because the situation is insane.** Her logic, out loud: no normal working of this regime would ever let the sole heir walk unarmed into the deadliest mine on the planet. She knows the regime cold. *The very fact that this kid — the one person whose death throws everything into disorder — has been sent down here alone, unarmed, into a room where I could kill him right now and no one could stop me: that is insane enough that I'll trust you. We don't have a lot of other choices.* She says it clearly, but names her unease: *I don't know what this is. It's really weird. Something's up. But I'll hear you out.*\n\nShe trusts it **on** the strangeness, not despite it.\n\n» This is a character beat, not a new scene — it wants to live inside the first-Hollow meeting.\n\n▸ Fold it into the existing first-meeting scene as the turn (my recommendation)\n▸ Give it its own short chapter — the descent + the standoff + the decision\n▸ Comment — you have the exact line in mind","head":"","tail":"","rationale":"the alliance hinge · first meeting","draft":""},{"chapter":"2","seq":3,"type":"tradition","size":"big","title":"The bread — and the Tuck food tradition","proposal":"**Burgundy brings down rolls and passes them around. They have good food, but no wheat, no gluten — squishy bread is a total novelty. They bite in and have never had anything like it.** That single moment starts a tradition: from then on he goes to **Tuck** for food — dried meats, wheels of cheese, bread, fruit — and carries it down. Each Hollow dinner becomes its own described ritual.\n\nThis lands right on canon we already have — **the Tiffins** (the stacked tins carried to the dinners) and **Pell** (the under-cook who packs it). The bread is the *origin*; Tuck is the *supply line*.\n\n▸ Write the \"first bread\" beat once, then make the dinners a recurring described motif (my recommendation)\n▸ Just the one bread scene for now — hold the recurring dinners\n▸ Also write the Tuck \"supply-line\" conversation as its own beat\n▸ Comment","head":"","tail":"","rationale":"warmth against the cold · recurring motif","draft":""},{"chapter":"3","seq":4,"type":"beat","size":"big","title":"The militarization debate + the depot reveal","proposal":"**Once the robots have multiplied into something like a factory, the militant asks: why don't we arm them?** A tense debate. **Hesta shuts it down — on cold logic, not principle:** even if they overwhelm the security forces (which they might), **Nicholas has promised to rescue any revolution.** Burgundy: *how? He can't get here in time.* Hesta's answer, the reveal: **Nicholas keeps a depot — an arsenal — already on the planet.** That's how he puts down rebellion; that's what the **red telephone** deploys. Burgundy: *where?* Hesta: **the south** — but they don't actually know where.\n\n▸ One scene: the debate flows straight into the reveal (my recommendation)\n▸ Split them — the debate one night, the reveal another\n▸ Comment — and tell me which chapter this sits after","head":"","tail":"","rationale":"raises the depot · sets the hunt","draft":""},{"chapter":"4","seq":5,"type":"beat","size":"medium","title":"The council probe — fishing without showing his hand","proposal":"**Next day at council, Burgundy raises it lightly, careful not to reveal what he knows.** He asks only: *what happens if the security forces are overwhelmed?* Answer: *Nicholas can mobilize quickly.* *How?* The King or the security minister mentions **the depot**. *Where?* **The south ice sheet, south of the castle.** And he stops. He will not spend his curiosity or give himself away. But now he has the direction.\n\nThe craft of it is restraint — one question too many and it's over.\n\n▸ Write it as a short new council scene (my recommendation)\n▸ Graft it onto an existing council scene as a few careful lines\n▸ Comment","head":"","tail":"","rationale":"the direction, bought with one question","draft":""},{"chapter":"5","seq":6,"type":"set-piece","size":"big","title":"The map room — how he finds the exact spot","proposal":"**Burgundy goes to the cartographer in the map room — every map of Dross, the system, the core worlds.** He feigns an idle fascination with the castle and the southern ice, plays it as curiosity about the arctic, and asks to *check the maps out to study the ice.* The cartographer thinks he's a little silly for wanting a stack of maps of nothing. He lets him take them.\n\nHe scours them for hours. On one — a **post–Civil War event map**, survey and settlement plans — in the middle of a sheet of ice, in the middle of nowhere, a **small rectangle** labeled something deliberately benign: **\"storage.\"** He knows instantly. He looks closer: an entire **cavern** built beneath it. About **12 miles south of the castle**, outside the city, on a random ice field. Now he has the exact location.\n\n» New character: **the cartographer.** Wants a name and a quick vibe. My pick: a fussy, incurious archivist who loves the maps and never reads them.\n\n▸ Its own chapter — this is a real set-piece (my recommendation)\n▸ A single scene inside a working chapter\n▸ Name the cartographer + write it — tell me the name, or take my pick\n▸ Comment","head":"","tail":"","rationale":"the hunt's payoff · a set-piece","draft":""},{"chapter":"6","seq":7,"type":"beat","size":"big","title":"The plan + the council confirmation","proposal":"**He brings the location to the Hollow; over a meal they plot the back door** — dig deep enough to come up under the depot's unguarded flank, because Nicholas only guards the top. Then Burgundy confirms the defense at council, framed as *the prince who'll be king needs to understand how it's kept safe.* **Oz:** Nicholas's best soldiers hold the front, the rest is underground. *But what if someone dug through?* **Impossible** — it's **pure corvite all around; miners would take fifty years** to cover that distance.\n\nAnd that is the moment: **Burgundy realizes he has the tool.** The robots turn fifty years into weeks. He is quietly, completely certain they can do it. **They start digging that night.**\n\n▸ Two scenes — the Hollow plan, then the council confirmation (my recommendation)\n▸ One braided scene, cutting between the table and the council\n▸ Comment","head":"","tail":"","rationale":"the plan locks · the dig begins","draft":""},{"chapter":"6","seq":8,"type":"clock","size":"ruling","title":"The dig clock — how long to reach the depot?","proposal":"**Oz's number is fifty years for conventional miners.** The robots are the whole point — dramatically faster, improving as they go. The dig is a new countdown running under the middle of the book, and its length sets the tension.\n\n**My recommendation: ~5–6 weeks, timed to collide with the Vicentennial** (roughly nine months out when this starts, tightening). Long enough to be a real siege of patience — dinners, near-misses, the robots learning the rock — short enough to stay taut, and it lets the two clocks converge at the run-up.\n\n▸ ~5–6 weeks, colliding with the Vicentennial (my recommendation)\n▸ Taut — 5 days\n▸ A 3-week sprint\n▸ Explicitly timed to land on the eve of the Vicentennial\n▸ Comment a number","head":"","tail":"","rationale":"sets the new clock · your call","draft":""},{"chapter":"7","seq":9,"type":"sequencing","size":"medium","title":"The order of the middle","proposal":"**Here's the order I'd lay these beats into the middle of the book:**\n\n» 1 · Hesta's trust moment (first meeting)\n» 2 · the dinners begin (the bread)\n» 3 · the robots become a factory\n» 4 · the militarization debate + depot reveal\n» 5 · the council probe (the direction)\n» 6 · the map room (the exact spot)\n» 7 · the plan + council confirmation\n» 8 · the dig begins — the clock starts\n\n▸ Confirm this order and I'll build to it (my recommendation)\n▸ Reorder — tell me the sequence\n▸ Comment","head":"","tail":"","rationale":"the spine of the middle","draft":""}],"stats":{"total":9,"byType":"the new arc · deploy options + 2 rulings (the militant, the clock)"},"coverage":""};
+const KEY = 'bill-burgundy-newarc-v1';
+let R = {};
+try{ const p = JSON.parse(localStorage.getItem(KEY) || '{}'); R = (p && typeof p==='object' && !Array.isArray(p)) ? p : {}; }catch(e){ R = {}; }
+const $ = s => document.querySelector(s);
+const esc = s => (s==null?'':String(s)).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const inlineMd = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>');
+function renderProp(s){
+  if(!s) return '';
+  let out=''; let opts=[];
+  const flush=()=>{ if(opts.length){ out+='<ul class="opts">'+opts.map(o=>'<li>'+inlineMd(o)+'</li>').join('')+'</ul>'; opts=[]; } };
+  for(const block of String(s).split(/\n\n+/)){
+    const b = block.trim(); if(!b) continue;
+    const lines = b.split(/\n/).map(l=>l.trim()).filter(Boolean);
+    if(lines.length && lines.every(l=>/^▸\s+/.test(l))){ for(const l of lines) opts.push(l.replace(/^▸\s+/,'')); continue; }
+    flush();
+    if(/^»\s+/.test(b)){ out+='<div class="change">'+inlineMd(b.replace(/^»\s+/,''))+'</div>'; continue; }
+    out += '<p'+(out?'':' class="lead"')+'>'+inlineMd(b).replace(/\n/g,'<br>')+'</p>';
+  }
+  flush();
+  return out;
+}
+
+const TYPE_LABEL = { 'age-fix':'number fix','line-edit':'line edit','timing-marker':'timing marker','new-paragraph':'new paragraph','new-scene':'new scene','new-chapter':'new chapter','restructure':'restructure','flashback-slot':'flashback slot','parked':'parked (geo)','open-question':'open question' };
+const TYPE_COLOR = { 'age-fix':'var(--gold)','line-edit':'var(--gold)','timing-marker':'var(--gold)','new-paragraph':'var(--green)','new-scene':'var(--oxblood)','new-chapter':'var(--oxblood)','restructure':'var(--red)','flashback-slot':'var(--purple)','parked':'var(--purple)','open-question':'var(--blue)' };
+
+const edits = DATA.edits.map((e,i)=>({...e, id: 'e'+i}));
+const total = edits.length;
+
+$('#byline').textContent = 'chronological · '+total+' proposed edits · accept, reject, or comment on each';
+$('#intro').innerHTML = DATA.intro.split(/\n\n+/).map(p=>'<p>'+inlineMd(p)+'</p>').join('');
+
+// legend (only types present)
+const present = [...new Set(edits.map(e=>e.type))];
+$('#legend').innerHTML = present.map(t=>'<span class="lg"><span class="sw" style="background:'+TYPE_COLOR[t]+'"></span>'+esc(TYPE_LABEL[t]||t)+'</span>').join('');
+
+// group by chapter, chronological
+function chapKey(c){ const m = String(c).match(/\d+/); return m ? parseInt(m[0]) + (String(c).toLowerCase().includes('new')? 0.5 : 0) : 99; }
+const groups = {};
+edits.forEach(e=>{ (groups[e.chapter] = groups[e.chapter] || []).push(e); });
+const chapOrder = Object.keys(groups).sort((a,b)=>chapKey(a)-chapKey(b) || String(a).localeCompare(String(b)));
+chapOrder.forEach(c => groups[c].sort((a,b)=>(a.seq||0)-(b.seq||0)));
+
+const cbox = $('#chapters');
+chapOrder.forEach(c=>{
+  const sec = document.createElement('section'); sec.className='chap';
+  let h = '<div class="chap-head"><h2>'+(String(c).match(/^\d+$/)?'Chapter '+c:esc(c))+'</h2><span class="cnt">'+groups[c].length+' edits</span></div>';
+  groups[c].forEach(e=>{
+    const st = R[e.id]||{};
+    h += '<div class="ed" data-t="'+esc(e.type)+'" data-id="'+e.id+'">';
+    h += '<div class="ed-top"><span class="pill type">'+esc(TYPE_LABEL[e.type]||e.type)+'</span><span class="pill">'+esc(e.size)+'</span></div>';
+    h += '<h4>'+esc(e.title)+'</h4>';
+    h += '<div class="prop">'+renderProp(e.proposal)+'</div>';
+    if(e.draft) h += '<div class="draft"><b>the change</b>'+esc(e.draft)+'</div>';
+    if(e.head || e.tail){
+      h += '<p class="anchor">';
+      if(e.head) h += '<b>after</b><span class="h">“…'+esc(e.head)+'”</span> ';
+      h += '<span class="mark">◆</span>';
+      if(e.tail) h += ' <b>before</b><span class="t">“'+esc(e.tail)+'…”</span>';
+      h += '</p>';
+    }
+    if(e.rationale) h += '<p class="why">'+esc(e.rationale)+'</p>';
+    h += '<div class="verd">';
+    h += '<button class="vbtn acc'+(st.v==='accept'?' on':'')+'" data-id="'+e.id+'" data-v="accept">✓ accept</button>';
+    h += '<button class="vbtn rej'+(st.v==='reject'?' on':'')+'" data-id="'+e.id+'" data-v="reject">✗ reject</button>';
+    h += '<span class="cmt"><input data-id="'+e.id+'" placeholder="comment…" value="'+esc(st.c||'')+'"></span>';
+    h += '</div></div>';
+  });
+  sec.innerHTML = h; cbox.appendChild(sec);
+});
+
+function ruled(id){ const s=R[id]||{}; return !!(s.v || (s.c && s.c.trim())); }
+const doneSet = new Set(edits.filter(e=>ruled(e.id)).map(e=>e.id));
+function refreshBar(){
+  $('#pText').textContent = doneSet.size+' of '+total+' ruled';
+  $('#fill').style.width=(total?doneSet.size/total*100:0)+'%';
+}
+function refresh(){ doneSet.clear(); edits.forEach(e=>{ if(ruled(e.id)) doneSet.add(e.id); }); refreshBar(); }
+let saveTimer=null;
+function persist(){ localStorage.setItem(KEY, JSON.stringify(R)); }
+function persistSoon(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist, 400); }
+window.addEventListener('beforeunload', persist);
+window.addEventListener('pagehide', persist);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') persist(); });
+function updateOne(id){ if(ruled(id)) doneSet.add(id); else doneSet.delete(id); refreshBar(); }
+function save(){ persist(); refresh(); }
+
+document.body.addEventListener('click', ev=>{
+  const b=ev.target.closest('.vbtn'); if(!b) return;
+  const id=b.dataset.id, v=b.dataset.v;
+  R[id]=R[id]||{};
+  R[id].v = R[id].v===v ? null : v;
+  const card=document.querySelector('.ed[data-id="'+id+'"]');
+  card.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on', x.dataset.v===R[id].v));
+  updateOne(id); persist();
+});
+document.body.addEventListener('input', ev=>{
+  const inp=ev.target.closest('.cmt input'); if(!inp) return;
+  const id=inp.dataset.id; R[id]=R[id]||{}; R[id].c=inp.value;
+  updateOne(id); persistSoon();
+});
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1900); }
+
+$('#accAllBtn').addEventListener('click', ()=>{
+  edits.forEach(e=>{ if(!ruled(e.id)){ R[e.id]=R[e.id]||{}; R[e.id].v='accept'; } });
+  document.querySelectorAll('.ed').forEach(card=>{
+    const id=card.dataset.id; card.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on', x.dataset.v===(R[id]&&R[id].v)));
+  });
+  save(); toast('accepted the rest');
+});
+$('#clearBtn').addEventListener('click', ()=>{
+  if(!confirm('Clear all your rulings?')) return;
+  R={}; localStorage.removeItem(KEY);
+  document.querySelectorAll('.vbtn').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.cmt input').forEach(i=>i.value='');
+  refresh(); toast('cleared');
+});
+$('#exportBtn').addEventListener('click', async ()=>{
+  let md='# BURGUNDY — Johnny\'s rulings on the Edit Proposal\n\n';
+  chapOrder.forEach(c=>{
+    md+='\n## '+(String(c).match(/^\d+$/)?'Chapter '+c:c)+'\n';
+    groups[c].forEach(e=>{
+      const s=R[e.id]||{};
+      md+='\n### '+e.title+' ['+(TYPE_LABEL[e.type]||e.type)+' · '+e.size+']\n';
+      md+='- **Verdict:** '+(s.v?s.v.toUpperCase():'_(unruled)_')+'\n';
+      if(s.c&&s.c.trim()) md+='- **Johnny:** '+s.c.trim()+'\n';
+    });
+  });
+  try{ await navigator.clipboard.writeText(md); toast('copied — paste it back to Parley'); }catch(e){ toast('downloaded'); }
+  const blob=new Blob([md],{type:'text/markdown'}); const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='BURGUNDY-edit-rulings.md'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+const tb=$('#themeBtn');
+function setTheme(t){ document.documentElement.dataset.theme=t; tb.textContent=t==='night'?'☀ day':'☾ night'; try{localStorage.setItem('bill-theme',t);}catch(e){} }
+let bootTheme='day'; try{ bootTheme=localStorage.getItem('bill-theme')||'day'; }catch(e){}
+setTheme(bootTheme);
+tb.addEventListener('click', ()=>setTheme(document.documentElement.dataset.theme==='night'?'day':'night'));
+refresh();
+</script>
+<div id="gate" style="position:fixed;inset:0;z-index:99999;background:#171310;color:#eadfce;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Georgia,serif;padding:24px;text-align:center">
+  <div style="font-size:56px;line-height:1;color:#eadfce">B<span style="color:#d6b673;font-size:26px;vertical-align:super">&#10022;</span></div>
+  <div style="font-family:monospace;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#8c7c66;margin:18px 0 10px">Bill &middot; the edit proposal</div>
+  <input id="gpw" type="password" placeholder="password" autocomplete="off" autocapitalize="off" autocorrect="off" style="padding:12px 16px;border-radius:10px;border:1px solid #3a2f24;background:#221b15;color:#eadfce;font-size:16px;text-align:center;width:220px;outline:none">
+  <button id="gbtn" style="margin-top:12px;padding:10px 20px;border-radius:8px;border:1px solid #7c2130;background:#7c2130;color:#f3ead9;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;font-size:12px;cursor:pointer">enter</button>
+  <div id="gerr" style="color:#e0776d;font-family:monospace;font-size:11px;margin-top:10px;min-height:14px"></div>
+</div>
+<script>(function(){var g=document.getElementById("gate");function n(s){return (s||"").toLowerCase().replace(/[^a-z]/g,"");}var unlocked=false;try{unlocked=localStorage.getItem("q2-unlocked")==="1";}catch(e){}if(unlocked){g.style.display="none";return;}document.documentElement.style.overflow="hidden";function t(){if(n(document.getElementById("gpw").value)==="mycoldmars"){try{localStorage.setItem("q2-unlocked","1");}catch(e){}g.remove();document.documentElement.style.overflow="";}else{document.getElementById("gerr").textContent="not quite";}}document.getElementById("gbtn").addEventListener("click",t);document.getElementById("gpw").addEventListener("keydown",function(e){if(e.key==="Enter")t();});setTimeout(function(){try{document.getElementById("gpw").focus();}catch(e){}},50);})();</script>
+</body>
+</html>
