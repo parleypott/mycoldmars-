@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BURGUNDY — The Resistance · Get to Know You</title>
+<style>
+  :root{
+    --paper:#0c0b09; --paper-2:#131110; --ink:#ece5d8; --ink-soft:#b7ad9c; --ink-faint:#7d7565;
+    --line:#2a2621; --line-2:#3a352d; --accent:#8a1c26; --accent-2:#b8323d; --gold:#c9a24b;
+    --serif:"Iowan Old Style", Georgia, "Times New Roman", serif;
+    --mono:"SF Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);-webkit-font-smoothing:antialiased}
+  body{line-height:1.5}
+  img{max-width:100%;display:block}
+  .mono{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:11px;color:var(--ink-faint)}
+  a{color:var(--accent-2)}
+
+  /* ── gate ── */
+  #gate{position:fixed;inset:0;z-index:100;background:var(--paper);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+  #gate h1{font-family:var(--serif);font-style:italic;font-weight:400;font-size:26px;color:var(--ink);margin:0}
+  #gate input{background:transparent;border:1px solid var(--line-2);color:var(--ink);font-family:var(--mono);font-size:14px;padding:10px 14px;width:230px;text-align:center;letter-spacing:.1em}
+  #gate button{background:var(--accent);color:#fff;border:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:12px;padding:10px 22px;cursor:pointer}
+  #gate .hint{color:var(--ink-faint);font-family:var(--mono);font-size:10px}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 22px 120px}
+  header.masthead{padding:54px 0 30px;border-bottom:1px solid var(--line)}
+  .kicker{color:var(--accent-2)}
+  header.masthead h1{font-family:var(--serif);font-weight:400;font-size:clamp(34px,6vw,62px);line-height:1.02;margin:12px 0 8px;letter-spacing:-.01em}
+  header.masthead .sub{color:var(--ink-soft);font-size:17px;max-width:60ch}
+  header.masthead .sub em{color:var(--ink)}
+
+  /* ── style/control bar ── */
+  .controls{margin:26px 0 8px;border:1px solid var(--line);background:var(--paper-2);padding:18px}
+  .controls .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+  .controls label{display:block;margin-bottom:6px}
+  .controls textarea{width:100%;min-height:70px;background:var(--paper);border:1px solid var(--line-2);color:var(--ink);font-family:var(--serif);font-size:15px;padding:11px 13px;resize:vertical}
+  .controls .col{flex:1;min-width:280px}
+  .refs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  .refs img{height:52px;width:52px;object-fit:cover;border:1px solid var(--line-2)}
+  .btn{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:11px;padding:9px 16px;border:1px solid var(--line-2);background:transparent;color:var(--ink);cursor:pointer;transition:.12s}
+  .btn:hover{border-color:var(--ink-soft)}
+  .btn.solid{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.solid:hover{background:var(--accent-2);border-color:var(--accent-2)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.tiny{font-size:10px;padding:6px 11px}
+
+  /* ── wide shot hero ── */
+  .hero{margin:34px 0 10px}
+  .hero .frame{position:relative;border:1px solid var(--line-2);background:var(--paper-2);aspect-ratio:16/9;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .hero .frame img{width:100%;height:100%;object-fit:cover}
+  .hero .empty{color:var(--ink-faint);font-family:var(--mono);font-size:12px;text-align:center;padding:20px;line-height:1.8}
+  .hero .cap{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;gap:16px;flex-wrap:wrap}
+  .hero .cap .t{font-style:italic;font-size:16px;color:var(--ink-soft)}
+  .busy{position:absolute;inset:0;background:rgba(12,11,9,.72);display:flex;align-items:center;justify-content:center;color:var(--ink);font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+  .busy.hidden{display:none}
+
+  .section-label{margin:56px 0 20px;display:flex;align-items:center;gap:14px}
+  .section-label .mono{white-space:nowrap}
+  .section-label .rule{flex:1;height:1px;background:var(--line)}
+
+  /* ── gallery ── */
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:34px}
+  .card{border:1px solid var(--line);background:var(--paper-2)}
+  .card .photo{position:relative;aspect-ratio:4/5;background:var(--paper);overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .card .photo img{width:100%;height:100%;object-fit:cover}
+  .card .photo .empty{color:var(--ink-faint);font-family:var(--mono);font-size:11px;text-align:center;padding:16px}
+  .card .body{padding:16px 17px 18px}
+  .card .name{font-family:var(--serif);font-size:24px;font-weight:400;letter-spacing:-.01em}
+  .card .name[contenteditable]:focus{outline:1px solid var(--line-2);background:var(--paper)}
+  .card .meta{display:flex;gap:10px;align-items:baseline;margin:3px 0 10px;flex-wrap:wrap}
+  .card .age,.card .role{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint)}
+  .card .role{color:var(--accent-2)}
+  .card .vibe{font-style:italic;color:var(--ink);font-size:15px;margin-bottom:9px}
+  .card .desc{color:var(--ink-soft);font-size:14.5px;line-height:1.55}
+  [contenteditable]{outline:none}
+  [contenteditable]:focus{background:var(--paper);outline:1px solid var(--line-2);border-radius:2px}
+  .card .tools{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap;align-items:center}
+  details.adv{margin-top:10px}
+  details.adv summary{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);cursor:pointer}
+  details.adv textarea{width:100%;min-height:64px;margin-top:8px;background:var(--paper);border:1px solid var(--line-2);color:var(--ink-soft);font-family:var(--mono);font-size:11px;padding:9px;resize:vertical;line-height:1.5}
+
+  footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--line);color:var(--ink-faint);font-family:var(--mono);font-size:11px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#000;border:1px solid var(--line-2);color:var(--ink);font-family:var(--mono);font-size:12px;padding:11px 18px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+  .toast.show{opacity:1}
+  .savebar{position:fixed;right:20px;bottom:20px;z-index:55;display:flex;gap:10px}
+</style>
+</head>
+<body>
+<div id="gate">
+  <h1>the resistance</h1>
+  <div class="hint">first meeting at the hollow</div>
+  <input id="gate-pw" type="password" placeholder="password" autocomplete="off">
+  <button id="gate-go">enter</button>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <header class="masthead">
+    <div class="mono kicker">BURGUNDY · character bible · the resistance</div>
+    <h1>Get to Know Them</h1>
+    <div class="sub">Everyone who comes to the first meeting at <em>the Hollow</em> — the ancient chamber lit for the first time in four hundred years. Edit anything here. Set the visual style below, then generate a portrait for each, and the wide shot of the table with the prince sitting among them.</div>
+  </header>
+
+  <div class="controls">
+    <div class="row">
+      <div class="col">
+        <label class="mono">visual style — direct nano&nbsp;banana (used in every image)</label>
+        <textarea id="style" placeholder="e.g. cinematic character portrait, painterly realism, chiaroscuro lamplight in a stone chamber, muted earth palette with a burgundy accent, shot on a fast lens, shallow depth of field…"></textarea>
+        <div class="refs" id="refs"></div>
+      </div>
+      <div class="col" style="max-width:260px;flex:0 0 auto">
+        <label class="mono">style references (optional)</label>
+        <input id="refInput" type="file" accept="image/*" multiple style="font-family:var(--mono);font-size:11px;color:var(--ink-soft)">
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="saveBtn">save all</button>
+          <button class="btn solid" id="genAllBtn">generate all →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="section-label"><span class="mono">the wide shot</span><span class="rule"></span></div>
+    <div class="frame" id="heroFrame">
+      <div class="empty" id="heroEmpty">the table at the Hollow · everyone seated<br>Burgundy among them in his prince robes<br><br>set a style, then “generate all” or the button below</div>
+      <div class="busy hidden" id="heroBusy">rendering…</div>
+    </div>
+    <div class="cap">
+      <div class="t" id="heroCap" contenteditable>A wide shot of the long stone table in the Hollow: the resistance seated in the lamplight, and Burgundy among them, out of place in his prince robes.</div>
+      <button class="btn tiny" id="heroGen">regenerate wide shot</button>
+    </div>
+  </section>
+
+  <div class="section-label"><span class="mono">the people</span><span class="rule"></span></div>
+  <div class="gallery" id="gallery"></div>
+
+  <footer>
+    <span>BURGUNDY · the resistance · mycoldmars.com/burgundy/resistance</span>
+    <span id="status">—</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PW = 'mycoldmars';
+const $ = s => document.querySelector(s);
+const gate = $('#gate'), app = $('#app');
+function unlock(){ gate.style.display='none'; app.style.display='block'; try{localStorage.setItem('resistance-unlocked','1')}catch{} init(); }
+$('#gate-go').onclick = ()=>{ if($('#gate-pw').value.trim()===PW) unlock(); else { $('#gate-pw').value=''; $('#gate-pw').placeholder='try again'; } };
+$('#gate-pw').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#gate-go').click(); });
+try{ if(localStorage.getItem('resistance-unlocked')) unlock(); }catch{}
+
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
+
+// ── the world context every prompt carries ──
+const WORLD = "Setting: Dross, a cold, dark mining planet. The Hollow is a vast ancient stone worship chamber deep below the mines, lit by oil lamps and worklight, dust in the air, cold. These are miners and organizers of a resistance — worn practical layered clothing against the cold, honest faces, no glamour. Grounded lived-in science fiction, NOT shiny or clean. Realistic human faces.";
+
+// ── baked default roster (canon) — Johnny edits + persists over this ──
+const DEFAULT = {
+  style: "",
+  heroCap: "A wide shot of the long stone table in the Hollow: the resistance seated in the lamplight, and Burgundy among them, out of place in his prince robes.",
+  heroPrompt: "Wide establishing shot, cinematic. A long rough-hewn stone table in a vast ancient underground chamber (the Hollow) lit by oil lamps. Seven weathered resistance miners seated around it — men and women, practical layered cold-weather clothing. Among them, clearly out of place, a seventeen-year-old prince in fine deep-burgundy robes, younger and cleaner than the rest, listening. Firelight and shadow, dust in the air. Ensemble composition, everyone at the table.",
+  hero: null,
+  people: [
+    { id:'hesta', name:'Hesta', age:'about fifty', role:'the leader', vibe:'Unshowy command. Reads a person in a glance and decides faster.',
+      desc:"The true authority of the South 12 night shift and a veteran of the resistance. Skeptical of the regime, but she knows it cold — well enough to know when something about it is impossibly wrong. She is the one who decides to trust Burgundy, out loud, precisely because the situation is insane.",
+      prompt:"Portrait of a weathered woman of about fifty, the leader of a mining resistance. Steady, unimpressed, deeply intelligent eyes. Grey-streaked hair pulled back, lined face, practical layered clothing. Lit by lamplight in a stone chamber. Quiet authority.", img:null },
+    { id:'tobin', name:'Tobin', age:'forties', role:'her second',
+      vibe:'The warm one. Big hands, quick to get it, quicker to laugh.',
+      desc:"Hesta's broad, russet-haired second, a timber-man whose open warmth and immediate grasp of what Burgundy is really offering make him the first real bridge between the prince and the crew.",
+      prompt:"Portrait of a broad, powerfully built man in his forties with russet (reddish-brown) hair and beard, warm open face, big timber-worker's hands. Practical worn clothing, lamplight in a stone chamber. Approachable strength.", img:null },
+    { id:'skorn', name:'Skorn', age:'about forty', role:'the skeptic → the militant',
+      vibe:'Coiled and watchful. The last to trust, the first to fight.',
+      desc:"A hard, quiet miner-organizer whose principled suspicion of Burgundy is the moral center of the room. He does not perform. When he finally comes around, he commits all the way — and he is the one who later asks: why don't we put weapons on the machines?",
+      prompt:"Portrait of a hard, lean man of about forty, a miner-organizer. Guarded, watchful eyes, a face that gives nothing away, jaw set. Short-cropped hair, a scar or two, practical clothing. Cold lamplight, stone chamber. Contained danger, principled suspicion.", img:null },
+    { id:'moss', name:'Moss', age:'fifties', role:'the ex-soldier',
+      vibe:'A stillness that reads as threat. Economy of motion.',
+      desc:"A silent ex-soldier among the resistance leadership whose military past does his talking. He says almost nothing and misses nothing; when the talk turns to weapons and defenses, the room looks to him.",
+      prompt:"Portrait of a silent, still man in his fifties, an ex-soldier now among miners. Close-cropped grey hair, a hard economical stare, old discipline in the posture. Weathered, scarred, practical clothing. Low lamplight, stone chamber. Watchful stillness.", img:null },
+    { id:'halda', name:'Halda', age:'forties', role:'the watcher',
+      vibe:'Dry, encyclopedic, unbothered. Knows how the watching works.',
+      desc:"A resistance leader who reads the surveillance state like shop-talk — the informer networks, who reports to whom, how the regime listens. She explains the machinery of control the way other people describe the weather.",
+      prompt:"Portrait of a sharp-eyed woman in her forties, dry and unbothered, the kind who knows every informer in the district. Practical clothing, alert knowing expression, faint wry set to the mouth. Lamplight, stone chamber.", img:null },
+    { id:'maren', name:'Maren', age:'very old', role:'the guide',
+      vibe:'Old as the rock. The map made flesh.',
+      desc:"An ancient, near-silent guide who knows the Hollow's labyrinth by heart and navigates its dark by a counting rhyme. She has been down here longer than anyone remembers.",
+      prompt:"Portrait of a very old, near-silent woman, deeply lined face, milk-pale eyes, a guide who knows the underground labyrinth by heart. Wrapped in layers against the cold, lamplight catching deep wrinkles. Stone chamber. Timeless, patient.", img:null },
+    { id:'wraven', name:'Wraven', age:'a teenager', role:'the runner',
+      vibe:'Fast and fearless. The one who breaks the stillness.',
+      desc:"A teenage signal-runner for the resistance with one milk-glass blind eye, Tobin's niece. Quick, unafraid, everywhere at once — the youngest at the table and the first to move.",
+      prompt:"Portrait of a lean teenager, a signal-runner, with one milk-glass blind eye and one sharp dark eye, close-cropped hair, quick fearless expression. Practical worn clothing, lamplight, stone chamber. Young, wiry, alive.", img:null },
+  ],
+};
+
+let roster = null;
+let refs = []; // {mimeType, dataBase64, url}
+
+async function loadRoster(){
+  try{
+    const r = await fetch('/api/burgundy-resistance', {cache:'no-store'});
+    const d = await r.json();
+    if(d && d.roster && d.roster.people) return d.roster;
+  }catch(e){}
+  try{ const local = JSON.parse(localStorage.getItem('resistance-roster')||'null'); if(local&&local.people) return local; }catch{}
+  return JSON.parse(JSON.stringify(DEFAULT));
+}
+async function saveRoster(quiet){
+  try{ localStorage.setItem('resistance-roster', JSON.stringify(roster)); }catch{}
+  try{
+    await fetch('/api/burgundy-resistance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roster})});
+    if(!quiet) toast('saved');
+  }catch(e){ if(!quiet) toast('saved locally (cloud save failed)'); }
+}
+
+function buildPrompt(basePrompt){
+  const style = ($('#style').value||'').trim();
+  const styleLine = style ? ("STYLE: "+style+"\n\n") : "STYLE: cinematic character portrait, painterly photographic realism, dramatic lamplight, muted earthy palette with a deep burgundy accent, shallow depth of field.\n\n";
+  return styleLine + WORLD + "\n\n" + basePrompt;
+}
+
+async function generate(basePrompt, id, kind, busyEl){
+  const payload = { prompt: buildPrompt(basePrompt), id, kind };
+  if(refs.length) payload.referenceImages = refs.map(r=>({mimeType:r.mimeType, dataBase64:r.dataBase64}));
+  if(busyEl){ busyEl.classList.remove('hidden'); }
+  try{
+    const r = await fetch('/api/burgundy-portrait',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json();
+    if(!r.ok || (!d.url && !d.dataUrl)) throw new Error(d.detail||d.error||'generation failed');
+    return d.url || d.dataUrl;
+  } finally { if(busyEl) busyEl.classList.add('hidden'); }
+}
+
+function renderHero(){
+  const f=$('#heroFrame'); const busy=$('#heroBusy'); const emp=$('#heroEmpty');
+  const existing=f.querySelector('img'); if(existing) existing.remove();
+  if(roster.hero){ emp.style.display='none'; const img=new Image(); img.src=roster.hero; f.insertBefore(img, busy); }
+  else { emp.style.display='block'; }
+  $('#heroCap').textContent = roster.heroCap || DEFAULT.heroCap;
+}
+
+function renderGallery(){
+  const g=$('#gallery'); g.innerHTML='';
+  roster.people.forEach((p,i)=>{
+    const c=document.createElement('div'); c.className='card'; c.dataset.i=i;
+    c.innerHTML = `
+      <div class="photo">
+        ${p.img?`<img src="${p.img}">`:`<div class="empty">no portrait yet<br>set a style, then generate</div>`}
+        <div class="busy hidden">rendering…</div>
+      </div>
+      <div class="body">
+        <div class="name" contenteditable data-k="name">${esc(p.name)}</div>
+        <div class="meta"><span class="age" contenteditable data-k="age">${esc(p.age)}</span><span class="role" contenteditable data-k="role">${esc(p.role)}</span></div>
+        <div class="vibe" contenteditable data-k="vibe">${esc(p.vibe)}</div>
+        <div class="desc" contenteditable data-k="desc">${esc(p.desc)}</div>
+        <div class="tools">
+          <button class="btn tiny gen">${p.img?'regenerate':'generate'} portrait</button>
+        </div>
+        <details class="adv"><summary>image prompt</summary><textarea data-k="prompt">${esc(p.prompt)}</textarea></details>
+      </div>`;
+    g.appendChild(c);
+  });
+  // wire inline edits
+  g.querySelectorAll('[contenteditable][data-k]').forEach(el=>{
+    el.addEventListener('blur',()=>{ const i=+el.closest('.card').dataset.i; roster.people[i][el.dataset.k]=el.textContent.trim(); saveRoster(true); });
+  });
+  g.querySelectorAll('textarea[data-k]').forEach(el=>{
+    el.addEventListener('blur',()=>{ const i=+el.closest('.card').dataset.i; roster.people[i][el.dataset.k]=el.value; saveRoster(true); });
+  });
+  g.querySelectorAll('.gen').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const card=btn.closest('.card'); const i=+card.dataset.i; const p=roster.people[i];
+      btn.disabled=true;
+      try{
+        const url=await generate(p.prompt, p.id, 'portrait', card.querySelector('.busy'));
+        p.img=url; renderGallery(); saveRoster(true); toast(p.name+' rendered');
+      }catch(e){ toast('failed: '+e.message); }
+      finally{ btn.disabled=false; }
+    });
+  });
+}
+
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+$('#heroCap').addEventListener('blur',()=>{ roster.heroCap=$('#heroCap').textContent.trim(); saveRoster(true); });
+$('#heroGen').addEventListener('click', async ()=>{
+  $('#heroGen').disabled=true;
+  try{ const url=await generate(roster.heroPrompt||DEFAULT.heroPrompt,'the-table','wide',$('#heroBusy')); roster.hero=url; renderHero(); saveRoster(true); toast('wide shot rendered'); }
+  catch(e){ toast('failed: '+e.message); }
+  finally{ $('#heroGen').disabled=false; }
+});
+
+$('#style').addEventListener('blur',()=>{ roster.style=$('#style').value; saveRoster(true); });
+$('#saveBtn').addEventListener('click',()=>saveRoster(false));
+
+$('#refInput').addEventListener('change', async (e)=>{
+  for(const file of e.target.files){
+    const dataUrl = await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(file); });
+    const m = dataUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/i); if(!m) continue;
+    refs.push({mimeType:m[1], dataBase64:m[2], url:dataUrl});
+  }
+  renderRefs();
+});
+function renderRefs(){ const r=$('#refs'); r.innerHTML=refs.map((x,i)=>`<img src="${x.url}" title="reference ${i+1} (click to remove)" data-i="${i}">`).join(''); r.querySelectorAll('img').forEach(im=>im.onclick=()=>{ refs.splice(+im.dataset.i,1); renderRefs(); }); }
+
+$('#genAllBtn').addEventListener('click', async ()=>{
+  const btn=$('#genAllBtn'); btn.disabled=true; btn.textContent='rendering…';
+  try{
+    // wide shot first
+    try{ const u=await generate(roster.heroPrompt||DEFAULT.heroPrompt,'the-table','wide',$('#heroBusy')); roster.hero=u; renderHero(); saveRoster(true); }catch(e){ toast('wide shot failed: '+e.message); }
+    // then each person (sequential — nano banana is heavy)
+    for(let i=0;i<roster.people.length;i++){
+      const p=roster.people[i];
+      $('#status').textContent='rendering '+p.name+' ('+(i+1)+'/'+roster.people.length+')…';
+      try{ const card=$('#gallery').children[i]; const u=await generate(p.prompt,p.id,'portrait',card&&card.querySelector('.busy')); p.img=u; renderGallery(); saveRoster(true); }
+      catch(e){ toast(p.name+' failed: '+e.message); }
+    }
+    $('#status').textContent='done'; toast('all rendered');
+  } finally { btn.disabled=false; btn.textContent='generate all →'; }
+});
+
+async function init(){
+  roster = await loadRoster();
+  if(roster.style) $('#style').value = roster.style;
+  renderHero(); renderGallery();
+  $('#status').textContent = roster.people.length + ' at the table';
+}
+</script>
+</body>
+</html>

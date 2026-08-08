@@ -7,6 +7,9 @@
     },
     "api/transcribe.js": {
       "maxDuration": 300
+    },
+    "api/burgundy-portrait.js": {
+      "maxDuration": 300
     }
   },
   "rewrites": [
@@ -101,6 +104,14 @@
     {
       "source": "/burgundy/outline/",
       "destination": "/burgundy/outline/index.html"
+    },
+    {
+      "source": "/burgundy/resistance",
+      "destination": "/burgundy/resistance/index.html"
+    },
+    {
+      "source": "/burgundy/resistance/",
+      "destination": "/burgundy/resistance/index.html"
     }
   ],
   "redirects": [
