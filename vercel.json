@@ -112,14 +112,6 @@
     {
       "source": "/burgundy/outline/",
       "destination": "/burgundy/outline/index.html"
-    },
-    {
-      "source": "/burgundy/resistance",
-      "destination": "/burgundy/resistance/index.html"
-    },
-    {
-      "source": "/burgundy/resistance/",
-      "destination": "/burgundy/resistance/index.html"
     }
   ],
   "redirects": [
