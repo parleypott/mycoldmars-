@@ -131,7 +131,7 @@
     <div class="variants" id="heroVariants"></div>
     <div class="cap">
       <div class="t" id="heroCap" contenteditable></div>
-      <button class="btn tiny" id="heroGen">regenerate ×4</button>
+      <div style="display:flex;gap:8px"><button class="btn tiny" id="heroGen">regenerate ×4</button><label class="btn tiny">＋ upload<input type="file" accept="image/*" hidden id="heroUp"></label></div>
     </div>
   </section>
 
@@ -231,6 +231,12 @@ async function saveRoster(quiet){
 }
 
 function styleNow(){ return ($('#style').value||'').trim() || LOCKED_STYLE; }
+async function uploadImage(file, id){
+  const du=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(file);});
+  const m=du.match(/^data:(image\/[a-z+]+);base64,(.+)$/i); if(!m) throw new Error('not an image');
+  const r=await fetch('/api/burgundy-upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dataBase64:m[2],mimeType:m[1],id})});
+  const d=await r.json(); if(!r.ok||!d.url) throw new Error(d.error||'upload failed'); return d.url;
+}
 async function genOne(prompt){
   const payload={ prompt, id:'char', kind:'v' };
   if(refs.length) payload.referenceImages = refs.map(r=>({mimeType:r.mimeType, dataBase64:r.dataBase64}));
@@ -272,7 +278,7 @@ function renderGallery(){
         <div class="meta"><span class="age" contenteditable data-k="age">${esc(p.age)}</span><span class="role" contenteditable data-k="role">${esc(p.role)}</span></div>
         <div class="vibe" contenteditable data-k="vibe">${esc(p.vibe)}</div>
         <div class="desc" contenteditable data-k="desc">${esc(p.desc)}</div>
-        <div class="tools"><button class="btn tiny gen">${p.variants&&p.variants.length?'regenerate ×4':'generate ×4'}</button></div>
+        <div class="tools"><button class="btn tiny gen">${p.variants&&p.variants.length?'regenerate ×4':'generate ×4'}</button><label class="btn tiny">＋ upload<input type="file" accept="image/*" hidden class="up"></label></div>
         <details class="adv"><summary>image subject</summary><textarea data-k="subject">${esc(p.subject||'')}</textarea></details>
       </div>`;
     g.appendChild(c);
@@ -280,6 +286,12 @@ function renderGallery(){
   g.querySelectorAll('.variants .v').forEach(im=>im.onclick=()=>{ const i=+im.closest('.card').dataset.i; roster.people[i].sel=+im.dataset.v; roster.people[i].img=roster.people[i].variants[roster.people[i].sel]; renderGallery(); saveRoster(true); });
   g.querySelectorAll('[contenteditable][data-k]').forEach(el=>el.addEventListener('blur',()=>{ const i=+el.closest('.card').dataset.i; roster.people[i][el.dataset.k]=el.textContent.trim(); saveRoster(true); }));
   g.querySelectorAll('textarea[data-k]').forEach(el=>el.addEventListener('blur',()=>{ const i=+el.closest('.card').dataset.i; roster.people[i][el.dataset.k]=el.value; saveRoster(true); }));
+  g.querySelectorAll('.up').forEach(inp=>inp.addEventListener('change',async e=>{
+    const card=inp.closest('.card'), i=+card.dataset.i, p=roster.people[i], file=e.target.files[0]; if(!file) return;
+    toast('uploading '+p.name+'…');
+    try{ const url=await uploadImage(file,p.id); p.variants=(p.variants||[]).concat(url); p.sel=p.variants.length-1; p.img=url; renderGallery(); saveRoster(true); toast(p.name+': image added'); }
+    catch(err){ toast('upload failed: '+err.message); }
+  }));
   g.querySelectorAll('.gen').forEach(btn=>btn.addEventListener('click',async()=>{
     const card=btn.closest('.card'), i=+card.dataset.i, p=roster.people[i];
     btn.disabled=true; card.querySelector('.busy').classList.remove('hidden');
@@ -297,6 +309,11 @@ $('#heroGen').addEventListener('click',async()=>{
   finally{ $('#heroGen').disabled=false; $('#heroBusy').classList.add('hidden'); }
 });
 
+$('#heroUp').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return; toast('uploading wide shot…');
+  try{ const url=await uploadImage(file,'the-table'); roster.heroVariants=(roster.heroVariants||[]).concat(url); roster.heroSel=roster.heroVariants.length-1; roster.hero=url; renderHero(); saveRoster(true); toast('wide shot: image added'); }
+  catch(err){ toast('upload failed: '+err.message); }
+});
 $('#style').addEventListener('blur',()=>{ roster.style=$('#style').value; saveRoster(true); });
 $('#saveBtn').addEventListener('click',()=>saveRoster(false));
 $('#refInput').addEventListener('change',async e=>{
