@@ -19,6 +19,7 @@ export default async function handler(req) {
   if (req.method !== 'POST') return j(405, { error: 'POST only' });
   if (!SUPABASE_URL || !SUPABASE_KEY) return j(500, { error: 'supabase not configured' });
   let body; try { body = await req.json(); } catch { return j(400, { error: 'bad json' }); }
+  if (!body || typeof body !== 'object') return j(400, { error: 'bad json' }); // null/number/string body → 400, not a 500 on the next deref
   const data = String(body.dataBase64 || '').trim();
   if (!data) return j(400, { error: 'dataBase64 required' });
   const mime = /^image\/(png|jpe?g|webp)$/i.test(body.mimeType || '') ? body.mimeType : 'image/png';
