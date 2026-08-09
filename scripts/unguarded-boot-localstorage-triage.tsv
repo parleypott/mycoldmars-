@@ -76,3 +76,5 @@ public/q3/index.html	localStorage.setItem(KEY,JSON.stringify(R))	SAFE	persist():
 public/q3/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler only (behind a confirm()); not reached during synchronous boot.
 public/q4/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler only (behind a confirm()); not reached during synchronous boot.
 public/q4/index.html	localStorage.setItem(KEY,JSON.stringify(R))	SAFE	persist(): reached only from vote/input handlers + beforeunload/pagehide/visibilitychange flush + save(), never at boot; a storage-blocked write is a user-action no-op, not a boot brick.
+public/q5/index.html	localStorage.setItem(KEY,JSON.stringify(R))	SAFE	persist(): reached only from vote/input handlers + persistSoon debounce + beforeunload flush, never at synchronous boot; a storage-blocked write is a user-action no-op, not a boot brick.
+public/q5/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler only (behind a confirm()); not reached during synchronous boot.
