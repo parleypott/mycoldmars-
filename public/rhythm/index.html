@@ -1,0 +1,171 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BURGUNDY — The Rhythm of the Prince</title>
+<style>
+:root{--paper:#0c0b09;--paper-2:#141210;--paper-3:#1b1815;--ink:#ece5d8;--ink-soft:#bdb3a1;--ink-faint:#847b6a;--line:#2a2621;--line-2:#3a352d;--accent:#8a1c26;--accent-2:#c34049;--gold:#c9a24b;--teal:#5b8a8a;--serif:"Iowan Old Style",Georgia,serif;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif)}
+img{max-width:100%;display:block}
+.mono{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--ink-faint)}
+#gate{position:fixed;inset:0;z-index:100;background:var(--paper);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#gate h1{font-style:italic;font-weight:400;font-size:26px;margin:0}
+#gate input{background:transparent;border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:14px;padding:10px 14px;width:230px;text-align:center;letter-spacing:.1em}
+#gate button{background:var(--accent);color:#fff;border:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:12px;padding:10px 22px;cursor:pointer}
+#gate .hint{color:var(--ink-faint);font-family:var(--mono);font-size:10px}
+.wrap{max-width:760px;margin:0 auto;padding:0 26px 130px}
+header.mast{padding:64px 0 26px;border-bottom:1px solid var(--line)}
+header.mast .k{color:var(--accent-2)}
+header.mast h1{font-weight:400;font-size:clamp(32px,6vw,58px);line-height:1.02;margin:12px 0 8px;letter-spacing:-.01em}
+header.mast .sub{font-style:italic;color:var(--ink-soft);font-size:clamp(16px,2.6vw,20px);max-width:60ch}
+h2{font-weight:400;font-size:clamp(22px,3.4vw,30px);letter-spacing:-.01em;margin:56px 0 6px}
+h2::before{content:"";display:block;width:38px;height:2px;background:var(--accent);margin-bottom:16px}
+h3{font-weight:400;font-style:italic;font-size:21px;color:var(--gold);margin:34px 0 6px}
+p{font-size:18px;line-height:1.7;color:var(--ink-soft);margin:0 0 18px}
+p strong{color:var(--ink);font-weight:600}p em{color:var(--ink);font-style:italic}
+.lead{font-size:20px;color:var(--ink)}
+.pull{border-left:3px solid var(--accent);padding:6px 0 6px 20px;margin:26px 0;font-family:var(--serif);font-style:italic;font-size:21px;line-height:1.5;color:var(--ink)}
+.card{background:var(--paper-2);border:1px solid var(--line);padding:22px 24px;margin:22px 0}
+.card .mono{margin-bottom:10px;color:var(--accent-2)}
+/* complexity dial */
+.dial{background:var(--paper-2);border:1px solid var(--line);padding:26px 24px 30px;margin:26px 0}
+.dial .scale{position:relative;height:3px;background:linear-gradient(to right,var(--teal),var(--gold),var(--accent-2));margin:52px 8px 8px}
+.dial .tick{position:absolute;top:-4px;width:2px;height:11px;background:var(--ink-faint);transform:translateX(-1px)}
+.dial .mk{position:absolute;transform:translateX(-50%);text-align:center;bottom:14px}
+.dial .mk .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-soft);white-space:nowrap;text-transform:uppercase}
+.dial .mk .n{font-family:var(--mono);font-size:9px;color:var(--ink-faint)}
+.dial .mk.you{bottom:auto;top:14px}
+.dial .mk.you .lbl{color:var(--accent-2);font-weight:700}
+.dial .mk.you .dot{width:12px;height:12px;border-radius:50%;background:var(--accent-2);margin:4px auto 0;box-shadow:0 0 0 3px rgba(195,64,73,.25)}
+.dial .ends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em;margin-top:26px}
+/* cadence table */
+.tbl{margin:24px 0;border:1px solid var(--line);overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:14.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);background:var(--paper-3)}
+td{color:var(--ink-soft);line-height:1.45}
+td strong{color:var(--ink)}
+tr:last-child td{border-bottom:none}
+.ch{font-family:var(--mono);color:var(--gold);white-space:nowrap;font-size:12px}
+.map{width:100%;border-collapse:collapse;margin:18px 0}
+.map td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:15px}
+.map td:first-child{color:var(--gold);font-style:italic;white-space:nowrap;padding-right:20px}
+.grade{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border:1px solid var(--line-2);border-radius:2px;margin-right:8px;color:var(--gold)}
+footer{max-width:760px;margin:0 auto;padding:30px 26px 90px;color:var(--ink-faint);font-family:var(--mono);font-size:11px;line-height:1.8;border-top:1px solid var(--line)}
+footer a{color:var(--accent-2)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#000;border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px 16px;opacity:0;transition:.2s;z-index:60}
+</style></head><body>
+<div id="gate"><h1>the rhythm of the prince</h1><div class="hint">how we build the training years</div>
+<input id="pw" type="password" placeholder="password" autocomplete="off"><button id="go">enter</button></div>
+
+<div id="app" style="display:none">
+<div class="wrap">
+<header class="mast">
+<div class="mono k">BURGUNDY · a design study · complexity &amp; cadence</div>
+<h1>The Rhythm of the Prince</h1>
+<div class="sub">How we build the years from seventeen to nineteen so the geopolitics is the feature, not the tax. Grounded in five case studies: the ones you named, and the ones the market proved.</div>
+</header>
+
+<h2>The verdict</h2>
+<p class="lead">You are not too complex. But you are one wrong instinct away from it, and the wrong instinct is <em>explaining</em>.</p>
+<p>I put five books under the microscope for exactly one thing: not how smart they are, but how <em>hard they are to keep reading</em>. That is the number that decides mass market. Here is where they land, and where you should.</p>
+
+<div class="dial">
+  <div class="mono">felt difficulty · 1 = beach read · 10 = you need the glossary</div>
+  <div class="scale">
+    <span class="tick" style="left:33%"></span><span class="tick" style="left:37%"></span><span class="tick" style="left:40%"></span><span class="tick" style="left:70%"></span><span class="tick" style="left:92%"></span>
+    <span class="mk you" style="left:38%"><div class="lbl">BURGUNDY — target</div><div class="dot"></div></span>
+    <span class="mk" style="left:33%"><div class="lbl">Red Rising</div><div class="n">3–4</div></span>
+    <span class="mk" style="left:46%"><div class="lbl">Hunger Games · Martian</div><div class="n">3.5–4</div></span>
+    <span class="mk" style="left:70%"><div class="lbl">Broken Earth</div><div class="n">7</div></span>
+    <span class="mk" style="left:92%"><div class="lbl">Dune</div><div class="n">9</div></span>
+  </div>
+  <div class="ends"><span>◀ frictionless</span><span>forbidding ▶</span></div>
+</div>
+
+<p><strong>Red Rising is your twin.</strong> A low-caste miner infiltrates the ruling elite to bring down an extraction-colony caste system. Deep politics, near-zero felt difficulty, a runaway hit. It lives at a 3 to 4. That is your target. The one-line brief for the whole book: <em>Red Rising, written by someone who actually knows how colonies work.</em></p>
+<p>Here is the thing that should relax you. Dune and Red Rising carry <em>the same amount</em> of politics. The difference is not quantity. Dune makes you <em>learn</em> its politics; Red Rising makes you <em>bleed</em> them. Right now your canon is a magnificent Dune-shaped pile of systems, the physics of the doors, the four-generation proxy war, the client-patron economics, all of it real and all of it load-bearing. The entire job of the rhythm is to convert that pile into <em>bodies</em>. You do not have a complexity problem. You have a delivery problem, and delivery is solvable.</p>
+
+<h2>The one law</h2>
+<p>Five books, five different authors, and every report came back to the same sentence. This is the whole study compressed to one line:</p>
+<div class="pull">Readers tolerate infinite complexity through a body they care about, and reject even a little of it as explanation.</div>
+<p>And its operational form, the thing to keep taped above the desk:</p>
+<div class="pull">The moment the reader is learning your world faster than they are feeling it, you have crossed from Red Rising into Dune. Pull back to the nearest wounded body and let the politics leak out of it.</div>
+<p>Everything below is that law, applied to the exact machine of the training years.</p>
+
+<h2>Your three instincts, graded</h2>
+<p>You said three things in your message. Here is the verdict on each, because you were mostly right and the corrections are the whole craft.</p>
+
+<h3>1. "Everything should maybe be a scene. Exposition is lazy."</h3>
+<p><span class="grade">80% right</span> Scene beats summary almost every time, and yes, reaching for exposition when you could do the hard yards of dialogue is usually laziness. But the other twenty percent is load-bearing, and it is not laziness, it is <em>compression</em>. The rule the craft actually runs on: <strong>dramatize the moment a value changes; summarize the interval that merely accumulates.</strong> A scene needs a turn, something flipping from safe to exposed, from loyal to suspicious, from a tool to a thing with its own ideas. The fortieth ledger lesson is summary. The lesson where a minister lets slip that the King is dying is a scene. If you can write a beat as one sentence of report and lose nothing, it was never a scene. So: not <em>everything</em> a scene. Roughly eighty percent scene, and the twenty percent of summary is the thing that lets months pass without the reader dying of real-time.</p>
+
+<h3>2. "Should he train and be the prince in the same chapter, or oscillate?"</h3>
+<p><span class="grade">braid, don't alternate</span> Clean A/B/A/B alternation keeps your two threads in separate rooms, and that drains the exact friction you want. Your threads are not independent. The whole engine of the book is that <em>court training is the cover and the fuel for the secret army</em>. What he learns in the treasury tells him what to build. A minister's suspicion threatens the workshop. So braid them <strong>inside</strong> the chapter, with one dominant thread per chapter, and make the scene turn on the <em>seam</em> between the two lives, the moment court-knowledge solves a build-problem, or a build-problem nearly blows his cover at court. Reserve pure single-thread chapters for the two or three peaks where one thread needs a clear runway (the first time the army acts on its own; the day he is nearly caught).</p>
+
+<h3>3. "How much time passes per chapter? Clunk month-by-month, or leap?"</h3>
+<p><span class="grade">leap, on hinges</span> Clunking month by month is boring; vanishing whole years is cheating. You avoid both by rendering <em>results, not reps</em>. Do not show the training montage (prose montage is twenty minutes of reading; film montage is ninety seconds, which is why training scenes work on screen and die on the page). Instead: open a chapter on a hard seasonal hinge ("By the second winter"), and let the reader fill the gap. End one scene with him fumbling a thing; open the next, months later, with him doing it cold, and the <em>gap itself</em> dramatizes the growth. Let objects carry the clock, the army goes from three units to thirty, his hands scar, a minister greys. And use the habitual past ("most mornings the smith-bot would...") to compress a hundred days into a rhythm, then <em>break the rhythm</em> on the day it goes wrong. The break is your scene.</p>
+
+<h2>How much geopolitics — the real answer</h2>
+<p>This is the one you actually asked, and it is your genuine edge, so I want to be precise. You are a geopolitics expert; the instinct is to get the whole system onto the page because you can see the whole system. Resist it. Your expertise should show up not as the <em>clarity of your explanation</em> but as the <em>specificity of your transactions</em>. The rule from every political hit, Red Rising to Six of Crows: <strong>dramatize the transaction, never the policy. Let the reader be the economist.</strong></p>
+<p>You never write "the regime taxes the road and strangles the colony." You show one cart stopped at one checkpoint, one bribe paid, one family's ore-count lighter this year than last, and the reader <em>builds the system themselves</em> from the instance. A tariff is abstract. A widow counting coins she does not have while a soldier waits is a scene. The economics research even named the single best one for you: the founding horror of Nicholas was not a massacre, it was the day he stopped <em>buying</em> the ore and started <em>taxing</em> it. Make that day a scene, one man realizing he has been robbed by an accounting change, and you have taught colonial extraction without a word of theory.</p>
+<p>So here is the triage of your actual canon. Everything you have sorts into three bins.</p>
+
+<div class="card">
+<div class="mono">Bin 1 — dramatize the transaction (make it a scene)</div>
+<p>The tribute count at the Custom House. The day Nicholas started taxing instead of buying. The strike cautionary tale, told by someone still afraid of it. Mira's marriage as her wound, her anger at her father. The age-twelve mine visit. The red phone explained by the person who once had to use it. <strong>These are where your expertise becomes drama.</strong> Each is one body absorbing one move of the system.</p>
+</div>
+<div class="card">
+<div class="mono">Bin 2 — one vivid noun in passing (texture, never a paragraph)</div>
+<p>The supernova that tore the door open. Osmarine holding the throat open. The seventy-one doors. The two moons conjoining every twenty years (never explained on the page — it is simply <em>why</em> the Vicentennial falls when it does). Vesh and Corr. State each once, as accepted history, the way a real person mentions the highway that built their town. Never stop to prove the physics.</p>
+</div>
+<div class="card">
+<div class="mono">Bin 3 — load-bearing but invisible (in your notes, holding the book up from underneath)</div>
+<p>The full four-generation chronology of the Great Rupture. The complete vassal-world economics. The Chandrasekhar-limit mechanics. <strong>The Dune test:</strong> could this fact move to a glossary without the plot noticing? Then it is already in the glossary — make it a noun or cut it. The reader should be able to <em>infer</em> this bin and never be <em>taught</em> it. This is the difference between a book that feels deep and a book that feels like homework: the deepest layer is the one you can feel but never see.</p>
+</div>
+
+<h2>The killer app: every lesson loads the army</h2>
+<p>This is the technique that solves your whole middle at once, and it comes straight out of how Rowling teaches an entire magical system through classes without a single lecture. <strong>Never explain a system except through a person who is grading, testing, or manipulating the prince with it.</strong> The archivist, the trade minister, the defense minister are not information delivery. They are rivals and skeptics and seducers, each with a bias and an agenda, and the geopolitics enters as <em>their</em> slant on it.</p>
+<p>And here is the part that is pure BURGUNDY: in Harry Potter, every lesson is secretly Chekhov's gun being loaded while you think you are in class. Polyjuice is homework in book two and the infiltration engine by the climax. So map each of the prince's rotations to <em>the exact thing the revolution will need</em>, and the training stops being education and becomes an <em>arsenal being assembled in plain sight.</em></p>
+
+<table class="map">
+<tr><td>The Archives</td><td>The old archivist, kind and quietly terrified of his own knowledge, shows Burgundy the maps and histories of the Great Rupture — and this is where, hunting through post-war survey maps, he finds the <strong>depot's location</strong>. The lesson loads: the target.</td></tr>
+<tr><td>External Affairs</td><td>Minister Schwartz teaches the vassal worlds — that they traded with each other before Nicholas severed the web. The lesson loads: <strong>why it matters</strong>, and the moral engine of the ending.</td></tr>
+<tr><td>The Custom House</td><td>The trade minister walks him through the tribute machinery, the counts, the ore leaving. The lesson loads: <strong>the chokepoint</strong> — exactly what Burgundy denies Nicholas in the last line of the book.</td></tr>
+<tr><td>Defense</td><td>The defense minister, proud of the fortress, explains the weapons depot: pure corvite all around, fifty years to dig, impossible. The lesson loads: <strong>the heist</strong>, and the impossibility Burgundy alone can break.</td></tr>
+<tr><td>Oz / the Preserve</td><td>The surveillance and informant apparatus, taught by the man who runs it. The lesson loads: <strong>the threat he must evade</strong> — the near-catches that pressurize the whole midsection.</td></tr>
+<tr><td>The Lounge</td><td>During training he learns the red phone, the escalation ladder, Shanti at the top. The lesson loads: <strong>the final beat</strong> — the call he will make over his father's body.</td></tr>
+</table>
+<p>Six rotations, six scenes, each one a compelling hour of court drama that also quietly hands him a piece of the endgame. The reader thinks they are watching a boy learn to be a prince. They are watching him assemble a war.</p>
+
+<h2>The cadence model</h2>
+<p>Concretely, for the years seventeen to nineteen on the three-year clock to the Vicentennial. Roughly <strong>twelve to fourteen chapters</strong>, front-loaded, because year one is where everything is new and year three should compress hardest. One turn per scene, one change per chapter, one dated clock over all of it, and never a rep you can imply with a result.</p>
+
+<div class="tbl"><table>
+<tr><th>Chapters</th><th>Time</th><th>What happens</th><th>Mode</th></tr>
+<tr><td class="ch">1–2</td><td>age 17, weeks</td><td><strong>Both engines started.</strong> Slower, near-real-time. The first council, the first rotation, the workshop. Set the deadline (the Vicentennial, three years out). End on the first robot doing something <em>unbidden</em>.</td><td>braided, training-led</td></tr>
+<tr><td class="ch">3–7</td><td>17→18, ~4–6 mo leapt each</td><td><strong>The working middle.</strong> One rotation per chapter (archives, trade, defense, Oz), each a single representative scene turning on the training/building seam. Ladder both threads a rung each: court stakes rise, the army grows from tool toward thing-with-its-own-ideas. The two threads collide by ch 6.</td><td>braided, seasonal hinges</td></tr>
+<tr><td class="ch">8</td><td>a night</td><td><strong>First peak.</strong> The army acts autonomously for the first time — and improves in a direction he did not want. The built-in dread.</td><td>single thread (building)</td></tr>
+<tr><td class="ch">9–11</td><td>a whole year, 3 chapters</td><td><strong>Compress hardest.</strong> Habitual-past summary carries the reps; scenes only at the turns. The Hollow dinners begin; South 12 becomes a factory; suspicion tightens at court; the father sends the ledger audit. Near-exposure.</td><td>braided, heavy leap</td></tr>
+<tr><td class="ch">12</td><td>a day</td><td><strong>Second peak.</strong> The deadline lurches closer — the King worsens, or an inspection of the wing is announced. The clock jumps.</td><td>single thread (court)</td></tr>
+<tr><td class="ch">13–14</td><td>the final weeks</td><td><strong>The threads become one crisis.</strong> Cover and army can no longer be kept apart; the dig reaches the depot; hand off into the endgame.</td><td>braided, accelerating</td></tr>
+</table></div>
+
+<h2>What this asks you to decide</h2>
+<p>Four calls, and they are the ones that actually shape the writing. I will put these on the master questionnaire so they round-trip like everything else.</p>
+<div class="card"><div class="mono">Decision 1 · the structure</div><p>Confirm the braided, twelve-to-fourteen-chapter midsection, one rotation per chapter, and the minister-to-army-need mapping above. This is my strong recommendation.</p></div>
+<div class="card"><div class="mono">Decision 2 · the geopolitics dosage</div><p>Confirm the three-bin triage — that the Great Rupture chronology and the door physics stay in Bins 2 and 3 (a noun, or invisible), and only the transactions become scenes. This is the single biggest lever on whether you read like Red Rising or like Dune.</p></div>
+<div class="card"><div class="mono">Decision 3 · the point of view (the quiet big one)</div><p>Hunger Games and Red Rising quarantine their politics with a <em>tight</em> POV — the past can only arrive as triggered memory or present need, never as narration. You are in close third, which can do the same job (Harry Potter is close third) but only with the discipline of it. The call: commit to strict POV quarantine — <strong>no fact reaches the reader unless a character on the page needs it now.</strong> Not a rewrite to first person; a rule we hold.</p></div>
+<div class="card"><div class="mono">Decision 4 · the clock</div><p>Lock the single dated countdown that sits over the whole midsection (the Vicentennial at twenty, with the dig clock nested inside it). Every leap forward should also be a step toward that detonation. This ties to the dig-timing card already in the questionnaire.</p></div>
+
+<h2>The bottom line</h2>
+<p>You are chasing the exact thing Red Rising and Hunger Games proved you can have: real political weight carried at a mass-market pulse. The math is not "less geopolitics." It is <em>same geopolitics, delivered through bodies instead of explanation.</em> Your unfair advantage is that you actually know how a strangled colony smells and sounds and rations, and that lived texture is the thing mass readers reward and the thing a desk-bound worldbuilder can never fake. Spend your expertise there, on the checkpoint and the ore-count and the frightened archivist, and let the whole magnificent system hold the book up from underneath, where the reader feels it and never has to see it.</p>
+
+</div>
+<footer>Sources: five parallel case studies — The Hunger Games (Collins), Harry Potter (Rowling), The Martian &amp; Project Hail Mary (Weir), the geopolitics-density comps (Dune, Red Rising, Broken Earth, Six of Crows), and the craft of time-compression and the training montage. Decisions here feed the master questionnaire at <a href="/q5/">/q5</a>. — Bill</footer>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var PW="mycoldmars";
+function unlock(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';try{localStorage.setItem('rhythm-unlocked','1')}catch(e){}}
+document.getElementById('go').onclick=function(){if(document.getElementById('pw').value.trim()===PW)unlock();else{document.getElementById('pw').value='';document.getElementById('pw').placeholder='try again'}};
+document.getElementById('pw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('go').click()});
+try{if(localStorage.getItem('rhythm-unlocked'))unlock()}catch(e){}
+</script></body></html>
