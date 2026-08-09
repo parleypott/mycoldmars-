@@ -112,6 +112,14 @@
     {
       "source": "/burgundy/outline/",
       "destination": "/burgundy/outline/index.html"
+    },
+    {
+      "source": "/proof",
+      "destination": "/proof/index.html"
+    },
+    {
+      "source": "/proof/",
+      "destination": "/proof/index.html"
     }
   ],
   "redirects": [
