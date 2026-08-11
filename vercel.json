@@ -211,6 +211,36 @@
       "source": "/burgundy",
       "destination": "/burgundy/",
       "permanent": true
+    },
+    {
+      "source": "/q2",
+      "destination": "/q5/",
+      "permanent": false
+    },
+    {
+      "source": "/q2/",
+      "destination": "/q5/",
+      "permanent": false
+    },
+    {
+      "source": "/q3",
+      "destination": "/q5/",
+      "permanent": false
+    },
+    {
+      "source": "/q3/",
+      "destination": "/q5/",
+      "permanent": false
+    },
+    {
+      "source": "/q4",
+      "destination": "/q5/",
+      "permanent": false
+    },
+    {
+      "source": "/q4/",
+      "destination": "/q5/",
+      "permanent": false
     }
   ],
   "crons": [
