@@ -226,6 +226,7 @@ export default defineConfig(({ mode }) => {
         democracyMap: resolve(__dirname, 'democracy/map/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),
+        taiwanChart: resolve(__dirname, 'taiwan-chart/index.html'),
         research: resolve(__dirname, 'research/index.html'),
         memory: resolve(__dirname, 'memory/index.html'),
         falling: resolve(__dirname, 'falling/index.html'),
