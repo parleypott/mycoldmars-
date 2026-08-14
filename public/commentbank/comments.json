@@ -1,5 +1,188 @@
 [
   {
+    "id": "F0BQ5UV9MUM",
+    "name": "Screenshot 2026-08-14 at 8.53.33 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 57139,
+    "local_path": "images/F0BQ5UV9MUM.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "hey max i hope you read this\njust wanna say thanks for creating this 90's sort of looking like studio. i love the aesthetic feel. i love your videos .",
+      "commenter": "coolzapp98",
+      "sentiment": "praise",
+      "themes": [
+        "studio",
+        "aesthetic",
+        "90s",
+        "host"
+      ],
+      "video_hint": "video featuring or referencing creator's studio setup with a 90s aesthetic",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:05.076Z"
+  },
+  {
+    "id": "F0BPU7NMBC7",
+    "name": "Screenshot 2026-08-14 at 9.40.14 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 42441,
+    "local_path": "images/F0BPU7NMBC7.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "I recently found out about your channel, this is my 3rd video and quality is simply amazing. Good job",
+      "commenter": "notgonnalie77",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "new subscriber",
+        "channel discovery"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:05.988Z"
+  },
+  {
+    "id": "F0BR3UYUKHN",
+    "name": "Screenshot 2026-08-14 at 8.55.06 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30383,
+    "local_path": "images/F0BR3UYUKHN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "Love this guy ☝️❤️",
+      "commenter": "lutherorluth",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "appreciation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:07.978Z"
+  },
+  {
+    "id": "F0BQ9HXNN1Y",
+    "name": "Screenshot 2026-08-14 at 8.06.54 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 45003,
+    "local_path": "images/F0BQ9HXNN1Y.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "i love the way you explain things i'm very much a visual learner and your diagrams help me visualize everything!",
+      "commenter": "jelloman30000",
+      "sentiment": "praise",
+      "themes": [
+        "teaching style",
+        "visual learning",
+        "diagrams",
+        "explanation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:08.015Z"
+  },
+  {
+    "id": "F0BPU7P6HC7",
+    "name": "Screenshot 2026-08-14 at 9.40.44 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 21088,
+    "local_path": "images/F0BPU7P6HC7.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "Great as always mr fisher",
+      "commenter": "ArashDabirinejad",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "consistency",
+        "appreciation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:10.359Z"
+  },
+  {
+    "id": "F0BQ7KP81FY",
+    "name": "Screenshot 2026-08-14 at 8.55.00 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 32702,
+    "local_path": "images/F0BQ7KP81FY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "New video by Max Fisher = I click",
+      "commenter": "callmebope3359",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "loyalty",
+        "engagement",
+        "anticipation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:10.392Z"
+  },
+  {
+    "id": "F0BR3UZHG64",
+    "name": "Screenshot 2026-08-14 at 9.40.58 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28191,
+    "local_path": "images/F0BR3UZHG64.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1786714902.830279",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1786714902830279",
+    "posted_at": "2026-08-14T13:41:42.830Z",
+    "analysis": {
+      "comment_text": "very nice and informative vid",
+      "commenter": "core22-n5r",
+      "sentiment": "praise",
+      "themes": [
+        "informative",
+        "positive feedback"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-14T13:52:15.411Z"
+  },
+  {
     "id": "F0BQ0UA4LAW",
     "name": "Screenshot 2026-08-13 at 9.57.53 AM.png",
     "ext": "png",
