@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taiwan Identity — Chart Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c1c1c; --paper:#efefef; --panel:#1c1c1c;
+    --orange:#ff5206; --orange2:#f83500;
+    --blueA:#568d9f; --blueB:#265f6f; --cream:#f0e3bb;
+    --line:#2a2a2a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#111;color:#e8e8e8;font-family:'Space Mono',ui-monospace,monospace}
+  #app{display:flex;height:100vh;width:100vw;overflow:hidden}
+
+  /* ---- stage ---- */
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;background:
+    radial-gradient(120% 120% at 50% 0%, #1a1a1a 0%, #0e0e0e 70%);padding:26px;position:relative;min-width:0}
+  #frame{position:relative;width:100%;max-width:calc((100vh - 52px) * 1.7778);aspect-ratio:16/9;
+    box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05);border-radius:4px;overflow:hidden;background:var(--paper)}
+  #chart{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+  #stamp{position:absolute;left:14px;top:12px;font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.35);
+    text-transform:uppercase;pointer-events:none;z-index:5}
+
+  /* ---- color popover ---- */
+  #pop{position:absolute;z-index:40;display:none;background:#1c1c1c;border:1px solid #333;border-radius:10px;
+    padding:12px;box-shadow:0 18px 50px rgba(0,0,0,.6);width:212px}
+  #pop h4{margin:0 0 9px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9a9a;font-weight:700}
+  #pop h4 b{color:#fff}
+  .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+  .sw{aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform .1s}
+  .sw:hover{transform:scale(1.12)}
+  .sw.active{border-color:#fff}
+  #pop .row{display:flex;align-items:center;gap:8px;margin-top:11px}
+  #pop input[type=color]{width:34px;height:26px;padding:0;border:1px solid #333;border-radius:5px;background:#000;cursor:pointer}
+  #pop .row label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8a8a}
+  #pop .heroToggle{margin-top:11px;display:flex;align-items:center;justify-content:space-between;
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8a8a}
+
+  /* ---- side rail ---- */
+  #rail{width:312px;background:#141414;border-left:1px solid #262626;display:flex;flex-direction:column;flex-shrink:0}
+  #rail header{padding:20px 20px 14px;border-bottom:1px solid #232323}
+  #rail header .k{font-size:10px;letter-spacing:.28em;color:var(--orange);text-transform:uppercase}
+  #rail header h1{margin:6px 0 0;font-family:'Roboto Slab',serif;font-weight:800;font-size:20px;color:#fff;line-height:1.05}
+  #rail header p{margin:8px 0 0;font-size:11px;line-height:1.5;color:#7c7c7c}
+  .rail-body{padding:8px 20px 20px;overflow-y:auto;flex:1}
+  .grp{margin-top:20px}
+  .grp>.lbl{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6f6f6f;margin-bottom:11px;display:flex;justify-content:space-between}
+  .grp>.lbl b{color:#c9c9c9;font-weight:700}
+
+  .transport{display:flex;gap:8px}
+  .btn{flex:1;border:1px solid #333;background:#1f1f1f;color:#eaeaea;border-radius:8px;padding:11px 8px;
+    font-family:inherit;font-size:12px;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .12s}
+  .btn:hover{background:#282828;border-color:#444}
+  .btn.primary{background:var(--orange);border-color:var(--orange);color:#1c1c1c;font-weight:700}
+  .btn.primary:hover{background:#ff6a2b}
+  .btn svg{width:14px;height:14px}
+
+  input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:#333;border-radius:3px;outline:none;margin:4px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--orange);cursor:pointer;border:2px solid #141414}
+  .val{font-family:'Roboto Slab',serif;color:#fff;font-size:13px}
+
+  .lineswatch{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:8px;cursor:pointer;transition:background .12s}
+  .lineswatch:hover{background:#1e1e1e}
+  .lineswatch .dot{width:22px;height:4px;border-radius:2px;flex-shrink:0}
+  .lineswatch .nm{font-size:12px;color:#d5d5d5;flex:1}
+  .lineswatch .pct{font-family:'Roboto Slab',serif;font-size:13px;color:#fff}
+  .lineswatch.hero .nm{color:#fff;font-weight:700}
+  .lineswatch .hb{font-size:8px;letter-spacing:.14em;color:var(--orange);border:1px solid var(--orange);
+    border-radius:3px;padding:1px 4px;text-transform:uppercase}
+
+  .segbtns{display:flex;gap:6px}
+  .segbtns button{flex:1;background:#1f1f1f;border:1px solid #333;color:#bbb;border-radius:6px;padding:7px;
+    font-family:inherit;font-size:11px;cursor:pointer}
+  .segbtns button.on{background:var(--orange);border-color:var(--orange);color:#1c1c1c;font-weight:700}
+
+  #expstat{margin-top:10px;font-size:10px;line-height:1.5;color:#8a8a8a;min-height:14px}
+  #expstat .bar{height:4px;background:#2a2a2a;border-radius:2px;margin-top:6px;overflow:hidden}
+  #expstat .bar i{display:block;height:100%;width:0;background:var(--orange);transition:width .2s}
+  .hint{font-size:10px;color:#5f5f5f;line-height:1.5;margin-top:9px}
+  .footer{padding:12px 20px;border-top:1px solid #232323;font-size:9px;letter-spacing:.1em;color:#555;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="frame">
+      <canvas id="chart"></canvas>
+      <div id="stamp">11-GR3 · TAIWAN IDENTITY</div>
+      <div id="pop">
+        <h4>RECOLOR <b id="popName">LINE</b></h4>
+        <div class="swatches" id="popSw"></div>
+        <div class="row">
+          <input type="color" id="popCustom">
+          <label>custom hex</label>
+        </div>
+        <div class="heroToggle">
+          <span>make this the hero line</span>
+          <input type="checkbox" id="popHero">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="rail">
+    <header>
+      <div class="k">Newpress · Chart Studio</div>
+      <h1>Taiwan Identity</h1>
+      <p>34 survey waves, 1992–2025. NCCU Election Study Center. Draw it, tune it, export a 4K clip.</p>
+    </header>
+    <div class="rail-body">
+
+      <div class="grp">
+        <div class="lbl">Transport</div>
+        <div class="transport">
+          <button class="btn primary" id="playBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span id="playLbl">Play</span>
+          </button>
+          <button class="btn" id="restartBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>
+            Restart
+          </button>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl"><span>Animation speed</span><b class="val" id="spdVal">1.0×</b></div>
+        <input type="range" id="spd" min="0.25" max="3" step="0.05" value="1">
+        <div class="lbl" style="margin-top:16px"><span>Line weight</span><b class="val" id="wVal">1.0×</b></div>
+        <input type="range" id="wgt" min="0.6" max="1.8" step="0.05" value="1">
+      </div>
+
+      <div class="grp">
+        <div class="lbl"><span>Lines</span><b>click to recolor</b></div>
+        <div id="lineList"></div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl">Export · 16:9</div>
+        <div class="segbtns" id="fpsBtns">
+          <button data-fps="30">30 fps</button>
+          <button data-fps="60" class="on">60 fps</button>
+        </div>
+        <div class="segbtns" style="margin-top:8px" id="resBtns">
+          <button data-res="1920">1080p</button>
+          <button data-res="3840" class="on">4K UHD</button>
+        </div>
+        <div class="lbl" style="margin-top:14px"><span>Hold after draw</span><b class="val" id="holdVal">4.0s</b></div>
+        <input type="range" id="hold" min="0" max="8" step="0.5" value="4">
+        <button class="btn primary" id="exportBtn" style="margin-top:14px;width:100%">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          Export video
+        </button>
+        <div id="expstat"></div>
+        <div class="hint">Renders every frame deterministically then records it — no dropped frames, buttery at any resolution. Saves .mp4 where your browser supports it, otherwise .webm.</div>
+      </div>
+
+    </div>
+    <div class="footer">Source · NCCU ESC</div>
+  </aside>
+</div>
+
+<script>
+/* ============================================================
+   DATA — NCCU Election Study Center, Taiwanese/Chinese identity
+   [year, taiwanese, both, chinese, noResponse]  (share of respondents, %)
+   ============================================================ */
+const SERIES = [
+  [1992,17.6,46.4,25.5,10.5],[1994,20.2,44.6,26.2,8.9],[1995,25.0,47.0,20.7,7.3],
+  [1996,24.1,49.3,17.6,9.0],[1997,34.0,41.4,19.2,5.3],[1998,36.2,39.6,16.3,7.8],
+  [1999,39.6,42.5,12.1,5.8],[2000,36.9,44.1,12.5,6.5],[2001,41.6,43.1,10.6,4.7],
+  [2002,41.2,43.7,9.2,5.8],[2003,42.5,43.3,8.3,5.9],[2004,41.1,47.7,6.2,5.0],
+  [2005,45.0,43.4,7.2,4.4],[2006,44.2,44.9,6.3,4.6],[2007,43.7,44.7,5.4,6.2],
+  [2008,48.4,43.1,4.0,4.5],[2009,51.6,39.8,4.2,4.4],[2010,52.7,39.8,3.7,3.8],
+  [2011,52.2,40.3,3.9,3.6],[2012,54.3,38.5,3.6,3.6],[2013,57.1,35.8,3.8,3.3],
+  [2014,60.6,32.5,3.5,3.5],[2015,59.5,33.3,3.3,4.0],[2016,58.2,34.3,3.4,4.1],
+  [2017,55.5,37.0,3.7,3.7],[2018,54.5,38.2,3.6,3.7],[2019,58.5,34.7,3.3,3.5],
+  [2020,64.3,29.9,2.6,3.2],[2021,62.3,31.7,2.8,3.2],[2022,63.3,30.6,2.5,3.6],
+  [2023,61.7,32.0,2.4,3.9],[2024,63.4,31.0,2.4,3.2],[2025,62.0,31.7,2.5,3.8],
+];
+const YEARS = SERIES.map(r=>r[0]);
+const N = SERIES.length;
+
+/* line definitions — colors are HE-brand defaults, all recolorable */
+const LINES = [
+  {key:'taiwanese', name:'Taiwanese',   zh:'臺灣人', mean:'identify as Taiwanese only',      col:1, color:'#ff5206', hero:true,  delay:0.15},
+  {key:'both',      name:'Both',        zh:'都是',   mean:'Taiwanese and Chinese',           col:2, color:'#265f6f', hero:false, delay:0.00},
+  {key:'chinese',   name:'Chinese',     zh:'中國人', mean:'identify as Chinese only',        col:3, color:'#568d9f', hero:false, delay:0.05},
+  {key:'none',      name:'No response', zh:'無反應', mean:'declined or unsure',              col:4, color:'#8a8578', hero:false, delay:0.02, dash:true},
+];
+// light cinematic smoothing: [.25,.5,.25] kernel, endpoints preserved.
+// Calms wave-to-wave survey jitter without erasing peaks (2020 spike stays).
+function smooth(arr, passes){
+  let a = arr.slice();
+  for(let p=0;p<passes;p++){
+    const o=a.slice();
+    for(let i=1;i<a.length-1;i++) o[i]=0.25*a[i-1]+0.5*a[i]+0.25*a[i+1];
+    a=o;
+  }
+  return a;
+}
+LINES.forEach(l=>{ l.raw = SERIES.map(r=>r[l.col]); l.data = smooth(l.raw, 2); l.last = l.raw[N-1]; });
+
+/* HE brand palette for the recolor swatches */
+const PALETTE = ['#ff5206','#f83500','#265f6f','#568d9f','#c8a13a','#1c1c1c','#7a9e6e','#b0472e','#e0d6b0','#8a8578','#3d3d3d','#efefef'];
+
+/* ============================================================
+   TIMELINE (in "beats" — real seconds = beats / speed for the draw,
+   blink is keyed to real time so it stays calm at any speed)
+   ============================================================ */
+const T = {
+  axes0:0.15, axes1:0.9,     // axes + title fade
+  draw0:0.55, drawSpan:3.0,  // line draw window (per-line delay added)
+  labelFade:0.65,            // label fade duration after its line lands
+  blinkPeriod:1.7,
+};
+const DRAW_END_BEATS = T.draw0 + Math.max(...LINES.map(l=>l.delay)) + T.drawSpan + 0.4;
+
+/* ============================================================
+   GEOMETRY & CURVE SAMPLING
+   ============================================================ */
+const Y_MAX = 72, X0 = 0, X1 = N-1;
+const SAMPLES = 760;
+
+function layout(W,H){
+  return { x:W*0.070, y:H*0.300, w:W*(1-0.070-0.250), h:H*(1-0.300-0.130) };
+}
+function xForIdx(i, box){ return box.x + box.w*((i-X0)/(X1-X0)); }
+function yForVal(v, box){ return box.y + box.h*(1 - v/Y_MAX); }
+
+/* Catmull-Rom → dense polyline in data space (index, value) */
+function samplePath(vals){
+  const pts=[];
+  const P=vals.map((v,i)=>[i,v]);
+  const per = Math.max(2, Math.floor(SAMPLES/(P.length-1)));
+  for(let i=0;i<P.length-1;i++){
+    const p0=P[i-1]||P[i], p1=P[i], p2=P[i+1], p3=P[i+2]||P[i+1];
+    for(let s=0;s<per;s++){
+      const t=s/per, t2=t*t, t3=t2*t;
+      const a=[-0.5,1.5,-1.5,0.5],b=[1,-2.5,2,-0.5],c=[-0.5,0,0.5,0],d=[0,1,0,0];
+      const fx=[p0[0],p1[0],p2[0],p3[0]], fy=[p0[1],p1[1],p2[1],p3[1]];
+      const xx=(a[0]*fx[0]+a[1]*fx[1]+a[2]*fx[2]+a[3]*fx[3])*t3+(b[0]*fx[0]+b[1]*fx[1]+b[2]*fx[2]+b[3]*fx[3])*t2+(c[0]*fx[0]+c[2]*fx[2])*t+d[1]*fx[1];
+      const yy=(a[0]*fy[0]+a[1]*fy[1]+a[2]*fy[2]+a[3]*fy[3])*t3+(b[0]*fy[0]+b[1]*fy[1]+b[2]*fy[2]+b[3]*fy[3])*t2+(c[0]*fy[0]+c[2]*fy[2])*t+d[1]*fy[1];
+      pts.push([xx,yy]);
+    }
+  }
+  pts.push([P[P.length-1][0],P[P.length-1][1]]);
+  return pts;
+}
+LINES.forEach(l=> l.samp = samplePath(l.data));
+
+/* easing */
+const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+const clamp01 = t => t<0?0:t>1?1:t;
+
+/* ============================================================
+   RENDER — one deterministic frame. Shared by preview + export.
+   tSec = real seconds since animation start; speed scales the draw.
+   ============================================================ */
+function renderFrame(ctx, W, H, tSec, speed, hero){
+  const fs = H/1080;                     // font/stroke scale
+  const beats = tSec * speed;            // draw schedule is in beats
+  const box = layout(W,H);
+
+  // background
+  ctx.fillStyle = '#efefef';
+  ctx.fillRect(0,0,W,H);
+
+  const axesA = clamp01((beats - T.axes0)/(T.axes1 - T.axes0));
+
+  drawAxes(ctx, box, fs, axesA);
+  drawTitle(ctx, W, H, fs, axesA);
+
+  // ---- lines (secondary first, hero last so it sits on top) ----
+  const ordered = [...LINES].sort((a,b)=> (a.key===hero?1:0)-(b.key===hero?1:0));
+  const wMul = STATE.weight;
+  for(const l of ordered){
+    const isHero = l.key===hero;
+    const p0 = T.draw0 + l.delay;
+    const prog = easeInOut(clamp01((beats - p0)/T.drawSpan));
+    if(prog<=0) continue;
+    const baseW = (isHero? 6.4 : 3.0) * fs * wMul;
+    ctx.save();
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.globalAlpha = isHero? 1 : 0.62;
+    if(l.dash && !isHero) ctx.setLineDash([2*fs, 6*fs]);
+    if(isHero){
+      // subtle blink — glow pulse keyed to real time
+      const pulse = 0.5 + 0.5*Math.sin(tSec * (2*Math.PI/T.blinkPeriod));
+      const settled = clamp01((beats - (p0+T.drawSpan))/0.6); // only blink once landed
+      ctx.shadowColor = l.color;
+      ctx.shadowBlur = (10 + 16*pulse*settled) * fs;
+      ctx.globalAlpha = 1 - 0.10*pulse*settled;
+    }
+    ctx.strokeStyle = l.color;
+    ctx.lineWidth = baseW;
+    strokePartial(ctx, l.samp, prog, box);
+    ctx.restore();
+  }
+
+  // ---- endpoint dots + leader labels ----
+  const labelRows = computeLabelRows(box, fs, hero);
+  for(const l of LINES){
+    const p0 = T.draw0 + l.delay;
+    const prog = easeInOut(clamp01((beats - p0)/T.drawSpan));
+    if(prog < 0.999) continue;
+    const la = clamp01((beats - (p0+T.drawSpan))/T.labelFade);
+    drawEndLabel(ctx, l, box, fs, la, hero, labelRows[l.key], tSec);
+  }
+
+  // footer source
+  ctx.save();
+  ctx.globalAlpha = axesA*0.9;
+  ctx.font = `${11*fs}px 'Space Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.42)';
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText('SOURCE · ELECTION STUDY CENTER, NATIONAL CHENGCHI UNIVERSITY · UPDATED DEC 2025',
+    box.x, H - H*0.055);
+  ctx.restore();
+}
+
+function strokePartial(ctx, pts, prog, box){
+  const n = pts.length;
+  const fk = prog*(n-1);
+  const k = Math.floor(fk);
+  ctx.beginPath();
+  const p0 = pts[0];
+  ctx.moveTo(xForIdx(p0[0],box), yForVal(p0[1],box));
+  for(let i=1;i<=k;i++){ ctx.lineTo(xForIdx(pts[i][0],box), yForVal(pts[i][1],box)); }
+  if(k < n-1){
+    const f = fk-k, a=pts[k], b=pts[k+1];
+    const ix=a[0]+(b[0]-a[0])*f, iy=a[1]+(b[1]-a[1])*f;
+    ctx.lineTo(xForIdx(ix,box), yForVal(iy,box));
+  }
+  ctx.stroke();
+}
+
+function drawAxes(ctx, box, fs, a){
+  if(a<=0) return;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.font = `${13*fs}px 'Space Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.45)';
+  ctx.strokeStyle = 'rgba(28,28,28,.10)';
+  ctx.lineWidth = 1*fs;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let v=0; v<=70; v+=10){
+    const y = yForVal(v, box);
+    ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x+box.w, y); ctx.stroke();
+    ctx.fillText(v+'%', box.x - 12*fs, y);
+  }
+  // x year ticks
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const ticks=[1992,1996,2000,2004,2008,2012,2016,2020,2025];
+  for(const yr of ticks){
+    const i = YEARS.indexOf(yr); if(i<0) continue;
+    const x = xForIdx(i, box);
+    ctx.fillText("'"+String(yr).slice(2), x, box.y+box.h + 14*fs);
+  }
+  ctx.restore();
+}
+
+function drawTitle(ctx, W, H, fs, a){
+  ctx.save();
+  ctx.globalAlpha = clamp01(a*1.2);
+  ctx.textAlign='left';
+  // kicker
+  ctx.font = `700 ${13*fs}px 'Space Mono', monospace`;
+  ctx.fillStyle = '#ff5206';
+  ctx.textBaseline='alphabetic';
+  ctx.save(); ctx.translate(W*0.070, H*0.115);
+  ctx.fillText('T H E   H U M A N   E L E M E N T', 0, 0);
+  ctx.restore();
+  // headline serif
+  ctx.font = `800 ${52*fs}px 'Roboto Slab', Georgia, serif`;
+  ctx.fillStyle = '#1c1c1c';
+  ctx.fillText('How Taiwanese Became Taiwanese', W*0.070, H*0.205);
+  // source tag mono
+  ctx.font = `${14*fs}px 'Space Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.5)';
+  ctx.fillText('Self-reported identity · 34 survey waves · 1992—2025', W*0.070, H*0.245);
+  ctx.restore();
+}
+
+/* label vertical positions with collision avoidance */
+function computeLabelRows(box, fs, hero){
+  const rows = LINES.map(l=>({key:l.key, y:yForVal(l.last, box), l}));
+  rows.sort((a,b)=>a.y-b.y);
+  const gap = 46*fs;
+  for(let i=1;i<rows.length;i++){
+    if(rows[i].y - rows[i-1].y < gap) rows[i].y = rows[i-1].y + gap;
+  }
+  const out={}; rows.forEach(r=> out[r.key]=r.y); return out;
+}
+
+function drawEndLabel(ctx, l, box, fs, a, hero, labelY, tSec){
+  if(a<=0) return;
+  const isHero = l.key===hero;
+  const ex = xForIdx(X1, box), ey = yForVal(l.last, box);
+  ctx.save();
+  ctx.globalAlpha = a;
+
+  // endpoint dot
+  ctx.fillStyle = '#efefef';
+  ctx.strokeStyle = l.color;
+  ctx.lineWidth = (isHero?4:2.5)*fs;
+  ctx.beginPath(); ctx.arc(ex, ey, (isHero?7:5)*fs, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+  // leader: from dot, out then kink to label row
+  const lx = box.x + box.w + 26*fs;
+  const tx = box.x + box.w + 40*fs;
+  ctx.strokeStyle = isHero? l.color : 'rgba(28,28,28,.35)';
+  ctx.lineWidth = (isHero?2.4:1.4)*fs;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(ex + (isHero?7:5)*fs, ey);
+  ctx.lineTo(lx, ey);
+  ctx.lineTo(lx + 8*fs, labelY);
+  ctx.lineTo(tx, labelY);
+  ctx.stroke();
+
+  // name (mono caps, letter-spaced) + value
+  const name = l.name.toUpperCase();
+  ctx.textAlign='left';
+  ctx.textBaseline='alphabetic';
+  const nameSize = (isHero?18:14)*fs;
+  ctx.font = `700 ${nameSize}px 'Space Mono', monospace`;
+  ctx.fillStyle = isHero? l.color : '#1c1c1c';
+  const nameY = labelY - 6*fs;
+  drawTracked(ctx, name, tx, nameY, 0.14*nameSize);
+
+  // value big serif
+  const valSize = (isHero?30:20)*fs;
+  ctx.font = `800 ${valSize}px 'Roboto Slab', serif`;
+  ctx.fillStyle = isHero? '#1c1c1c' : 'rgba(28,28,28,.7)';
+  const nameW = trackedWidth(ctx, name, 0.14*nameSize, `700 ${nameSize}px 'Space Mono', monospace`);
+  ctx.font = `800 ${valSize}px 'Roboto Slab', serif`;
+  ctx.fillText(l.last.toFixed(1)+'%', tx + nameW + 12*fs, nameY + 1*fs);
+
+  // meaning subline mono
+  ctx.font = `${(isHero?12:11)*fs}px 'Space Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.5)';
+  ctx.fillText(l.zh + '  ·  ' + l.mean, tx, labelY + 16*fs);
+
+  ctx.restore();
+}
+
+/* letter-spaced text helpers */
+function drawTracked(ctx, str, x, y, sp){
+  let cx=x;
+  for(const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+}
+function trackedWidth(ctx, str, sp, font){
+  ctx.save(); ctx.font=font; let w=0;
+  for(const ch of str){ w += ctx.measureText(ch).width + sp; }
+  ctx.restore(); return w;
+}
+
+/* ============================================================
+   STATE + PREVIEW LOOP
+   ============================================================ */
+const STATE = { speed:1, weight:1, hero:'taiwanese', playing:true, fps:60, res:3840, hold:4 };
+const cv = document.getElementById('chart');
+const cx = cv.getContext('2d');
+const frame = document.getElementById('frame');
+let now = 0; // ms clock accumulator (avoids Date/performance ban in workflows; here perf is fine)
+
+function fitCanvas(){
+  const r = frame.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  cv.width = Math.round(r.width*dpr);
+  cv.height = Math.round(r.height*dpr);
+}
+window.addEventListener('resize', ()=>{ fitCanvas(); });
+
+let raf=0;
+function play(){
+  STATE.playing = true;
+  document.getElementById('playLbl').textContent = 'Pause';
+  document.querySelector('#playBtn svg path').setAttribute('d','M6 5h4v14H6zM14 5h4v14h-4z');
+}
+function pause(){
+  STATE.playing = false;
+  // freeze pausedT at current
+  document.getElementById('playLbl').textContent = 'Play';
+  document.querySelector('#playBtn svg path').setAttribute('d','M8 5v14l11-7z');
+}
+/* robust clock: track our own accumulated time */
+(function betterLoop(){
+  cancelAnimationFrame(raf);
+  let last = null; let acc = 0;
+  function tick(ts){
+    if(last==null) last=ts;
+    const dt=(ts-last)/1000; last=ts;
+    if(STATE.playing && STATE.frozenT==null) acc += dt*1; // real seconds advance
+    const useT = STATE.frozenT!=null ? STATE.frozenT : acc;
+    STATE.clock = useT;
+    renderFrame(cx, cv.width, cv.height, useT, STATE.speed, STATE.hero);
+    raf=requestAnimationFrame(tick);
+  }
+  STATE._setClock = v => { acc = v; };
+  raf=requestAnimationFrame(tick);
+})();
+
+document.getElementById('playBtn').onclick = ()=>{ STATE.playing ? pause() : play(); };
+document.getElementById('restartBtn').onclick = ()=>{ STATE._setClock(0); play(); };
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+const spd=document.getElementById('spd'), spdVal=document.getElementById('spdVal');
+spd.oninput=()=>{ STATE.speed=+spd.value; spdVal.textContent=(+spd.value).toFixed(2).replace(/0$/,'')+'×'; };
+const wgt=document.getElementById('wgt'), wVal=document.getElementById('wVal');
+wgt.oninput=()=>{ STATE.weight=+wgt.value; wVal.textContent=(+wgt.value).toFixed(2).replace(/0$/,'')+'×'; };
+const hold=document.getElementById('hold'), holdVal=document.getElementById('holdVal');
+hold.oninput=()=>{ STATE.hold=+hold.value; holdVal.textContent=(+hold.value).toFixed(1)+'s'; };
+
+document.querySelectorAll('#fpsBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#fpsBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); STATE.fps=+b.dataset.fps;
+});
+document.querySelectorAll('#resBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#resBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); STATE.res=+b.dataset.res;
+});
+
+/* line list in rail */
+const lineList=document.getElementById('lineList');
+function buildLineList(){
+  lineList.innerHTML='';
+  LINES.forEach(l=>{
+    const isHero=l.key===STATE.hero;
+    const row=document.createElement('div');
+    row.className='lineswatch'+(isHero?' hero':'');
+    row.innerHTML=`<div class="dot" style="background:${l.color};height:${isHero?6:4}px"></div>
+      <div class="nm">${l.name} ${isHero?'<span class="hb">hero</span>':''}</div>
+      <div class="pct">${l.last.toFixed(1)}%</div>`;
+    row.onclick=(e)=> openPop(l, e.currentTarget);
+    lineList.appendChild(row);
+  });
+}
+
+/* ============================================================
+   COLOR POPOVER + click-a-line-on-canvas
+   ============================================================ */
+const pop=document.getElementById('pop'), popSw=document.getElementById('popSw'),
+      popName=document.getElementById('popName'), popCustom=document.getElementById('popCustom'),
+      popHero=document.getElementById('popHero');
+let popLine=null;
+function openPop(l, anchorEl){
+  popLine=l;
+  popName.textContent=l.name.toUpperCase();
+  popCustom.value = normHex(l.color);
+  popHero.checked = (l.key===STATE.hero);
+  popSw.innerHTML='';
+  PALETTE.forEach(c=>{
+    const s=document.createElement('div'); s.className='sw'+(sameColor(c,l.color)?' active':'');
+    s.style.background=c; s.onclick=()=>setLineColor(l,c);
+    popSw.appendChild(s);
+  });
+  // position
+  const fr=frame.getBoundingClientRect();
+  let px, py;
+  if(anchorEl && anchorEl.getBoundingClientRect){
+    // opened from rail — place near line endpoint on canvas
+    const box=layout(cv.width,cv.height); const dpr=cv.width/fr.width;
+    px = (box.x+box.w)/dpr - 120; py=(cv.height*0.3)/dpr;
+  } else { px=lastClick.x; py=lastClick.y; }
+  pop.style.left=Math.max(8,Math.min(px, fr.width-224))+'px';
+  pop.style.top=Math.max(8,Math.min(py, fr.height-220))+'px';
+  pop.style.display='block';
+}
+function closePop(){ pop.style.display='none'; popLine=null; }
+function setLineColor(l,c){ l.color=c; buildLineList(); openPop(l, null); }
+popCustom.oninput=()=>{ if(popLine){ popLine.color=popCustom.value; buildLineList();
+  popSw.querySelectorAll('.sw').forEach(s=>s.classList.remove('active')); } };
+popHero.onchange=()=>{ if(popLine && popHero.checked){ STATE.hero=popLine.key; buildLineList(); openPop(popLine,null);} };
+document.addEventListener('mousedown',(e)=>{ if(!pop.contains(e.target) && e.target!==cv && !e.target.closest('.lineswatch')) closePop(); });
+
+let lastClick={x:0,y:0};
+cv.addEventListener('click',(e)=>{
+  const fr=cv.getBoundingClientRect();
+  const mx=(e.clientX-fr.left), my=(e.clientY-fr.top);
+  lastClick={x:mx,y:my};
+  const dpr=cv.width/fr.width;
+  const px=mx*dpr, py=my*dpr;
+  const box=layout(cv.width,cv.height);
+  // find nearest line
+  let best=null,bestD=1e9;
+  for(const l of LINES){
+    for(const p of l.samp){
+      const X=xForIdx(p[0],box), Y=yForVal(p[1],box);
+      const d=(X-px)**2+(Y-py)**2;
+      if(d<bestD){bestD=d;best=l;}
+    }
+  }
+  if(best && Math.sqrt(bestD) < 26*(cv.height/1080)*4){ openPop(best,null); }
+  else closePop();
+});
+
+/* helpers */
+function normHex(c){ if(c[0]!=='#')return '#000000'; if(c.length===4)return '#'+c.slice(1).split('').map(x=>x+x).join(''); return c.slice(0,7);}
+function sameColor(a,b){ return normHex(a).toLowerCase()===normHex(b).toLowerCase(); }
+
+/* ============================================================
+   EXPORT — deterministic 4K frames → MediaRecorder (mp4/webm)
+   captureStream(0) + requestFrame() = frame-perfect, zero drops
+   ============================================================ */
+const exportBtn=document.getElementById('exportBtn'), expstat=document.getElementById('expstat');
+function setStat(msg, pct){ expstat.innerHTML = msg + (pct!=null?`<div class="bar"><i style="width:${pct}%"></i></div>`:''); }
+
+exportBtn.onclick = async ()=>{
+  const W=STATE.res, H=Math.round(W*9/16), fps=STATE.fps;
+  const speed=STATE.speed;
+  const drawSec = DRAW_END_BEATS/speed + T.labelFade + 0.3;
+  const total = drawSec + STATE.hold;
+  const frames = Math.ceil(total*fps);
+
+  const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
+  const octx=oc.getContext('2d');
+
+  const stream=oc.captureStream(0);
+  const track=stream.getVideoTracks()[0];
+
+  // pick best supported container/codec
+  const prefs=[
+    'video/mp4;codecs=avc1.640033','video/mp4;codecs=avc1.42E01E','video/mp4',
+    'video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'
+  ];
+  let mime=prefs.find(m=>MediaRecorder.isTypeSupported(m)) || '';
+  const ext = mime.startsWith('video/mp4')?'mp4':'webm';
+  const bitrate = W>=3840? 60_000_000 : 20_000_000;
+  const rec=new MediaRecorder(stream,{mimeType:mime||undefined, videoBitsPerSecond:bitrate});
+  const chunks=[];
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  const done=new Promise(res=> rec.onstop=res);
+
+  exportBtn.disabled=true; exportBtn.style.opacity=.5;
+  setStat(`Rendering ${frames} frames · ${W}×${H} · ${fps}fps · ${ext.toUpperCase()}`, 0);
+  rec.start();
+
+  for(let f=0; f<frames; f++){
+    const tSec=f/fps;
+    renderFrame(octx, W, H, tSec, speed, STATE.hero);
+    if(track.requestFrame) track.requestFrame();
+    else stream.getVideoTracks()[0].requestFrame?.();
+    if(f%3===0){ setStat(`Rendering frame ${f+1} / ${frames}`, (f/frames)*100); await new Promise(r=>setTimeout(r,0)); }
+  }
+  setStat('Encoding…', 99);
+  await new Promise(r=>setTimeout(r,120));
+  rec.stop();
+  await done;
+
+  const blob=new Blob(chunks,{type:mime||'video/webm'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`taiwan-identity_${W}x${H}_${fps}fps.${ext}`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  setStat(`✓ Saved ${a.download} · ${(blob.size/1e6).toFixed(1)} MB`, 100);
+  exportBtn.disabled=false; exportBtn.style.opacity=1;
+};
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+function boot(){
+  fitCanvas();
+  buildLineList();
+  const qt = new URLSearchParams(location.search).get('t');
+  STATE.frozenT = qt!=null ? parseFloat(qt) : null;
+  STATE._setClock(0); STATE.playing=true; play();
+  // load fonts in the background; redraw naturally continues via rAF
+  Promise.all([
+    document.fonts.load("800 52px 'Roboto Slab'"),
+    document.fonts.load("700 14px 'Space Mono'"),
+    document.fonts.load("400 14px 'Space Mono'")
+  ]).catch(()=>{});
+}
+boot();
+</script>
+</body>
+</html>
