@@ -3,10 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Taiwan Identity — Chart Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<title>Are you Taiwanese or Chinese? — Chart Studio</title>
+<link href="fonts.css" rel="stylesheet">
 <style>
   :root{
     --ink:#1c1c1c; --paper:#efefef; --panel:#1c1c1c;
@@ -15,7 +13,7 @@
     --line:#2a2a2a;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:#111;color:#e8e8e8;font-family:'Space Mono',ui-monospace,monospace}
+  html,body{margin:0;height:100%;background:#111;color:#e8e8e8;font-family:'Sohne Mono',ui-monospace,monospace}
   #app{display:flex;height:100vh;width:100vw;overflow:hidden}
 
   /* ---- stage ---- */
@@ -46,7 +44,7 @@
   #rail{width:312px;background:#141414;border-left:1px solid #262626;display:flex;flex-direction:column;flex-shrink:0}
   #rail header{padding:20px 20px 14px;border-bottom:1px solid #232323}
   #rail header .k{font-size:10px;letter-spacing:.28em;color:var(--orange);text-transform:uppercase}
-  #rail header h1{margin:6px 0 0;font-family:'Roboto Slab',serif;font-weight:800;font-size:20px;color:#fff;line-height:1.05}
+  #rail header h1{margin:6px 0 0;font-family:'Sailing Club',Georgia,serif;font-weight:800;font-size:20px;color:#fff;line-height:1.05}
   #rail header p{margin:8px 0 0;font-size:11px;line-height:1.5;color:#7c7c7c}
   .rail-body{padding:8px 20px 20px;overflow-y:auto;flex:1}
   .grp{margin-top:20px}
@@ -64,13 +62,13 @@
   input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:#333;border-radius:3px;outline:none;margin:4px 0}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
     background:var(--orange);cursor:pointer;border:2px solid #141414}
-  .val{font-family:'Roboto Slab',serif;color:#fff;font-size:13px}
+  .val{font-family:'Sailing Club',Georgia,serif;color:#fff;font-size:13px}
 
   .lineswatch{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:8px;cursor:pointer;transition:background .12s}
   .lineswatch:hover{background:#1e1e1e}
   .lineswatch .dot{width:22px;height:4px;border-radius:2px;flex-shrink:0}
   .lineswatch .nm{font-size:12px;color:#d5d5d5;flex:1}
-  .lineswatch .pct{font-family:'Roboto Slab',serif;font-size:13px;color:#fff}
+  .lineswatch .pct{font-family:'Sailing Club',Georgia,serif;font-size:13px;color:#fff}
   .lineswatch.hero .nm{color:#fff;font-weight:700}
   .lineswatch .hb{font-size:8px;letter-spacing:.14em;color:var(--orange);border:1px solid var(--orange);
     border-radius:3px;padding:1px 4px;text-transform:uppercase}
@@ -101,7 +99,7 @@
           <label>custom hex</label>
         </div>
         <div class="heroToggle">
-          <span>make this the hero line</span>
+          <span>emphasize this line</span>
           <input type="checkbox" id="popHero">
         </div>
       </div>
@@ -110,9 +108,9 @@
 
   <aside id="rail">
     <header>
-      <div class="k">Newpress · Chart Studio</div>
-      <h1>Taiwan Identity</h1>
-      <p>34 survey waves, 1992–2025. NCCU Election Study Center. Draw it, tune it, export a 4K clip.</p>
+      <div class="k">The Human Element · Chart Studio</div>
+      <h1>Are you Taiwanese or Chinese?</h1>
+      <p>Self-reported identity, 1992–2025. NCCU Election Study Center. Draw it, tune it, export a 4K clip.</p>
     </header>
     <div class="rail-body">
 
@@ -190,10 +188,10 @@ const N = SERIES.length;
 
 /* line definitions — colors are HE-brand defaults, all recolorable */
 const LINES = [
-  {key:'taiwanese', name:'Taiwanese',   zh:'臺灣人', mean:'identify as Taiwanese only',      col:1, color:'#ff5206', hero:true,  delay:0.15},
-  {key:'both',      name:'Both',        zh:'都是',   mean:'Taiwanese and Chinese',           col:2, color:'#265f6f', hero:false, delay:0.00},
-  {key:'chinese',   name:'Chinese',     zh:'中國人', mean:'identify as Chinese only',        col:3, color:'#568d9f', hero:false, delay:0.05},
-  {key:'none',      name:'No response', zh:'無反應', mean:'declined or unsure',              col:4, color:'#8a8578', hero:false, delay:0.02, dash:true},
+  {key:'taiwanese', name:'Taiwanese',   zh:'臺灣人', mean:'identify as Taiwanese only',      col:1, color:'#F44315', hero:true,  delay:0.15},
+  {key:'chinese',   name:'Chinese',     zh:'中國人', mean:'identify as Chinese only',        col:3, color:'#1c1c1c', hero:true,  delay:0.05},
+  {key:'both',      name:'Both',        zh:'都是',   mean:'Taiwanese and Chinese',           col:2, color:'#9a938a', hero:false, delay:0.00},
+  {key:'none',      name:'No response', zh:'無反應', mean:'declined or unsure',              col:4, color:'#c2beb4', hero:false, delay:0.02, dash:true},
 ];
 // light cinematic smoothing: [.25,.5,.25] kernel, endpoints preserved.
 // Calms wave-to-wave survey jitter without erasing peaks (2020 spike stays).
@@ -279,26 +277,19 @@ function renderFrame(ctx, W, H, tSec, speed, hero){
   drawTitle(ctx, W, H, fs, axesA);
 
   // ---- lines (secondary first, hero last so it sits on top) ----
-  const ordered = [...LINES].sort((a,b)=> (a.key===hero?1:0)-(b.key===hero?1:0));
+  const ordered = [...LINES].sort((a,b)=> (a.hero?1:0)-(b.hero?1:0));
   const wMul = STATE.weight;
   for(const l of ordered){
-    const isHero = l.key===hero;
+    const isHero = l.hero;
     const p0 = T.draw0 + l.delay;
     const prog = easeInOut(clamp01((beats - p0)/T.drawSpan));
     if(prog<=0) continue;
-    const baseW = (isHero? 6.4 : 3.0) * fs * wMul;
+    const baseW = (isHero? 6.0 : 2.6) * fs * wMul;
     ctx.save();
     ctx.lineJoin='round'; ctx.lineCap='round';
-    ctx.globalAlpha = isHero? 1 : 0.62;
+    // FLAT IS LAW — no glow. Heroes read through weight + color, not blur.
+    ctx.globalAlpha = isHero? 1 : 0.5;
     if(l.dash && !isHero) ctx.setLineDash([2*fs, 6*fs]);
-    if(isHero){
-      // subtle blink — glow pulse keyed to real time
-      const pulse = 0.5 + 0.5*Math.sin(tSec * (2*Math.PI/T.blinkPeriod));
-      const settled = clamp01((beats - (p0+T.drawSpan))/0.6); // only blink once landed
-      ctx.shadowColor = l.color;
-      ctx.shadowBlur = (10 + 16*pulse*settled) * fs;
-      ctx.globalAlpha = 1 - 0.10*pulse*settled;
-    }
     ctx.strokeStyle = l.color;
     ctx.lineWidth = baseW;
     strokePartial(ctx, l.samp, prog, box);
@@ -318,7 +309,7 @@ function renderFrame(ctx, W, H, tSec, speed, hero){
   // footer source
   ctx.save();
   ctx.globalAlpha = axesA*0.9;
-  ctx.font = `${11*fs}px 'Space Mono', monospace`;
+  ctx.font = `${11*fs}px 'Sohne Mono', monospace`;
   ctx.fillStyle = 'rgba(28,28,28,.42)';
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.fillText('SOURCE · ELECTION STUDY CENTER, NATIONAL CHENGCHI UNIVERSITY · UPDATED DEC 2025',
@@ -346,7 +337,7 @@ function drawAxes(ctx, box, fs, a){
   if(a<=0) return;
   ctx.save();
   ctx.globalAlpha = a;
-  ctx.font = `${13*fs}px 'Space Mono', monospace`;
+  ctx.font = `${13*fs}px 'Sohne Mono', monospace`;
   ctx.fillStyle = 'rgba(28,28,28,.45)';
   ctx.strokeStyle = 'rgba(28,28,28,.10)';
   ctx.lineWidth = 1*fs;
@@ -372,20 +363,20 @@ function drawTitle(ctx, W, H, fs, a){
   ctx.globalAlpha = clamp01(a*1.2);
   ctx.textAlign='left';
   // kicker
-  ctx.font = `700 ${13*fs}px 'Space Mono', monospace`;
-  ctx.fillStyle = '#ff5206';
+  ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
+  ctx.fillStyle = '#F44315';
   ctx.textBaseline='alphabetic';
   ctx.save(); ctx.translate(W*0.070, H*0.115);
   ctx.fillText('T H E   H U M A N   E L E M E N T', 0, 0);
   ctx.restore();
   // headline serif
-  ctx.font = `800 ${52*fs}px 'Roboto Slab', Georgia, serif`;
+  ctx.font = `${58*fs}px 'Sailing Club', Georgia, serif`;
   ctx.fillStyle = '#1c1c1c';
-  ctx.fillText('How Taiwanese Became Taiwanese', W*0.070, H*0.205);
-  // source tag mono
-  ctx.font = `${14*fs}px 'Space Mono', monospace`;
+  ctx.fillText('Are you Taiwanese or Chinese?', W*0.070, H*0.210);
+  // subtitle mono
+  ctx.font = `${14*fs}px 'Sohne Mono', monospace`;
   ctx.fillStyle = 'rgba(28,28,28,.5)';
-  ctx.fillText('Self-reported identity · 34 survey waves · 1992—2025', W*0.070, H*0.245);
+  ctx.fillText('Self-reported identity  ·  1992–2025', W*0.070, H*0.250);
   ctx.restore();
 }
 
@@ -393,16 +384,21 @@ function drawTitle(ctx, W, H, fs, a){
 function computeLabelRows(box, fs, hero){
   const rows = LINES.map(l=>({key:l.key, y:yForVal(l.last, box), l}));
   rows.sort((a,b)=>a.y-b.y);
-  const gap = 46*fs;
+  const gap = 58*fs;
+  // push down to clear collisions
   for(let i=1;i<rows.length;i++){
     if(rows[i].y - rows[i-1].y < gap) rows[i].y = rows[i-1].y + gap;
   }
+  // if the stack overflows below the plot, slide the whole thing up
+  const maxY = box.y + box.h + 34*fs;
+  const overflow = rows[rows.length-1].y - maxY;
+  if(overflow > 0) rows.forEach(r=> r.y -= overflow);
   const out={}; rows.forEach(r=> out[r.key]=r.y); return out;
 }
 
 function drawEndLabel(ctx, l, box, fs, a, hero, labelY, tSec){
   if(a<=0) return;
-  const isHero = l.key===hero;
+  const isHero = l.hero;
   const ex = xForIdx(X1, box), ey = yForVal(l.last, box);
   ctx.save();
   ctx.globalAlpha = a;
@@ -431,21 +427,21 @@ function drawEndLabel(ctx, l, box, fs, a, hero, labelY, tSec){
   ctx.textAlign='left';
   ctx.textBaseline='alphabetic';
   const nameSize = (isHero?18:14)*fs;
-  ctx.font = `700 ${nameSize}px 'Space Mono', monospace`;
+  ctx.font = `700 ${nameSize}px 'Sohne Mono', monospace`;
   ctx.fillStyle = isHero? l.color : '#1c1c1c';
   const nameY = labelY - 6*fs;
   drawTracked(ctx, name, tx, nameY, 0.14*nameSize);
 
-  // value big serif
-  const valSize = (isHero?30:20)*fs;
-  ctx.font = `800 ${valSize}px 'Roboto Slab', serif`;
-  ctx.fillStyle = isHero? '#1c1c1c' : 'rgba(28,28,28,.7)';
-  const nameW = trackedWidth(ctx, name, 0.14*nameSize, `700 ${nameSize}px 'Space Mono', monospace`);
-  ctx.font = `800 ${valSize}px 'Roboto Slab', serif`;
+  // value — big sans (data register)
+  const valSize = (isHero?31:20)*fs;
+  ctx.font = `800 ${valSize}px 'Sohne', ui-sans-serif, sans-serif`;
+  ctx.fillStyle = isHero? l.color : 'rgba(28,28,28,.65)';
+  const nameW = trackedWidth(ctx, name, 0.14*nameSize, `700 ${nameSize}px 'Sohne Mono', monospace`);
+  ctx.font = `800 ${valSize}px 'Sohne', ui-sans-serif, sans-serif`;
   ctx.fillText(l.last.toFixed(1)+'%', tx + nameW + 12*fs, nameY + 1*fs);
 
   // meaning subline mono
-  ctx.font = `${(isHero?12:11)*fs}px 'Space Mono', monospace`;
+  ctx.font = `${(isHero?12:11)*fs}px 'Sohne Mono', monospace`;
   ctx.fillStyle = 'rgba(28,28,28,.5)';
   ctx.fillText(l.zh + '  ·  ' + l.mean, tx, labelY + 16*fs);
 
@@ -536,7 +532,7 @@ const lineList=document.getElementById('lineList');
 function buildLineList(){
   lineList.innerHTML='';
   LINES.forEach(l=>{
-    const isHero=l.key===STATE.hero;
+    const isHero=l.hero;
     const row=document.createElement('div');
     row.className='lineswatch'+(isHero?' hero':'');
     row.innerHTML=`<div class="dot" style="background:${l.color};height:${isHero?6:4}px"></div>
@@ -558,7 +554,7 @@ function openPop(l, anchorEl){
   popLine=l;
   popName.textContent=l.name.toUpperCase();
   popCustom.value = normHex(l.color);
-  popHero.checked = (l.key===STATE.hero);
+  popHero.checked = !!l.hero;
   popSw.innerHTML='';
   PALETTE.forEach(c=>{
     const s=document.createElement('div'); s.className='sw'+(sameColor(c,l.color)?' active':'');
@@ -581,7 +577,7 @@ function closePop(){ pop.style.display='none'; popLine=null; }
 function setLineColor(l,c){ l.color=c; buildLineList(); openPop(l, null); }
 popCustom.oninput=()=>{ if(popLine){ popLine.color=popCustom.value; buildLineList();
   popSw.querySelectorAll('.sw').forEach(s=>s.classList.remove('active')); } };
-popHero.onchange=()=>{ if(popLine && popHero.checked){ STATE.hero=popLine.key; buildLineList(); openPop(popLine,null);} };
+popHero.onchange=()=>{ if(popLine){ popLine.hero=popHero.checked; buildLineList(); openPop(popLine,null);} };
 document.addEventListener('mousedown',(e)=>{ if(!pop.contains(e.target) && e.target!==cv && !e.target.closest('.lineswatch')) closePop(); });
 
 let lastClick={x:0,y:0};
@@ -679,9 +675,11 @@ function boot(){
   STATE._setClock(0); STATE.playing=true; play();
   // load fonts in the background; redraw naturally continues via rAF
   Promise.all([
-    document.fonts.load("800 52px 'Roboto Slab'"),
-    document.fonts.load("700 14px 'Space Mono'"),
-    document.fonts.load("400 14px 'Space Mono'")
+    document.fonts.load("400 58px 'Sailing Club'"),
+    document.fonts.load("400 14px 'Sohne Mono'"),
+    document.fonts.load("700 14px 'Sohne Mono'"),
+    document.fonts.load("600 20px 'Sohne'"),
+    document.fonts.load("800 31px 'Sohne'")
   ]).catch(()=>{});
 }
 boot();
