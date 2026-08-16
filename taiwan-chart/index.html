@@ -188,10 +188,9 @@ const N = SERIES.length;
 
 /* line definitions — colors are HE-brand defaults, all recolorable */
 const LINES = [
-  {key:'taiwanese', name:'Taiwanese',   zh:'臺灣人', mean:'identify as Taiwanese only',      col:1, color:'#F44315', hero:true,  delay:0.15},
-  {key:'chinese',   name:'Chinese',     zh:'中國人', mean:'identify as Chinese only',        col:3, color:'#1c1c1c', hero:true,  delay:0.05},
+  {key:'taiwanese', name:'Taiwanese',   zh:'臺灣人', mean:'identify as Taiwanese only',      col:1, color:'#265f6f', hero:true,  delay:0.15},
+  {key:'chinese',   name:'Chinese',     zh:'中國人', mean:'identify as Chinese only',        col:3, color:'#F44315', hero:true,  delay:0.05},
   {key:'both',      name:'Both',        zh:'都是',   mean:'Taiwanese and Chinese',           col:2, color:'#9a938a', hero:false, delay:0.00},
-  {key:'none',      name:'No response', zh:'無反應', mean:'declined or unsure',              col:4, color:'#c2beb4', hero:false, delay:0.02, dash:true},
 ];
 // light cinematic smoothing: [.25,.5,.25] kernel, endpoints preserved.
 // Calms wave-to-wave survey jitter without erasing peaks (2020 spike stays).
@@ -309,11 +308,11 @@ function renderFrame(ctx, W, H, tSec, speed, hero){
   // footer source
   ctx.save();
   ctx.globalAlpha = axesA*0.9;
-  ctx.font = `${11*fs}px 'Sohne Mono', monospace`;
-  ctx.fillStyle = 'rgba(28,28,28,.42)';
+  ctx.font = `${13.5*fs}px 'Sohne Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.5)';
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-  ctx.fillText('SOURCE · ELECTION STUDY CENTER, NATIONAL CHENGCHI UNIVERSITY · UPDATED DEC 2025',
-    box.x, H - H*0.055);
+  ctx.fillText('SOURCE · ELECTION STUDY CENTER, NATIONAL CHENGCHI UNIVERSITY · NON-RESPONSE RATE 3.8% · UPDATED DEC 2025',
+    box.x, H - H*0.052);
   ctx.restore();
 }
 
@@ -337,23 +336,24 @@ function drawAxes(ctx, box, fs, a){
   if(a<=0) return;
   ctx.save();
   ctx.globalAlpha = a;
-  ctx.font = `${13*fs}px 'Sohne Mono', monospace`;
-  ctx.fillStyle = 'rgba(28,28,28,.45)';
   ctx.strokeStyle = 'rgba(28,28,28,.10)';
   ctx.lineWidth = 1*fs;
+  // y axis — bigger, darker
+  ctx.font = `${18*fs}px 'Sohne Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.78)';
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(let v=0; v<=70; v+=10){
     const y = yForVal(v, box);
     ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x+box.w, y); ctx.stroke();
-    ctx.fillText(v+'%', box.x - 12*fs, y);
+    ctx.fillText(v+'%', box.x - 16*fs, y);
   }
-  // x year ticks
+  // x year ticks — full years, bigger, darker
   ctx.textAlign='center'; ctx.textBaseline='top';
   const ticks=[1992,1996,2000,2004,2008,2012,2016,2020,2025];
   for(const yr of ticks){
     const i = YEARS.indexOf(yr); if(i<0) continue;
     const x = xForIdx(i, box);
-    ctx.fillText("'"+String(yr).slice(2), x, box.y+box.h + 14*fs);
+    ctx.fillText(String(yr), x, box.y+box.h + 20*fs);
   }
   ctx.restore();
 }
@@ -362,21 +362,15 @@ function drawTitle(ctx, W, H, fs, a){
   ctx.save();
   ctx.globalAlpha = clamp01(a*1.2);
   ctx.textAlign='left';
-  // kicker
-  ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
-  ctx.fillStyle = '#F44315';
   ctx.textBaseline='alphabetic';
-  ctx.save(); ctx.translate(W*0.070, H*0.115);
-  ctx.fillText('T H E   H U M A N   E L E M E N T', 0, 0);
-  ctx.restore();
-  // headline serif
-  ctx.font = `${58*fs}px 'Sailing Club', Georgia, serif`;
+  // headline serif — big, commanding
+  ctx.font = `${76*fs}px 'Sailing Club', Georgia, serif`;
   ctx.fillStyle = '#1c1c1c';
-  ctx.fillText('Are you Taiwanese or Chinese?', W*0.070, H*0.210);
+  ctx.fillText('Are you Taiwanese or Chinese?', W*0.070, H*0.170);
   // subtitle mono
-  ctx.font = `${14*fs}px 'Sohne Mono', monospace`;
-  ctx.fillStyle = 'rgba(28,28,28,.5)';
-  ctx.fillText('Self-reported identity  ·  1992–2025', W*0.070, H*0.250);
+  ctx.font = `${16*fs}px 'Sohne Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.55)';
+  ctx.fillText('Self-reported identity  ·  1992–2025', W*0.070, H*0.222);
   ctx.restore();
 }
 
@@ -675,7 +669,7 @@ function boot(){
   STATE._setClock(0); STATE.playing=true; play();
   // load fonts in the background; redraw naturally continues via rAF
   Promise.all([
-    document.fonts.load("400 58px 'Sailing Club'"),
+    document.fonts.load("400 76px 'Sailing Club'"),
     document.fonts.load("400 14px 'Sohne Mono'"),
     document.fonts.load("700 14px 'Sohne Mono'"),
     document.fonts.load("600 20px 'Sohne'"),
