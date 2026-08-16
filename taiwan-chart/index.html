@@ -216,20 +216,60 @@ const T = {
   axes0:0.15, axes1:0.9,     // axes + title fade
   draw0:0.55, drawSpan:3.0,  // line draw window (per-line delay added)
   labelFade:0.65,            // label fade duration after its line lands
-  blinkPeriod:1.7,
+  holdBeforeSpec:1.7,        // beat of stillness after history lands
+  specSpan:3.6,              // speculative extension draw window
 };
 const DRAW_END_BEATS = T.draw0 + Math.max(...LINES.map(l=>l.delay)) + T.drawSpan + 0.4;
+const SPEC_START = DRAW_END_BEATS + T.holdBeforeSpec;
+const SPEC_END   = SPEC_START + T.specSpan;
+
+/* ============================================================
+   SPECULATIVE FUTURE (NOT DATA) — a "what if" projection.
+   Chart extends ~50% right; lines drift to a provocative scenario:
+     Taiwanese 62 → 50 (erodes)   Chinese 2.5 → 20 (revives)   Both 31.7 → 30
+   Organic damped wobble so it reads as a hand-drawn hypothesis, not a ruler.
+   ============================================================ */
+const FUTURE_TICKS = Math.round(N * 0.5); // ~17 years -> ~2042
+const FUTURE_TARGETS = { taiwanese:50.0, both:30.0, chinese:20.0 };
+const FUTURE_AMPS    = { taiwanese:3.2,  both:2.6,  chinese:1.8 };
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function buildFuturePath(startVal, endVal, seedSalt, amp){
+  const rand=mulberry32(0xC0FFEE+seedSalt); const out=[]; let sm=0;
+  for(let i=1;i<=FUTURE_TICKS;i++){
+    const t=i/FUTURE_TICKS;
+    const baseline=startVal+(endVal-startVal)*t;
+    const raw=(rand()-0.5)*2*amp; sm=sm*0.55+raw*0.45;
+    const damp=1-Math.pow(t,2.2)*0.85;
+    out.push(baseline+sm*damp);
+  }
+  out[out.length-1]=endVal;
+  return out;
+}
+LINES.forEach((l,idx)=>{
+  l.future = buildFuturePath(l.data[N-1], FUTURE_TARGETS[l.key], idx*17, FUTURE_AMPS[l.key]);
+});
+// value along a line at a fractional future position (0..FUTURE_TICKS)
+function futureValAt(l, ticks){
+  if(ticks<=0) return l.last;
+  const t=Math.min(ticks, FUTURE_TICKS);
+  const fl=Math.floor(t), fr=t-fl;
+  const prev = fl===0 ? l.data[N-1] : l.future[fl-1];
+  const next = l.future[Math.min(fl, FUTURE_TICKS-1)];
+  return prev + (next-prev)*fr;
+}
 
 /* ============================================================
    GEOMETRY & CURVE SAMPLING
    ============================================================ */
 const Y_MAX = 72, X0 = 0, X1 = N-1;
+const X_FULL = X1 + FUTURE_TICKS;    // right edge when the future is fully drawn
 const SAMPLES = 760;
+let RXMAX = X1;                       // live right-edge of the x-domain (grows during spec)
 
 function layout(W,H){
   return { x:W*0.070, y:H*0.300, w:W*(1-0.070-0.250), h:H*(1-0.300-0.130) };
 }
-function xForIdx(i, box){ return box.x + box.w*((i-X0)/(X1-X0)); }
+function xForIdx(i, box){ return box.x + box.w*((i-X0)/(RXMAX-X0)); }
 function yForVal(v, box){ return box.y + box.h*(1 - v/Y_MAX); }
 
 /* Catmull-Rom → dense polyline in data space (index, value) */
@@ -252,6 +292,11 @@ function samplePath(vals){
   return pts;
 }
 LINES.forEach(l=> l.samp = samplePath(l.data));
+// future sample path, in data space, seamed onto the historical endpoint
+LINES.forEach(l=>{
+  const f = samplePath([l.data[N-1], ...l.future]);   // x runs 0..FUTURE_TICKS
+  l.futureSamp = f.map(p=>[p[0]+X1, p[1]]);            // shift to N-1..X_FULL
+});
 
 /* easing */
 const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
@@ -264,6 +309,12 @@ const clamp01 = t => t<0?0:t>1?1:t;
 function renderFrame(ctx, W, H, tSec, speed, hero){
   const fs = H/1080;                     // font/stroke scale
   const beats = tSec * speed;            // draw schedule is in beats
+
+  // speculative future: grows the x-domain, compressing history to the left
+  const specProg  = easeInOut(clamp01((beats - SPEC_START)/T.specSpan));
+  const specTicks = FUTURE_TICKS * specProg;
+  RXMAX = X1 + specTicks;                 // MUST be set before any xForIdx()
+
   const box = layout(W,H);
 
   // background
@@ -272,8 +323,9 @@ function renderFrame(ctx, W, H, tSec, speed, hero){
 
   const axesA = clamp01((beats - T.axes0)/(T.axes1 - T.axes0));
 
-  drawAxes(ctx, box, fs, axesA);
+  drawAxes(ctx, box, fs, axesA, specProg);
   drawTitle(ctx, W, H, fs, axesA);
+  drawSpecZone(ctx, box, fs, specProg, specTicks);
 
   // ---- lines (secondary first, hero last so it sits on top) ----
   const ordered = [...LINES].sort((a,b)=> (a.hero?1:0)-(b.hero?1:0));
@@ -288,21 +340,26 @@ function renderFrame(ctx, W, H, tSec, speed, hero){
     ctx.lineJoin='round'; ctx.lineCap='round';
     // FLAT IS LAW — no glow. Heroes read through weight + color, not blur.
     ctx.globalAlpha = isHero? 1 : 0.5;
-    if(l.dash && !isHero) ctx.setLineDash([2*fs, 6*fs]);
     ctx.strokeStyle = l.color;
     ctx.lineWidth = baseW;
+    if(l.dash) ctx.setLineDash([2*fs, 6*fs]);
     strokePartial(ctx, l.samp, prog, box);
+    // speculative continuation — solid, drawn once history has landed
+    if(specProg>0 && prog>=0.999){
+      ctx.setLineDash([]);
+      strokePartial(ctx, l.futureSamp, specProg, box);
+    }
     ctx.restore();
   }
 
-  // ---- endpoint dots + leader labels ----
-  const labelRows = computeLabelRows(box, fs, hero);
+  // ---- endpoint dots + leader labels (ride the line to its live end) ----
+  const labelRows = computeLabelRows(box, fs, specTicks);
   for(const l of LINES){
     const p0 = T.draw0 + l.delay;
     const prog = easeInOut(clamp01((beats - p0)/T.drawSpan));
     if(prog < 0.999) continue;
     const la = clamp01((beats - (p0+T.drawSpan))/T.labelFade);
-    drawEndLabel(ctx, l, box, fs, la, hero, labelRows[l.key], tSec);
+    drawEndLabel(ctx, l, box, fs, la, labelRows[l.key], tSec, specTicks);
   }
 
   // footer source
@@ -332,7 +389,7 @@ function strokePartial(ctx, pts, prog, box){
   ctx.stroke();
 }
 
-function drawAxes(ctx, box, fs, a){
+function drawAxes(ctx, box, fs, a, specProg){
   if(a<=0) return;
   ctx.save();
   ctx.globalAlpha = a;
@@ -350,10 +407,20 @@ function drawAxes(ctx, box, fs, a){
   // x year ticks — full years, bigger, darker
   ctx.textAlign='center'; ctx.textBaseline='top';
   const ticks=[1992,1996,2000,2004,2008,2012,2016,2020,2025];
+  ctx.fillStyle = 'rgba(28,28,28,.78)';
   for(const yr of ticks){
     const i = YEARS.indexOf(yr); if(i<0) continue;
     const x = xForIdx(i, box);
     ctx.fillText(String(yr), x, box.y+box.h + 20*fs);
+  }
+  // projected future year ticks — appear faintly as the domain grows
+  if(specProg>0){
+    ctx.fillStyle = `rgba(244,67,21,${(0.55*Math.min(1,specProg*1.6)).toFixed(3)})`;
+    for(const yr of [2030,2035,2040]){
+      const idx = X1 + (yr-2025);
+      if(idx > RXMAX+0.01) continue;
+      ctx.fillText(String(yr), xForIdx(idx, box), box.y+box.h + 20*fs);
+    }
   }
   ctx.restore();
 }
@@ -374,9 +441,36 @@ function drawTitle(ctx, W, H, fs, a){
   ctx.restore();
 }
 
+/* speculative-future zone: warm tint + dashed 2025 boundary + label */
+function drawSpecZone(ctx, box, fs, specProg, specTicks){
+  if(specProg<=0) return;
+  const xB = xForIdx(X1, box);
+  const xE = xForIdx(X1+specTicks, box);
+  ctx.save();
+  const g = ctx.createLinearGradient(xB,0,Math.max(xE,xB+1),0);
+  g.addColorStop(0,   'rgba(244,67,21,0.00)');
+  g.addColorStop(0.15,'rgba(244,67,21,0.05)');
+  g.addColorStop(1,   'rgba(244,67,21,0.10)');
+  ctx.fillStyle = g;
+  ctx.fillRect(xB, box.y, xE-xB, box.h);
+  // dashed boundary at the last real year
+  ctx.strokeStyle = 'rgba(244,67,21,0.45)';
+  ctx.lineWidth = 1.4*fs; ctx.setLineDash([4*fs,5*fs]);
+  ctx.beginPath(); ctx.moveTo(xB, box.y); ctx.lineTo(xB, box.y+box.h); ctx.stroke();
+  ctx.setLineDash([]);
+  if(specTicks>0.6){
+    ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
+    ctx.fillStyle = '#F44315';
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.globalAlpha = clamp01((specTicks-0.6)/1.2);
+    drawTracked(ctx, 'SPECULATIVE · NOT DATA', xB+10*fs, box.y+8*fs, 0.10*13*fs);
+  }
+  ctx.restore();
+}
+
 /* label vertical positions with collision avoidance */
-function computeLabelRows(box, fs, hero){
-  const rows = LINES.map(l=>({key:l.key, y:yForVal(l.last, box), l}));
+function computeLabelRows(box, fs, specTicks){
+  const rows = LINES.map(l=>({key:l.key, y:yForVal(futureValAt(l, specTicks), box), l}));
   rows.sort((a,b)=>a.y-b.y);
   const gap = 58*fs;
   // push down to clear collisions
@@ -390,10 +484,11 @@ function computeLabelRows(box, fs, hero){
   const out={}; rows.forEach(r=> out[r.key]=r.y); return out;
 }
 
-function drawEndLabel(ctx, l, box, fs, a, hero, labelY, tSec){
+function drawEndLabel(ctx, l, box, fs, a, labelY, tSec, specTicks){
   if(a<=0) return;
   const isHero = l.hero;
-  const ex = xForIdx(X1, box), ey = yForVal(l.last, box);
+  const endVal = futureValAt(l, specTicks);
+  const ex = xForIdx(X1 + specTicks, box), ey = yForVal(endVal, box);
   ctx.save();
   ctx.globalAlpha = a;
 
@@ -432,7 +527,7 @@ function drawEndLabel(ctx, l, box, fs, a, hero, labelY, tSec){
   ctx.fillStyle = isHero? l.color : 'rgba(28,28,28,.65)';
   const nameW = trackedWidth(ctx, name, 0.14*nameSize, `700 ${nameSize}px 'Sohne Mono', monospace`);
   ctx.font = `800 ${valSize}px 'Sohne', ui-sans-serif, sans-serif`;
-  ctx.fillText(l.last.toFixed(1)+'%', tx + nameW + 12*fs, nameY + 1*fs);
+  ctx.fillText(endVal.toFixed(1)+'%', tx + nameW + 12*fs, nameY + 1*fs);
 
   // meaning subline mono
   ctx.font = `${(isHero?12:11)*fs}px 'Sohne Mono', monospace`;
@@ -609,7 +704,8 @@ function setStat(msg, pct){ expstat.innerHTML = msg + (pct!=null?`<div class="ba
 exportBtn.onclick = async ()=>{
   const W=STATE.res, H=Math.round(W*9/16), fps=STATE.fps;
   const speed=STATE.speed;
-  const drawSec = DRAW_END_BEATS/speed + T.labelFade + 0.3;
+  // run through the full speculative extension, then hold
+  const drawSec = SPEC_END/speed + T.labelFade + 0.3;
   const total = drawSec + STATE.hold;
   const frames = Math.ceil(total*fps);
 
