@@ -28,3 +28,4 @@ translation/src/api-client.js	newArray(segments.length)	SAFE	segments.length —
 public/ascent/src/app.js	newArray(ys.length)	SAFE	ys.length = one hikes elevation-series length (bounded, ~hundreds-1500 pts)
 public/ascent/src/app.js	newArray(LM.length)	SAFE	LM = window.LANDMARKS, fixed 12-entry seed (bounded)
 burma-script/src/tk-pattern.js	.repeat(child.nodeSize)	SAFE	PM node.nodeSize — always a positive integer (>=1) far below 2^32
+scripts/dune-audio.mjs	newArray(items.length)	SAFE	items = Hume narration timing segments for one essay, bounded by the essay word/segment count (a few thousand); .length is a non-negative integer far below 2^32. Build-time script (runs on Johnnys Mac), not a served surface.

@@ -181,7 +181,7 @@ let ESSAYS=[], cur=null, timing=null, flatWords=[], curWordIdx=-1;
 const au = $('#au');
 
 // ---------- theme ----------
-const savedTheme = localStorage.getItem('dune:theme');
+let savedTheme=null; try{savedTheme = localStorage.getItem('dune:theme');}catch{}
 if(savedTheme) document.documentElement.dataset.theme = savedTheme;
 else if(matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme='dark';
 $('#themeBtn').onclick=()=>{const d=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=d;localStorage.setItem('dune:theme',d);$('meta[name=theme-color]').content=d==='dark'?'#14110d':'#f4efe6';};
@@ -336,7 +336,7 @@ function renderDrawer(){
     });
   });
   $('#hlList').innerHTML=html||'<p style="color:var(--ink-soft)">Select any text while reading to save a highlight.</p>';
-  $('#hlList').querySelectorAll('.x').forEach(x=>x.onclick=()=>{const s=x.dataset.slug;const a=JSON.parse(localStorage.getItem('dune:hl:'+s));a.splice(+x.dataset.hi,1);localStorage.setItem('dune:hl:'+s,JSON.stringify(a));updateHlCount();renderDrawer();if(cur&&cur.slug===s)applyHighlights();});
+  $('#hlList').querySelectorAll('.x').forEach(x=>x.onclick=()=>{const s=x.dataset.slug;let a=[];try{a=JSON.parse(localStorage.getItem('dune:hl:'+s))||[]}catch{}if(!Array.isArray(a))a=[];a.splice(+x.dataset.hi,1);try{localStorage.setItem('dune:hl:'+s,JSON.stringify(a));}catch{}updateHlCount();renderDrawer();if(cur&&cur.slug===s)applyHighlights();});
   $('#hlList').querySelectorAll('q').forEach(q=>q.onclick=()=>{$('#drawer').classList.remove('on');location.hash='#/'+q.dataset.slug;setTimeout(()=>{const el=document.querySelector('.w[data-p="'+q.dataset.p+'"]');el&&el.scrollIntoView({block:'center'});},120);});
 }
 
@@ -370,7 +370,7 @@ $('#dlBtn').onclick=async()=>{
     localStorage.setItem('dune:offline','1'); st.textContent='✓ available offline';
   }catch(err){st.textContent='offline caching unavailable';}
 };
-if(localStorage.getItem('dune:offline'))$('#dlState').textContent='✓ available offline';
+try{if(localStorage.getItem('dune:offline'))$('#dlState').textContent='✓ available offline';}catch{}
 
 // ---------- service worker ----------
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/dune/sw.js').catch(()=>{});
