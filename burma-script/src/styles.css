@@ -3013,6 +3013,30 @@ span.wp-fcnote.is-needed.ProseMirror-selectednode { border-radius: 3px; outline-
 }
 @keyframes wp-media-status-spin { to { transform: rotate(360deg); } }
 .wp-media-status-actions { display: inline-flex; gap: 8px; }
+
+/* DURABLE OFFLINE — the CALM queued-offline chip. Sits in the bottom-left corner OVER the local
+   preview (the actual photo/video is visible beneath it), quiet and non-blocking. Deliberately NOT
+   the red error overlay: the bytes are safe on-device, this just notes they'll upload on reconnect. */
+.wp-media-offline {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ink, #1f1d18) 72%, transparent);
+  color: var(--paper, #f4f1ea);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 3;
+}
+.wp-media-offline[hidden] { display: none; }
+/* The local preview should read as fully present (it IS the real image) — no dimming/greyscale. */
+.wp-image--offline .wp-image-img, .wp-audio--offline .wp-audio-wave { opacity: 1; }
 .wp-media-status-btn {
   font-family: var(--mono);
   font-size: 10px;

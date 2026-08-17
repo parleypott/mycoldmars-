@@ -704,6 +704,10 @@ function blockToTypedNode(b, opts) {
           // interrupted-upload card instead of a silent empty figure.
           uploading: !!b.imageUploading,
           uploadError: typeof b.imageUploadError === 'string' ? b.imageUploadError : null,
+          // DURABLE OFFLINE MEDIA — the sha256 handle to the block's bytes in the pending-media IDB
+          // store. Absent on every normal image (byte-identical). Present → the block was captured
+          // offline; its nodeview rebuilds a local preview from IDB and the drain swaps in the CDN src.
+          localKey: typeof b.imageLocalKey === 'string' && b.imageLocalKey ? b.imageLocalKey : null,
           flavor: b.flavor ?? null,
         },
       };
@@ -724,6 +728,8 @@ function blockToTypedNode(b, opts) {
           // from a doc saved mid-convert keeps uploading:true so the nodeview shows the interrupted card.
           uploading: !!b.audioUploading,
           uploadError: typeof b.audioUploadError === 'string' ? b.audioUploadError : null,
+          // DURABLE OFFLINE MEDIA (mirror imageBlock) — sha256 handle to the audio bytes in IDB.
+          localKey: typeof b.audioLocalKey === 'string' && b.audioLocalKey ? b.audioLocalKey : null,
           flavor: b.flavor ?? null,
         },
       };
@@ -1278,6 +1284,10 @@ function nodeToBlock(node, i) {
     // overwhelming steady state) carries neither, so its derived block is byte-identical.
     if (a.uploading) block.imageUploading = true;
     if (typeof a.uploadError === 'string' && a.uploadError) block.imageUploadError = a.uploadError;
+    // Emitted ONLY while bytes are queued offline — a landed image (the steady state) carries no
+    // localKey, so its derived block is byte-identical. This is what lets an offline-captured block
+    // survive the full persist round-trip (localStorage / IDB doc / cloud / collab) and rebuild.
+    if (typeof a.localKey === 'string' && a.localKey) block.imageLocalKey = a.localKey;
   }
   else if (node.type === 'audioBlock') {
     // Audio blocks are attr-complete atoms: src / filename / mime / duration round-trip via attrs, no text.
@@ -1290,6 +1300,7 @@ function nodeToBlock(node, i) {
     // neither, so its derived block is byte-identical.
     if (a.uploading) block.audioUploading = true;
     if (typeof a.uploadError === 'string' && a.uploadError) block.audioUploadError = a.uploadError;
+    if (typeof a.localKey === 'string' && a.localKey) block.audioLocalKey = a.localKey;
   }
   else { block.text = text; }
   return block;

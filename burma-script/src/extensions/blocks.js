@@ -22,8 +22,15 @@ import { FcFootnote } from './footnote.js';
 // these resolve to their safe defaults (no active upload, no retryable bytes).
 import {
   mediaUploadIsActive, mediaUploadCanRetry, mediaUploadLabel,
-  retryMediaUpload, removeMediaBlock, MEDIA_PROGRESS_EVENT,
+  retryMediaUpload, removeMediaBlock, MEDIA_PROGRESS_EVENT, isSafeImageSrc,
 } from './image-drop.js';
+import { idbGetPendingMedia } from '../recovery-store.js';
+
+// DURABLE OFFLINE MEDIA — a block queued offline carries a `localKey` (sha256 of its bytes in the
+// per-episode pending-media IDB store) and an EMPTY src (the raw bytes never enter the doc). This is
+// the "does the block already have a real, usable cloud/bundled src?" test: true == show the real
+// media; false + localKey present == paint a local objectURL preview from IDB (the CALM queued state).
+function hasUsableSrc(src) { return isSafeImageSrc(src); }
 
 // WP-13 — reconstruction data lives in ATTRIBUTES, never in derived/decoration state, so a block
 // carries everything it needs to rebuild itself through a JSON (and clipboard) round-trip.
@@ -1547,6 +1554,14 @@ export const ImageBlock = Node.create({
       // error (the in-flight promise didn't survive the reload).
       uploading: { default: false },
       uploadError: { default: null },
+      // DURABLE OFFLINE MEDIA (2026-08) — the sha256 hex of the bytes this block is holding in the
+      // per-episode `pending-media` IndexedDB store while OFFLINE. A plain 64-char string (survives
+      // PM-JSON + collab + the document-builder blocks[] round-trip); default null keeps every
+      // existing doc byte-identical. NEVER a blob:/data: src — the raw bytes live only in IDB (the
+      // BYTES-NEVER-IN-THE-DOC law). Its presence means "queued offline, calm pending — the nodeview
+      // paints a local preview from IDB and the reconnect drain swaps in the real CDN src, then nulls
+      // this". uploadError WITHOUT a localKey is a genuine failure; localKey present is never scary.
+      localKey: { default: null },
       // VIDEO LOOP dials (video srcs only; inert null on stills). Ambient-only styling —
       // see normalizeVideoRate/normalizeVideoTrim above for the persisted contract. All three
       // default null so every existing doc serializes byte-identical (additive, WP-13).
@@ -1615,6 +1630,10 @@ export const ImageBlock = Node.create({
     };
     if (a.uploading) figAttrs['data-uploading'] = '1';
     if (a.uploadError) figAttrs['data-error'] = '1';
+    // Emitted ONLY when set (byte-stable when absent) — a debugging/export marker that this figure's
+    // bytes are queued in IDB offline. Deliberately NOT read back in parseHTML: a clipboard copy must
+    // never adopt another block's local-bytes handle (docToBlocks mints a fresh blockId on paste).
+    if (a.localKey) figAttrs['data-local-key'] = String(a.localKey);
     // width rides in BOTH style (HTML-export fidelity) and data-width (a clean, un-regex'd read for
     // the clipboard parseHTML round-trip above).
     if (Number.isFinite(a.width)) { figAttrs.style = `width:${a.width}px`; figAttrs['data-width'] = String(a.width); }
@@ -1767,6 +1786,17 @@ export const ImageBlock = Node.create({
       };
 
       const paint = (a) => {
+        // OFFLINE PREVIEW HOLD — a queued-offline block (localKey, no usable src) is displayed via a
+        // runtime objectURL that syncLocalPreview owns. Don't let paint() reset the media element or
+        // stomp its blob src with the empty attrs.src; syncLocalPreview manages the img↔video swap.
+        if (localPreviewUrl && !hasUsableSrc(a.src)) {
+          if (media.tagName === 'IMG') media.alt = a.alt || '';
+          else media.setAttribute('aria-label', a.alt || '');
+          dom.setAttribute('data-kind', a.kind || 'shot');
+          applyWidth(a);
+          applyCropStyles(a);
+          return;
+        }
         if (isVideoSrc(a.src) !== (media.tagName === 'VIDEO')) {
           const next = makeMediaEl(a);
           media.replaceWith(next);   // stays inside cropWrap
@@ -1787,6 +1817,54 @@ export const ImageBlock = Node.create({
       media.addEventListener('load', onMediaReady);
       media.addEventListener('loadedmetadata', onMediaReady);
       media.addEventListener('timeupdate', onTimeUpdate);
+
+      // ── DURABLE OFFLINE LOCAL PREVIEW ─────────────────────────────────────────────────────────
+      // A block captured offline has localKey + empty src. Resolve its bytes from the pending-media
+      // IDB store, make a runtime objectURL, and paint it so Johnny sees the ACTUAL photo/video while
+      // it waits for reconnect — NOT a blank/pending box. The objectURL is a DISPLAY artifact only:
+      // it is NEVER written into attrs.src (isSafeImageSrc bans blob:), so it can never leak into the
+      // doc / any persistence sink. Revoked on destroy and the instant a real cloud src lands.
+      let localPreviewUrl = null;
+      let localPreviewKey = null;
+      const revokeLocalPreview = () => {
+        if (localPreviewUrl) { try { URL.revokeObjectURL(localPreviewUrl); } catch {} }
+        localPreviewUrl = null; localPreviewKey = null;
+      };
+      const applyLocalPreview = (blob) => {
+        try {
+          if (!blob || typeof URL === 'undefined' || !URL.createObjectURL) return;
+          revokeLocalPreview();
+          const wantVideo = /^video\//i.test(String(blob.type || ''));
+          if (wantVideo !== (media.tagName === 'VIDEO')) {
+            // Swap img↔video to match the queued bytes (src is empty, so makeMediaEl can't infer it).
+            const next = makeMediaEl({ ...attrs, src: wantVideo ? 'local-preview.mp4' : '' });
+            media.replaceWith(next);
+            media = next;
+            media.addEventListener('load', onMediaReady);
+            media.addEventListener('loadedmetadata', onMediaReady);
+            media.addEventListener('timeupdate', onTimeUpdate);
+          }
+          const url = URL.createObjectURL(blob);
+          localPreviewUrl = url;
+          media.src = url; // runtime-only — never enters attrs.src
+          if (media.tagName === 'IMG') media.alt = attrs.alt || '';
+          else media.setAttribute('aria-label', attrs.alt || '');
+        } catch {}
+      };
+      // Resolve (or drop) the local preview for the given attrs. Idempotent per key; a real cloud src
+      // supersedes the preview (drain landed) → revoke and let paint() render the real media.
+      const syncLocalPreview = (a) => {
+        const needs = !!(a && a.localKey) && !hasUsableSrc(a && a.src);
+        if (!needs) { revokeLocalPreview(); return; }
+        if (a.localKey === localPreviewKey && localPreviewUrl) return; // already painting this key
+        localPreviewKey = a.localKey;
+        idbGetPendingMedia(a.localKey).then((rec) => {
+          if (dom.__destroyed) return;
+          if (!rec || !rec.blob) return;
+          if (attrs.localKey !== a.localKey || hasUsableSrc(attrs.src)) return; // stale — moved on
+          applyLocalPreview(rec.blob);
+        }).catch(() => {});
+      };
 
       // The gate: editor editable AND not a read-only share. EVERY write path checks this.
       const canEdit = () => { try { return editor.isEditable && !isReadOnly(); } catch { return false; } };
@@ -1990,6 +2068,12 @@ export const ImageBlock = Node.create({
       statusActions.appendChild(retryBtn); statusActions.appendChild(removeBtn);
       statusEl.appendChild(statusRow); statusEl.appendChild(statusActions);
       boxEl.appendChild(statusEl);
+      // CALM queued-offline note — a small, quiet chip over the LOCAL PREVIEW (not the scary red card).
+      // Distinct from statusEl: the preview image stays visible beneath it; this just says the bytes
+      // are safe on-device and will upload on reconnect.
+      const offlineNote = el('div', 'wp-media-offline', { contenteditable: 'false', hidden: '' });
+      offlineNote.textContent = 'saved on device — uploads when back online';
+      boxEl.appendChild(offlineNote);
       retryBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (blockId) retryMediaUpload(editor.view, blockId); });
       removeBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (blockId) removeMediaBlock(editor.view, blockId); });
       // While active, the transcode/upload narrates its stage (OPTIMIZING → UPLOADING) via a
@@ -2273,16 +2357,25 @@ export const ImageBlock = Node.create({
 
       const paintAll = (a) => {
         attrs = a;
+        // Resolve / drop the offline local preview for the new attrs BEFORE painting so paint()'s
+        // preview-hold branch sees the right state.
+        syncLocalPreview(a);
         if (!cropping && !dragging) paint(a);   // don't stomp a live drag/crop with a peer echo
         dom.classList.toggle('wp-image--editable', canEdit());
+        // QUEUED-OFFLINE (localKey, no usable src) is the CALM state — bytes are durable on-device and
+        // a reconnect drain will upload them. It is NOT a failure, so it suppresses the scary
+        // interrupted/error card and shows the local preview + a quiet note instead.
+        const queuedOffline = !!a.localKey && !hasUsableSrc(a.src);
         // PASTE PLACEHOLDER / ERROR state. `active` = an upload this session is still driving;
         // `interrupted` = uploading:true survived a reload (the promise did not) → recoverable.
-        const active = !!a.uploading && mediaUploadIsActive(blockId);
-        const interrupted = !!a.uploading && !active;
-        const errored = !a.uploading && !!a.uploadError;
-        const pending = !!a.uploading || errored;
+        const active = !!a.uploading && mediaUploadIsActive(blockId) && !queuedOffline;
+        const interrupted = !!a.uploading && !active && !queuedOffline;
+        const errored = !a.uploading && !!a.uploadError && !queuedOffline;
+        const pending = (!!a.uploading || errored) && !queuedOffline;
         dom.classList.toggle('wp-image--pending', pending);
         dom.classList.toggle('wp-image--error', errored || interrupted);
+        dom.classList.toggle('wp-image--offline', queuedOffline);
+        offlineNote.hidden = !queuedOffline;
         statusEl.hidden = !pending;
         statusSpin.hidden = !active;
         if (active) statusLabel.textContent = mediaUploadLabel(blockId) || 'UPLOADING…';
@@ -2360,6 +2453,8 @@ export const ImageBlock = Node.create({
           return true;
         },
         destroy() {
+          dom.__destroyed = true;
+          revokeLocalPreview();
           try { if (ro) ro.disconnect(); } catch {}
           document.removeEventListener('keydown', onCropKey, true);
           window.removeEventListener(MEDIA_PROGRESS_EVENT, onProgress);
@@ -2469,6 +2564,10 @@ export const AudioBlock = Node.create({
       // block serializes byte-identical (docToBlocks emits them only when set).
       uploading: { default: false },
       uploadError: { default: null },
+      // DURABLE OFFLINE MEDIA (mirror imageBlock) — sha256 hex of the audio bytes held in the
+      // per-episode `pending-media` IDB store while offline. Default null → byte-identical for every
+      // landed clip. localKey present == calm queued-offline state (never the scary interrupted card).
+      localKey: { default: null },
     };
   },
   // CLIPBOARD / HTML round-trip (mirror imageBlock): a copied audio block reconstructs through this
@@ -2510,6 +2609,7 @@ export const AudioBlock = Node.create({
     if (Number.isFinite(a.durationSec) && a.durationSec > 0) figAttrs['data-duration'] = String(a.durationSec);
     if (a.uploading) figAttrs['data-uploading'] = '1';
     if (a.uploadError) figAttrs['data-error'] = '1';
+    if (a.localKey) figAttrs['data-local-key'] = String(a.localKey);
     return ['figure', mergeAttributes(sharedRenderAttrs(node, figAttrs)), ...children];
   },
   // The filename is reference metadata, not script words — contribute nothing to text exports (like
@@ -2564,8 +2664,49 @@ export const AudioBlock = Node.create({
         if (attrs.uploading && mediaUploadIsActive(blockId)) statusLabel.textContent = e.detail.label || 'UPLOADING…';
       };
       window.addEventListener(MEDIA_PROGRESS_EVENT, onProgress);
+      // CALM queued-offline note (mirror imageBlock) — the strip is playable from a local objectURL
+      // while the bytes wait for reconnect; this quiet chip says so, instead of the scary error card.
+      const offlineNote = el('div', 'wp-media-offline', { contenteditable: 'false', hidden: '' });
+      offlineNote.textContent = 'saved on device — uploads when back online';
+      box.appendChild(offlineNote);
 
       const canEdit = () => { try { return editor.isEditable && !isReadOnly(); } catch { return false; } };
+
+      // ── DURABLE OFFLINE LOCAL PREVIEW ─────────────────────────────────────────────────────────
+      // A clip captured offline has localKey + empty src. Resolve its bytes from IDB into a runtime
+      // objectURL that WaveSurfer decodes, so the strip is playable while it waits for reconnect. The
+      // objectURL is display-only — NEVER written into attrs.src. Revoked on destroy / when a real src
+      // lands. `audioSrcFor` is the single source of truth for "what URL should WaveSurfer load".
+      let localPreviewUrl = null;
+      let localPreviewKey = null;
+      const audioSrcFor = () => attrs.src || localPreviewUrl || '';
+      const revokeLocalPreview = () => {
+        if (localPreviewUrl) { try { URL.revokeObjectURL(localPreviewUrl); } catch {} }
+        localPreviewUrl = null; localPreviewKey = null;
+      };
+      const syncLocalPreview = (a) => {
+        const needs = !!(a && a.localKey) && !hasUsableSrc(a && a.src);
+        if (!needs) {
+          // A real src landed (drain) or localKey cleared — drop the local objectURL and let the next
+          // paint decode the real src.
+          if (localPreviewUrl) { revokeLocalPreview(); wsInitStarted = false; wsReady = false; try { if (ws) { ws.destroy(); ws = null; } } catch {} }
+          return;
+        }
+        if (a.localKey === localPreviewKey && localPreviewUrl) return;
+        localPreviewKey = a.localKey;
+        idbGetPendingMedia(a.localKey).then((rec) => {
+          if (dom.__destroyed) return;
+          if (!rec || !rec.blob || typeof URL === 'undefined' || !URL.createObjectURL) return;
+          if (attrs.localKey !== a.localKey || hasUsableSrc(attrs.src)) return;
+          revokeLocalPreview();
+          localPreviewUrl = URL.createObjectURL(rec.blob);
+          localPreviewKey = a.localKey;
+          // Decode the strip now if it is on screen (mirrors the src-landed path in paintAll).
+          try { if (dom.getBoundingClientRect().top < window.innerHeight + 200) initWave(); } catch {}
+          setClock();
+          playBtn.disabled = false; // playable from the local copy
+        }).catch(() => {});
+      };
 
       // ── LAZY WAVESURFER ──────────────────────────────────────────────────────────────────────
       let ws = null;            // the WaveSurfer instance (null until first init)
@@ -2583,14 +2724,15 @@ export const AudioBlock = Node.create({
         dom.classList.toggle('wp-audio--playing', playing);
       };
       const initWave = () => {
-        if (wsInitStarted || !attrs.src) return;
+        const url = audioSrcFor();          // real cloud src OR the offline local objectURL
+        if (wsInitStarted || !url) return;
         wsInitStarted = true;
         import('wavesurfer.js').then(({ default: WaveSurfer }) => {
           if (!WaveSurfer || dom.__destroyed) return;
           try {
             ws = WaveSurfer.create({
               container: waveWrap,
-              url: attrs.src,
+              url,
               height: 34,
               waveColor: cssVar(dom, '--label-3', '#b9b4a8'),
               progressColor: cssVar(dom, '--ep-accent', '#d23b2c'),
@@ -2617,14 +2759,16 @@ export const AudioBlock = Node.create({
       try {
         io = new IntersectionObserver((entries) => {
           for (const en of entries) {
-            if (en.isIntersecting && attrs.src && !attrs.uploading && !attrs.uploadError) { initWave(); if (io) { io.disconnect(); io = null; } break; }
+            // Decode when a real src is ready, OR an offline local preview is available (queued clip).
+            const ready = (attrs.src && !attrs.uploading && !attrs.uploadError) || !!localPreviewUrl;
+            if (en.isIntersecting && ready) { initWave(); if (io) { io.disconnect(); io = null; } break; }
           }
         }, { rootMargin: '200px 0px' });
         io.observe(dom);
       } catch { io = null; }
 
       const togglePlay = () => {
-        if (!attrs.src) return;
+        if (!audioSrcFor()) return;
         if (!ws) { pendingPlay = true; initWave(); return; }
         if (!wsReady) { pendingPlay = !pendingPlay; return; }
         try { ws.playPause(); } catch {}
@@ -2666,14 +2810,21 @@ export const AudioBlock = Node.create({
       const paintAll = (a) => {
         const prevSrc = attrs.src;
         attrs = a;
+        // Resolve / drop the offline local preview BEFORE the rest so audioSrcFor() is current.
+        syncLocalPreview(a);
         nameEl.textContent = a.origName || 'audio';
         dom.classList.toggle('wp-audio--editable', canEdit());
-        const active = !!a.uploading && mediaUploadIsActive(blockId);
-        const interrupted = !!a.uploading && !active;
-        const errored = !a.uploading && !!a.uploadError;
-        const pending = !!a.uploading || errored;
+        // QUEUED-OFFLINE (localKey, no usable src) is the CALM state — playable from the local copy,
+        // never the scary interrupted/error card.
+        const queuedOffline = !!a.localKey && !hasUsableSrc(a.src);
+        const active = !!a.uploading && mediaUploadIsActive(blockId) && !queuedOffline;
+        const interrupted = !!a.uploading && !active && !queuedOffline;
+        const errored = !a.uploading && !!a.uploadError && !queuedOffline;
+        const pending = (!!a.uploading || errored) && !queuedOffline;
         dom.classList.toggle('wp-audio--pending', pending);
         dom.classList.toggle('wp-audio--error', errored || interrupted);
+        dom.classList.toggle('wp-audio--offline', queuedOffline);
+        offlineNote.hidden = !queuedOffline;
         statusEl.hidden = !pending;
         statusSpin.hidden = !active;
         if (active) statusLabel.textContent = mediaUploadLabel(blockId) || 'UPLOADING…';
@@ -2682,9 +2833,10 @@ export const AudioBlock = Node.create({
         statusActions.hidden = active || !pending;
         retryBtn.hidden = !(interrupted || errored) || !mediaUploadCanRetry(blockId) || !canEdit();
         removeBtn.hidden = !(interrupted || errored) || !canEdit();
-        // Strip chrome is inert while pending; live once a src lands.
-        playBtn.disabled = pending || !a.src;
-        dlBtn.disabled = pending || !a.src;
+        // Strip chrome is inert while pending; live once a real OR local-preview src is available.
+        const playable = !pending && !!audioSrcFor();
+        playBtn.disabled = !playable;
+        dlBtn.disabled = pending || !a.src; // download needs the REAL cloud file, not the local blob
         setClock();
         // The upload just resolved (src appeared) — if the strip is on screen, draw the waveform now.
         if (a.src && a.src !== prevSrc && !pending) {
@@ -2714,6 +2866,7 @@ export const AudioBlock = Node.create({
         },
         destroy() {
           dom.__destroyed = true;
+          revokeLocalPreview();
           try { if (io) io.disconnect(); } catch {}
           releaseAudioPlayback(blockId);
           try { if (ws) ws.destroy(); } catch {}

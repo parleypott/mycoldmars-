@@ -39,9 +39,24 @@ let BAK_PREFIX = LS_DOC + '.bak.';
 let CORRUPT_PREFIX = LS_DOC + '.corrupt.';
 
 let DB_NAME = 'wp01_burma_recovery';
-const DB_VERSION = 2;
+// DB_VERSION 2 → 3 (2026-08 — DURABLE OFFLINE MEDIA). v3 is ADDITIVE: it introduces the
+// `pending-media` store and touches NEITHER the `doc` nor `snapshots` store. A user already on v2
+// upgrades in place — their canonical doc row and every recovery snapshot survive untouched (the
+// onupgradeneeded guards below only CREATE a store that isn't there yet).
+const DB_VERSION = 3;
 const STORE = 'snapshots';
 const DOC_STORE = 'doc';
+// DURABLE OFFLINE MEDIA store. Holds the RAW File/Blob of a photo/video/audio that was dropped or
+// pasted WHILE OFFLINE, keyed by the sha256 hex of its final bytes (== the future contentHash), so a
+// reconnect drain can upload it and swap the real CDN url into the block. Bytes live ONLY here — never
+// in the doc (BYTES-NEVER-IN-THE-DOC law); the doc block carries only the 64-char `localKey` string.
+const PENDING_STORE = 'pending-media';
+
+// Soft cap on the TOTAL bytes of queued offline media for the active episode. A plane-load of large
+// video drops could otherwise fill the origin's storage; past this ceiling we REFUSE new entries and
+// signal the caller to surface a toast ("offline media storage full"). 250MB is generous headroom
+// over any realistic single-flight offline session while staying well under a typical IDB quota.
+export const PENDING_MEDIA_MAX_BYTES = 250 * 1024 * 1024;
 
 // Bounds per kind — mirror migrate-doc.js's localStorage policy so the IDB recovery set stays sane.
 // (The IDB quota is hundreds of MB, so these are about keeping the recovery LIST short for the human,
@@ -155,6 +170,12 @@ function openDB(deps = {}) {
         }
         if (!db.objectStoreNames.contains(DOC_STORE)) {
           db.createObjectStore(DOC_STORE, { keyPath: 'key' });
+        }
+        // v3 ADDITIVE — create the durable offline-media store WITHOUT touching doc/snapshots. The
+        // guard makes this a no-op for a db already carrying it, and the two stores above keep their
+        // rows because this branch never re-creates or clears them.
+        if (!db.objectStoreNames.contains(PENDING_STORE)) {
+          db.createObjectStore(PENDING_STORE, { keyPath: 'key' });
         }
       } catch { /* upgrade failure surfaces as an open error below */ }
     };
@@ -586,9 +607,221 @@ export function idbAvailable(deps = {}) {
   return resolveIDB(deps) != null;
 }
 
+// ── DURABLE OFFLINE MEDIA ─────────────────────────────────────────────────────────────────────────
+// Same never-throw / close-on-complete belt as withStore/withDocStore, targeting the pending-media
+// store. Kept separate (rather than parameterizing the store name) so each write path's transaction
+// target is explicit and the fail-soft posture is impossible to accidentally lose.
+function withPendingStore(db, mode, fallback, fn) {
+  return new Promise((resolve) => {
+    if (!db) { resolve(fallback); return; }
+    let tx;
+    try {
+      tx = db.transaction(PENDING_STORE, mode);
+    } catch {
+      try { db.close(); } catch {}
+      resolve(fallback);
+      return;
+    }
+    let result = fallback;
+    let settled = false;
+    const finish = (v) => {
+      if (settled) return;
+      settled = true;
+      try { db.close(); } catch {}
+      resolve(v);
+    };
+    tx.oncomplete = () => finish(result);
+    tx.onerror = () => finish(fallback);
+    tx.onabort = () => finish(fallback);
+    try {
+      const store = tx.objectStore(PENDING_STORE);
+      fn(store, (v) => { result = v; });
+    } catch {
+      try { tx.abort(); } catch {}
+      finish(fallback);
+    }
+  });
+}
+
+// The best-effort byte size of a blob-ish value (File/Blob → .size; anything else → 0). Persisted on
+// the record so idbListPendingMedia / idbPendingMediaBytes read a number without re-touching the blob.
+function blobBytes(blob) {
+  try { const n = Number(blob && blob.size); return Number.isFinite(n) && n > 0 ? n : 0; }
+  catch { return 0; }
+}
+
+// Strip the heavy `blob` off a record for the LIST view — callers that only need to enumerate what's
+// queued (the drain driver, a quota readout) never hold a reference to megabytes of bytes.
+function pendingMeta(rec) {
+  if (!rec) return null;
+  return {
+    key: rec.key,
+    mime: rec.mime || '',
+    blockId: rec.blockId || '',
+    project: rec.project || '',
+    kind: rec.kind || 'image',
+    alt: rec.alt || '',
+    createdAt: Number(rec.createdAt) || 0,
+    bytes: Number.isFinite(rec.bytes) ? rec.bytes : blobBytes(rec.blob),
+  };
+}
+
+// Sum the bytes of all queued offline media for the active episode. Cheap (reads the stored `bytes`
+// field, not the blobs). Resolves 0 on any error / no IDB. NEVER throws. Used as the pre-write quota
+// guard and for a "storage nearly full" readout.
+export async function idbPendingMediaBytes(deps = {}) {
+  try {
+    const db = await openDB(deps);
+    if (!db) return 0;
+    return await withPendingStore(db, 'readonly', 0, (store, done) => {
+      let total = 0;
+      const cursorReq = store.openCursor();
+      cursorReq.onsuccess = (ev) => {
+        const cursor = ev.target.result;
+        if (cursor) {
+          const v = cursor.value || {};
+          total += Number.isFinite(v.bytes) ? v.bytes : blobBytes(v.blob);
+          cursor.continue();
+        } else {
+          done(total);
+        }
+      };
+      cursorReq.onerror = () => done(0);
+    });
+  } catch {
+    return 0;
+  }
+}
+
+// Durably store the RAW bytes of an offline-captured media file. `rec` MUST carry:
+//   { key: <sha256 hex>, blob: <File|Blob>, mime, blockId, project, kind: 'image'|'video'|'audio', alt, createdAt }
+// SOFT-CAP GUARD: if this write would push the episode's total queued bytes past PENDING_MEDIA_MAX_BYTES
+// AND the key isn't already stored, REFUSE and resolve { ok:false, reason:'full' } so the caller can
+// toast "offline media storage full" (and NOT land a block that will never have local bytes to preview).
+// A re-write of an EXISTING key (idempotent re-queue of the same content-addressed bytes) is always
+// allowed — it consumes no NEW bytes. Resolves { ok:true, key } on success. NEVER throws.
+export async function idbPutPendingMedia(rec, deps = {}) {
+  try {
+    if (!rec || !rec.key || !rec.blob) return { ok: false, reason: 'bad' };
+    const bytes = blobBytes(rec.blob);
+    const db = await openDB(deps);
+    if (!db) return { ok: false, reason: 'no-idb' };
+    const record = {
+      key: String(rec.key),
+      blob: rec.blob,
+      bytes,
+      mime: String(rec.mime || (rec.blob && rec.blob.type) || ''),
+      blockId: String(rec.blockId || ''),
+      project: String(rec.project || ''),
+      kind: rec.kind === 'video' || rec.kind === 'audio' ? rec.kind : 'image',
+      alt: String(rec.alt || ''),
+      createdAt: Number(rec.createdAt) || Date.now(),
+    };
+    return await withPendingStore(db, 'readwrite', { ok: false, reason: 'no-idb' }, (store, done) => {
+      // Read the current row for this key first: an existing key re-write is free (same bytes), and we
+      // need the live total to enforce the soft cap on a genuinely NEW entry.
+      const getReq = store.get(record.key);
+      getReq.onsuccess = () => {
+        const exists = !!getReq.result;
+        if (!exists) {
+          // Sum the store to enforce the cap. (Correctness over cleverness: a handful of queued items,
+          // one cursor walk — never the hot path.)
+          let total = 0;
+          const sumReq = store.openCursor();
+          sumReq.onsuccess = (ev) => {
+            const cursor = ev.target.result;
+            if (cursor) {
+              const v = cursor.value || {};
+              total += Number.isFinite(v.bytes) ? v.bytes : blobBytes(v.blob);
+              cursor.continue();
+              return;
+            }
+            if (total + bytes > PENDING_MEDIA_MAX_BYTES) { done({ ok: false, reason: 'full' }); return; }
+            const putReq = store.put(record);
+            putReq.onsuccess = () => done({ ok: true, key: record.key });
+            putReq.onerror = () => done({ ok: false, reason: 'write' });
+          };
+          sumReq.onerror = () => done({ ok: false, reason: 'write' });
+          return;
+        }
+        const putReq = store.put(record);
+        putReq.onsuccess = () => done({ ok: true, key: record.key });
+        putReq.onerror = () => done({ ok: false, reason: 'write' });
+      };
+      getReq.onerror = () => done({ ok: false, reason: 'write' });
+    });
+  } catch {
+    return { ok: false, reason: 'error' };
+  }
+}
+
+// Read one queued media record IN FULL (INCLUDING the blob) by key. The drain path needs the bytes to
+// upload; the nodeview preview needs them to make an objectURL. Resolves null if missing / no IDB.
+// NEVER throws.
+export async function idbGetPendingMedia(key, deps = {}) {
+  try {
+    if (!key) return null;
+    const db = await openDB(deps);
+    if (!db) return null;
+    return await withPendingStore(db, 'readonly', null, (store, done) => {
+      const req = store.get(String(key));
+      req.onsuccess = () => done(req.result || null);
+      req.onerror = () => done(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// List all queued media as METADATA (no blob) for the active episode: [{ key, mime, blockId, project,
+// kind, alt, createdAt, bytes }], oldest-first (drain in capture order). Resolves [] on any error.
+// NEVER throws.
+export async function idbListPendingMedia(deps = {}) {
+  try {
+    const db = await openDB(deps);
+    if (!db) return [];
+    const rows = await withPendingStore(db, 'readonly', [], (store, done) => {
+      const out = [];
+      const cursorReq = store.openCursor();
+      cursorReq.onsuccess = (ev) => {
+        const cursor = ev.target.result;
+        if (cursor) {
+          const meta = pendingMeta(cursor.value);
+          if (meta && meta.key) out.push(meta);
+          cursor.continue();
+        } else {
+          done(out);
+        }
+      };
+      cursorReq.onerror = () => done([]);
+    });
+    rows.sort((a, b) => a.createdAt - b.createdAt); // oldest-first — drain in the order they were queued
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+// Delete a single queued media record by key (after a successful drain upload, or when its block was
+// removed before reconnect). Resolves true iff the delete txn committed. NEVER throws.
+export async function idbDeletePendingMedia(key, deps = {}) {
+  try {
+    if (!key) return false;
+    const db = await openDB(deps);
+    if (!db) return false;
+    return await withPendingStore(db, 'readwrite', false, (store, done) => {
+      const delReq = store.delete(String(key));
+      delReq.onsuccess = () => done(true);
+      delReq.onerror = () => done(false);
+    });
+  } catch {
+    return false;
+  }
+}
+
 export {
   LS_DOC, CONFLICT_PREFIX, BAK_PREFIX, CORRUPT_PREFIX,
-  DB_NAME, DB_VERSION, STORE, DOC_STORE, KEEP,
+  DB_NAME, DB_VERSION, STORE, DOC_STORE, PENDING_STORE, KEEP,
   GLOBAL_MAX_SNAPSHOTS, MAX_SNAPSHOT_AGE_MS,
   snapshotKey, kindOf, snapshotTimestamp,
 };

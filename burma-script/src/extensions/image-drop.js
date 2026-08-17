@@ -51,6 +51,56 @@ import { getEpisode, episodeFlag } from '../episode-config.js';
 import { mintUserPairId } from './table.js';
 import { offerMediaOrQuote, startImageQuote, parseTranscriptText, insertQuoteRow } from './transcript-drop.js';
 import { detectFilepathDrop, insertFilepathChip } from './filepath-drop.js';
+import {
+  idbAvailable, idbPutPendingMedia, idbGetPendingMedia,
+  idbListPendingMedia, idbDeletePendingMedia,
+} from '../recovery-store.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// DURABLE OFFLINE MEDIA (Phase 2 of Offline Lock, 2026-08). When a photo/video/audio is dropped or
+// pasted WHILE OFFLINE, uploading synchronously is impossible — the old code lost the File on reload
+// (pendingFiles is tab-lifetime only) and the block reloaded as an unrecoverable "UPLOAD FAILED" card.
+// Now: we durably store the FINAL bytes in the per-episode `pending-media` IndexedDB store keyed by
+// their sha256 (== the future contentHash so the server's content-addressed dedupe still hits), land
+// the block IMMEDIATELY as a persisted imageBlock/audioBlock with { uploading:true, src:'', localKey },
+// and — on reconnect (`window 'online'` / `visibilitychange→visible`) — drain the queue with discrete,
+// user-style transactions (NEVER an appendTransaction — COLLAB LOOP LAW), swapping in the real CDN url.
+//
+// FORCE HOOK — Phase 3's offline-lock flips this true while the lock is held so EVERY capture takes the
+// durable queue path even on a flaky-but-technically-online link. Default false = normal online drops.
+let _forceOfflineMedia = false;
+export function setForceOfflineMedia(v) { _forceOfflineMedia = !!v; }
+export function isForceOfflineMedia() { return _forceOfflineMedia; }
+
+// Pragmatic offline signal for the ROUTE decision: the lock forces it, or the browser reports offline.
+// We do NOT pre-queue on a flaky-but-online connection — those try the network first and only fall back
+// to the durable queue if the fetch actually throws (see uploadAndSwap / uploadAndInsert).
+function offlineForced() {
+  if (_forceOfflineMedia) return true;
+  try { return typeof navigator !== 'undefined' && navigator.onLine === false; } catch { return false; }
+}
+
+// 'image' | 'video' | 'audio' from the file's final mime — stored on the pending-media record so the
+// drain and the nodeview preview know which element to paint without re-sniffing bytes.
+function mediaKindOf(file) {
+  const t = String(file?.type || '').toLowerCase();
+  if (t.startsWith('video/')) return 'video';
+  if (t.startsWith('audio/')) return 'audio';
+  return 'image';
+}
+
+// QUEUE COUNT for the Offline Lock button — `window.__slPendingMediaCount` is the number of items in
+// the durable pending-media queue right now. Phase 3's lock button reads it to show "N media queued".
+// Recomputed (not incremented) after every enqueue / drain / delete so it can't drift. Best-effort.
+export async function refreshPendingMediaCount() {
+  try {
+    if (typeof window === 'undefined') return 0;
+    if (!idbAvailable()) { window.__slPendingMediaCount = 0; return 0; }
+    const list = await idbListPendingMedia();
+    window.__slPendingMediaCount = list.length;
+    return list.length;
+  } catch { return 0; }
+}
 
 export const imageDropKey = new PluginKey('burmaImageDrop');
 
@@ -319,6 +369,27 @@ export function insertImageTr(state, id, { src, alt = '', kind = 'shot', select 
   }
 }
 
+// OFFLINE variant of insertImageTr: land a PERSISTED imageBlock at the placeholder's mapped position
+// carrying { uploading:true, src:'', localKey }. Bypasses isSafeImageSrc deliberately — the empty src
+// is not a byte-src (the raw bytes live in IDB, keyed by localKey); the nodeview paints a local
+// preview from IDB and the reconnect drain fills in the real CDN src. This is how an ONLINE drop whose
+// upload dies mid-flight (connection dropped) converts, without loss, into a durable queued block at
+// the exact spot it was dropped. Returns null (caller cleans up) when the placeholder is gone.
+export function insertQueuedImageTr(state, id, { localKey, kind = 'shot', alt = '' }) {
+  const pos = findPlaceholderPos(state, id);
+  if (pos == null) return null;
+  const type = state.schema.nodes.imageBlock;
+  if (!type) return null;
+  try {
+    const node = type.create({ blockId: id, src: '', alt: String(alt || ''), kind, uploading: true, uploadError: null, localKey: String(localKey) });
+    const tr = state.tr.insert(pos, node);
+    tr.setMeta(imageDropKey, { remove: { id } });
+    return tr;
+  } catch {
+    return null;
+  }
+}
+
 // Widget DOM is built lazily (function form) so the plugin is fully headless-testable —
 // no document access until a real view renders the decoration.
 //
@@ -487,21 +558,65 @@ async function maybeTranscodeGif(file, onLabel) {
   }
 }
 
+// Convert an in-flight DECORATION drop into a durable, PERSISTED queued block when the network dies
+// mid-upload (the decoration itself vanishes on reload, so an unresolved drop would otherwise be lost).
+// Stores the FINAL bytes in IDB and lands an imageBlock at the placeholder's mapped position with
+// { uploading:true, src:'', localKey }. Returns true when it durably queued + landed the block.
+async function queueOfflineDrop(view, upload, id) {
+  try {
+    if (!idbAvailable() || view.isDestroyed) return false;
+    const key = await pendingMediaKey(upload, id);
+    const stored = await idbPutPendingMedia({
+      key, blob: upload, mime: (upload && upload.type) || '', blockId: id,
+      project: getEpisode().id, kind: mediaKindOf(upload), alt: '', createdAt: Date.now(),
+    });
+    if (!stored || !stored.ok) {
+      if (stored && stored.reason === 'full') toast('offline media storage full — reconnect or remove some queued media');
+      return false;
+    }
+    const tr = insertQueuedImageTr(view.state, id, { localKey: key, kind: 'shot' });
+    if (!tr) {
+      // The placeholder was edited away — no anchor for the bytes. Delete the just-stored blob so it
+      // doesn't leak (orphan avoided), same contract as the online "spot edited away" abort.
+      await idbDeletePendingMedia(key);
+      return false;
+    }
+    view.dispatch(tr);
+    armMediaDrain();
+    refreshPendingMediaCount();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function uploadAndInsert(view, file, id, opts = {}) {
   let url = null;
   let detail = '';
+  let threw = false;
+  let upload = file;
   try {
     // The transcoded mp4 (when it happens) replaces the gif for the WHOLE road below:
     // route choice re-runs on the NEW mime+size, and the doc's src ends .mp4.
-    const upload = await maybeTranscodeGif(file, (t) => setPlaceholderLabel(view, id, t));
+    upload = await maybeTranscodeGif(file, (t) => setPlaceholderLabel(view, id, t));
+    // OFFLINE (forced / navigator offline) → land a durable queued block at the drop spot, skip network.
+    if (offlineForced()) {
+      setPlaceholderLabel(view, id, null);
+      if (await queueOfflineDrop(view, upload, id)) return;
+    }
     const out = await runMediaUpload(upload, id);
     if (out.url) url = out.url;
     else detail = out.error || '';
   } catch (e) {
+    threw = true; // fetch threw == network gone — queue durably rather than lose the drop
     detail = e?.message || 'network error';
   }
   setPlaceholderLabel(view, id, null); // drop resolved either way — never leak a label
   if (view.isDestroyed) return;
+
+  // OFFLINE FALLBACK — the upload threw (or we went offline): convert the decoration drop into a
+  // durable persisted queued block at the mapped placeholder position instead of losing it.
+  if (!url && (threw || offlineForced()) && await queueOfflineDrop(view, upload, id)) return;
 
   if (!url) {
     // LOUD failure — the doc is clean either way (placeholder is decoration-only), but
@@ -683,20 +798,81 @@ export function swapMediaBlock(view, id, patch) {
   return true;
 }
 
+// ── DURABLE OFFLINE QUEUE ────────────────────────────────────────────────────────────────────────
+// The content-addressed store key for the FINAL bytes: the sha256 hex (== the server's contentHash,
+// so the drain's re-upload dedupes against any twin). When SubtleCrypto is unavailable (insecure
+// context), synthesize a stable local key so the bytes still persist + preview — dedupe just won't hit
+// for that lone item. NEVER throws.
+async function pendingMediaKey(file, id) {
+  const hex = await sha256Hex(file);
+  if (hex) return hex;
+  return 'nohash_' + id + '_' + (file && file.size != null ? file.size : '0');
+}
+
+// Persist the FINAL bytes to the per-episode `pending-media` IDB store and flip the block into the
+// CALM queued-offline state ({ uploading:true, uploadError:null, src:'', localKey }). The nodeview
+// paints a local preview from IDB; the reconnect drain uploads + swaps in the real src, nulling
+// localKey. Returns true when queued; false when it could not be stored (no IDB / storage full) so the
+// caller can fall through to a real failure card. On a FULL store it toasts once. NEVER throws.
+async function queueOfflineMedia(view, upload, id, opts = {}) {
+  try {
+    if (!idbAvailable()) return false;
+    const key = await pendingMediaKey(upload, id);
+    // storeKind is forced by the caller for audio (a .qta reports video/quicktime, which mediaKindOf
+    // would mislabel); images/videos derive it from the final mime.
+    const kind = opts.storeKind || mediaKindOf(upload);
+    const stored = await idbPutPendingMedia({
+      key, blob: upload, mime: (upload && upload.type) || '', blockId: id,
+      project: getEpisode().id, kind, alt: '', createdAt: Date.now(),
+    });
+    if (!stored || !stored.ok) {
+      if (stored && stored.reason === 'full') toast('offline media storage full — reconnect or remove some queued media');
+      return false;
+    }
+    // Bytes are durable in IDB now, so the tab-lifetime retry copy is redundant; drop it to avoid a
+    // stale RETRY offering to re-run a network upload we already know is offline.
+    pendingFiles.delete(id);
+    activeUploads.delete(id);
+    setMediaProgress(id, null);
+    armMediaDrain(); // so a later reconnect flushes this item even if this view goes away first
+    if (!view.isDestroyed) {
+      swapMediaBlock(view, id, { uploading: true, uploadError: null, src: '', localKey: key, ...(opts.patch || {}) });
+    }
+    refreshPendingMediaCount();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Upload the bytes, then RESOLVE the placeholder block: swap in the final src, or mark it errored.
 // The swap is the resolution of the user's paste — dispatching it from the promise is fine (not a
 // loop). Failure keeps the File in pendingFiles so the block's RETRY button can re-upload.
 async function uploadAndSwap(view, file, id) {
   let url = null;
   let detail = '';
+  let threw = false;
+  // Transcode happens BEFORE the offline decision so the queued bytes are the FINAL bytes (post
+  // gif→mp4), and the store key == the eventual contentHash. If the transcode dynamic-import itself
+  // fails offline, maybeTranscodeGif already falls back to the ORIGINAL file — we queue that, and the
+  // reconnect drain re-runs maybeTranscodeGif so the optimization still happens on the way out.
+  let upload = file;
   try {
-    const upload = await maybeTranscodeGif(file, (t) => setMediaProgress(id, t));
+    upload = await maybeTranscodeGif(file, (t) => setMediaProgress(id, t));
+    // OFFLINE (forced by the lock, or navigator reports offline) → straight to the durable queue,
+    // skipping the network entirely.
+    if (offlineForced() && await queueOfflineMedia(view, upload, id)) return;
     const out = await runMediaUpload(upload, id);
     if (out.url) url = out.url;
     else detail = out.error || '';
   } catch (e) {
+    threw = true; // a fetch THROW == the network is gone (offline / DNS), not a server verdict
     detail = e?.message || 'network error';
   }
+  // OFFLINE FALLBACK — the upload threw (or we just went offline) → queue durably instead of the
+  // scary failure card. A real HTTP error RESPONSE (413/500) is a server verdict, not offline, so it
+  // keeps the existing recoverable error card + retry (does NOT queue).
+  if (!url && (threw || offlineForced()) && await queueOfflineMedia(view, upload, id)) return;
   activeUploads.delete(id);
   setMediaProgress(id, null);
   if (view.isDestroyed) { pendingFiles.delete(id); return; }
@@ -768,6 +944,11 @@ export function removeMediaBlock(view, id) {
   if (pos == null) return;
   const node = state.doc.nodeAt(pos);
   if (!node) return;
+  // DURABLE OFFLINE cleanup — a block being deleted takes its queued bytes with it. Delete the
+  // pending-media record by the block's localKey so a discarded offline photo doesn't linger in IDB
+  // (best-effort; the drain would otherwise skip a now-orphaned entry forever).
+  const lk = node.attrs && node.attrs.localKey;
+  if (lk) { idbDeletePendingMedia(String(lk)).then(() => refreshPendingMediaCount()).catch(() => {}); }
   const $pos = state.doc.resolve(pos);
   const cell = $pos.parent;                    // the tableCell holding the imageBlock
   const row = $pos.depth >= 1 ? $pos.node($pos.depth - 1) : null;
@@ -850,17 +1031,27 @@ async function maybeTranscodeAudio(file, onLabel) {
 // duration, or mark it errored (retry keeps the original bytes). Same shape as uploadAndSwap.
 async function uploadAndSwapAudio(view, file, id) {
   let url = null, detail = '', durationSec = null, mime = '';
+  let threw = false;
+  // `upload` starts as the ORIGINAL bytes; on a successful transcode it becomes the mp3. If the
+  // transcode dynamic-import fails OFFLINE, maybeTranscodeAudio THROWS — we then queue the ORIGINAL
+  // bytes (the note in the design), and the reconnect drain re-runs maybeTranscodeAudio on the way out.
+  let upload = file;
   try {
-    const upload = await maybeTranscodeAudio(file, (t) => setMediaProgress(id, t));
+    upload = await maybeTranscodeAudio(file, (t) => setMediaProgress(id, t));
     mime = upload.type || 'audio/mpeg';
     durationSec = (typeof upload.__durationSec === 'number' && upload.__durationSec > 0)
       ? upload.__durationSec
       : await audioDurationSafe(upload);
+    if (offlineForced() && await queueOfflineMedia(view, upload, id, { storeKind: 'audio', patch: mime ? { mime } : {} })) return;
     const out = await runMediaUpload(upload, id);
     if (out.url) url = out.url; else detail = out.error || '';
   } catch (e) {
+    threw = true;
     detail = e?.message || 'could not process audio';
   }
+  // OFFLINE FALLBACK — a throw (network gone, or the transcode import failed offline) or a freshly
+  // offline navigator → queue the best bytes we have (transcoded when we got that far, else original).
+  if (!url && (threw || offlineForced()) && await queueOfflineMedia(view, upload, id, { storeKind: 'audio', patch: mime ? { mime } : {} })) return;
   activeUploads.delete(id);
   setMediaProgress(id, null);
   if (view.isDestroyed) { pendingFiles.delete(id); return; }
@@ -1008,6 +1199,125 @@ function mediaFilesFromClipboard(event) {
 // AUDIO from the clipboard (extension-first, so a copied .qta routes to audio not video).
 function audioFilesFromClipboard(event) {
   return rawClipboardFiles(event).filter(isAudioFile);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// RECONNECT DRAIN — flush the durable offline-media queue when connectivity returns. Mirrors
+// cloud-sync.js scheduleOfflinePushRetry: a ONE-SHOT, idempotent listener on `window 'online'` +
+// `document 'visibilitychange'→visible` that re-arms if a drain still can't complete (still offline).
+//
+// THE ACTIVE VIEW — the plugin registers its EditorView (via the plugin's `view()` spec below) so the
+// drain can dispatch the swap transactions. One editor is open at a time; last registration wins. The
+// pending-media store is PER-EPISODE (deriveDbName), so a drain only ever touches the open script's
+// queue — exactly right.
+let _drainView = null;
+let _drainArmed = false;
+let _draining = false;
+
+function registerDrainView(view) {
+  _drainView = view;
+  armMediaDrain();
+  // A tab that RELOADED while online with a queue already present won't get a fresh online/visible
+  // event, so kick a deferred, best-effort drain once the doc has settled. The drain never
+  // orphan-deletes a not-yet-found block (see drainPendingMedia), so an early run is safe.
+  try {
+    if (typeof setTimeout === 'function') {
+      setTimeout(() => { if (_drainView === view && !offlineForced()) drainPendingMedia().catch(() => {}); }, 3500);
+    }
+  } catch {}
+}
+function unregisterDrainView(view) {
+  if (_drainView === view) _drainView = null;
+}
+
+// Arm the one-shot reconnect listeners (idempotent — re-arming while armed is a no-op, no stacked
+// listeners). Fires disarm-then-drain; the drain re-arms if it couldn't finish (still offline).
+function armMediaDrain() {
+  if (_drainArmed) return;
+  if (typeof window === 'undefined' || !window.addEventListener) return;
+  _drainArmed = true;
+  const fire = () => { disarm(); drainPendingMedia().catch(() => {}); };
+  function onVisible() { if (typeof document === 'undefined' || document.visibilityState === 'visible') fire(); }
+  function disarm() {
+    _drainArmed = false;
+    try { window.removeEventListener('online', fire); } catch {}
+    try { if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); } catch {}
+  }
+  try { window.addEventListener('online', fire); } catch {}
+  try { if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible); } catch {}
+}
+
+// Upload ONE queued item's bytes, re-running the SAME transcode the online path uses so the gif→mp4 /
+// audio→mp3 optimization still happens on the way out. The stored key is the sha256 of the (final)
+// bytes == contentHash, and runMediaUpload recomputes that identical hash internally, so a twin that
+// already lives in the bucket dedupes and moves zero bytes. Returns { url, mime?, durationSec? } or null.
+async function drainUploadOne(file, isAudio) {
+  try {
+    if (isAudio) {
+      const upload = await maybeTranscodeAudio(file, () => {});
+      const mime = upload.type || 'audio/mpeg';
+      const durationSec = (typeof upload.__durationSec === 'number' && upload.__durationSec > 0)
+        ? upload.__durationSec
+        : await audioDurationSafe(upload);
+      const out = await runMediaUpload(upload, 'drain');
+      return out.url ? { url: out.url, mime, durationSec } : null;
+    }
+    const upload = await maybeTranscodeGif(file, () => {});
+    const out = await runMediaUpload(upload, 'drain');
+    return out.url ? { url: out.url } : null;
+  } catch {
+    return null;
+  }
+}
+
+// Drain the durable offline-media queue ONE ITEM AT A TIME with discrete, user-style transactions
+// (swapMediaBlock == one setNodeMarkup; NEVER an appendTransaction, NEVER a tight dispatch loop —
+// COLLAB LOOP LAW). Exported so Phase 3's unlock flow can `await drainPendingMedia()` before it flushes
+// the doc to cloud. Idempotent (a concurrent call early-returns). NEVER throws.
+export async function drainPendingMedia() {
+  const view = _drainView;
+  if (!view || view.isDestroyed) return;
+  if (_draining) return;
+  if (!idbAvailable()) return;
+  _draining = true;
+  try {
+    const items = await idbListPendingMedia(); // oldest-first
+    for (const meta of items) {
+      if (!_drainView || _drainView.isDestroyed) break;
+      const v = _drainView;
+      const pos = findImageBlockPos(v.state, meta.blockId);
+      if (pos == null) {
+        // Block not in the CURRENT doc. It may be a genuinely-deleted block OR a doc that hasn't
+        // finished (re)seeding (collab). We DON'T orphan-delete here — deleting a still-loading
+        // block's bytes would be data loss. Leave it queued; removeMediaBlock cleans up real deletes.
+        continue;
+      }
+      const rec = await idbGetPendingMedia(meta.key);
+      if (!rec || !rec.blob) { await idbDeletePendingMedia(meta.key); refreshPendingMediaCount(); continue; }
+      const node = v.state.doc.nodeAt(pos);
+      const isAudio = !!node && node.type.name === 'audioBlock';
+      const out = await drainUploadOne(rec.blob, isAudio);
+      if (!_drainView || _drainView.isDestroyed) break;
+      if (!out || !out.url) {
+        // Upload failed — most likely still offline (or the server rejected). Leave the item queued
+        // and re-arm for the next connectivity event; stop the batch (don't hammer a dead network).
+        armMediaDrain();
+        break;
+      }
+      const patch = { uploading: false, uploadError: null, src: out.url, localKey: null };
+      if (isAudio) { if (out.mime) patch.mime = out.mime; if (out.durationSec != null) patch.durationSec = out.durationSec; }
+      // swapMediaBlock re-finds the block by stable blockId (positions may have shifted during the
+      // await) and dispatches ONE user transaction. false == the block was deleted mid-drain → the
+      // bytes are now a true orphan, so delete them (spec: "delete the queued blob, orphan avoided").
+      swapMediaBlock(_drainView, meta.blockId, patch);
+      await idbDeletePendingMedia(meta.key);
+      refreshPendingMediaCount();
+    }
+  } catch {
+    /* best-effort — never throws into a reconnect handler */
+  } finally {
+    _draining = false;
+  }
 }
 
 // Exported so the test mounts the EXACT production plugin on a bare EditorState.
@@ -1188,6 +1498,13 @@ export function buildImageDropPlugin() {
         startMediaPaste(view, media);
         return true;
       },
+    },
+    // Register this EditorView as the drain target the instant the view is created, and release it on
+    // destroy. This is how the reconnect drain (and Phase 3's awaited drainPendingMedia) find the live
+    // editor to dispatch swap transactions into — no external wiring needed.
+    view(editorView) {
+      registerDrainView(editorView);
+      return { destroy() { unregisterDrainView(editorView); } };
     },
   });
 }
