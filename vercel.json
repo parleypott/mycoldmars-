@@ -128,6 +128,14 @@
     {
       "source": "/rhythm/",
       "destination": "/rhythm/index.html"
+    },
+    {
+      "source": "/burmaarchive",
+      "destination": "/burmaarchive/index.html"
+    },
+    {
+      "source": "/burmaarchive/",
+      "destination": "/burmaarchive/index.html"
     }
   ],
   "redirects": [
