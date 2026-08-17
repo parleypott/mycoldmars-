@@ -1,8 +1,9 @@
 export const config = { runtime: 'edge' };
 
 import { pgrValue } from './_lib/pgrest.js';
-import { checkAccess, requestUserId } from './_lib/access.js';
+import { checkAccess, requestUserId, readHeader } from './_lib/access.js';
 import { withSentry, captureServerError } from './_lib/sentry.js';
+import { lockBlocks, lockView } from './_lib/script-lock-core.js';
 
 /**
  * Script Library — GENERALIZED per-project cloud doc (Enterprise Wave 2).
@@ -117,6 +118,12 @@ export default withSentry(async function handler(req) {
       // Attribution only, never access control: it stamps script_docs.updated_by so a later 409 can
       // tell the refused client whether the conflicting version is its OWN user's work.
       const userId = await requestUserId(req);
+      // OFFLINE-LOCK GATE — when this project is checked out by someone else (a fresh, non-stale
+      // lock held by a DIFFERENT user), refuse this write 423 LOCKED. The holder passes (by their
+      // JWT id OR by carrying the X-Lock-Token their acquire minted — the offline-flush edge, where
+      // attribution may lag). This is the SOLE server enforcement: RLS is bypassed by the service key.
+      const lockDenied = await enforceLock(pid, userId, req);
+      if (lockDenied) return lockDenied;
       return await putDoc(pid, v, userId);
     }
 
@@ -139,6 +146,30 @@ async function resolveProjectId(ref) {
   if (!r.ok) return null;
   const rows = await r.json().catch(() => []);
   return rows.length ? rows[0].id : null;
+}
+
+// OFFLINE-LOCK ENFORCEMENT — read the project's lock and decide whether THIS caller may write.
+// Returns a 423 Response when a DIFFERENT user holds a fresh lock, else null (write may proceed).
+// Fail-OPEN on any lookup hiccup (non-200, pre-migration columns, malformed body, thrown fetch): a
+// blip must never wall the owner out of his own script — the lock is a convenience, not a security
+// boundary, and the shrink-quarantine + CAS + revision ledger already protect the data underneath.
+async function enforceLock(pid, userId, req) {
+  try {
+    const r = await sb(
+      `/rest/v1/script_projects?id=eq.${pgrValue(pid)}` +
+      `&select=locked_by,locked_by_label,locked_by_color,locked_at,lock_token&limit=1`
+    );
+    if (!r.ok) return null;                              // hiccup → fail open
+    const rows = await r.json().catch(() => null);
+    if (!Array.isArray(rows) || !rows.length) return null;
+    const row = rows[0];
+    const token = readHeader(req, 'x-lock-token') || '';
+    if (!lockBlocks(row, { userId, token })) return null; // unlocked / mine / by-token / stale
+    return new Response(
+      JSON.stringify({ error: { code: 'LOCKED', message: 'This script is checked out for offline editing by someone else.' }, ...lockView(row, userId) }),
+      { status: 423, headers: { 'Content-Type': 'application/json', ...CORS } }
+    );
+  } catch { return null; }
 }
 
 // GUEST-READ status for a project: sharing ON *and* the row ACTIVE (not trashed, not soft-deleted).

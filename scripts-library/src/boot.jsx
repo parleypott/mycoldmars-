@@ -192,8 +192,16 @@ async function openProject(row) {
     const { setEpisode } = await import('../../burma-script/src/episode-config.js');
     setEpisode(configForProject(row));
     touchProject(row.id); // float recently-opened to the top of the library
+    // OFFLINE-LOCK GATE — if a teammate has this script checked out for offline editing, latch the
+    // engine read-only BEFORE it mounts (same surface as a ?read guest), so this viewer can read but
+    // never strand an edit against a doc the server would refuse. Fail-open on any doubt. Skipped for
+    // the holder (mine) and when unlocked. Cheap: one GET, and it double-serves the button's state.
+    try { await (await import('./lock-ui.js')).applyLockGateBeforeEngine(row.slug); } catch {}
     await import('../../burma-script/src/main.jsx');
     injectLibraryBackbar();
+    // OFFLINE-LOCK BUTTON — the "big button": arm the lock + warm the cache before a flight, then
+    // Unlock & Sync on return. Engine files stay UNCHANGED; this injects its own chrome like the backbar.
+    import('./lock-ui.js').then((m) => m.mountLockUi(row.slug)).catch(() => {});
     // Wire in-editor rename — but never on a ?read share (structurally read-only).
     import('../../burma-script/src/read-mode.js')
       .then((m) => { if (!m.isReadOnly()) injectMastheadRename(row); })
