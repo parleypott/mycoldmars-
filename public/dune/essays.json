@@ -68,7 +68,11 @@
         "url": "https://www.worldatlas.com/cities/chinguetti-mauritania.html"
       }
     ],
-    "audio": null
+    "audio": {
+      "url": "/dune/audio/bookkeeper.mp3",
+      "timingUrl": "/dune/timing/bookkeeper.json",
+      "duration": 1304.579
+    }
   },
   {
     "id": "claude",
@@ -123,6 +127,10 @@
         "url": "https://data.worldbank.org/indicator/AG.LND.ARBL.ZS?locations=MR"
       }
     ],
-    "audio": null
+    "audio": {
+      "url": "/dune/audio/weight-of-paper.mp3",
+      "timingUrl": "/dune/timing/weight-of-paper.json",
+      "duration": 1198.925
+    }
   }
 ]
