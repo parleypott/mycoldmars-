@@ -301,6 +301,8 @@ function mediaQueueCountText() {
   } catch { return ''; }
 }
 
+// A quiet top-right pill: an icon + a short label, with the full context in the tooltip. Accent is
+// only ever a thin outline (locked) — never a filled block. Deliberately understated.
 function renderButton(stateOverride) {
   const host = ensureHost();
   if (!host) return;
@@ -311,22 +313,21 @@ function renderButton(stateOverride) {
 
   if (state === 'locked-other') {
     const who = (_lastStatus && _lastStatus.lockedByLabel) || 'A teammate';
-    host.innerHTML = `<div class="sl-lock-banner" role="status">
-      <span class="sl-lock-ic">🔒</span>
-      <span><b>${escapeHtml(who)}</b> has this checked out for offline editing.<br>
-      <span class="sl-lock-sub">You can read it — editing returns when they sync back.</span></span></div>`;
+    const first = String(who).split('@')[0];
+    host.innerHTML = `<div class="sl-lock-pill is-other" role="status"
+        title="${escapeHtml(who)} has this checked out for offline editing — you can read it; editing returns when they sync back.">
+      <span class="sl-lock-ic" aria-hidden="true">🔒</span><span class="sl-lock-label">${escapeHtml(first)}</span></div>`;
     return;
   }
 
-  let icon = '🔓', title = 'OFFLINE LOCK', sub = 'Lock this script and edit it offline', cls = 'is-unlocked', disabled = false, action = 'arm';
-  if (state === 'arming') { icon = '⏳'; title = 'PREPARING…'; sub = 'Caching everything for offline'; cls = 'is-arming'; disabled = true; }
-  else if (state === 'syncing') { icon = '⏳'; title = 'SYNCING…'; sub = 'Uploading your offline work'; cls = 'is-arming'; disabled = true; }
-  else if (state === 'locked-mine') { icon = '🔒'; title = 'LOCKED FOR OFFLINE'; sub = 'Ready to fly' + mediaQueueCountText() + ' · tap to Unlock &amp; Sync'; cls = 'is-locked'; action = 'unlock'; }
-  else if (state === 'locked-offline') { icon = '✈️'; title = 'OFFLINE — EDITING'; sub = 'Saved on this device' + mediaQueueCountText() + ' · connect to sync'; cls = 'is-offline'; disabled = true; }
+  let icon = '🔓', label = 'Offline lock', tip = 'Lock this script so you can edit it offline (on a plane).', cls = 'is-unlocked', disabled = false, action = 'arm';
+  if (state === 'arming') { icon = '⋯'; label = 'Preparing'; tip = 'Caching everything for offline…'; cls = 'is-busy'; disabled = true; }
+  else if (state === 'syncing') { icon = '⋯'; label = 'Syncing'; tip = 'Uploading your offline work…'; cls = 'is-busy'; disabled = true; }
+  else if (state === 'locked-mine') { icon = '🔒'; label = 'Locked'; tip = 'Ready to fly' + mediaQueueCountText().replace(/&nbsp;/g,' ') + ' — tap to Unlock & Sync.'; cls = 'is-locked'; action = 'unlock'; }
+  else if (state === 'locked-offline') { icon = '✈'; label = 'Offline'; tip = 'Editing offline — saved on this device' + mediaQueueCountText().replace(/&nbsp;/g,' ') + '. Connect to sync & unlock.'; cls = 'is-offline'; disabled = true; }
 
-  host.innerHTML = `<button type="button" class="sl-lock-btn ${cls}" ${disabled ? 'disabled' : ''} aria-live="polite">
-      <span class="sl-lock-ic" aria-hidden="true">${icon}</span>
-      <span class="sl-lock-txt"><span class="sl-lock-title">${title}</span><span class="sl-lock-sub">${sub}</span></span>
+  host.innerHTML = `<button type="button" class="sl-lock-pill ${cls}" ${disabled ? 'disabled' : ''} title="${escapeHtml(tip)}" aria-label="${escapeHtml(label)} — ${escapeHtml(tip)}">
+      <span class="sl-lock-ic" aria-hidden="true">${icon}</span><span class="sl-lock-label">${label}</span>
     </button>`;
   const btn = host.querySelector('button');
   if (btn && !disabled) {
@@ -403,24 +404,23 @@ function injectStylesOnce() {
   const st = document.createElement('style');
   st.id = 'sl-lock-style';
   st.textContent = `
-  .sl-lock-host{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9600;font-family:'JetBrains Mono',ui-monospace,monospace;}
-  .sl-lock-btn{display:flex;align-items:center;gap:11px;padding:11px 18px;border:1.5px solid #1f1d18;border-radius:12px;background:#fbfaf5;color:#1f1d18;cursor:pointer;box-shadow:0 3px 0 #1f1d18;transition:transform .08s ease,box-shadow .08s ease,background .15s ease;}
-  .sl-lock-btn:not([disabled]):active{transform:translateY(3px);box-shadow:0 0 0 #1f1d18;}
-  .sl-lock-btn[disabled]{opacity:.7;cursor:default;}
-  .sl-lock-ic{font-size:20px;line-height:1;}
-  .sl-lock-txt{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;text-align:left;}
-  .sl-lock-title{font-weight:800;font-size:12px;letter-spacing:.08em;}
-  .sl-lock-sub{font-weight:500;font-size:10.5px;letter-spacing:.02em;opacity:.72;}
-  .sl-lock-btn.is-locked{background:#F44315;color:#fff;border-color:#1f1d18;box-shadow:0 3px 0 #1f1d18;}
-  .sl-lock-btn.is-locked .sl-lock-sub{opacity:.85;}
-  .sl-lock-btn.is-offline{background:#23211b;color:#efe9da;}
-  .sl-lock-btn.is-arming{background:#efeadd;}
-  .sl-lock-banner{display:flex;gap:10px;align-items:flex-start;max-width:420px;padding:12px 15px;border:1.5px solid #1f1d18;border-radius:12px;background:#efe9da;color:#1f1d18;box-shadow:0 3px 0 #1f1d18;font-size:12px;line-height:1.35;}
-  .sl-lock-banner .sl-lock-ic{font-size:16px;margin-top:1px;}
-  .sl-lock-banner .sl-lock-sub{opacity:.7;font-size:11px;}
-  .sl-lock-toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:9700;background:#1f1d18;color:#fbfaf5;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;padding:10px 15px;border-radius:9px;max-width:88vw;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.28);transition:opacity .35s ease;}
+  /* A small, quiet control top-right, sitting just below the presence strip (top:6px). */
+  .sl-lock-host{position:fixed;top:38px;right:14px;z-index:520;font-family:'JetBrains Mono',ui-monospace,monospace;}
+  .sl-lock-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid rgba(31,29,24,.28);border-radius:999px;background:rgba(251,250,245,.82);color:#1f1d18;cursor:pointer;font:inherit;line-height:1;opacity:.72;transition:opacity .15s ease,border-color .15s ease,background .15s ease;}
+  .sl-lock-pill:hover{opacity:1;border-color:rgba(31,29,24,.55);background:rgba(251,250,245,.95);}
+  .sl-lock-pill:not([disabled]):active{transform:translateY(.5px);}
+  .sl-lock-pill[disabled]{cursor:default;opacity:.6;}
+  .sl-lock-ic{font-size:11px;line-height:1;}
+  .sl-lock-label{font-weight:600;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;}
+  /* Locked = a thin accent outline, never a filled block. */
+  .sl-lock-pill.is-locked{opacity:.92;border-color:#F44315;color:#c8360f;background:rgba(244,67,21,.06);}
+  .sl-lock-pill.is-locked:hover{opacity:1;background:rgba(244,67,21,.11);}
+  .sl-lock-pill.is-offline{opacity:.92;border-color:rgba(31,29,24,.5);color:#3a362d;background:rgba(31,29,24,.06);}
+  .sl-lock-pill.is-busy{opacity:.85;}
+  .sl-lock-pill.is-other{cursor:default;opacity:.85;border-color:rgba(31,29,24,.4);background:rgba(31,29,24,.05);}
+  .sl-lock-toast{position:fixed;top:70px;right:14px;z-index:9700;background:#1f1d18;color:#fbfaf5;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;line-height:1.35;padding:9px 13px;border-radius:9px;max-width:300px;text-align:left;box-shadow:0 6px 18px rgba(0,0,0,.28);transition:opacity .35s ease;}
   .sl-lock-toast.out{opacity:0;}
-  @media (max-width:640px){ .sl-lock-host{left:12px;right:12px;transform:none;bottom:12px;} .sl-lock-btn{width:100%;justify-content:center;} }
+  @media (max-width:640px){ .sl-lock-host{top:auto;bottom:12px;right:12px;} .sl-lock-toast{left:12px;right:12px;max-width:none;bottom:52px;top:auto;} }
   `;
   document.head.appendChild(st);
 }
