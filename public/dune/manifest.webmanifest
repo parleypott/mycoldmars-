@@ -1,0 +1,12 @@
+{
+  "name": "The Dunes of Chinguetti",
+  "short_name": "Dune",
+  "start_url": "/dune/",
+  "scope": "/dune/",
+  "display": "standalone",
+  "background_color": "#14110d",
+  "theme_color": "#14110d",
+  "icons": [
+    { "src": "/dune/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

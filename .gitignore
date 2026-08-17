@@ -9,3 +9,4 @@ dist
 # accidental literal $HOME directory from misconfigured tools
 ${HOME}
 ${HOME}/**
+.dune-audio-cache/

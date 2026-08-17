@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Dunes of Chinguetti</title>
+<meta name="theme-color" content="#14110d" />
+<link rel="manifest" href="/dune/manifest.webmanifest" />
+<link rel="icon" href="/dune/icon.svg" />
+<link rel="apple-touch-icon" href="/dune/icon.svg" />
+<style>
+  :root{
+    --paper:#f4efe6; --ink:#1c1712; --ink-soft:#5c5245; --line:#d9cfbd;
+    --accent:#b4632c; --accent-soft:#e7c9a8; --card:#fbf7ef; --bar:#f7f1e6cc;
+    --hl:#f2d9a6; --kar:#f0c987;
+  }
+  :root[data-theme="dark"]{
+    --paper:#14110d; --ink:#ece3d4; --ink-soft:#9a8f7d; --line:#332c22;
+    --accent:#d98a4e; --accent-soft:#3a2f22; --card:#1b1710; --bar:#14110dcc;
+    --hl:#5a4322; --kar:#8a6321;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'Iowan Old Style','Palatino Linotype',Palatino,'Charter','Georgia',serif;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    line-height:1.62; transition:background .4s,color .4s;
+  }
+  .wrap{max-width:40rem;margin:0 auto;padding:0 1.25rem}
+  a{color:var(--accent);text-decoration:none}
+  .mono{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;text-transform:uppercase;letter-spacing:.14em;font-size:.66rem;color:var(--ink-soft)}
+
+  /* top bar */
+  header.top{position:sticky;top:0;z-index:40;background:var(--bar);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .top .wrap{display:flex;align-items:center;gap:.75rem;height:3rem}
+  .top .home{font-weight:600;letter-spacing:.02em;cursor:pointer;color:var(--ink);flex:1;font-size:.95rem}
+  .iconbtn{appearance:none;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:.32rem .7rem;font-size:.72rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:.35rem}
+  .iconbtn:active{transform:scale(.96)}
+
+  /* landing */
+  .hero{padding:3.2rem 0 1.4rem}
+  .hero h1{font-size:2.5rem;line-height:1.06;margin:.2rem 0 .6rem;font-weight:600;letter-spacing:-.01em}
+  .hero p.lede{color:var(--ink-soft);font-size:1.06rem;margin:.2rem 0 0}
+  .cards{display:flex;flex-direction:column;gap:1rem;padding:1rem 0 2rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.3rem 1.35rem;cursor:pointer;transition:transform .15s,border-color .15s}
+  .card:active{transform:scale(.99)}
+  .card:hover{border-color:var(--accent)}
+  .card .k{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+  .card h2{font-size:1.5rem;line-height:1.12;margin:.1rem 0 .45rem;font-weight:600}
+  .card .dek{color:var(--ink-soft);font-size:.98rem;margin:0 0 .8rem}
+  .card .meta{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap}
+  .badge{font-family:ui-monospace,monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.22rem .5rem;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft)}
+  .badge.g{border-color:#7c9bd1;color:#6f8fc9}
+  .badge.c{border-color:#c58a5a;color:var(--accent)}
+  .offline-row{display:flex;align-items:center;gap:.6rem;padding:.2rem 0 2.6rem;color:var(--ink-soft);font-size:.82rem}
+
+  /* article */
+  article{padding:1.5rem 0 9rem;display:none}
+  article.on{display:block}
+  .landing.off{display:none}
+  .art-head{padding:1.4rem 0 1.2rem;border-bottom:1px solid var(--line);margin-bottom:1.6rem}
+  .art-head h1{font-size:2.15rem;line-height:1.1;margin:.6rem 0 .55rem;font-weight:600;letter-spacing:-.01em}
+  .art-head .dek{color:var(--ink-soft);font-size:1.12rem;font-style:italic;margin:0 0 .9rem}
+  .art-head .byl{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+  .body p{margin:0 0 1.15rem;font-size:1.17rem}
+  .body p:first-of-type::first-letter{font-size:3.1rem;line-height:.82;float:left;padding:.05em .09em 0 0;font-weight:600;color:var(--accent)}
+  .w{border-radius:.18em;transition:background .12s,color .12s;cursor:default}
+  .w.hl{background:var(--hl)}
+  .w.kar{background:var(--kar);color:var(--ink);box-shadow:0 0 0 .12em var(--kar)}
+  .audio-on .w{cursor:pointer}
+  .sources{margin-top:2.4rem;padding-top:1.3rem;border-top:1px solid var(--line)}
+  .sources h3{font-size:.72rem}.sources ol{padding-left:1.1rem;color:var(--ink-soft);font-size:.86rem;line-height:1.5}
+  .sources a{word-break:break-word}
+
+  /* selection highlight pill */
+  #hlpill{position:fixed;z-index:60;transform:translate(-50%,-120%);background:var(--ink);color:var(--paper);border:none;border-radius:999px;padding:.45rem .8rem;font-size:.8rem;font-family:inherit;cursor:pointer;display:none;box-shadow:0 6px 20px #0005}
+  #hlpill:active{transform:translate(-50%,-120%) scale(.95)}
+
+  /* audio bar */
+  .player{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--bar);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:.55rem 0 calc(.55rem + env(safe-area-inset-bottom));display:none}
+  .player.on{display:block}
+  .player .wrap{display:flex;flex-direction:column;gap:.4rem}
+  .prow{display:flex;align-items:center;gap:.75rem}
+  .play{appearance:none;border:none;background:var(--accent);color:#fff;width:2.6rem;height:2.6rem;border-radius:999px;font-size:1.1rem;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center}
+  .play:active{transform:scale(.94)}
+  .pmeta{flex:1;min-width:0}
+  .pmeta .t{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pmeta .n{font-size:.66rem;color:var(--ink-soft);font-family:ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}
+  .rate{font-family:ui-monospace,monospace;font-size:.72rem;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:.28rem .5rem;cursor:pointer}
+  .scrub{display:flex;align-items:center;gap:.55rem}
+  .scrub input{flex:1;accent-color:var(--accent)}
+  .scrub .tm{font-family:ui-monospace,monospace;font-size:.66rem;color:var(--ink-soft);min-width:2.6rem;text-align:center}
+  .skip{appearance:none;border:none;background:transparent;color:var(--ink-soft);font-family:ui-monospace,monospace;font-size:.72rem;cursor:pointer;padding:.2rem}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:6.5rem;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:.6rem 1rem;border-radius:12px;font-size:.85rem;z-index:70;opacity:0;transition:opacity .3s;pointer-events:none;max-width:88vw}
+  #toast.show{opacity:1}
+  #toast b{cursor:pointer;color:var(--accent-soft);text-decoration:underline;pointer-events:auto}
+
+  /* drawer */
+  #drawer{position:fixed;inset:0;z-index:80;background:#0008;display:none}
+  #drawer.on{display:block}
+  .sheet{position:absolute;right:0;top:0;bottom:0;width:min(22rem,86vw);background:var(--card);border-left:1px solid var(--line);padding:1.2rem;overflow:auto}
+  .sheet h3{margin:.2rem 0 1rem}
+  .hlitem{border-bottom:1px solid var(--line);padding:.7rem 0;font-size:.92rem}
+  .hlitem .x{float:right;color:var(--ink-soft);cursor:pointer;font-family:monospace}
+  .hlitem q{cursor:pointer;color:var(--ink)}
+  @media(min-width:720px){ .hero h1{font-size:3rem} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="home" id="homeBtn">The Dunes of Chinguetti</div>
+    <button class="iconbtn" id="hlBtn" title="Highlights">✎ <span id="hlCount">0</span></button>
+    <button class="iconbtn" id="themeBtn" title="Theme">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- LANDING -->
+  <section class="landing" id="landing">
+    <div class="hero">
+      <div class="mono">Mauritania · The Adrar · A place the desert is taking back</div>
+      <h1>The Dunes of Chinguetti</h1>
+      <p class="lede">Two long reads on the same vanishing town, its groundwater, and the last librarians of the Sahara. One written by Claude, one by Gemini. Read them, or press play and let them read to you.</p>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="offline-row">
+      <button class="iconbtn" id="dlBtn">⤓ Download both for offline</button>
+      <span id="dlState"></span>
+    </div>
+  </section>
+
+  <!-- ARTICLE -->
+  <article id="article">
+    <button class="iconbtn" id="backBtn" style="margin:.4rem 0">← All essays</button>
+    <div class="art-head">
+      <div class="mono" id="aKicker"></div>
+      <h1 id="aTitle"></h1>
+      <div class="dek" id="aDek"></div>
+      <div class="byl">
+        <span class="badge" id="aBadge"></span>
+        <span class="mono" id="aRead"></span>
+      </div>
+    </div>
+    <div class="body" id="aBody"></div>
+    <div class="sources"><h3 class="mono">Sources</h3><ol id="aSources"></ol></div>
+  </article>
+</main>
+
+<button id="hlpill">Highlight</button>
+
+<!-- PLAYER -->
+<div class="player" id="player">
+  <div class="wrap">
+    <div class="prow">
+      <button class="play" id="playBtn">▶</button>
+      <div class="pmeta"><div class="t" id="pTitle"></div><div class="n" id="pNarr"></div></div>
+      <button class="rate" id="rateBtn">1×</button>
+    </div>
+    <div class="scrub">
+      <button class="skip" id="back15">−15</button>
+      <span class="tm" id="tCur">0:00</span>
+      <input type="range" id="seek" min="0" max="1000" value="0" />
+      <span class="tm" id="tDur">0:00</span>
+      <button class="skip" id="fwd15">+15</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="drawer"><div class="sheet"><h3>Highlights</h3><div id="hlList"></div></div></div>
+
+<audio id="au" preload="none"></audio>
+
+<script>
+const $ = (s)=>document.querySelector(s);
+let ESSAYS=[], cur=null, timing=null, flatWords=[], curWordIdx=-1;
+const au = $('#au');
+
+// ---------- theme ----------
+const savedTheme = localStorage.getItem('dune:theme');
+if(savedTheme) document.documentElement.dataset.theme = savedTheme;
+else if(matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme='dark';
+$('#themeBtn').onclick=()=>{const d=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=d;localStorage.setItem('dune:theme',d);$('meta[name=theme-color]').content=d==='dark'?'#14110d':'#f4efe6';};
+
+// ---------- load ----------
+fetch('/dune/essays.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{ESSAYS=d;renderCards();route();}).catch(()=>{ $('#cards').innerHTML='<p>Could not load essays.</p>'; });
+
+function readTime(wc){return Math.max(1,Math.round(wc/230));}
+function renderCards(){
+  $('#cards').innerHTML = ESSAYS.map(e=>`
+    <div class="card" data-slug="${e.slug}">
+      <div class="k"><span class="badge ${e.id==='gemini'?'g':'c'}">Written by ${e.author}</span>
+      <span class="mono">${e.audio?'▶ '+fmt(e.audio.duration):'narration soon'}</span></div>
+      <h2>${e.title}</h2>
+      <div class="dek">${e.dek}</div>
+      <div class="meta"><span class="mono">${readTime(e.wordCount)} min read</span><span class="mono">Voice · ${e.voiceName}</span></div>
+    </div>`).join('');
+  document.querySelectorAll('.card').forEach(c=>c.onclick=()=>location.hash='#/'+c.dataset.slug);
+}
+
+// ---------- routing ----------
+window.addEventListener('hashchange',route);
+$('#homeBtn').onclick=()=>location.hash='';
+$('#backBtn').onclick=()=>location.hash='';
+function route(){
+  const m=location.hash.match(/#\/(.+)/);
+  if(m){const e=ESSAYS.find(x=>x.slug===m[1]); if(e){openEssay(e);return;}}
+  closeEssay();
+}
+
+// ---------- render article ----------
+function openEssay(e){
+  cur=e; timing=null; flatWords=[]; curWordIdx=-1;
+  $('#landing').classList.add('off'); $('#article').classList.add('on'); window.scrollTo(0,0);
+  $('#aKicker').textContent='Chinguetti, Mauritania';
+  $('#aTitle').textContent=e.title; $('#aDek').textContent=e.dek;
+  $('#aBadge').textContent='Written by '+e.author; $('#aBadge').className='badge '+(e.id==='gemini'?'g':'c');
+  $('#aRead').textContent=readTime(e.wordCount)+' min · narrated by '+e.voiceName;
+  const paras=e.body.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
+  $('#aBody').innerHTML=paras.map((p,pi)=>{
+    const toks=p.match(/\S+/g)||[];
+    return '<p data-p="'+pi+'">'+toks.map((t,i)=>'<span class="w" data-p="'+pi+'" data-i="'+i+'">'+escapeHtml(t)+'</span>').join(' ')+'</p>';
+  }).join('');
+  $('#aSources').innerHTML=(e.sources||[]).map(s=>`<li><a href="${s.url}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a></li>`).join('');
+  applyHighlights();
+  setupAudio(e);
+  restorePlace(e);
+  updateHlCount();
+}
+function closeEssay(){cur=null;$('#article').classList.remove('on');$('#landing').classList.remove('off');stopAudio();$('#player').classList.remove('on');document.body.classList.remove('audio-on');renderCards();}
+
+function escapeHtml(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function fmt(sec){sec=Math.round(sec||0);return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
+
+// ---------- audio + karaoke ----------
+function setupAudio(e){
+  if(!e.audio){$('#player').classList.remove('on');document.body.classList.remove('audio-on');return;}
+  $('#player').classList.add('on'); document.body.classList.add('audio-on');
+  $('#pTitle').textContent=e.title; $('#pNarr').textContent='Narrated by '+e.voiceName;
+  au.src=e.audio.url; $('#playBtn').textContent='▶';
+  fetch(e.audio.timingUrl,{cache:'force-cache'}).then(r=>r.json()).then(t=>{
+    timing=t; flatWords=[];
+    t.paragraphs.forEach((pp,pi)=>pp.words.forEach((w,wi)=>{
+      const el=document.querySelector('.w[data-p="'+pi+'"][data-i="'+wi+'"]');
+      flatWords.push({s:w.s,e:w.e,el});
+    }));
+  }).catch(()=>{});
+}
+function stopAudio(){au.pause();au.removeAttribute('src');au.load&&au.load();}
+$('#playBtn').onclick=()=>{ if(au.paused){au.play();}else{au.pause();} };
+au.onplay=()=>$('#playBtn').textContent='❚❚';
+au.onpause=()=>{$('#playBtn').textContent='▶';savePlace();};
+au.onloadedmetadata=()=>{$('#tDur').textContent=fmt(au.duration);};
+au.ontimeupdate=()=>{
+  const d=au.duration||cur?.audio?.duration||1;
+  $('#seek').value=Math.round(au.currentTime/d*1000);
+  $('#tCur').textContent=fmt(au.currentTime); $('#tDur').textContent=fmt(d);
+  highlightWord(au.currentTime);
+  if(!au.paused && Math.floor(au.currentTime)%5===0) savePlace();
+};
+$('#seek').oninput=()=>{const d=au.duration||1;au.currentTime=$('#seek').value/1000*d;};
+$('#back15').onclick=()=>au.currentTime=Math.max(0,au.currentTime-15);
+$('#fwd15').onclick=()=>au.currentTime=Math.min(au.duration||1e9,au.currentTime+15);
+const RATES=[1,1.25,1.5,1.75,0.9];let ri=0;
+$('#rateBtn').onclick=()=>{ri=(ri+1)%RATES.length;au.playbackRate=RATES[ri];$('#rateBtn').textContent=RATES[ri]+'×';};
+
+function highlightWord(t){
+  if(!flatWords.length) return;
+  // binary search current word
+  let lo=0,hi=flatWords.length-1,idx=-1;
+  while(lo<=hi){const mid=(lo+hi)>>1;if(t<flatWords[mid].s)hi=mid-1;else if(t>flatWords[mid].e)lo=mid+1;else{idx=mid;break;}}
+  if(idx===-1) idx=Math.max(0,lo-1);
+  if(idx===curWordIdx) return;
+  if(curWordIdx>=0&&flatWords[curWordIdx].el) flatWords[curWordIdx].el.classList.remove('kar');
+  curWordIdx=idx;
+  const el=flatWords[idx]?.el; if(el){el.classList.add('kar');keepInView(el);}
+}
+let lastScroll=0;
+function keepInView(el){
+  const r=el.getBoundingClientRect();
+  if(r.top<90||r.bottom>window.innerHeight-160){
+    if(Date.now()-lastScroll>600){lastScroll=Date.now();el.scrollIntoView({behavior:'smooth',block:'center'});}
+  }
+}
+// tap word to seek
+$('#aBody').addEventListener('click',ev=>{
+  const w=ev.target.closest('.w'); if(!w||!flatWords.length||!cur?.audio) return;
+  const p=+w.dataset.p,i=+w.dataset.i;
+  const tp=timing?.paragraphs[p]; if(tp&&tp.words[i]){au.currentTime=tp.words[i].s; if(au.paused)au.play();}
+});
+
+// ---------- highlighting ----------
+function hlKey(){return 'dune:hl:'+cur.slug;}
+function getHls(){try{return JSON.parse(localStorage.getItem(hlKey()))||[]}catch{return[]}}
+function setHls(a){localStorage.setItem(hlKey(),JSON.stringify(a));updateHlCount();}
+function applyHighlights(){
+  document.querySelectorAll('.w.hl').forEach(w=>w.classList.remove('hl'));
+  getHls().forEach(h=>{for(let i=h.a;i<=h.b;i++){const el=document.querySelector('.w[data-p="'+h.p+'"][data-i="'+i+'"]');if(el)el.classList.add('hl');}});
+}
+const pill=$('#hlpill');
+document.addEventListener('selectionchange',()=>{
+  const sel=document.getSelection();
+  if(!cur||!sel||sel.isCollapsed||!sel.toString().trim()){pill.style.display='none';return;}
+  const anchor=sel.anchorNode&&sel.anchorNode.parentElement&&sel.anchorNode.parentElement.closest('#aBody');
+  if(!anchor){pill.style.display='none';return;}
+  const r=sel.getRangeAt(0).getBoundingClientRect();
+  pill.style.left=(r.left+r.width/2)+'px'; pill.style.top=r.top+'px'; pill.style.display='block';
+});
+pill.onclick=()=>{
+  const sel=document.getSelection(); if(!sel||sel.isCollapsed) return;
+  const spans=[...document.querySelectorAll('#aBody .w')].filter(el=>{try{return sel.containsNode(el,true)}catch{return false}});
+  const byP={};
+  spans.forEach(el=>{const p=+el.dataset.p,i=+el.dataset.i;(byP[p]=byP[p]||[]).push(i);});
+  const hls=getHls();
+  Object.entries(byP).forEach(([p,arr])=>{hls.push({p:+p,a:Math.min(...arr),b:Math.max(...arr)});});
+  setHls(hls); applyHighlights(); sel.removeAllRanges(); pill.style.display='none'; toast('Highlighted');
+};
+function updateHlCount(){let n=0;ESSAYS.forEach(e=>{try{n+=(JSON.parse(localStorage.getItem('dune:hl:'+e.slug))||[]).length}catch{}});$('#hlCount').textContent=n;}
+// drawer
+$('#hlBtn').onclick=()=>{renderDrawer();$('#drawer').classList.add('on');};
+$('#drawer').onclick=(e)=>{if(e.target.id==='drawer')$('#drawer').classList.remove('on');};
+function renderDrawer(){
+  let html='';
+  ESSAYS.forEach(e=>{
+    let hls=[];try{hls=JSON.parse(localStorage.getItem('dune:hl:'+e.slug))||[]}catch{}
+    if(!hls.length)return;
+    const paras=e.body.split(/\n\n+/).map(p=>p.trim());
+    html+='<div class="mono" style="margin:.6rem 0 .2rem">'+e.title+'</div>';
+    hls.forEach((h,hi)=>{
+      const toks=(paras[h.p].match(/\S+/g)||[]).slice(h.a,h.b+1).join(' ');
+      html+='<div class="hlitem"><span class="x" data-slug="'+e.slug+'" data-hi="'+hi+'">✕</span><q data-slug="'+e.slug+'" data-p="'+h.p+'">“'+escapeHtml(toks)+'”</q></div>';
+    });
+  });
+  $('#hlList').innerHTML=html||'<p style="color:var(--ink-soft)">Select any text while reading to save a highlight.</p>';
+  $('#hlList').querySelectorAll('.x').forEach(x=>x.onclick=()=>{const s=x.dataset.slug;const a=JSON.parse(localStorage.getItem('dune:hl:'+s));a.splice(+x.dataset.hi,1);localStorage.setItem('dune:hl:'+s,JSON.stringify(a));updateHlCount();renderDrawer();if(cur&&cur.slug===s)applyHighlights();});
+  $('#hlList').querySelectorAll('q').forEach(q=>q.onclick=()=>{$('#drawer').classList.remove('on');location.hash='#/'+q.dataset.slug;setTimeout(()=>{const el=document.querySelector('.w[data-p="'+q.dataset.p+'"]');el&&el.scrollIntoView({block:'center'});},120);});
+}
+
+// ---------- save place ----------
+function placeKey(){return 'dune:place:'+cur.slug;}
+function savePlace(){ if(!cur)return; let topP=0; document.querySelectorAll('#aBody p').forEach(p=>{if(p.getBoundingClientRect().top<120)topP=+p.dataset.p;}); localStorage.setItem(placeKey(),JSON.stringify({p:topP,t:au&&cur.audio?au.currentTime:0})); }
+let placeTimer; window.addEventListener('scroll',()=>{clearTimeout(placeTimer);placeTimer=setTimeout(savePlace,400);});
+function restorePlace(e){
+  let pl=null;try{pl=JSON.parse(localStorage.getItem('dune:place:'+e.slug))}catch{}
+  if(!pl||(!pl.p&&!pl.t))return;
+  const jump=()=>{const el=document.querySelector('#aBody p[data-p="'+pl.p+'"]');if(el)el.scrollIntoView({block:'start'});if(pl.t&&e.audio)au.currentTime=pl.t;};
+  if(pl.p>2||pl.t>5) toast('Resume where you left off?', jump);
+}
+
+// ---------- toast ----------
+let toastTimer;
+function toast(msg,action){
+  const t=$('#toast'); t.innerHTML=escapeHtml(msg)+(action?' <b>Resume</b>':''); t.classList.add('show');
+  if(action){t.querySelector('b').onclick=()=>{action();t.classList.remove('show');};}
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),action?6000:1800);
+}
+
+// ---------- offline download ----------
+$('#dlBtn').onclick=async()=>{
+  const st=$('#dlState'); st.textContent='caching…';
+  try{
+    const urls=['/dune/','/dune/index.html','/dune/essays.json','/dune/manifest.webmanifest','/dune/icon.svg'];
+    ESSAYS.forEach(e=>{if(e.audio){urls.push(e.audio.url,e.audio.timingUrl);}});
+    const cache=await caches.open('dune-v1');
+    let n=0; for(const u of urls){try{await cache.add(u);}catch{} st.textContent='caching… '+(++n)+'/'+urls.length;}
+    localStorage.setItem('dune:offline','1'); st.textContent='✓ available offline';
+  }catch(err){st.textContent='offline caching unavailable';}
+};
+if(localStorage.getItem('dune:offline'))$('#dlState').textContent='✓ available offline';
+
+// ---------- service worker ----------
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/dune/sw.js').catch(()=>{});
+</script>
+</body>
+</html>
