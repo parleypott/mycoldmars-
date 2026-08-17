@@ -1,0 +1,13 @@
+{
+  "name": "Newpress Scripts",
+  "short_name": "Scripts",
+  "description": "The script library for The Human Element — offline-capable.",
+  "start_url": "/scripts-library/",
+  "scope": "/scripts-library/",
+  "display": "standalone",
+  "background_color": "#e7e1d3",
+  "theme_color": "#1f1d18",
+  "icons": [
+    { "src": "/newpress-favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

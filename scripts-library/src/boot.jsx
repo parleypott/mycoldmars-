@@ -22,6 +22,7 @@ import { configForProject } from './config-for-project.js';
 import { ensureUnlocked, detectSession, requestSignIn, hideGate } from './gate.js';
 import { resolvePublicProject, rowForGuest, mountPrivateScriptPage, injectGuestSignInPill } from './guest.js';
 import { armSentry } from '../../burma-script/src/sentry-boot.js';
+import { registerOfflineShell } from './offline-shell.js';
 
 const RESERVED_LIBRARY = new Set(['', 'library', 'home']);
 
@@ -332,3 +333,7 @@ window.addEventListener('popstate', onRouteEvent);
 // One shot per page load is enough to tag correctly: a route CHANGE reloads the page
 // (engine singleton), so the tag chosen here is the tag for this whole page lifetime.
 armSentry({ episode: isLibraryRoute(currentSlug()) ? 'library' : currentSlug() });
+
+// Offline app-shell — register the service worker so /scripts-library/ opens and
+// runs with no internet (the plane case). Scoped to this app only; best-effort.
+registerOfflineShell();
