@@ -1,1274 +1,448 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Burma Archive Map — where to find the imagery</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burma Archive Map</title>
 <style>
-  :root {
-    --bg:#14110c; --bg2:#1c1811; --panel:#211c14; --line:#3a3225;
-    --ink:#efe7d6; --ink-dim:#c3b7a0; --ink-faint:#9a8d76;
-    --gold:#d6a24a; --gold-soft:#e7c483;
-    --open:#7fb069; --mixed:#d6a24a; --perm:#c86b5c;
-  }
-  * { box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
-  body {
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-    font-size:20px; line-height:1.72; -webkit-font-smoothing:antialiased;
-  }
-  .mono { font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
-  a { color:var(--gold-soft); text-decoration:none; }
-  a:hover { text-decoration:underline; }
-  .wrap { max-width:900px; margin:0 auto; padding:0 26px 120px; }
-
-  header.hero { padding:76px 0 40px; border-bottom:1px solid var(--line); }
-  .kicker { font-family:"JetBrains Mono",monospace; font-size:13px; letter-spacing:.32em;
-    text-transform:uppercase; color:var(--gold); margin:0 0 22px; }
-  h1 { font-size:52px; line-height:1.08; margin:0 0 20px; font-weight:600; letter-spacing:-0.01em; }
-  h1 .sub { display:block; font-size:25px; color:var(--ink-dim); font-weight:400; margin-top:14px; line-height:1.4; }
-  .lede { font-size:22px; color:var(--ink-dim); max-width:44ch; }
-  .meta-row { font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--ink-faint);
-    letter-spacing:.06em; margin-top:30px; display:flex; gap:26px; flex-wrap:wrap; }
-  .meta-row b { color:var(--gold-soft); font-weight:500; }
-
-  .intro { padding:40px 0; border-bottom:1px solid var(--line); }
-  .intro h2 { font-size:15px; font-family:"JetBrains Mono",monospace; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--gold); margin:0 0 16px; font-weight:700; }
-  .intro p { margin:0 0 18px; }
-  .callout { background:var(--bg2); border-left:3px solid var(--gold); padding:20px 24px;
-    margin:26px 0 0; border-radius:0 6px 6px 0; }
-  .callout p { margin:0; color:var(--ink-dim); font-size:19px; }
-  .callout .lab { color:var(--gold); }
-
-  .legend { display:flex; gap:12px; flex-wrap:wrap; margin:26px 0 0; }
-  .legend .tier { cursor:default; }
-  .legend span.desc { font-size:15px; color:var(--ink-faint); }
-
-  nav.toc { padding:34px 0; border-bottom:1px solid var(--line); }
-  nav.toc h2 { font-size:15px; font-family:"JetBrains Mono",monospace; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--gold); margin:0 0 18px; }
-  nav.toc a { display:block; padding:8px 0; font-size:19px; color:var(--ink);
-    border-bottom:1px dotted var(--line); }
-  nav.toc a:hover { color:var(--gold-soft); text-decoration:none; padding-left:8px; transition:.15s; }
-
-  section.cat { padding:56px 0 20px; border-bottom:1px solid var(--line); }
-  section.cat h2 { font-size:36px; margin:0 0 10px; font-weight:600; letter-spacing:-0.01em;
-    color:var(--gold-soft); }
-  .blurb { font-size:21px; color:var(--ink-dim); margin:0 0 30px; max-width:56ch; }
-
-  .needs-box { background:var(--bg2); border:1px solid var(--line); border-radius:8px;
-    padding:24px 26px; margin:0 0 34px; }
-  .needs-box h3 { font-family:"JetBrains Mono",monospace; font-size:13px; letter-spacing:.18em;
-    text-transform:uppercase; color:var(--gold); margin:0 0 16px; font-weight:700; }
-  ul.needs { list-style:none; margin:0; padding:0; }
-  ul.needs li { padding:11px 0; border-top:1px solid var(--line); display:block; }
-  ul.needs li:first-child { border-top:none; }
-  .loc { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:12px;
-    letter-spacing:.08em; text-transform:uppercase; color:var(--bg); background:var(--gold-soft);
-    padding:3px 9px; border-radius:4px; margin-right:12px; vertical-align:2px; white-space:nowrap; }
-  .quote { color:var(--ink); font-style:italic; }
-
-  h3.repos-h { font-family:"JetBrains Mono",monospace; font-size:13px; letter-spacing:.18em;
-    text-transform:uppercase; color:var(--ink-faint); margin:0 0 20px; font-weight:700; }
-  ol.repos { list-style:none; margin:0; padding:0; counter-reset:repo; }
-  li.repo { counter-increment:repo; padding:22px 0 22px 46px; border-top:1px solid var(--line);
-    position:relative; }
-  li.repo::before { content:counter(repo,decimal-leading-zero); position:absolute; left:0; top:24px;
-    font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--gold); font-weight:700; }
-  .repo-head { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
-  .repo-name { font-size:21px; font-weight:600; color:var(--ink); }
-  li.repo a.repo-name:hover { color:var(--gold-soft); }
-  .repo-url { display:block; font-family:"JetBrains Mono",monospace; font-size:12.5px;
-    color:var(--ink-faint); word-break:break-all; margin:5px 0 12px; }
-  .strength { margin:0 0 12px; color:var(--ink); }
-  .howto, .rights, .note { margin:0 0 8px; font-size:17px; color:var(--ink-dim); }
-  .note { color:var(--perm); font-size:16px; }
-  .lab { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.14em;
-    text-transform:uppercase; color:var(--gold); margin-right:8px; }
-
-  .tier { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:.1em;
-    font-weight:700; padding:3px 8px; border-radius:4px; text-transform:uppercase;
-    white-space:nowrap; }
-  .tier-open { background:rgba(127,176,105,.16); color:var(--open); border:1px solid rgba(127,176,105,.4); }
-  .tier-mixed { background:rgba(214,162,74,.14); color:var(--mixed); border:1px solid rgba(214,162,74,.4); }
-  .tier-perm { background:rgba(200,107,92,.15); color:var(--perm); border:1px solid rgba(200,107,92,.4); }
-
-  section.gaps { padding:56px 0 20px; border-bottom:1px solid var(--line); }
-  section.gaps > h2 { font-size:36px; margin:0 0 10px; font-weight:600; color:var(--gold-soft); }
-  section.gaps > .blurb { margin-bottom:34px; }
-  .gap { background:var(--bg2); border:1px solid var(--line); border-radius:8px;
-    padding:24px 26px; margin:0 0 20px; }
-  .gap h3 { font-size:22px; margin:0 0 14px; color:var(--ink); font-weight:600; }
-  .gap p { margin:0 0 12px; font-size:18px; color:var(--ink-dim); }
-  .gap-problem .lab { color:var(--perm); }
-  .gap-fix .lab { color:var(--open); }
-
-  section.sources { padding:56px 0 20px; }
-  section.sources h2 { font-size:36px; margin:0 0 24px; font-weight:600; color:var(--gold-soft); }
-  ul.sources { list-style:none; margin:0; padding:0; columns:1; }
-  ul.sources li { padding:10px 0; border-top:1px solid var(--line); display:flex;
-    justify-content:space-between; align-items:baseline; gap:12px; }
-  ul.sources li:first-child { border-top:none; }
-
-  footer { padding:50px 0 0; color:var(--ink-faint); font-size:15px;
-    font-family:"JetBrains Mono",monospace; letter-spacing:.04em; border-top:1px solid var(--line); margin-top:40px; }
-
-  @media (max-width:640px) {
-    body { font-size:19px; }
-    h1 { font-size:38px; }
-    h1 .sub { font-size:21px; }
-    section.cat h2, section.gaps>h2, section.sources h2 { font-size:29px; }
-    .wrap { padding:0 18px 90px; }
-    li.repo { padding-left:0; }
-    li.repo::before { position:static; display:block; margin-bottom:6px; }
-  }
+  :root{ --bg:#0e0d0b; --panel:#131210; --ink:#efe9df; --mut:#8a8377; --line:#2a2723; --accent:#f44315; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:19px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+  header{margin-bottom:52px;border-bottom:1px solid var(--line);padding-bottom:28px}
+  h1{font-size:40px;line-height:1.05;margin:0 0 14px;font-weight:600;letter-spacing:-.01em}
+  .sub{color:var(--mut);font-size:16px;margin:0}
+  .meta{font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-top:16px}
+  .cat{margin:0 0 54px}
+  .cat h2{font-size:14px;font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 18px;font-weight:600}
+  .needs{margin:0 0 22px}
+  .need{margin:0 0 10px;padding-left:14px;border-left:2px solid var(--line)}
+  .loc{display:inline-block;font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-right:10px;vertical-align:1px}
+  .quote{font-style:italic;color:#d7cfc2}
+  ul.repos{list-style:none;margin:0;padding:0}
+  ul.repos>li{padding:11px 0;border-top:1px solid var(--line)}
+  ul.repos>li:last-child{border-bottom:1px solid var(--line)}
+  a.repo{color:var(--ink);text-decoration:none;font-size:19px;border-bottom:1px solid transparent;transition:border-color .15s,color .15s}
+  a.repo:hover{color:var(--accent);border-bottom-color:var(--accent)}
+  details{margin-top:6px}
+  summary{cursor:pointer;list-style:none;font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);display:inline-flex;align-items:center;gap:6px;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+";color:var(--accent);font-size:13px}
+  details[open] summary::before{content:"–"}
+  summary:hover{color:var(--ink)}
+  details p{margin:8px 0 4px;font-size:15px;line-height:1.5;color:var(--mut);font-family:system-ui,-apple-system,sans-serif;max-width:62ch}
+  .gaps{border-top:1px solid var(--line);padding-top:40px}
+  .gaps-lead{color:var(--mut);font-size:16px;margin:0 0 16px}
+  ul.gaplist{list-style:none;margin:0;padding:0}
+  ul.gaplist>li{padding:12px 0;border-top:1px solid var(--line);font-size:16px;line-height:1.5;color:#cfc7ba}
+  .gaptitle{color:var(--ink);font-weight:600}
+  footer{margin-top:70px;color:var(--mut);font-size:13px;font-family:ui-monospace,Menlo,monospace;letter-spacing:.04em}
+  @media (max-width:520px){ .wrap{padding:40px 20px 90px} h1{font-size:31px} body{font-size:18px} }
 </style>
 </head>
 <body>
-<div class="wrap">
+  <div class="wrap">
+    <header>
+      <h1>Burma, in the archive</h1>
+      <p class="sub">Every visual the script calls for, and where to find it. Tap a name to open the repository; “how to search” holds a tip.</p>
+      <p class="meta">32 script cues · 9 categories · 49 repositories</p>
+    </header>
 
-  <header class="hero">
-    <p class="kicker">Newpress · The Human Element · Archive Research</p>
-    <h1>Burma, in the archive
-      <span class="sub">Where in the world to find imagery for every visual the script asks for — category by category, with direct links.</span>
-    </h1>
-    <p class="lede">An archive-producer's map to the paintings, murals, manuscripts, photographs and maps that can carry the story of ancient Burma.</p>
-    <div class="meta-row">
-      <span><b>32</b> archive needs pulled from the script</span>
-      <span><b>9</b> categories</span>
-      <span><b>49</b> repositories, every link checked</span>
-      <span>Compiled 17 August 2026</span>
-    </div>
-  </header>
+    <section class="cat">
+      <h2>Spirituality &amp; Cosmology</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 15 · vo</span><span class="quote">a deep connection to [the] unique features of spiritual traditions and beliefs... the people adopted a unique interpretation of the buddha's teaching</span></p>
+        <p class="need"><span class="loc">row 11 · archive-req</span><span class="quote">Depictions of the many kingdoms... GOLD!! And temples ⁃ Buddhism in Burma.</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://www.bl.uk/stories/blogs/posts/buddhist-rebirth-in-different-planes-of-existence" target="_blank" rel="noopener">British Library — 'Buddhist rebirth in different planes of existence' (blog)</a>
+          <details><summary>how to search</summary><p>Search shelfmarks Or.14004 / Or.14550. The old bl.uk/manuscripts Viewer path is dead after the 2023 cyberattack — use this blog, or searcharchives.bl.uk.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">British Museum</a>
+          <details><summary>how to search</summary><p>Keyword 'Burma', 'nat', 'parabaik', 'cosmology Burma'. Sample objects: A_2010-3003-1, A_2011-3015-1, and the Popa Medaw nat figure A_2014-3027-4.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">The Public Domain Review — 'Burmese Map of the World'</a>
+          <details><summary>how to search</summary><p>Direct page; follow through to the NYPL source item for high-res.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">Myanmar Manuscript Digital Library (University of Toronto)</a>
+          <details><summary>how to search</summary><p>Search 'kammavaca', 'parabaik', 'jataka', 'cosmology', 'Pali' at myanmarmanuscripts.org/databases/.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://viewer.cbl.ie/" target="_blank" rel="noopener">Chester Beatty (Dublin)</a>
+          <details><summary>how to search</summary><p>Search 'Burmese', 'Kammavaca', 'palm leaf'. The Asian collection is only partly published online — expect gaps; some items are catalogue-only. Contact the library for un-digitised items.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">Victoria &amp; Albert Museum (V&amp;A)</a>
+          <details><summary>how to search</summary><p>Refine with the 'Place of origin' facet → Burma / Myanmar. Try 'shwe-chi-doe', 'lacquer burma', 'Mandalay', 'Tripe Burma'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://gallica.bnf.fr" target="_blank" rel="noopener">Bibliothèque nationale de France — Gallica</a>
+          <details><summary>how to search</summary><p>French terms: 'birman', 'Birmanie', 'manuscrit birman', 'Pali', 'Kammavaca', 'Pagan', 'Mandalay'. Manuscript records live in Archives et manuscrits (archivesetmanuscrits.bnf.fr) — e.g. Pali 867/870, Pali 196.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">Musée Guimet — MNAAG, Paris</a>
+          <details><summary>how to search</summary><p>Object records live in the French national POP / Joconde database (pop.culture.gouv.fr) — search 'birmanie', filter musée = Guimet. A dedicated Villa Guimet online portal is launching 2026.</p></details>
+        </li>
+      </ul>
+    </section>
 
-  <div class="intro">
-    <h2>How to use this</h2>
-    <p>Every RED-marked archive cue in the script (the <span class="mono">archive-req</span>, <span class="mono">map-need</span> and inline bracketed calls) has been pulled out and grouped into the categories below. Under each category you'll find first <em>what the script asks for</em> — quoted, with its row number so you can find it in the tool — then a ranked list of the real repositories that hold that imagery, each with a direct link, how to search it, and a rights note.</p>
-    <p>Every URL here was fetched and checked on 17 August 2026. A handful of institutions (British Museum, Library of Congress, Smithsonian, Cambridge, HathiTrust) block automated checks but load normally in a browser — those are flagged in red where they appear.</p>
+    <section class="cat">
+      <h2>Nats — the 37 Spirits</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 15 · vo</span><span class="quote">but through all the many rulers, one through line stayed, a deep connection to {TK unique features of spiritual traditions and beliefs} ... then around {year Buddhism arrived} a new spiritual tradition arrived</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://archive.org/details/india.history.resource.99975" target="_blank" rel="noopener">Internet Archive — R.C. Temple, 'The Thirty-Seven Nats' (1906)</a>
+          <details><summary>how to search</summary><p>Append /page/nX to deep-link plates. Downloadable as PDF / JP2 / full text.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Nats_(spirit)" target="_blank" rel="noopener">Wikimedia Commons — Category:Nats (spirit)</a>
+          <details><summary>how to search</summary><p>Use the exact singular title 'Nats (spirit)'. Plural / '37 Nats' / 'Burmese' variants all 404.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.britishmuseum.org/collection/object/A_2014-3027-4" target="_blank" rel="noopener">British Museum — Popa Medaw nat figure (2014,3027.4)</a>
+          <details><summary>how to search</summary><p>Registration number 2014,3027.4. Browse related nat figures from the object page.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">British Museum</a>
+          <details><summary>how to search</summary><p>Keyword 'Burma', 'nat', 'parabaik', 'cosmology Burma'. Sample objects: A_2010-3003-1, A_2011-3015-1, and the Popa Medaw nat figure A_2014-3027-4.</p></details>
+        </li>
+      </ul>
+    </section>
 
-    <div class="callout">
-      <p><span class="lab mono">The honest read</span> For ancient Burma, availability splits hard. <strong>Buddhism, temples and pagodas, colonial-era photography, King Thibaw's fall, and the whole modern political era are richly documented</strong> — you will not struggle. But <strong>the faces of the early kings do not exist</strong>: photography reached Burma only in the 1850s, and King Mindon (r.1853-78) is the earliest Burmese monarch ever photographed. For everyone before him — Anawrahta, Bayinnaung, Bodawpaya — there is no contemporary likeness, only stone and later paint. The Bagan-era record survives almost entirely as temple murals, which show Buddhist and Jataka scenes rather than rulers. Where a faithful depiction doesn't exist, the Gaps &amp; Proxies section names the closest usable stand-in.</p>
-    </div>
+    <section class="cat">
+      <h2>Buddhism in Burma</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 15 · vo</span><span class="quote">then around {fc year Buddhism arrived in Burma} a new spiritual tradition arrived: Buddhism... you showed your devotion by building things and placing gold on the buddha... No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha</span></p>
+        <p class="need"><span class="loc">row 11 · archive-req</span><span class="quote">Buddhism in Burma.</span></p>
+        <p class="need"><span class="loc">row 195 · broll</span><span class="quote">monks walking / establishing the monk and monastery / meditation with them (Johnny's own footage — archive can extend it)</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://www.bl.uk/stories/blogs/posts/scenes-from-the-life-of-the-buddha" target="_blank" rel="noopener">British Library — 'Scenes from the Life of the Buddha' (blog)</a>
+          <details><summary>how to search</summary><p>On-page; or search each Or. shelfmark at searcharchives.bl.uk.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.metmuseum.org/art/collection/search?q=Burma&amp;showOnly=openAccess" target="_blank" rel="noopener">The Metropolitan Museum of Art — Open Access</a>
+          <details><summary>how to search</summary><p>Query 'Burma' (131 objects) or 'Burmese' (133); tick Open Access + With Image. Programmatic: the public API at collectionapi.metmuseum.org returns results live.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.si.edu/search/collection-images?edan_q=Burma" target="_blank" rel="noopener">Smithsonian — National Museum of Asian Art (Freer|Sackler)</a>
+          <details><summary>how to search</summary><p>Query 'Burma' / 'Burmese'; filter Usage: CC0 and On/Has media: images.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">Myanmar Manuscript Digital Library (University of Toronto)</a>
+          <details><summary>how to search</summary><p>Search 'kammavaca', 'parabaik', 'jataka', 'cosmology', 'Pali' at myanmarmanuscripts.org/databases/.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://viewer.cbl.ie/" target="_blank" rel="noopener">Chester Beatty (Dublin)</a>
+          <details><summary>how to search</summary><p>Search 'Burmese', 'Kammavaca', 'palm leaf'. The Asian collection is only partly published online — expect gaps; some items are catalogue-only. Contact the library for un-digitised items.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">Musée Guimet — MNAAG, Paris</a>
+          <details><summary>how to search</summary><p>Object records live in the French national POP / Joconde database (pop.culture.gouv.fr) — search 'birmanie', filter musée = Guimet. A dedicated Villa Guimet online portal is launching 2026.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://searchcollection.asianart.org/search/Burma" target="_blank" rel="noopener">Asian Art Museum of San Francisco</a>
+          <details><summary>how to search</summary><p>Search 'Burma' / 'Burmese'; Advanced Search (eMuseum) filters by classification / medium. Try 'nat', 'lacquer', 'Mandalay'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">Internet Archive — Shway Yoe (J.G. Scott), 'The Burman: His Life and Notions' (1896)</a>
+          <details><summary>how to search</summary><p>Also on HathiTrust (catalog record 007918288). Download PDF / JP2.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — Shwedagon pagoda</a>
+          <details><summary>how to search</summary><p>Lowercase 'Shwedagon_pagoda'. Capitalised / 'Shwedagon_Paya' variants 404.</p></details>
+        </li>
+      </ul>
+    </section>
 
-    <div class="legend">
-      <span class="tier tier-open">OPEN</span><span class="desc">public domain / CC0 / free to reuse</span>
-      <span class="tier tier-mixed">MIXED</span><span class="desc">some free, some restricted — check each item</span>
-      <span class="tier tier-perm">PERMISSION</span><span class="desc">rights-managed / licensing required</span>
-    </div>
+    <section class="cat">
+      <h2>Temples &amp; Pagodas</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 15 · vo</span><span class="quote">Building a temple is how you show your righteousness. Insurance for the lives beyond this one.</span></p>
+        <p class="need"><span class="loc">row 11 · archive-req</span><span class="quote">GOLD!! And temples</span></p>
+        <p class="need"><span class="loc">row 19 · scene</span><span class="quote">Golden Pagoda [Shwedagon]</span></p>
+        <p class="need"><span class="loc">row 191 · broll</span><span class="quote">temple b roll from Bagan</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">Wikimedia Commons — Bagan (and per-temple subcategories)</a>
+          <details><summary>how to search</summary><p>Use bare category forms: Ananda_Temple, Shwezigon, Dhammayangyi. 'Shwezigon_Pagoda' / 'Dhammayangyi_Temple' / 'Murals_in_Ananda_Temple' are redirects or 404.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Ananda_Temple" target="_blank" rel="noopener">Wikimedia Commons — Ananda Temple</a>
+          <details><summary>how to search</summary><p>Bare form 'Ananda_Temple'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Shwezigon" target="_blank" rel="noopener">Wikimedia Commons — Shwezigon</a>
+          <details><summary>how to search</summary><p>Bare form 'Shwezigon'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Dhammayangyi" target="_blank" rel="noopener">Wikimedia Commons — Dhammayangyi</a>
+          <details><summary>how to search</summary><p>Bare form 'Dhammayangyi'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collections.vam.ac.uk/item/O133416/amerapoora-nagayoung-pagod-photograph-tripe-linnaeus/" target="_blank" rel="noopener">V&amp;A — Linnaeus Tripe, 'Burma Views' (1855)</a>
+          <details><summary>how to search</summary><p>Search 'Tripe Burma' at collections.vam.ac.uk.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collection.efeo.fr/" target="_blank" rel="noopener">École française d'Extrême-Orient (EFEO) — Photothèque</a>
+          <details><summary>how to search</summary><p>French terms: 'Birmanie', 'Pagan' (EFEO uses the older spelling), 'temple', 'fresque', 'peinture murale', 'stûpa'. Strong on architecture / archaeology, thinner on manuscripts.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — Shwedagon pagoda</a>
+          <details><summary>how to search</summary><p>Lowercase 'Shwedagon_pagoda'. Capitalised / 'Shwedagon_Paya' variants 404.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:History_of_Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — History of Shwedagon pagoda</a>
+          <details><summary>how to search</summary><p>Direct category.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://meral.edu.mm/" target="_blank" rel="noopener">Bagan murals — scholarly finding aids (no single open database)</a>
+          <details><summary>how to search</summary><p>MERAL (Myanmar research repository); plus 'The Murals of Temple 1077 in Pagan' (Academia.edu) and a Gubyaukgyi study in the Heritage University of Kerala journal.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://whc.unesco.org/en/list/1588/gallery/" target="_blank" rel="noopener">UNESCO World Heritage Centre — Bagan gallery</a>
+          <details><summary>how to search</summary><p>Bagan is World Heritage list no. 1588; browse the gallery.</p></details>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cat">
+      <h2>Kings &amp; Royalty</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 11 · archive-req</span><span class="quote">Depictions of the kings</span></p>
+        <p class="need"><span class="loc">row 14 · vo</span><span class="quote">along this river cropped up kings who {epic descriptions of kingdoms}... how kingdoms would fight with each other and fracture the country only to unify around a new king</span></p>
+        <p class="need"><span class="loc">row 25 · vo</span><span class="quote">1885 took its center and its king. they ship the king and queen out on a boat down the river... it was to be the end of the last king of Burma.</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://digital.bodleian.ox.ac.uk/collections/burmese/" target="_blank" rel="noopener">Bodleian Libraries (Oxford) — Digital Bodleian, Burmese collection</a>
+          <details><summary>how to search</summary><p>Browse the collection page or search 'Burmese', 'parabaik', 'Mandalay'. (Hand-built facet URLs 404 — use the landing page.)</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/File:King_thibaw_queen_daughter1885.jpg" target="_blank" rel="noopener">Wikimedia Commons — King Thibaw, Queen Supayalat &amp; daughter, 1885</a>
+          <details><summary>how to search</summary><p>Before publishing, pull the exact British Library shelfmark from the Commons source field (BL imagesonline permalinks are unstable).</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Mindon_Min" target="_blank" rel="noopener">Wikimedia Commons — Mindon Min</a>
+          <details><summary>how to search</summary><p>Verify each file reads 'photograph': 'File:King-Mindon.jpg' is a 2013 bronze statue, and some adjacent files are photos of painted portraits.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collections.vam.ac.uk/item/O18183/the-departure-of-king-thibaw-painting-unknown/" target="_blank" rel="noopener">V&amp;A — 'The Departure of King Thibaw from Mandalay' (IS.13-1958)</a>
+          <details><summary>how to search</summary><p>Direct object page; search 'Thibaw' at collections.vam.ac.uk for related works.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">National Army Museum — Anglo-Burmese Wars</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Thibaw', 'Prendergast', 'Third Burma War', 'Mandalay 1885' at collection.nam.ac.uk.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">Internet Archive — Yule, 'Narrative of the Mission to the Court of Ava in 1855' (1858)</a>
+          <details><summary>how to search</summary><p>Download PDF / JP2; the plates are the goldmine for a faithful mid-19th-c. Ava depiction.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Art_of_the_Konbaung_dynasty" target="_blank" rel="noopener">Wikimedia Commons — Art of the Konbaung dynasty &amp; Burmese monarchs</a>
+          <details><summary>how to search</summary><p>Also Category:Thibaw_Min, Category:Bayinnaung (commemorative statues, 1568 plan of Bago, Thai temple murals of his campaigns).</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a>
+          <details><summary>how to search</summary><p>Category page; also search 'Felice Beato Burma', 'Mandalay 1885'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">Victoria &amp; Albert Museum (V&amp;A)</a>
+          <details><summary>how to search</summary><p>Refine with the 'Place of origin' facet → Burma / Myanmar. Try 'shwe-chi-doe', 'lacquer burma', 'Mandalay', 'Tripe Burma'.</p></details>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cat">
+      <h2>New Capitals &amp; Cities</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 11 · archive-req</span><span class="quote">Depictions of grand cities built</span></p>
+        <p class="need"><span class="loc">row 15 · vo</span><span class="quote">the kings did this too... build new capitals everywhere. [Mapping all the capitals over the years]</span></p>
+        <p class="need"><span class="loc">row 10 · bin</span><span class="quote">Location of all the many 'capitals'... that we can timelapse thru to show the habit of moving the capital every time a king wants to show their righteousness</span></p>
+        <p class="need"><span class="loc">row 68 · vo</span><span class="quote">the military Junta that decided to build Napidaw the new capital... the huge roads that were built</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">David Rumsey Map Collection</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Burman Empire', 'Further India', 'Ava', 'Pegu', 'Irawadi', 'Rangoon'; use the date slider for 1820s-1880s.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">Wikimedia Commons — Maps of the history of Myanmar</a>
+          <details><summary>how to search</summary><p>Browse the century subcats; search 'Konbaung empire', 'Pagan Kingdom map'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">Internet Archive — Yule, 'Narrative of the Mission to the Court of Ava in 1855' (1858)</a>
+          <details><summary>how to search</summary><p>Download PDF / JP2; the plates are the goldmine for a faithful mid-19th-c. Ava depiction.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a>
+          <details><summary>how to search</summary><p>Category page; also search 'Felice Beato Burma', 'Mandalay 1885'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collection.efeo.fr/" target="_blank" rel="noopener">École française d'Extrême-Orient (EFEO) — Photothèque</a>
+          <details><summary>how to search</summary><p>French terms: 'Birmanie', 'Pagan' (EFEO uses the older spelling), 'temple', 'fresque', 'peinture murale', 'stûpa'. Strong on architecture / archaeology, thinner on manuscripts.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">Wikimedia Commons — Bagan (and per-temple subcategories)</a>
+          <details><summary>how to search</summary><p>Use bare category forms: Ananda_Temple, Shwezigon, Dhammayangyi. 'Shwezigon_Pagoda' / 'Dhammayangyi_Temple' / 'Murals_in_Ananda_Temple' are redirects or 404.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">Library of Congress — Geography &amp; Map Division</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Irrawaddy', 'Ava'; filter Geography &amp; Map Division and 'Available Online'.</p></details>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cat">
+      <h2>British Conquest &amp; Colonial Rule</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 22 · archive-req</span><span class="quote">old timey British documentary SOT about British Burma</span></p>
+        <p class="need"><span class="loc">row 24 · map-need</span><span class="quote">map showing conquest of Burma three wars</span></p>
+        <p class="need"><span class="loc">row 25 · vo</span><span class="quote">1826 took Burma's edges, 1852 took its coast, 1885 took its center and its king</span></p>
+        <p class="need"><span class="loc">row 30 · archive-req</span><span class="quote">some British era movie about Burma</span></p>
+        <p class="need"><span class="loc">row 27 · vo</span><span class="quote">They do what colonizer do which is draw lines and start to tabulate what they could extract</span></p>
+        <p class="need"><span class="loc">row 31 · vo</span><span class="quote">how the British ruled... modernize education, medicine, but also dominate the people, divide the ethnic groups against each other</span></p>
+        <p class="need"><span class="loc">row 20 · sot</span><span class="quote">there's British buildings everywhere / montage of British buildings</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a>
+          <details><summary>how to search</summary><p>Category page; also search 'Felice Beato Burma', 'Mandalay 1885'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">National Army Museum — Anglo-Burmese Wars</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Thibaw', 'Prendergast', 'Third Burma War', 'Mandalay 1885' at collection.nam.ac.uk.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://cudl.lib.cam.ac.uk/collections/rcs" target="_blank" rel="noopener">Cambridge — Royal Commonwealth Society (Cambridge Digital Library)</a>
+          <details><summary>how to search</summary><p>Search 'Burma' / 'Burmah'; Beato search-term 'Y3029A' surfaces ~10 online Beato Burma photos.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://becc.bristol.gov.uk/records/2003/001/001" target="_blank" rel="noopener">Bristol Archives — British Empire &amp; Commonwealth Collection</a>
+          <details><summary>how to search</summary><p>Catalogue ref 2003/001/001; search 'Beato Burma'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://archives.colgate.edu/repositories/2/resources/359" target="_blank" rel="noopener">Colgate University Libraries — Philipp Adolphe Klier photographs of Burma (M4014)</a>
+          <details><summary>how to search</summary><p>ArchivesSpace collection ID M4014; search 'Klier Burma'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.myanmarphotoarchive.org/archives-in-focus/" target="_blank" rel="noopener">Myanmar Photo Archive (Lukas Birk)</a>
+          <details><summary>how to search</summary><p>Browse 'Archives in Focus' and 'Reproduced' essays. The archive itself is Yangon-based.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.rgs.org/our-collections/about-the-picture-library" target="_blank" rel="noopener">Royal Geographical Society (RGS-IBG) — Picture Library</a>
+          <details><summary>how to search</summary><p>~17,000 images searchable online plus the full catalogue; search 'Burma', 'Irrawaddy', 'Mandalay'. images@rgs.org for items not online.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">British Library — India Office Records (via National Archives Discovery)</a>
+          <details><summary>how to search</summary><p>750,000 India Office records are mirrored on National Archives Discovery — search 'Burma', ref prefix 'IOR', filter Held by = The British Library.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://wellcomecollection.org/collections" target="_blank" rel="noopener">Wellcome Collection — Burma prints &amp; photographs</a>
+          <details><summary>how to search</summary><p>Works search 'Burma' / 'Rangoon'; filter Pictures / Digital images.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">Internet Archive — Shway Yoe (J.G. Scott), 'The Burman: His Life and Notions' (1896)</a>
+          <details><summary>how to search</summary><p>Also on HathiTrust (catalog record 007918288). Download PDF / JP2.</p></details>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cat">
+      <h2>Maps &amp; Geography</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 12 · map-need</span><span class="quote">a {unique defining feature} river that flows from high in the Himalaya... between the two giants centers of civilization [highlights India and China]</span></p>
+        <p class="need"><span class="loc">row 9 · bin</span><span class="quote">Some shape that represents where the majority of this deep history happens... contrast to the Burma shape the British draw which is way bigger</span></p>
+        <p class="need"><span class="loc">row 63 · map-need</span><span class="quote">how are we going to visualize the autonomous regions, and the many languages and ethnicities.</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">David Rumsey Map Collection</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Burman Empire', 'Further India', 'Ava', 'Pegu', 'Irawadi', 'Rangoon'; use the date slider for 1820s-1880s.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">Wikimedia Commons — Maps of the history of Myanmar</a>
+          <details><summary>how to search</summary><p>Browse the century subcats; search 'Konbaung empire', 'Pagan Kingdom map'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">Library of Congress — Geography &amp; Map Division</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Irrawaddy', 'Ava'; filter Geography &amp; Map Division and 'Available Online'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">British Library — India Office Records (via National Archives Discovery)</a>
+          <details><summary>how to search</summary><p>750,000 India Office records are mirrored on National Archives Discovery — search 'Burma', ref prefix 'IOR', filter Held by = The British Library.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.oldmapsonline.org/en/Myanmar" target="_blank" rel="noopener">Old Maps Online — Myanmar</a>
+          <details><summary>how to search</summary><p>Pan / zoom to the Irrawaddy basin and set a date range, or search 'Burma' / 'Birmanie' / 'Ava'.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://gallica.bnf.fr" target="_blank" rel="noopener">Bibliothèque nationale de France — Gallica</a>
+          <details><summary>how to search</summary><p>French terms: 'birman', 'Birmanie', 'manuscrit birman', 'Pali', 'Kammavaca', 'Pagan', 'Mandalay'. Manuscript records live in Archives et manuscrits (archivesetmanuscrits.bnf.fr) — e.g. Pali 867/870, Pali 196.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://themimu.info/gis-resources" target="_blank" rel="noopener">MIMU — Myanmar Information Management Unit</a>
+          <details><summary>how to search</summary><p>GeoNode → search 'boundaries' / 'adm1' / 'self-administered'; grab ESRI shapefiles.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">The Public Domain Review — 'Burmese Map of the World'</a>
+          <details><summary>how to search</summary><p>Direct page; follow through to the NYPL source item for high-res.</p></details>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cat">
+      <h2>Modern Political Era (post-1948)</h2>
+      <div class="needs">
+        <p class="need"><span class="loc">row 58 · vo</span><span class="quote">They declared a new country four days in the year 1948... the lines the British drew at the height of their imperial control</span></p>
+        <p class="need"><span class="loc">row 60 · vo</span><span class="quote">[Burma Act of 1935: 'Ministerial Burma' and the 'Frontier Areas' governed differently]</span></p>
+        <p class="need"><span class="loc">row 68 · vo</span><span class="quote">Napidaw the new capital... the 2010s... Aung Sung Su Chi... Obama goes and is all hopeful</span></p>
+        <p class="need"><span class="loc">row 70 · vo</span><span class="quote">the force expulsion of and genocide of a million citizens [Rohingya]</span></p>
+        <p class="need"><span class="loc">row 71 · vo</span><span class="quote">it all came crashing down one morning in 2021... a YouTuber was recording an exercise video, the military behind her [2021 coup]</span></p>
+      </div>
+      <ul class="repos">
+        <li>
+          <a class="repo" href="https://www.gettyimages.com/photos/burma-history" target="_blank" rel="noopener">Getty Images — editorial / archival</a>
+          <details><summary>how to search</summary><p>Search 'Burma', 'Myanmar coup', 'Aung San Suu Kyi', 'Naypyidaw'. RGS historical licensing also routes through Getty.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://www.apimages.com/" target="_blank" rel="noopener">AP Images / Reuters / AFP</a>
+          <details><summary>how to search</summary><p>AP Images (apimages.com), Reuters (reuters.com/pictures), AFP via Getty. Search 'Myanmar', 'Burma coup', year + event.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://commons.wikimedia.org/wiki/Category:Aung_San_Suu_Kyi" target="_blank" rel="noopener">Wikimedia Commons — modern-era categories</a>
+          <details><summary>how to search</summary><p>Categories: Aung_San_Suu_Kyi, Naypyidaw, '2021 Myanmar coup d'état'. Coverage is thinner and more uneven than the wire services.</p></details>
+        </li>
+        <li>
+          <a class="repo" href="https://themimu.info/gis-resources" target="_blank" rel="noopener">MIMU — Myanmar Information Management Unit</a>
+          <details><summary>how to search</summary><p>GeoNode → search 'boundaries' / 'adm1' / 'self-administered'; grab ESRI shapefiles.</p></details>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cat gaps">
+      <h2>Gaps &amp; proxies</h2>
+      <p class="gaps-lead">Where no faithful depiction exists — and the closest usable stand-in.</p>
+      <ul class="gaplist">
+        <li><span class="gaptitle">Faces of the early kings (Anawrahta, Kyansittha, Bayinnaung, Alaungpaya, Bodawpaya)</span> Use proxies and label them as proxies: later Konbaung court paintings and temple donor-portraits (Commons: Art of the Konbaung dynasty), the kings' own monuments (Bodawpaya → Mingun Pahtodawgyi; Anawrahta / Kyansittha → Shwezigon and Bagan donor figures, the Mahamuni), and modern commemorative statuary. For Bayinnaung, a 1568 plan of Bago and Thai temple murals of his campaigns.</li>
+        <li><span class="gaptitle">The Bagan / Pagan era (9th-13th c.) court and daily life</span> Lean on the architecture and the in-situ murals as the period's authentic visual culture (Commons per-temple categories; EFEO historic mural photographs). Frame them honestly as 'the world these kings built', not 'portraits of these kings'.</li>
+        <li><span class="gaptitle">Pre-1850s Konbaung court life, from the Burmese side</span> The closest eyewitness renderings are Burmese-made parabaik court scenes (British Library; SOAS; Bodleian watercolours) and the 29 plates in Yule's 'Mission to the Court of Ava' (1858).</li>
+        <li><span class="gaptitle">The three Anglo-Burmese Wars as one conquest map (1826 / 1852 / 1885)</span> Redraw: take a clean Konbaung-at-peak base (Commons, CC-BY-SA) and overlay three dated bands — 1826 Treaty of Yandabo (Arakan + Tenasserim), 1852 (Lower Burma / Pegu), 1885 (Upper Burma + Mandalay). Every boundary is well documented; this is a design job, not an archive hunt.</li>
+        <li><span class="gaptitle">The moving royal capitals as one 'travelling capital' map</span> Redraw one Irrawaddy-basin base with six dated pins. Note the visual beat: Ava/Inwa, Amarapura and Mandalay cluster within ~20 km of each other; Pegu/Bago is the southern (Mon / Toungoo-era) outlier.</li>
+        <li><span class="gaptitle">The small kingdom vs the large British Burma shape</span> Redraw: a Konbaung-extent polygon (Commons) under the British Burma administrative outline (MIMU-derived, or a Rumsey / LoC 1900 colonial map). The silhouette difference is the argument in one frame.</li>
+        <li><span class="gaptitle">Watts &amp; Skeen and D.A. Ahuja as named photographers</span> Route through Wikimedia Commons ('D.A. Ahuja Burma', 'Watts and Skeen') plus the Myanmar Photo Archive for provenance. Treat dealer / blog scans as leads to verify, not citable primaries.</li>
+      </ul>
+    </section>
+    <footer>Newpress · archive map · compiled for the Burma episode</footer>
   </div>
-
-  <nav class="toc">
-    <h2>Categories</h2>
-      <a href="#cat-cosmology">Spirituality &amp; Cosmology</a>
-      <a href="#cat-nats">Nats — the 37 Spirits</a>
-      <a href="#cat-buddhism">Buddhism in Burma</a>
-      <a href="#cat-temples">Temples &amp; Pagodas</a>
-      <a href="#cat-kings">Kings &amp; Royalty</a>
-      <a href="#cat-capitals">New Capitals &amp; Cities</a>
-      <a href="#cat-british">British Conquest &amp; Colonial Rule</a>
-      <a href="#cat-maps">Maps &amp; Geography</a>
-      <a href="#cat-modern">Modern Political Era (post-1948)</a>
-      <a href="#gaps">Gaps &amp; proxies — where the picture doesn't exist</a>
-      <a href="#sources">Every institution, one list</a>
-  </nav>
-
-  <section class="cat" id="cat-cosmology">
-    <h2>Spirituality &amp; Cosmology</h2>
-    <p class="blurb">Pre-Buddhist belief and the Burmese Buddhist cosmos — Mount Meru, the planes of existence, jataka tales.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 15 · vo</span>
-          <span class="quote">“a deep connection to [the] unique features of spiritual traditions and beliefs... the people adopted a unique interpretation of the buddha&#x27;s teaching”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 11 · archive-req</span>
-          <span class="quote">“Depictions of the many kingdoms... GOLD!! And temples ⁃ Buddhism in Burma.”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 8 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.bl.uk/stories/blogs/posts/buddhist-rebirth-in-different-planes-of-existence" target="_blank" rel="noopener">British Library — &#x27;Buddhist rebirth in different planes of existence&#x27; (blog)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://www.bl.uk/stories/blogs/posts/buddhist-rebirth-in-different-planes-of-existence" target="_blank" rel="noopener">https://www.bl.uk/stories/blogs/posts/buddhist-rebirth-in-different-planes-of-existence</a>
-        <p class="strength">The single best access point for illustrated Burmese cosmology: manuscripts Or.14004 and Or.14550 — Mount Meru ringed by seven mountain ranges and rivers, the four great islands, the 31 planes of existence.</p>
-        <p class="howto"><span class="lab">How to search</span> Search shelfmarks Or.14004 / Or.14550. The old bl.uk/manuscripts Viewer path is dead after the 2023 cyberattack — use this blog, or searcharchives.bl.uk.</p>
-        <p class="rights"><span class="lab">Rights</span> © British Library; images generally free for research / non-commercial use.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">British Museum</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">https://www.britishmuseum.org/collection/search?keyword=Burma</a>
-        <p class="strength">The deepest holdings of nat figures and cosmology parabaik (including a 42-fold concertina map of the Buddhist universe), plus bronzes and coins.</p>
-        <p class="howto"><span class="lab">How to search</span> Keyword &#x27;Burma&#x27;, &#x27;nat&#x27;, &#x27;parabaik&#x27;, &#x27;cosmology Burma&#x27;. Sample objects: A_2010-3003-1, A_2011-3015-1, and the Popa Medaw nat figure A_2014-3027-4.</p>
-        <p class="rights"><span class="lab">Rights</span> Images CC BY-NC-SA 4.0 for non-commercial use; broadcast licensing via British Museum Images (bmimages.com).</p>
-        <p class="note">Search UI 403s to automated checks (Cloudflare) but individual object pages load in a normal browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">The Public Domain Review — &#x27;Burmese Map of the World&#x27;</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">https://publicdomainreview.org/product/burmese-map-of-the-world/</a>
-        <p class="strength">A Burmese cosmological map of the world, from Temple&#x27;s &#x27;The Thirty-Seven Nats&#x27; (1906), via the New York Public Library.</p>
-        <p class="howto"><span class="lab">How to search</span> Direct page; follow through to the NYPL source item for high-res.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (source pre-1929).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">Myanmar Manuscript Digital Library (University of Toronto)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">https://myanmarmanuscripts.org/</a>
-        <p class="strength">Open-access Pali and Pali-Burmese manuscripts — kammavaca, parabaik accordion books, print editions; partnered with the National Library of Myanmar.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;kammavaca&#x27;, &#x27;parabaik&#x27;, &#x27;jataka&#x27;, &#x27;cosmology&#x27;, &#x27;Pali&#x27; at myanmarmanuscripts.org/databases/.</p>
-        <p class="rights"><span class="lab">Rights</span> Open access for scholarship; confirm reuse terms per item before commercial use.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://viewer.cbl.ie/" target="_blank" rel="noopener">Chester Beatty (Dublin)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://viewer.cbl.ie/" target="_blank" rel="noopener">https://viewer.cbl.ie/</a>
-        <p class="strength">Ornate Burmese kammavaca (gold-and-lacquer ordination manuscripts) and Southeast Asian Buddhist material.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burmese&#x27;, &#x27;Kammavaca&#x27;, &#x27;palm leaf&#x27;. The Asian collection is only partly published online — expect gaps; some items are catalogue-only. Contact the library for un-digitised items.</p>
-        <p class="rights"><span class="lab">Rights</span> Much of the digital collection is CC-BY-NC / public-domain-style, but it varies by object. Commercial → permission.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">Victoria &amp; Albert Museum (V&amp;A)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">https://collections.vam.ac.uk/search/?q=burmese</a>
-        <p class="strength">Regalia, textiles, court decorative arts, lacquerware and manuscripts — plus the standout narrative paintings and the Linnaeus Tripe photographs listed under specific needs.</p>
-        <p class="howto"><span class="lab">How to search</span> Refine with the &#x27;Place of origin&#x27; facet → Burma / Myanmar. Try &#x27;shwe-chi-doe&#x27;, &#x27;lacquer burma&#x27;, &#x27;Mandalay&#x27;, &#x27;Tripe Burma&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Mixed; many images free to download under V&amp;A open-access terms (non-commercial ≤768px). Commercial via vaimages@vam.ac.uk.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://gallica.bnf.fr" target="_blank" rel="noopener">Bibliothèque nationale de France — Gallica</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://gallica.bnf.fr" target="_blank" rel="noopener">https://gallica.bnf.fr</a>
-        <p class="strength">Pali-Burmese kammavaca and jataka codices, plus 19th-c. French colonial photography and travel plates of Birmanie.</p>
-        <p class="howto"><span class="lab">How to search</span> French terms: &#x27;birman&#x27;, &#x27;Birmanie&#x27;, &#x27;manuscrit birman&#x27;, &#x27;Pali&#x27;, &#x27;Kammavaca&#x27;, &#x27;Pagan&#x27;, &#x27;Mandalay&#x27;. Manuscript records live in Archives et manuscrits (archivesetmanuscrits.bnf.fr) — e.g. Pali 867/870, Pali 196.</p>
-        <p class="rights"><span class="lab">Rights</span> Pre-1900 material generally public domain; commercial reuse may need a BnF licence. Gallica flags &#x27;domaine public&#x27; on the viewer.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">Musée Guimet — MNAAG, Paris</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript</a>
-        <p class="strength">Burmese Buddhist art and especially painted / lacquered / gilded 19th-c. Burmese manuscripts and kammavaca; 19th-c. photographs of Burma.</p>
-        <p class="howto"><span class="lab">How to search</span> Object records live in the French national POP / Joconde database (pop.culture.gouv.fr) — search &#x27;birmanie&#x27;, filter musée = Guimet. A dedicated Villa Guimet online portal is launching 2026.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed (French national museum licensing, often via RMN-Grand Palais). Permission required; documentation@guimet.fr.</p>
-        
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-nats">
-    <h2>Nats — the 37 Spirits</h2>
-    <p class="blurb">The indigenous spirit religion that predates and coexists with Buddhism: the thirty-seven nats, nat pwe, shrines, Mount Popa.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 15 · vo</span>
-          <span class="quote">“but through all the many rulers, one through line stayed, a deep connection to {TK unique features of spiritual traditions and beliefs} ... then around {year Buddhism arrived} a new spiritual tradition arrived”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 4 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://archive.org/details/india.history.resource.99975" target="_blank" rel="noopener">Internet Archive — R.C. Temple, &#x27;The Thirty-Seven Nats&#x27; (1906)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://archive.org/details/india.history.resource.99975" target="_blank" rel="noopener">https://archive.org/details/india.history.resource.99975</a>
-        <p class="strength">The full 1906 book with coloured chromolithograph plates of each of the 37 nats, painted by Burmese artists. The single best primary source for nat iconography.</p>
-        <p class="howto"><span class="lab">How to search</span> Append /page/nX to deep-link plates. Downloadable as PDF / JP2 / full text.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (1906; author died 1931). No restriction.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Nats_(spirit)" target="_blank" rel="noopener">Wikimedia Commons — Category:Nats (spirit)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Nats_(spirit)" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Nats_(spirit)</a>
-        <p class="strength">66 files plus 48 subcategories — nat figures and statues, nat pwe ceremonies, and subcats for Mount Popa (59 files), Nats of Shwezigon (24), Nats in the Mahamuni Temple (5), and individual nats (Thagyamin, Popa Medaw, Bo Bo Gyi).</p>
-        <p class="howto"><span class="lab">How to search</span> Use the exact singular title &#x27;Nats (spirit)&#x27;. Plural / &#x27;37 Nats&#x27; / &#x27;Burmese&#x27; variants all 404.</p>
-        <p class="rights"><span class="lab">Rights</span> Mixed CC per file — check each.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.britishmuseum.org/collection/object/A_2014-3027-4" target="_blank" rel="noopener">British Museum — Popa Medaw nat figure (2014,3027.4)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://www.britishmuseum.org/collection/object/A_2014-3027-4" target="_blank" rel="noopener">https://www.britishmuseum.org/collection/object/A_2014-3027-4</a>
-        <p class="strength">Carved, painted-wood figure of the nat Popa Medaw (Mei Wunna, &#x27;Lady of Popa&#x27;).</p>
-        <p class="howto"><span class="lab">How to search</span> Registration number 2014,3027.4. Browse related nat figures from the object page.</p>
-        <p class="rights"><span class="lab">Rights</span> British Museum image terms; broadcast via bmimages.com.</p>
-        <p class="note">Object page 403s to automated checks; the registration number is genuine — open in a browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">British Museum</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">https://www.britishmuseum.org/collection/search?keyword=Burma</a>
-        <p class="strength">The deepest holdings of nat figures and cosmology parabaik (including a 42-fold concertina map of the Buddhist universe), plus bronzes and coins.</p>
-        <p class="howto"><span class="lab">How to search</span> Keyword &#x27;Burma&#x27;, &#x27;nat&#x27;, &#x27;parabaik&#x27;, &#x27;cosmology Burma&#x27;. Sample objects: A_2010-3003-1, A_2011-3015-1, and the Popa Medaw nat figure A_2014-3027-4.</p>
-        <p class="rights"><span class="lab">Rights</span> Images CC BY-NC-SA 4.0 for non-commercial use; broadcast licensing via British Museum Images (bmimages.com).</p>
-        <p class="note">Search UI 403s to automated checks (Cloudflare) but individual object pages load in a normal browser.</p>
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-buddhism">
-    <h2>Buddhism in Burma</h2>
-    <p class="blurb">The arrival and Burmese interpretation of Buddhism; monks and monastic life; gold-leaf devotion as merit-making.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 15 · vo</span>
-          <span class="quote">“then around {fc year Buddhism arrived in Burma} a new spiritual tradition arrived: Buddhism... you showed your devotion by building things and placing gold on the buddha... No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 11 · archive-req</span>
-          <span class="quote">“Buddhism in Burma.”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 195 · broll</span>
-          <span class="quote">“monks walking / establishing the monk and monastery / meditation with them (Johnny&#x27;s own footage — archive can extend it)”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 9 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.bl.uk/stories/blogs/posts/scenes-from-the-life-of-the-buddha" target="_blank" rel="noopener">British Library — &#x27;Scenes from the Life of the Buddha&#x27; (blog)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://www.bl.uk/stories/blogs/posts/scenes-from-the-life-of-the-buddha" target="_blank" rel="noopener">https://www.bl.uk/stories/blogs/posts/scenes-from-the-life-of-the-buddha</a>
-        <p class="strength">Digitised Burmese parabaik with folio-level citations, including the named Mittavindaka Jataka (Or.14220) plus Or.14823, Or.14405, Or.14297, Or.14298 (First Sermon, Fire Sermon, Buddha and King Bimbisara).</p>
-        <p class="howto"><span class="lab">How to search</span> On-page; or search each Or. shelfmark at searcharchives.bl.uk.</p>
-        <p class="rights"><span class="lab">Rights</span> © British Library; free for research / non-commercial.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.metmuseum.org/art/collection/search?q=Burma&amp;showOnly=openAccess" target="_blank" rel="noopener">The Metropolitan Museum of Art — Open Access</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://www.metmuseum.org/art/collection/search?q=Burma&amp;showOnly=openAccess" target="_blank" rel="noopener">https://www.metmuseum.org/art/collection/search?q=Burma&amp;showOnly=openAccess</a>
-        <p class="strength">Burmese Buddhist sculpture and gilt-bronze figures; a parabaik of Scenes from the Life of the Buddha from the court of King Mindon (acc. 2022.152).</p>
-        <p class="howto"><span class="lab">How to search</span> Query &#x27;Burma&#x27; (131 objects) or &#x27;Burmese&#x27; (133); tick Open Access + With Image. Programmatic: the public API at collectionapi.metmuseum.org returns results live.</p>
-        <p class="rights"><span class="lab">Rights</span> Open Access objects are CC0 (public domain) — free for any use including broadcast. The cleanest no-clearance source.</p>
-        <p class="note">Web UI rate-limits automated fetch (HTTP 429); the Open Access API confirms the holdings.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.si.edu/search/collection-images?edan_q=Burma" target="_blank" rel="noopener">Smithsonian — National Museum of Asian Art (Freer|Sackler)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://www.si.edu/search/collection-images?edan_q=Burma" target="_blank" rel="noopener">https://www.si.edu/search/collection-images?edan_q=Burma</a>
-        <p class="strength">Burmese Buddhist art, sculpture, manuscripts and historical photographs of Burma.</p>
-        <p class="howto"><span class="lab">How to search</span> Query &#x27;Burma&#x27; / &#x27;Burmese&#x27;; filter Usage: CC0 and On/Has media: images.</p>
-        <p class="rights"><span class="lab">Rights</span> Smithsonian Open Access objects are CC0 (public domain) — free for broadcast. Second-cleanest no-clearance source after the Met.</p>
-        <p class="note">si.edu bot-walls automated checks (403) but resolves normally in a browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">Myanmar Manuscript Digital Library (University of Toronto)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">https://myanmarmanuscripts.org/</a>
-        <p class="strength">Open-access Pali and Pali-Burmese manuscripts — kammavaca, parabaik accordion books, print editions; partnered with the National Library of Myanmar.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;kammavaca&#x27;, &#x27;parabaik&#x27;, &#x27;jataka&#x27;, &#x27;cosmology&#x27;, &#x27;Pali&#x27; at myanmarmanuscripts.org/databases/.</p>
-        <p class="rights"><span class="lab">Rights</span> Open access for scholarship; confirm reuse terms per item before commercial use.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://viewer.cbl.ie/" target="_blank" rel="noopener">Chester Beatty (Dublin)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://viewer.cbl.ie/" target="_blank" rel="noopener">https://viewer.cbl.ie/</a>
-        <p class="strength">Ornate Burmese kammavaca (gold-and-lacquer ordination manuscripts) and Southeast Asian Buddhist material.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burmese&#x27;, &#x27;Kammavaca&#x27;, &#x27;palm leaf&#x27;. The Asian collection is only partly published online — expect gaps; some items are catalogue-only. Contact the library for un-digitised items.</p>
-        <p class="rights"><span class="lab">Rights</span> Much of the digital collection is CC-BY-NC / public-domain-style, but it varies by object. Commercial → permission.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">Musée Guimet — MNAAG, Paris</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript</a>
-        <p class="strength">Burmese Buddhist art and especially painted / lacquered / gilded 19th-c. Burmese manuscripts and kammavaca; 19th-c. photographs of Burma.</p>
-        <p class="howto"><span class="lab">How to search</span> Object records live in the French national POP / Joconde database (pop.culture.gouv.fr) — search &#x27;birmanie&#x27;, filter musée = Guimet. A dedicated Villa Guimet online portal is launching 2026.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed (French national museum licensing, often via RMN-Grand Palais). Permission required; documentation@guimet.fr.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://searchcollection.asianart.org/search/Burma" target="_blank" rel="noopener">Asian Art Museum of San Francisco</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://searchcollection.asianart.org/search/Burma" target="_blank" rel="noopener">https://searchcollection.asianart.org/search/Burma</a>
-        <p class="strength">Burmese Buddhist sculpture, general survey material and some royal objects (131 results).</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27; / &#x27;Burmese&#x27;; Advanced Search (eMuseum) filters by classification / medium. Try &#x27;nat&#x27;, &#x27;lacquer&#x27;, &#x27;Mandalay&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Licensing is per-object and not blanket-open — treat as permission-required unless an object page says otherwise.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">Internet Archive — Shway Yoe (J.G. Scott), &#x27;The Burman: His Life and Notions&#x27; (1896)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">https://archive.org/details/burmanhislifenot00scotrich</a>
-        <p class="strength">Illustrated ethnography of daily life, custom, religion and nats — the standard Victorian account, richly engraved.</p>
-        <p class="howto"><span class="lab">How to search</span> Also on HathiTrust (catalog record 007918288). Download PDF / JP2.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (1896).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — Shwedagon pagoda</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda</a>
-        <p class="strength">409 files across 11 subcategories — the golden stupa from every angle, interior and remote views.</p>
-        <p class="howto"><span class="lab">How to search</span> Lowercase &#x27;Shwedagon_pagoda&#x27;. Capitalised / &#x27;Shwedagon_Paya&#x27; variants 404.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / PD per file.</p>
-        
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-temples">
-    <h2>Temples &amp; Pagodas</h2>
-    <p class="blurb">Merit architecture: Shwedagon, Bagan&#x27;s temple plain, Ananda, Shwezigon; gilded stupas as &#x27;insurance for the lives beyond this one.&#x27;</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 15 · vo</span>
-          <span class="quote">“Building a temple is how you show your righteousness. Insurance for the lives beyond this one.”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 11 · archive-req</span>
-          <span class="quote">“GOLD!! And temples”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 19 · scene</span>
-          <span class="quote">“Golden Pagoda [Shwedagon]”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 191 · broll</span>
-          <span class="quote">“temple b roll from Bagan”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 10 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">Wikimedia Commons — Bagan (and per-temple subcategories)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Bagan</a>
-        <p class="strength">The temple plain and its named monuments. Mural photographs live INSIDE each temple&#x27;s category, not a separate murals category: Ananda Temple (144 files), Shwezigon (190), Dhammayangyi (115).</p>
-        <p class="howto"><span class="lab">How to search</span> Use bare category forms: Ananda_Temple, Shwezigon, Dhammayangyi. &#x27;Shwezigon_Pagoda&#x27; / &#x27;Dhammayangyi_Temple&#x27; / &#x27;Murals_in_Ananda_Temple&#x27; are redirects or 404.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / public domain per file — check each license tag.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Ananda_Temple" target="_blank" rel="noopener">Wikimedia Commons — Ananda Temple</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Ananda_Temple" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Ananda_Temple</a>
-        <p class="strength">144 files plus &#x27;Interior of Ananda Temple&#x27; — murals, devas, the standing Buddhas.</p>
-        <p class="howto"><span class="lab">How to search</span> Bare form &#x27;Ananda_Temple&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / PD per file.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Shwezigon" target="_blank" rel="noopener">Wikimedia Commons — Shwezigon</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Shwezigon" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Shwezigon</a>
-        <p class="strength">190 files — the gilded central stupa (Anawrahta / Kyansittha&#x27;s great reliquary), roof details, Buddha statues, and &#x27;Nats of Shwezigon&#x27;.</p>
-        <p class="howto"><span class="lab">How to search</span> Bare form &#x27;Shwezigon&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / PD per file.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Dhammayangyi" target="_blank" rel="noopener">Wikimedia Commons — Dhammayangyi</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Dhammayangyi" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Dhammayangyi</a>
-        <p class="strength">115 files including named interior mural files — the massive brick temple of Narathu.</p>
-        <p class="howto"><span class="lab">How to search</span> Bare form &#x27;Dhammayangyi&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / PD per file.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collections.vam.ac.uk/item/O133416/amerapoora-nagayoung-pagod-photograph-tripe-linnaeus/" target="_blank" rel="noopener">V&amp;A — Linnaeus Tripe, &#x27;Burma Views&#x27; (1855)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://collections.vam.ac.uk/item/O133416/amerapoora-nagayoung-pagod-photograph-tripe-linnaeus/" target="_blank" rel="noopener">https://collections.vam.ac.uk/item/O133416/amerapoora-nagayoung-pagod-photograph-tripe-linnaeus/</a>
-        <p class="strength">The earliest photographs of Burmese Buddhist architecture — &#x27;Amerapoora. Nagayoung Pagod&#x27;, albumen print, shot 1855, from Tripe&#x27;s 122-image government-commissioned album (acc. IS.60-2007).</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Tripe Burma&#x27; at collections.vam.ac.uk.</p>
-        <p class="rights"><span class="lab">Rights</span> V&amp;A — non-commercial download ≤768px; commercial via V&amp;A licensing.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collection.efeo.fr/" target="_blank" rel="noopener">École française d&#x27;Extrême-Orient (EFEO) — Photothèque</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://collection.efeo.fr/" target="_blank" rel="noopener">https://collection.efeo.fr/</a>
-        <p class="strength">Historic photographs of Bagan/Pagan monuments and wall paintings in situ (early-to-mid 20th c.). A dedicated &#x27;Fonds Myanmar / Birmanie&#x27;.</p>
-        <p class="howto"><span class="lab">How to search</span> French terms: &#x27;Birmanie&#x27;, &#x27;Pagan&#x27; (EFEO uses the older spelling), &#x27;temple&#x27;, &#x27;fresque&#x27;, &#x27;peinture murale&#x27;, &#x27;stûpa&#x27;. Strong on architecture / archaeology, thinner on manuscripts.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed / permission required. Reproduction via the photothèque service.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — Shwedagon pagoda</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda</a>
-        <p class="strength">409 files across 11 subcategories — the golden stupa from every angle, interior and remote views.</p>
-        <p class="howto"><span class="lab">How to search</span> Lowercase &#x27;Shwedagon_pagoda&#x27;. Capitalised / &#x27;Shwedagon_Paya&#x27; variants 404.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / PD per file.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:History_of_Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — History of Shwedagon pagoda</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:History_of_Shwedagon_pagoda" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:History_of_Shwedagon_pagoda</a>
-        <p class="strength">The colonial-era subcategory (41 files): &#x27;The Great Pagoda at Rangoon&#x27; by John McCosh, 1852 — among the earliest photographs taken in Burma — a Wellcome coloured aquatint &#x27;Dagon Pagoda near Rangoon&#x27;, and Illustrated London News (1852) engravings through to 1945.</p>
-        <p class="howto"><span class="lab">How to search</span> Direct category.</p>
-        <p class="rights"><span class="lab">Rights</span> Mostly public domain by age — verify per file.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://meral.edu.mm/" target="_blank" rel="noopener">Bagan murals — scholarly finding aids (no single open database)</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://meral.edu.mm/" target="_blank" rel="noopener">https://meral.edu.mm/</a>
-        <p class="strength">There is NO comprehensive open-access database of Bagan wall paintings. Academic PDFs carry figure-plates of the Jataka cycles (Gubyaukgyi, Lokahteikpan) and cosmology — usable to locate which temple holds which scene.</p>
-        <p class="howto"><span class="lab">How to search</span> MERAL (Myanmar research repository); plus &#x27;The Murals of Temple 1077 in Pagan&#x27; (Academia.edu) and a Gubyaukgyi study in the Heritage University of Kerala journal.</p>
-        <p class="rights"><span class="lab">Rights</span> Individual image rights vary and are usually not cleared for reuse — treat as finding aids; commission or license clean mural imagery.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://whc.unesco.org/en/list/1588/gallery/" target="_blank" rel="noopener">UNESCO World Heritage Centre — Bagan gallery</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://whc.unesco.org/en/list/1588/gallery/" target="_blank" rel="noopener">https://whc.unesco.org/en/list/1588/gallery/</a>
-        <p class="strength">Licensed / reference imagery of the Bagan property — useful when the Bagan Archaeological Museum&#x27;s own objects (which have no online catalogue) are needed.</p>
-        <p class="howto"><span class="lab">How to search</span> Bagan is World Heritage list no. 1588; browse the gallery.</p>
-        <p class="rights"><span class="lab">Rights</span> UNESCO reference imagery — licensing terms apply; contact WHC for reuse.</p>
-        <p class="note">Gallery bot-walls automated checks (403); loads in a browser.</p>
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-kings">
-    <h2>Kings &amp; Royalty</h2>
-    <p class="blurb">The dynastic through-line: kings, court, regalia — down to Thibaw &amp; Supayalat, the last king and queen, exiled by boat in 1885.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 11 · archive-req</span>
-          <span class="quote">“Depictions of the kings”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 14 · vo</span>
-          <span class="quote">“along this river cropped up kings who {epic descriptions of kingdoms}... how kingdoms would fight with each other and fracture the country only to unify around a new king”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 25 · vo</span>
-          <span class="quote">“1885 took its center and its king. they ship the king and queen out on a boat down the river... it was to be the end of the last king of Burma.”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 9 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://digital.bodleian.ox.ac.uk/collections/burmese/" target="_blank" rel="noopener">Bodleian Libraries (Oxford) — Digital Bodleian, Burmese collection</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://digital.bodleian.ox.ac.uk/collections/burmese/" target="_blank" rel="noopener">https://digital.bodleian.ox.ac.uk/collections/burmese/</a>
-        <p class="strength">The best VISUAL proxy for kings and court life: 19th-c. Burmese watercolour paintings of court scenes and occupations, plus manuscripts.</p>
-        <p class="howto"><span class="lab">How to search</span> Browse the collection page or search &#x27;Burmese&#x27;, &#x27;parabaik&#x27;, &#x27;Mandalay&#x27;. (Hand-built facet URLs 404 — use the landing page.)</p>
-        <p class="rights"><span class="lab">Rights</span> CC-BY-NC 4.0 on most Digital Bodleian images (free non-commercial with attribution). Commercial → permission.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/File:King_thibaw_queen_daughter1885.jpg" target="_blank" rel="noopener">Wikimedia Commons — King Thibaw, Queen Supayalat &amp; daughter, 1885</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/File:King_thibaw_queen_daughter1885.jpg" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/File:King_thibaw_queen_daughter1885.jpg</a>
-        <p class="strength">The key royal photograph: Thibaw, Supayalat and Princess Supayaji, late November 1885, printed from a negative found in the Royal Palace, Mandalay.</p>
-        <p class="howto"><span class="lab">How to search</span> Before publishing, pull the exact British Library shelfmark from the Commons source field (BL imagesonline permalinks are unstable).</p>
-        <p class="rights"><span class="lab">Rights</span> Public Domain Mark 1.0.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Mindon_Min" target="_blank" rel="noopener">Wikimedia Commons — Mindon Min</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Mindon_Min" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Mindon_Min</a>
-        <p class="strength">King Mindon (r.1853-78) is the earliest Burmese monarch ever photographed — this holds a genuine 19th-c. photographic portrait plus 1855 &#x27;Die Gartenlaube&#x27; engravings of his court.</p>
-        <p class="howto"><span class="lab">How to search</span> Verify each file reads &#x27;photograph&#x27;: &#x27;File:King-Mindon.jpg&#x27; is a 2013 bronze statue, and some adjacent files are photos of painted portraits.</p>
-        <p class="rights"><span class="lab">Rights</span> PD by age — verify per file.</p>
-        <p class="note">Watch the trap: statue and painting files are mixed in with the real photograph.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collections.vam.ac.uk/item/O18183/the-departure-of-king-thibaw-painting-unknown/" target="_blank" rel="noopener">V&amp;A — &#x27;The Departure of King Thibaw from Mandalay&#x27; (IS.13-1958)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://collections.vam.ac.uk/item/O18183/the-departure-of-king-thibaw-painting-unknown/" target="_blank" rel="noopener">https://collections.vam.ac.uk/item/O18183/the-departure-of-king-thibaw-painting-unknown/</a>
-        <p class="strength">Company-style gouache on cotton, c.1887: the royal family leaving in bullock carts with British and Indian troops, palace pavilions, and paddle steamers on the Irrawaddy. The best contemporary narrative image of the exile itself (a painting, not a photograph).</p>
-        <p class="howto"><span class="lab">How to search</span> Direct object page; search &#x27;Thibaw&#x27; at collections.vam.ac.uk for related works.</p>
-        <p class="rights"><span class="lab">Rights</span> V&amp;A — non-commercial download ≤768px; commercial via vaimages@vam.ac.uk.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">National Army Museum — Anglo-Burmese Wars</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5</a>
-        <p class="strength">A rare Burmese-AUTHORED image of the conquest: an 1885 watercolour by a Burmese artist, &#x27;King Thibaw being escorted to captivity by British soldiers&#x27;. Also strong on the Third Burma War, fall of Mandalay, Thibaw&#x27;s surrender.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Thibaw&#x27;, &#x27;Prendergast&#x27;, &#x27;Third Burma War&#x27;, &#x27;Mandalay 1885&#x27; at collection.nam.ac.uk.</p>
-        <p class="rights"><span class="lab">Rights</span> National Army Museum copyright — permission required.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">Internet Archive — Yule, &#x27;Narrative of the Mission to the Court of Ava in 1855&#x27; (1858)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">https://archive.org/details/narrativeofmissi00yulerich</a>
-        <p class="strength">29 plates from Yule&#x27;s own drawings plus maps — the closest thing to an eyewitness rendering of the Court of Ava, its palace, court dress and ceremony.</p>
-        <p class="howto"><span class="lab">How to search</span> Download PDF / JP2; the plates are the goldmine for a faithful mid-19th-c. Ava depiction.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (1858).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Art_of_the_Konbaung_dynasty" target="_blank" rel="noopener">Wikimedia Commons — Art of the Konbaung dynasty &amp; Burmese monarchs</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Art_of_the_Konbaung_dynasty" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Art_of_the_Konbaung_dynasty</a>
-        <p class="strength">Later court paintings and temple donor-portraits — the usable proxy for kings who were never photographed. See also Category:Statues_of_Burmese_kings and Category:Burmese_monarchs.</p>
-        <p class="howto"><span class="lab">How to search</span> Also Category:Thibaw_Min, Category:Bayinnaung (commemorative statues, 1568 plan of Bago, Thai temple murals of his campaigns).</p>
-        <p class="rights"><span class="lab">Rights</span> Mixed CC / PD per file.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato</a>
-        <p class="strength">19 Beato photographs including &#x27;King Thibaw Min&#x27;s Throne Room&#x27;, &#x27;Queen Soopyalat&#x27;s Throne Room&#x27; and &#x27;The Palace Mandalay (Centre of the Universe)&#x27; — the Golden Palace interiors before their 1945 destruction.</p>
-        <p class="howto"><span class="lab">How to search</span> Category page; also search &#x27;Felice Beato Burma&#x27;, &#x27;Mandalay 1885&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (Beato died 1909). The cleanest free-to-use colonial-photo set.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">Victoria &amp; Albert Museum (V&amp;A)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">https://collections.vam.ac.uk/search/?q=burmese</a>
-        <p class="strength">Regalia, textiles, court decorative arts, lacquerware and manuscripts — plus the standout narrative paintings and the Linnaeus Tripe photographs listed under specific needs.</p>
-        <p class="howto"><span class="lab">How to search</span> Refine with the &#x27;Place of origin&#x27; facet → Burma / Myanmar. Try &#x27;shwe-chi-doe&#x27;, &#x27;lacquer burma&#x27;, &#x27;Mandalay&#x27;, &#x27;Tripe Burma&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Mixed; many images free to download under V&amp;A open-access terms (non-commercial ≤768px). Commercial via vaimages@vam.ac.uk.</p>
-        
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-capitals">
-    <h2>New Capitals &amp; Cities</h2>
-    <p class="blurb">The habit of moving the capital to show a king&#x27;s righteousness — Bagan, Pinya, Ava/Inwa, Amarapura, Pegu/Bago, Mandalay — and the modern echo, Naypyidaw.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 11 · archive-req</span>
-          <span class="quote">“Depictions of grand cities built”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 15 · vo</span>
-          <span class="quote">“the kings did this too... build new capitals everywhere. [Mapping all the capitals over the years]”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 10 · bin</span>
-          <span class="quote">“Location of all the many &#x27;capitals&#x27;... that we can timelapse thru to show the habit of moving the capital every time a king wants to show their righteousness”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 68 · vo</span>
-          <span class="quote">“the military Junta that decided to build Napidaw the new capital... the huge roads that were built”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 7 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">David Rumsey Map Collection</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">https://www.davidrumsey.com/luna/servlet/as/search?q=Burma</a>
-        <p class="strength">The best single source for 19th-c. atlas plates showing the shrinking &#x27;Burman Empire&#x27; (Bartholomew, Johnston, Stanford, Walker) — 604 results.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Burman Empire&#x27;, &#x27;Further India&#x27;, &#x27;Ava&#x27;, &#x27;Pegu&#x27;, &#x27;Irawadi&#x27;, &#x27;Rangoon&#x27;; use the date slider for 1820s-1880s.</p>
-        <p class="rights"><span class="lab">Rights</span> Free for non-commercial / educational use with attribution; commercial / broadcast needs a quick permission request (usually granted).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">Wikimedia Commons — Maps of the history of Myanmar</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar</a>
-        <p class="strength">Modern redrawn territorial-extent maps — exactly the &#x27;small pre-colonial kingdom vs large British Burma&#x27; contrast. Subcats: Konbaung dynasty, Pagan Kingdom, British Burma (31 files), Shan States, and &#x27;Old maps of Myanmar&#x27; (67 files, 1482-1964).</p>
-        <p class="howto"><span class="lab">How to search</span> Browse the century subcats; search &#x27;Konbaung empire&#x27;, &#x27;Pagan Kingdom map&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Pre-1900 originals public domain; modern redraws typically CC-BY-SA. Check each file (share-alike matters for a film).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">Internet Archive — Yule, &#x27;Narrative of the Mission to the Court of Ava in 1855&#x27; (1858)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">https://archive.org/details/narrativeofmissi00yulerich</a>
-        <p class="strength">29 plates from Yule&#x27;s own drawings plus maps — the closest thing to an eyewitness rendering of the Court of Ava, its palace, court dress and ceremony.</p>
-        <p class="howto"><span class="lab">How to search</span> Download PDF / JP2; the plates are the goldmine for a faithful mid-19th-c. Ava depiction.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (1858).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato</a>
-        <p class="strength">19 Beato photographs including &#x27;King Thibaw Min&#x27;s Throne Room&#x27;, &#x27;Queen Soopyalat&#x27;s Throne Room&#x27; and &#x27;The Palace Mandalay (Centre of the Universe)&#x27; — the Golden Palace interiors before their 1945 destruction.</p>
-        <p class="howto"><span class="lab">How to search</span> Category page; also search &#x27;Felice Beato Burma&#x27;, &#x27;Mandalay 1885&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (Beato died 1909). The cleanest free-to-use colonial-photo set.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collection.efeo.fr/" target="_blank" rel="noopener">École française d&#x27;Extrême-Orient (EFEO) — Photothèque</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://collection.efeo.fr/" target="_blank" rel="noopener">https://collection.efeo.fr/</a>
-        <p class="strength">Historic photographs of Bagan/Pagan monuments and wall paintings in situ (early-to-mid 20th c.). A dedicated &#x27;Fonds Myanmar / Birmanie&#x27;.</p>
-        <p class="howto"><span class="lab">How to search</span> French terms: &#x27;Birmanie&#x27;, &#x27;Pagan&#x27; (EFEO uses the older spelling), &#x27;temple&#x27;, &#x27;fresque&#x27;, &#x27;peinture murale&#x27;, &#x27;stûpa&#x27;. Strong on architecture / archaeology, thinner on manuscripts.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed / permission required. Reproduction via the photothèque service.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">Wikimedia Commons — Bagan (and per-temple subcategories)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Bagan</a>
-        <p class="strength">The temple plain and its named monuments. Mural photographs live INSIDE each temple&#x27;s category, not a separate murals category: Ananda Temple (144 files), Shwezigon (190), Dhammayangyi (115).</p>
-        <p class="howto"><span class="lab">How to search</span> Use bare category forms: Ananda_Temple, Shwezigon, Dhammayangyi. &#x27;Shwezigon_Pagoda&#x27; / &#x27;Dhammayangyi_Temple&#x27; / &#x27;Murals_in_Ananda_Temple&#x27; are redirects or 404.</p>
-        <p class="rights"><span class="lab">Rights</span> CC / public domain per file — check each license tag.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">Library of Congress — Geography &amp; Map Division</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">https://www.loc.gov/maps/?q=Burma</a>
-        <p class="strength">19th-c. colonial survey maps of the Irrawaddy and WWII-era Burma.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Irrawaddy&#x27;, &#x27;Ava&#x27;; filter Geography &amp; Map Division and &#x27;Available Online&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Most pre-1929 and LoC-produced maps are public domain, &#x27;no known restrictions&#x27;.</p>
-        <p class="note">Returns 403 to automated checks (user-agent rule); fully live in a browser.</p>
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-british">
-    <h2>British Conquest &amp; Colonial Rule</h2>
-    <p class="blurb">Three Anglo-Burmese wars (1826 / 1852 / 1885), the fall of Mandalay, colonial administration, extraction and divide-and-rule.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 22 · archive-req</span>
-          <span class="quote">“old timey British documentary SOT about British Burma”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 24 · map-need</span>
-          <span class="quote">“map showing conquest of Burma three wars”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 25 · vo</span>
-          <span class="quote">“1826 took Burma&#x27;s edges, 1852 took its coast, 1885 took its center and its king”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 30 · archive-req</span>
-          <span class="quote">“some British era movie about Burma”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 27 · vo</span>
-          <span class="quote">“They do what colonizer do which is draw lines and start to tabulate what they could extract”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 31 · vo</span>
-          <span class="quote">“how the British ruled... modernize education, medicine, but also dominate the people, divide the ethnic groups against each other”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 20 · sot</span>
-          <span class="quote">“there&#x27;s British buildings everywhere / montage of British buildings”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 10 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato</a>
-        <p class="strength">19 Beato photographs including &#x27;King Thibaw Min&#x27;s Throne Room&#x27;, &#x27;Queen Soopyalat&#x27;s Throne Room&#x27; and &#x27;The Palace Mandalay (Centre of the Universe)&#x27; — the Golden Palace interiors before their 1945 destruction.</p>
-        <p class="howto"><span class="lab">How to search</span> Category page; also search &#x27;Felice Beato Burma&#x27;, &#x27;Mandalay 1885&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (Beato died 1909). The cleanest free-to-use colonial-photo set.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">National Army Museum — Anglo-Burmese Wars</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5</a>
-        <p class="strength">A rare Burmese-AUTHORED image of the conquest: an 1885 watercolour by a Burmese artist, &#x27;King Thibaw being escorted to captivity by British soldiers&#x27;. Also strong on the Third Burma War, fall of Mandalay, Thibaw&#x27;s surrender.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Thibaw&#x27;, &#x27;Prendergast&#x27;, &#x27;Third Burma War&#x27;, &#x27;Mandalay 1885&#x27; at collection.nam.ac.uk.</p>
-        <p class="rights"><span class="lab">Rights</span> National Army Museum copyright — permission required.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://cudl.lib.cam.ac.uk/collections/rcs" target="_blank" rel="noopener">Cambridge — Royal Commonwealth Society (Cambridge Digital Library)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://cudl.lib.cam.ac.uk/collections/rcs" target="_blank" rel="noopener">https://cudl.lib.cam.ac.uk/collections/rcs</a>
-        <p class="strength">The Upper Burmah Expeditionary Force, 1886-87, and ~125,000 photographs across the RCS collection — the pacification campaigns after annexation.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27; / &#x27;Burmah&#x27;; Beato search-term &#x27;Y3029A&#x27; surfaces ~10 online Beato Burma photos.</p>
-        <p class="rights"><span class="lab">Rights</span> Many items viewable / downloadable under Cambridge terms; permission for commercial.</p>
-        <p class="note">CUDL bot-walls automated checks (403); loads in a browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://becc.bristol.gov.uk/records/2003/001/001" target="_blank" rel="noopener">Bristol Archives — British Empire &amp; Commonwealth Collection</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://becc.bristol.gov.uk/records/2003/001/001" target="_blank" rel="noopener">https://becc.bristol.gov.uk/records/2003/001/001</a>
-        <p class="strength">Beato photographs taken during the Wuntho Rebellion in Burma, 1891-92 — later Upper Burma pacification.</p>
-        <p class="howto"><span class="lab">How to search</span> Catalogue ref 2003/001/001; search &#x27;Beato Burma&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Public-domain underlying works; contact archives@bristol.gov.uk for reproduction.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://archives.colgate.edu/repositories/2/resources/359" target="_blank" rel="noopener">Colgate University Libraries — Philipp Adolphe Klier photographs of Burma (M4014)</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://archives.colgate.edu/repositories/2/resources/359" target="_blank" rel="noopener">https://archives.colgate.edu/repositories/2/resources/359</a>
-        <p class="strength">Klier&#x27;s architectural and ethnographic Burma views (Moulmein / Rangoon studios).</p>
-        <p class="howto"><span class="lab">How to search</span> ArchivesSpace collection ID M4014; search &#x27;Klier Burma&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> 19th-c. public-domain works; contact Colgate Special Collections for scans / permission.</p>
-        <p class="note">403s to automated checks; loads in a browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.myanmarphotoarchive.org/archives-in-focus/" target="_blank" rel="noopener">Myanmar Photo Archive (Lukas Birk)</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://www.myanmarphotoarchive.org/archives-in-focus/" target="_blank" rel="noopener">https://www.myanmarphotoarchive.org/archives-in-focus/</a>
-        <p class="strength">Essential provenance for colonial photography: D.A. Ahuja bought Beato&#x27;s archive in 1909, owned Watts &amp; Skeen, and re-published Klier — so credits are tangled. Check here before you attribute any Beato / Klier / Ahuja image.</p>
-        <p class="howto"><span class="lab">How to search</span> Browse &#x27;Archives in Focus&#x27; and &#x27;Reproduced&#x27; essays. The archive itself is Yangon-based.</p>
-        <p class="rights"><span class="lab">Rights</span> Permission required — a private, curated archive; contact directly.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.rgs.org/our-collections/about-the-picture-library" target="_blank" rel="noopener">Royal Geographical Society (RGS-IBG) — Picture Library</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://www.rgs.org/our-collections/about-the-picture-library" target="_blank" rel="noopener">https://www.rgs.org/our-collections/about-the-picture-library</a>
-        <p class="strength">Burma trade routes (the India-Burma-China overland corridor), expedition photography and lantern slides from the 1830s onward.</p>
-        <p class="howto"><span class="lab">How to search</span> ~17,000 images searchable online plus the full catalogue; search &#x27;Burma&#x27;, &#x27;Irrawaddy&#x27;, &#x27;Mandalay&#x27;. images@rgs.org for items not online.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed. Commercial licensing via Getty Images; academic use via images@rgs.org.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">British Library — India Office Records (via National Archives Discovery)</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map</a>
-        <p class="strength">Anglo-Burmese wars, the 1885 annexation of Mandalay, King Thibaw&#x27;s exile, and colonial administration; ~105,000 India Office maps and Burma photo albums (including a Beato Mandalay panorama).</p>
-        <p class="howto"><span class="lab">How to search</span> 750,000 India Office records are mirrored on National Archives Discovery — search &#x27;Burma&#x27;, ref prefix &#x27;IOR&#x27;, filter Held by = The British Library.</p>
-        <p class="rights"><span class="lab">Rights</span> Permission required / rights-managed for high-res; underlying 19th-c. works are public domain.</p>
-        <p class="note">The BL&#x27;s own catalogue (searcharchives.bl.uk) is running an unstable interim service since the Oct 2023 cyberattack — Discovery is the reliable route right now.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://wellcomecollection.org/collections" target="_blank" rel="noopener">Wellcome Collection — Burma prints &amp; photographs</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://wellcomecollection.org/collections" target="_blank" rel="noopener">https://wellcomecollection.org/collections</a>
-        <p class="strength">Medical, ethnographic and travel imagery of Burma — prints and photographs, including early Rangoon views.</p>
-        <p class="howto"><span class="lab">How to search</span> Works search &#x27;Burma&#x27; / &#x27;Rangoon&#x27;; filter Pictures / Digital images.</p>
-        <p class="rights"><span class="lab">Rights</span> Best-in-class for reuse: default CC BY 4.0 on most digitised works, many free downloads. Check the per-item badge.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">Internet Archive — Shway Yoe (J.G. Scott), &#x27;The Burman: His Life and Notions&#x27; (1896)</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">https://archive.org/details/burmanhislifenot00scotrich</a>
-        <p class="strength">Illustrated ethnography of daily life, custom, religion and nats — the standard Victorian account, richly engraved.</p>
-        <p class="howto"><span class="lab">How to search</span> Also on HathiTrust (catalog record 007918288). Download PDF / JP2.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (1896).</p>
-        
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-maps">
-    <h2>Maps &amp; Geography</h2>
-    <p class="blurb">The Irrawaddy basin between India and China; the small pre-colonial kingdoms shape vs the larger British-drawn Burma; the ethnolinguistic patchwork.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 12 · map-need</span>
-          <span class="quote">“a {unique defining feature} river that flows from high in the Himalaya... between the two giants centers of civilization [highlights India and China]”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 9 · bin</span>
-          <span class="quote">“Some shape that represents where the majority of this deep history happens... contrast to the Burma shape the British draw which is way bigger”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 63 · map-need</span>
-          <span class="quote">“how are we going to visualize the autonomous regions, and the many languages and ethnicities.”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 8 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">David Rumsey Map Collection</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">https://www.davidrumsey.com/luna/servlet/as/search?q=Burma</a>
-        <p class="strength">The best single source for 19th-c. atlas plates showing the shrinking &#x27;Burman Empire&#x27; (Bartholomew, Johnston, Stanford, Walker) — 604 results.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Burman Empire&#x27;, &#x27;Further India&#x27;, &#x27;Ava&#x27;, &#x27;Pegu&#x27;, &#x27;Irawadi&#x27;, &#x27;Rangoon&#x27;; use the date slider for 1820s-1880s.</p>
-        <p class="rights"><span class="lab">Rights</span> Free for non-commercial / educational use with attribution; commercial / broadcast needs a quick permission request (usually granted).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">Wikimedia Commons — Maps of the history of Myanmar</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar</a>
-        <p class="strength">Modern redrawn territorial-extent maps — exactly the &#x27;small pre-colonial kingdom vs large British Burma&#x27; contrast. Subcats: Konbaung dynasty, Pagan Kingdom, British Burma (31 files), Shan States, and &#x27;Old maps of Myanmar&#x27; (67 files, 1482-1964).</p>
-        <p class="howto"><span class="lab">How to search</span> Browse the century subcats; search &#x27;Konbaung empire&#x27;, &#x27;Pagan Kingdom map&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Pre-1900 originals public domain; modern redraws typically CC-BY-SA. Check each file (share-alike matters for a film).</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">Library of Congress — Geography &amp; Map Division</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">https://www.loc.gov/maps/?q=Burma</a>
-        <p class="strength">19th-c. colonial survey maps of the Irrawaddy and WWII-era Burma.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Irrawaddy&#x27;, &#x27;Ava&#x27;; filter Geography &amp; Map Division and &#x27;Available Online&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Most pre-1929 and LoC-produced maps are public domain, &#x27;no known restrictions&#x27;.</p>
-        <p class="note">Returns 403 to automated checks (user-agent rule); fully live in a browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">British Library — India Office Records (via National Archives Discovery)</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map</a>
-        <p class="strength">Anglo-Burmese wars, the 1885 annexation of Mandalay, King Thibaw&#x27;s exile, and colonial administration; ~105,000 India Office maps and Burma photo albums (including a Beato Mandalay panorama).</p>
-        <p class="howto"><span class="lab">How to search</span> 750,000 India Office records are mirrored on National Archives Discovery — search &#x27;Burma&#x27;, ref prefix &#x27;IOR&#x27;, filter Held by = The British Library.</p>
-        <p class="rights"><span class="lab">Rights</span> Permission required / rights-managed for high-res; underlying 19th-c. works are public domain.</p>
-        <p class="note">The BL&#x27;s own catalogue (searcharchives.bl.uk) is running an unstable interim service since the Oct 2023 cyberattack — Discovery is the reliable route right now.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.oldmapsonline.org/en/Myanmar" target="_blank" rel="noopener">Old Maps Online — Myanmar</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://www.oldmapsonline.org/en/Myanmar" target="_blank" rel="noopener">https://www.oldmapsonline.org/en/Myanmar</a>
-        <p class="strength">An aggregator with geographic bounding-box search — the fastest way to find WHERE a Burma map lives (indexes Rumsey, Harvard, BL and more).</p>
-        <p class="howto"><span class="lab">How to search</span> Pan / zoom to the Irrawaddy basin and set a date range, or search &#x27;Burma&#x27; / &#x27;Birmanie&#x27; / &#x27;Ava&#x27;.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights follow the holding institution of each result — always click through before use.</p>
-        <p class="note">403 to automated checks; live in a browser.</p>
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://gallica.bnf.fr" target="_blank" rel="noopener">Bibliothèque nationale de France — Gallica</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://gallica.bnf.fr" target="_blank" rel="noopener">https://gallica.bnf.fr</a>
-        <p class="strength">Pali-Burmese kammavaca and jataka codices, plus 19th-c. French colonial photography and travel plates of Birmanie.</p>
-        <p class="howto"><span class="lab">How to search</span> French terms: &#x27;birman&#x27;, &#x27;Birmanie&#x27;, &#x27;manuscrit birman&#x27;, &#x27;Pali&#x27;, &#x27;Kammavaca&#x27;, &#x27;Pagan&#x27;, &#x27;Mandalay&#x27;. Manuscript records live in Archives et manuscrits (archivesetmanuscrits.bnf.fr) — e.g. Pali 867/870, Pali 196.</p>
-        <p class="rights"><span class="lab">Rights</span> Pre-1900 material generally public domain; commercial reuse may need a BnF licence. Gallica flags &#x27;domaine public&#x27; on the viewer.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://themimu.info/gis-resources" target="_blank" rel="noopener">MIMU — Myanmar Information Management Unit</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://themimu.info/gis-resources" target="_blank" rel="noopener">https://themimu.info/gis-resources</a>
-        <p class="strength">The authoritative current shapefiles for Myanmar&#x27;s 7 states, 7 regions and 6 self-administered zones (Wa, Naga, Pa-O) — what a cartographer redraws the modern ethnic / autonomous-region map from.</p>
-        <p class="howto"><span class="lab">How to search</span> GeoNode → search &#x27;boundaries&#x27; / &#x27;adm1&#x27; / &#x27;self-administered&#x27;; grab ESRI shapefiles.</p>
-        <p class="rights"><span class="lab">Rights</span> Free with attribution BUT not for commercial use, and their data may not be published online without written agreement — use as a basemap to redraw from only.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">The Public Domain Review — &#x27;Burmese Map of the World&#x27;</a>
-          <span class="tier tier-open">OPEN</span>
-        </div>
-        <a class="repo-url" href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">https://publicdomainreview.org/product/burmese-map-of-the-world/</a>
-        <p class="strength">A Burmese cosmological map of the world, from Temple&#x27;s &#x27;The Thirty-Seven Nats&#x27; (1906), via the New York Public Library.</p>
-        <p class="howto"><span class="lab">How to search</span> Direct page; follow through to the NYPL source item for high-res.</p>
-        <p class="rights"><span class="lab">Rights</span> Public domain (source pre-1929).</p>
-        
-      </li>
-    </ol>
-  </section>
-  <section class="cat" id="cat-modern">
-    <h2>Modern Political Era (post-1948)</h2>
-    <p class="blurb">Independence 1948, Aung San, the coups, 8888, Aung San Suu Kyi, Obama&#x27;s visit, the Rohingya expulsion, the 2021 coup. Photo/news archive, not ancient.</p>
-    <div class="needs-box">
-      <h3>What the script asks for</h3>
-      <ul class="needs">
-        <li class="need">
-          <span class="loc">row 58 · vo</span>
-          <span class="quote">“They declared a new country four days in the year 1948... the lines the British drew at the height of their imperial control”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 60 · vo</span>
-          <span class="quote">“[Burma Act of 1935: &#x27;Ministerial Burma&#x27; and the &#x27;Frontier Areas&#x27; governed differently]”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 68 · vo</span>
-          <span class="quote">“Napidaw the new capital... the 2010s... Aung Sung Su Chi... Obama goes and is all hopeful”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 70 · vo</span>
-          <span class="quote">“the force expulsion of and genocide of a million citizens [Rohingya]”</span>
-        </li>
-        <li class="need">
-          <span class="loc">row 71 · vo</span>
-          <span class="quote">“it all came crashing down one morning in 2021... a YouTuber was recording an exercise video, the military behind her [2021 coup]”</span>
-        </li>
-      </ul>
-    </div>
-    <h3 class="repos-h">Where to look — 4 repositories</h3>
-    <ol class="repos">
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.gettyimages.com/photos/burma-history" target="_blank" rel="noopener">Getty Images — editorial / archival</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://www.gettyimages.com/photos/burma-history" target="_blank" rel="noopener">https://www.gettyimages.com/photos/burma-history</a>
-        <p class="strength">The modern political record: coups, the 8888 uprising, Aung San Suu Kyi, Obama&#x27;s 2012 visit, Naypyidaw, the Rohingya crisis, the 2021 coup — plus the deep Hulton Archive for colonial Burma.</p>
-        <p class="howto"><span class="lab">How to search</span> Search &#x27;Burma&#x27;, &#x27;Myanmar coup&#x27;, &#x27;Aung San Suu Kyi&#x27;, &#x27;Naypyidaw&#x27;. RGS historical licensing also routes through Getty.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed / royalty-free tiers — licensing required for broadcast.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://www.apimages.com/" target="_blank" rel="noopener">AP Images / Reuters / AFP</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://www.apimages.com/" target="_blank" rel="noopener">https://www.apimages.com/</a>
-        <p class="strength">Wire-service news photography for the modern beats — 1948 independence, Ne Win, 8888, the democratic opening, the 2021 coup and the civil war.</p>
-        <p class="howto"><span class="lab">How to search</span> AP Images (apimages.com), Reuters (reuters.com/pictures), AFP via Getty. Search &#x27;Myanmar&#x27;, &#x27;Burma coup&#x27;, year + event.</p>
-        <p class="rights"><span class="lab">Rights</span> Rights-managed — editorial licensing required.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://commons.wikimedia.org/wiki/Category:Aung_San_Suu_Kyi" target="_blank" rel="noopener">Wikimedia Commons — modern-era categories</a>
-          <span class="tier tier-mixed">MIXED</span>
-        </div>
-        <a class="repo-url" href="https://commons.wikimedia.org/wiki/Category:Aung_San_Suu_Kyi" target="_blank" rel="noopener">https://commons.wikimedia.org/wiki/Category:Aung_San_Suu_Kyi</a>
-        <p class="strength">Freely reusable images for some modern beats: Aung San Suu Kyi, Naypyidaw, and the 2021 coup protests.</p>
-        <p class="howto"><span class="lab">How to search</span> Categories: Aung_San_Suu_Kyi, Naypyidaw, &#x27;2021 Myanmar coup d&#x27;état&#x27;. Coverage is thinner and more uneven than the wire services.</p>
-        <p class="rights"><span class="lab">Rights</span> Mixed CC / some CC0 per file — check each; many protest images are CC-BY.</p>
-        
-      </li>
-      <li class="repo">
-        <div class="repo-head">
-          <a class="repo-name" href="https://themimu.info/gis-resources" target="_blank" rel="noopener">MIMU — Myanmar Information Management Unit</a>
-          <span class="tier tier-perm">PERMISSION</span>
-        </div>
-        <a class="repo-url" href="https://themimu.info/gis-resources" target="_blank" rel="noopener">https://themimu.info/gis-resources</a>
-        <p class="strength">The authoritative current shapefiles for Myanmar&#x27;s 7 states, 7 regions and 6 self-administered zones (Wa, Naga, Pa-O) — what a cartographer redraws the modern ethnic / autonomous-region map from.</p>
-        <p class="howto"><span class="lab">How to search</span> GeoNode → search &#x27;boundaries&#x27; / &#x27;adm1&#x27; / &#x27;self-administered&#x27;; grab ESRI shapefiles.</p>
-        <p class="rights"><span class="lab">Rights</span> Free with attribution BUT not for commercial use, and their data may not be published online without written agreement — use as a basemap to redraw from only.</p>
-        
-      </li>
-    </ol>
-  </section>
-
-  <section class="gaps" id="gaps">
-    <h2>Gaps &amp; proxies</h2>
-    <p class="blurb">The honest part. Where a faithful contemporary depiction likely does not exist — and the closest usable workaround.</p>
-    <div class="gap">
-      <h3>Faces of the early kings (Anawrahta, Kyansittha, Bayinnaung, Alaungpaya, Bodawpaya)</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> No contemporary likeness of any kind exists. Photography only reached Burma in the 1850s-60s, and Burmese court convention never produced individualised royal life-portraits. King Mindon (r.1853-78) is the earliest Burmese monarch ever photographed — he is the break point.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> Use proxies and label them as proxies: later Konbaung court paintings and temple donor-portraits (Commons: Art of the Konbaung dynasty), the kings&#x27; own monuments (Bodawpaya → Mingun Pahtodawgyi; Anawrahta / Kyansittha → Shwezigon and Bagan donor figures, the Mahamuni), and modern commemorative statuary. For Bayinnaung, a 1568 plan of Bago and Thai temple murals of his campaigns.</p>
-    </div>
-    <div class="gap">
-      <h3>The Bagan / Pagan era (9th-13th c.) court and daily life</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> The only contemporary visual record of the era is the temple murals themselves — and those depict Buddhist and Jataka scenes, not named rulers or court life. No portable images survive.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> Lean on the architecture and the in-situ murals as the period&#x27;s authentic visual culture (Commons per-temple categories; EFEO historic mural photographs). Frame them honestly as &#x27;the world these kings built&#x27;, not &#x27;portraits of these kings&#x27;.</p>
-    </div>
-    <div class="gap">
-      <h3>Pre-1850s Konbaung court life, from the Burmese side</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> Photography arrived with the colonial apparatus, so there is no eyewitness photograph of the independent court.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> The closest eyewitness renderings are Burmese-made parabaik court scenes (British Library; SOAS; Bodleian watercolours) and the 29 plates in Yule&#x27;s &#x27;Mission to the Court of Ava&#x27; (1858).</p>
-    </div>
-    <div class="gap">
-      <h3>The three Anglo-Burmese Wars as one conquest map (1826 / 1852 / 1885)</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> No single period map shows all three annexations on one sheet — the British drew them war by war.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> Redraw: take a clean Konbaung-at-peak base (Commons, CC-BY-SA) and overlay three dated bands — 1826 Treaty of Yandabo (Arakan + Tenasserim), 1852 (Lower Burma / Pegu), 1885 (Upper Burma + Mandalay). Every boundary is well documented; this is a design job, not an archive hunt.</p>
-    </div>
-    <div class="gap">
-      <h3>The moving royal capitals as one &#x27;travelling capital&#x27; map</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> No period map plots Bagan → Pinya → Ava/Inwa → Amarapura → Pegu/Bago → Mandalay together — they are centuries apart.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> Redraw one Irrawaddy-basin base with six dated pins. Note the visual beat: Ava/Inwa, Amarapura and Mandalay cluster within ~20 km of each other; Pegu/Bago is the southern (Mon / Toungoo-era) outlier.</p>
-    </div>
-    <div class="gap">
-      <h3>The small kingdom vs the large British Burma shape</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> No single period sheet overlays the two shapes — which is the whole point the script wants to make visually.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> Redraw: a Konbaung-extent polygon (Commons) under the British Burma administrative outline (MIMU-derived, or a Rumsey / LoC 1900 colonial map). The silhouette difference is the argument in one frame.</p>
-    </div>
-    <div class="gap">
-      <h3>Watts &amp; Skeen and D.A. Ahuja as named photographers</h3>
-      <p class="gap-problem"><span class="lab">The gap</span> There is no clean, single institutional repository for either under their own name; their output survives folded into Beato / Klier attributions and scattered across postcards.</p>
-      <p class="gap-fix"><span class="lab">The workaround</span> Route through Wikimedia Commons (&#x27;D.A. Ahuja Burma&#x27;, &#x27;Watts and Skeen&#x27;) plus the Myanmar Photo Archive for provenance. Treat dealer / blog scans as leads to verify, not citable primaries.</p>
-    </div>
-  </section>
-
-  <section class="sources" id="sources">
-    <h2>Every institution, one list</h2>
-    <ul class="sources">
-      <li><a href="https://www.apimages.com/" target="_blank" rel="noopener">AP Images / Reuters / AFP</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://searchcollection.asianart.org/search/Burma" target="_blank" rel="noopener">Asian Art Museum of San Francisco</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://meral.edu.mm/" target="_blank" rel="noopener">Bagan murals — scholarly finding aids (no single open database)</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://gallica.bnf.fr" target="_blank" rel="noopener">Bibliothèque nationale de France — Gallica</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://digital.bodleian.ox.ac.uk/collections/burmese/" target="_blank" rel="noopener">Bodleian Libraries (Oxford) — Digital Bodleian, Burmese collection</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://becc.bristol.gov.uk/records/2003/001/001" target="_blank" rel="noopener">Bristol Archives — British Empire &amp; Commonwealth Collection</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://www.bl.uk/stories/blogs/posts/buddhist-rebirth-in-different-planes-of-existence" target="_blank" rel="noopener">British Library — &#x27;Buddhist rebirth in different planes of existence&#x27; (blog)</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://www.bl.uk/stories/blogs/posts/scenes-from-the-life-of-the-buddha" target="_blank" rel="noopener">British Library — &#x27;Scenes from the Life of the Buddha&#x27; (blog)</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://discovery.nationalarchives.gov.uk/results/r?_q=Burma+map" target="_blank" rel="noopener">British Library — India Office Records (via National Archives Discovery)</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://www.britishmuseum.org/collection/search?keyword=Burma" target="_blank" rel="noopener">British Museum</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://www.britishmuseum.org/collection/object/A_2014-3027-4" target="_blank" rel="noopener">British Museum — Popa Medaw nat figure (2014,3027.4)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://cudl.lib.cam.ac.uk/collections/rcs" target="_blank" rel="noopener">Cambridge — Royal Commonwealth Society (Cambridge Digital Library)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://viewer.cbl.ie/" target="_blank" rel="noopener">Chester Beatty (Dublin)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://archives.colgate.edu/repositories/2/resources/359" target="_blank" rel="noopener">Colgate University Libraries — Philipp Adolphe Klier photographs of Burma (M4014)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://www.davidrumsey.com/luna/servlet/as/search?q=Burma" target="_blank" rel="noopener">David Rumsey Map Collection</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://www.gettyimages.com/photos/burma-history" target="_blank" rel="noopener">Getty Images — editorial / archival</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://archive.org/details/india.history.resource.99975" target="_blank" rel="noopener">Internet Archive — R.C. Temple, &#x27;The Thirty-Seven Nats&#x27; (1906)</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://archive.org/details/burmanhislifenot00scotrich" target="_blank" rel="noopener">Internet Archive — Shway Yoe (J.G. Scott), &#x27;The Burman: His Life and Notions&#x27; (1896)</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://archive.org/details/narrativeofmissi00yulerich" target="_blank" rel="noopener">Internet Archive — Yule, &#x27;Narrative of the Mission to the Court of Ava in 1855&#x27; (1858)</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://www.loc.gov/maps/?q=Burma" target="_blank" rel="noopener">Library of Congress — Geography &amp; Map Division</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://themimu.info/gis-resources" target="_blank" rel="noopener">MIMU — Myanmar Information Management Unit</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://www.guimet.fr/en/our-collections/treasures-historic-library/kammavaca-burmese-manuscript" target="_blank" rel="noopener">Musée Guimet — MNAAG, Paris</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://myanmarmanuscripts.org/" target="_blank" rel="noopener">Myanmar Manuscript Digital Library (University of Toronto)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://www.myanmarphotoarchive.org/archives-in-focus/" target="_blank" rel="noopener">Myanmar Photo Archive (Lukas Birk)</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://collection.nam.ac.uk/detail.php?acc=1974-03-148-5" target="_blank" rel="noopener">National Army Museum — Anglo-Burmese Wars</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://www.oldmapsonline.org/en/Myanmar" target="_blank" rel="noopener">Old Maps Online — Myanmar</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://www.rgs.org/our-collections/about-the-picture-library" target="_blank" rel="noopener">Royal Geographical Society (RGS-IBG) — Picture Library</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://www.si.edu/search/collection-images?edan_q=Burma" target="_blank" rel="noopener">Smithsonian — National Museum of Asian Art (Freer|Sackler)</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://www.metmuseum.org/art/collection/search?q=Burma&amp;showOnly=openAccess" target="_blank" rel="noopener">The Metropolitan Museum of Art — Open Access</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://publicdomainreview.org/product/burmese-map-of-the-world/" target="_blank" rel="noopener">The Public Domain Review — &#x27;Burmese Map of the World&#x27;</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://whc.unesco.org/en/list/1588/gallery/" target="_blank" rel="noopener">UNESCO World Heritage Centre — Bagan gallery</a> <span class="tier tier-perm">PERMISSION</span></li>
-      <li><a href="https://collections.vam.ac.uk/item/O18183/the-departure-of-king-thibaw-painting-unknown/" target="_blank" rel="noopener">V&amp;A — &#x27;The Departure of King Thibaw from Mandalay&#x27; (IS.13-1958)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://collections.vam.ac.uk/item/O133416/amerapoora-nagayoung-pagod-photograph-tripe-linnaeus/" target="_blank" rel="noopener">V&amp;A — Linnaeus Tripe, &#x27;Burma Views&#x27; (1855)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://collections.vam.ac.uk/search/?q=burmese" target="_blank" rel="noopener">Victoria &amp; Albert Museum (V&amp;A)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://wellcomecollection.org/collections" target="_blank" rel="noopener">Wellcome Collection — Burma prints &amp; photographs</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Ananda_Temple" target="_blank" rel="noopener">Wikimedia Commons — Ananda Temple</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Art_of_the_Konbaung_dynasty" target="_blank" rel="noopener">Wikimedia Commons — Art of the Konbaung dynasty &amp; Burmese monarchs</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Bagan" target="_blank" rel="noopener">Wikimedia Commons — Bagan (and per-temple subcategories)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Nats_(spirit)" target="_blank" rel="noopener">Wikimedia Commons — Category:Nats (spirit)</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Dhammayangyi" target="_blank" rel="noopener">Wikimedia Commons — Dhammayangyi</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:History_of_Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — History of Shwedagon pagoda</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/File:King_thibaw_queen_daughter1885.jpg" target="_blank" rel="noopener">Wikimedia Commons — King Thibaw, Queen Supayalat &amp; daughter, 1885</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Maps_of_the_history_of_Myanmar" target="_blank" rel="noopener">Wikimedia Commons — Maps of the history of Myanmar</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Mindon_Min" target="_blank" rel="noopener">Wikimedia Commons — Mindon Min</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Aung_San_Suu_Kyi" target="_blank" rel="noopener">Wikimedia Commons — modern-era categories</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Myanmar_by_Felice_Beato" target="_blank" rel="noopener">Wikimedia Commons — Photographs of Myanmar by Felice Beato</a> <span class="tier tier-open">OPEN</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Shwedagon_pagoda" target="_blank" rel="noopener">Wikimedia Commons — Shwedagon pagoda</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://commons.wikimedia.org/wiki/Category:Shwezigon" target="_blank" rel="noopener">Wikimedia Commons — Shwezigon</a> <span class="tier tier-mixed">MIXED</span></li>
-      <li><a href="https://collection.efeo.fr/" target="_blank" rel="noopener">École française d&#x27;Extrême-Orient (EFEO) — Photothèque</a> <span class="tier tier-perm">PERMISSION</span></li>
-    </ul>
-  </section>
-
-  <footer>
-    Compiled for the Newpress archive producer · 17 August 2026 · all links verified · script source: newpress.press/scripts-library/#burma
-  </footer>
-
-</div>
 </body>
 </html>
