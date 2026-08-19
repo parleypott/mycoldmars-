@@ -1,5 +1,164 @@
 [
   {
+    "id": "F0BS59RU3SL",
+    "name": "Screenshot 2026-08-19 at 12.23.22 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28016,
+    "local_path": "images/F0BS59RU3SL.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1787156743.032339",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1787156743032339",
+    "posted_at": "2026-08-19T16:25:43.032Z",
+    "analysis": {
+      "comment_text": "thank you, quality content as always!",
+      "commenter": "xradical89x",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "appreciation",
+        "content",
+        "loyalty"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-19T16:39:24.355Z"
+  },
+  {
+    "id": "F0BS59RU7NU",
+    "name": "Screenshot 2026-08-19 at 12.22.34 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 38720,
+    "local_path": "images/F0BS59RU7NU.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1787156743.032339",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1787156743032339",
+    "posted_at": "2026-08-19T16:25:43.032Z",
+    "analysis": {
+      "comment_text": "just found this channel super cool video!",
+      "commenter": "frostvin62",
+      "sentiment": "praise",
+      "themes": [
+        "discovery",
+        "channel",
+        "excitement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-19T16:39:25.684Z"
+  },
+  {
+    "id": "F0BQVHGP9B9",
+    "name": "Screenshot 2026-08-19 at 12.22.09 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 41342,
+    "local_path": "images/F0BQVHGP9B9.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1787156743.032339",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1787156743032339",
+    "posted_at": "2026-08-19T16:25:43.032Z",
+    "analysis": {
+      "comment_text": "Great video, I'm a cs major and freshman year this was basically what my computer ethics class was about",
+      "commenter": "@iZoomz",
+      "sentiment": "personal_story",
+      "themes": [
+        "computer ethics",
+        "education",
+        "cs major",
+        "praise"
+      ],
+      "video_hint": "Video likely covers a computer ethics topic such as AI, privacy, hacking, or tech morality",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-19T16:39:25.787Z"
+  },
+  {
+    "id": "F0BR90KR99C",
+    "name": "Screenshot 2026-08-19 at 12.23.39 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 26768,
+    "local_path": "images/F0BR90KR99C.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1787156743.032339",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1787156743032339",
+    "posted_at": "2026-08-19T16:25:43.032Z",
+    "analysis": {
+      "comment_text": "Such banger topic",
+      "commenter": "Guilred",
+      "sentiment": "praise",
+      "themes": [
+        "topic",
+        "engagement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-19T16:39:26.477Z"
+  },
+  {
+    "id": "F0BQVHGQZE3",
+    "name": "Screenshot 2026-08-19 at 12.17.17 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47800,
+    "local_path": "images/F0BQVHGQZE3.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1787156743.032339",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1787156743032339",
+    "posted_at": "2026-08-19T16:25:43.032Z",
+    "analysis": {
+      "comment_text": "I've explained basically this video to many people how tell me there phone is listening. This is very nice, now I'll just send them this video 😂",
+      "commenter": "jelteburggraaf",
+      "sentiment": "praise",
+      "themes": [
+        "phone listening",
+        "privacy",
+        "sharing",
+        "explainer"
+      ],
+      "video_hint": "Video debunking or explaining the 'phone is listening to you' myth or phenomenon",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-19T16:39:26.780Z"
+  },
+  {
+    "id": "F0BREK1AACC",
+    "name": "Screenshot 2026-08-19 at 12.23.54 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 26200,
+    "local_path": "images/F0BREK1AACC.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1787156743.032339",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1787156743032339",
+    "posted_at": "2026-08-19T16:25:43.032Z",
+    "analysis": {
+      "comment_text": "Starting breakfast with Christophe",
+      "commenter": "brutalStrudel",
+      "sentiment": "personal_story",
+      "themes": [
+        "host",
+        "morning routine",
+        "food",
+        "personal"
+      ],
+      "video_hint": "Video likely features a person named Christophe, possibly a breakfast or morning-themed episode",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-08-19T16:39:29.347Z"
+  },
+  {
     "id": "F0BQZD7AQBX",
     "name": "Screenshot 2026-08-18 at 4.06.28 PM.png",
     "ext": "png",
