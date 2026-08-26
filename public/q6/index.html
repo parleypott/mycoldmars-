@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bill · BURGUNDY q6 — The Flow</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --paper:#f3ead9; --paper-2:#efe4cf; --card:#faf3e6; --ink:#211a14; --ink-soft:#5b4f42;
+    --ink-faint:#8a7c69; --rule:#d8c8ab; --oxblood:#7c2130; --red:#b8332c; --gold:#a9853f;
+    --green:#4a6741; --blue:#3d5a6e; --purple:#5d4a6e;
+    --shadow:0 1px 0 rgba(120,90,40,.08), 0 12px 34px -20px rgba(60,40,20,.55);
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --disp:"Hoefler Text","Iowan Old Style",Palatino,Georgia,serif;
+    --mono:"SF Mono",ui-monospace,"Menlo","Consolas",monospace;
+  }
+  html[data-theme="night"]{
+    --paper:#171310; --paper-2:#1d1813; --card:#221b15; --ink:#eadfce; --ink-soft:#c3b39a;
+    --ink-faint:#8c7c66; --rule:#3a2f24; --oxblood:#d98a92; --red:#e0776d; --gold:#d6b673;
+    --green:#8fb283; --blue:#8ab0c4; --purple:#b09ac4;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 14px 40px -22px rgba(0,0,0,.85);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);
+    color:var(--ink); font-family:var(--serif); font-size:17.5px; line-height:1.6; padding-bottom:110px}
+  .wrap{max-width:860px; margin:0 auto; padding:0 20px}
+  header.masthead{padding:52px 0 20px; text-align:center}
+  .emblem{display:inline-flex; align-items:baseline; gap:.04em; font-family:var(--disp); font-size:60px; line-height:1}
+  .emblem .b{color:var(--ink); font-weight:600; position:relative; padding-bottom:6px}
+  .emblem .b::after{content:""; position:absolute; left:2%; right:2%; bottom:0; height:4px; background:linear-gradient(90deg,var(--red),var(--oxblood)); border-radius:2px}
+  .spark{color:var(--gold); font-size:24px; transform:translateY(-20px); margin-left:2px}
+  .kicker{font-family:var(--mono); font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-faint); margin:20px 0 6px}
+  h1.title{font-family:var(--disp); font-weight:600; font-size:36px; line-height:1.1; margin:.1em 0 .15em}
+  .byline{font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--oxblood); margin-top:14px}
+  .rule{height:1px; background:linear-gradient(90deg,transparent,var(--rule) 15%,var(--rule) 85%,transparent); margin:28px 0}
+  .letter{background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:26px 28px 22px; box-shadow:var(--shadow); position:relative}
+  .letter::before{content:"how to use this"; position:absolute; top:-9px; left:22px; background:var(--card); padding:0 10px; font-family:var(--mono); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--gold)}
+  .letter p{margin:0 0 12px} .letter p:last-child{margin-bottom:0}
+
+  /* legend */
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 0}
+  .lg{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); border:1px solid var(--rule); border-radius:20px; padding:4px 11px}
+  .lg .sw{width:10px; height:10px; border-radius:3px; display:inline-block}
+
+  /* chapters */
+  .chap{margin-top:44px}
+  .chap-head{display:flex; align-items:center; gap:12px; background:var(--paper); padding:10px 0; border-bottom:1px solid var(--rule)}
+  .chap-head h2{font-family:var(--disp); font-weight:600; font-size:24px; margin:0}
+  .chap-head .cnt{font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; color:var(--ink-faint); text-transform:uppercase}
+
+  /* edit cards */
+  .ed{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:16px 18px; margin:14px 0; border-left-width:4px; border-left-style:solid}
+  .ed[data-t="age-fix"], .ed[data-t="line-edit"], .ed[data-t="timing-marker"]{border-left-color:var(--gold)}
+  .ed[data-t="new-paragraph"]{border-left-color:var(--green)}
+  .ed[data-t="new-scene"], .ed[data-t="new-chapter"]{border-left-color:var(--oxblood)}
+  .ed[data-t="restructure"]{border-left-color:var(--red)}
+  .ed[data-t="flashback-slot"], .ed[data-t="parked"]{border-left-color:var(--purple)}
+  .ed[data-t="open-question"]{border-left-color:var(--blue)}
+  .ed-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px}
+  .pill{font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; padding:3px 8px; border-radius:20px; border:1px solid var(--rule); color:var(--ink-soft)}
+  .pill.type{font-weight:600}
+  .ed[data-t="new-scene"] .pill.type, .ed[data-t="new-chapter"] .pill.type{color:var(--oxblood); border-color:var(--oxblood)}
+  .ed[data-t="new-paragraph"] .pill.type{color:var(--green); border-color:var(--green)}
+  .ed[data-t="restructure"] .pill.type{color:var(--red); border-color:var(--red)}
+  .ed[data-t="flashback-slot"] .pill.type, .ed[data-t="parked"] .pill.type{color:var(--purple); border-color:var(--purple)}
+  .ed[data-t="open-question"] .pill.type{color:var(--blue); border-color:var(--blue)}
+  .ed[data-t="age-fix"] .pill.type, .ed[data-t="line-edit"] .pill.type, .ed[data-t="timing-marker"] .pill.type{color:var(--gold); border-color:var(--gold)}
+  .ed h4{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 7px; line-height:1.25}
+  .ed .prop{margin:0 0 10px; font-size:16px}
+  .ed .prop p{margin:0 0 9px}
+  .ed .prop p:last-child{margin-bottom:0}
+  .ed .prop strong{font-weight:600}
+  .ed .prop .lead{color:var(--ink)}
+  .ed .prop ul.opts{list-style:none; margin:10px 0 2px; padding:0}
+  .ed .prop ul.opts li{position:relative; padding:6px 10px 6px 26px; margin:4px 0; background:var(--paper-2); border:1px solid var(--rule); border-radius:8px; font-size:15px; line-height:1.45}
+  .ed .prop ul.opts li:before{content:"▸"; position:absolute; left:9px; top:6px; color:var(--gold)}
+  .ed .prop .change{background:var(--paper-2); border:1px dashed var(--rule); border-radius:8px; padding:8px 12px; margin:8px 0; font-size:15px}
+  .ed .why{font-size:13.5px; color:var(--ink-faint); font-style:italic; margin:0 0 10px}
+  .ed .draft{font-size:14.5px; color:var(--ink-soft); background:var(--paper-2); border:1px dashed var(--rule); border-radius:8px; padding:9px 12px; margin:0 0 10px}
+  .ed .draft b{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); font-weight:400; display:block; margin-bottom:4px}
+  .anchor{font-size:13px; color:var(--ink-faint); margin:0 0 12px; line-height:1.5}
+  .anchor .h,.anchor .t{font-style:italic}
+  .anchor b{font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-style:normal; color:var(--ink-faint); margin-right:4px}
+  .anchor .mark{color:var(--oxblood); font-weight:700; font-style:normal; padding:0 3px}
+
+  /* verdict row */
+  .verd{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .vbtn{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; padding:7px 14px; border-radius:8px; border:1px solid var(--rule); background:transparent; color:var(--ink-soft); cursor:pointer; transition:.12s}
+  .vbtn:hover{border-color:var(--ink-soft)}
+  .vbtn.acc.on{background:var(--green); border-color:var(--green); color:var(--paper)}
+  .vbtn.rej.on{background:var(--red); border-color:var(--red); color:var(--paper)}
+  .cmt{flex:1; min-width:160px}
+  .cmt input{width:100%; background:var(--paper); color:var(--ink); border:1px solid var(--rule); border-radius:8px; padding:8px 11px; font-family:var(--serif); font-size:14px}
+  .cmt input:focus{outline:none; border-color:var(--oxblood)}
+
+  .bar{position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--paper); border-top:1px solid var(--rule)}
+  .bar-in{max-width:860px; margin:0 auto; padding:11px 20px; display:flex; align-items:center; gap:14px}
+  .progress{flex:1; display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:11.5px; color:var(--ink-soft)}
+  .track{flex:1; height:6px; background:var(--rule); border-radius:6px; overflow:hidden; max-width:240px}
+  .fill{height:100%; width:0; background:linear-gradient(90deg,var(--oxblood),var(--gold)); transition:width .3s}
+  button.act{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--oxblood); color:var(--paper); background:var(--oxblood); padding:9px 14px; border-radius:8px; cursor:pointer}
+  button.ghost{background:transparent; color:var(--oxblood)}
+  .theme-btn{position:absolute; top:16px; right:18px; font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); background:transparent; border:1px solid var(--rule); border-radius:20px; padding:5px 11px; cursor:pointer}
+  .toast{position:fixed; bottom:70px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:var(--ink); color:var(--paper); padding:10px 18px; border-radius:10px; font-size:13.5px; font-family:var(--mono); transition:.25s; pointer-events:none; z-index:50}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  @media(max-width:640px){ h1.title{font-size:30px} .emblem{font-size:50px} .letter{padding:20px} .ed{padding:14px} }
+</style>
+</head>
+<body>
+<button class="theme-btn" id="themeBtn">☾ night</button>
+<div class="wrap">
+  <header class="masthead">
+    <div class="emblem"><span class="b">B</span><span class="spark">✦</span></div>
+    <div class="kicker">Bill · your story wizard</div>
+    <h1 class="title">BURGUNDY: The Edit Proposal</h1>
+    <div class="byline" id="byline"></div>
+  </header>
+
+  <div class="letter" id="intro"></div>
+
+  <div class="legend" id="legend"></div>
+
+  <div id="chapters"></div>
+</div>
+
+<div class="bar"><div class="bar-in">
+  <div class="progress"><span id="pText">0 ruled</span><span class="track"><span class="fill" id="fill"></span></span></div>
+  <button class="act ghost" id="accAllBtn" title="accept everything not yet ruled">accept rest</button>
+  <button class="act ghost" id="clearBtn">clear</button>
+  <button class="act" id="exportBtn">export ↧</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = {"intro":"**Rulings 9 is executed.** All 158 cards processed: ~150 line edits, your dictated scenes (Tuck's faces, the Hesta calculation, the market beats), the sweeps (moons, Drekko, South 12, the pastes healed), and the canon locks (Clan Voss, the Jaleem Gate, THE LINE, four generations, the munitions accounting) are in the manuscript or the canon file. The words you banned are banned.\n\n**This questionnaire is smaller and heavier.** The top section is the thing you asked for twice: the middle of the book condensed from the old four-path analysis into **six real decisions plus one beat-line** — plain language, no chapter numbers, each card a fork you can rule in a minute. Below that: names to lock, two confirmations, and the threads you deliberately left open, kept visible so nothing silently vanishes.\n\n**15 cards.** Accept means I execute; comment overrides me. Same round-trip as ever.","edits":[{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":1,"type":"decision","size":"ruling","title":"FLOW 1 — THE CONVERSION: where Burgundy crosses the line","proposal":"You asked for a real point of no return, and you're right that it can't happen casually: this boy is walking into treason and the book has to show the door shutting behind him. Three candidate moments, all at the Hollow or in its orbit.\n\n(A) THE VOTE. The militarization debate is the door. Skorn stands on his grandfather's tally-book and argues for arming; Hesta lays out the depot checkmate; and the room turns to Burgundy, because the machines are his. Saying \"I'll find out where the depot is\" IS the conversion, spoken in front of witnesses. Clean, public, cheap to stage — but it risks feeling like logistics, not transformation.\n\n(B) THE TAKING. The regime reaches someone at the table before the debate. A name from the crew goes down the hole (or Ran's fate lands harder), and Burgundy sits at a council breakfast the next morning listening to the men who did it butter their bread. That night he goes down and says: no more reform. The conversion is grief-driven, private, and earns the treason emotionally.\n\n(C) THE WRONG GIFT. The cruelest version and my pick. Right when the training glow peaks, his father finally gives him the thing the whole book has starved him of: real recognition, warmth, maybe even pride in front of the council. And standing inside the thing he always wanted, Burgundy discovers it no longer buys him — because being seen as the heir is not being seen at all. He walks from the warmest dinner of his life straight down to the Hollow and commits. The want-engine pays for the revolution.\n\nThese stack: (B) can wound him, (C) can convert him, (A) can make it public. Rule which carries the WEIGHT, or bless the stack.\n\n▸ Accept — the stack: B wounds, C converts, A makes it public\n▸ Comment — pick one, or your own version","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":2,"type":"decision","size":"ruling","title":"FLOW 2 — THE FUSE STACK: three clocks, one date (ratify the shape)","proposal":"You've already accepted the pieces; this card just stacks them so you can see the whole bomb. The date everything converges on is the Vicentennial.\n\nFUSE 1, the terminal one (accepted): the rite includes a ceremonial full survey of the under-tunnels — the new prince shown the whole of what he'll rule — which would walk the King's men straight into the robot tunnel and the factory. The revolution must break before the survey. This is the wall the whole middle leans toward.\n\nFUSE 2, the discovery clock (new, from your munitions ruling): the depot's weapons sit unloaded; munitions live at the guarded front and cycle through Nicholas's twice-a-year accounting. The crew must steal ammunition BETWEEN accountings, knowing the empty shelves WILL be found at the next count. Once they steal, a discovery date exists and cannot be moved. Beautiful pressure: the theft itself starts a clock nobody can stop.\n\nFUSE 3, the near-miss engine (mid-book): the money trail. The finance minister flags Mira's swollen orders; Burgundy volunteers to run the audit on his mother's low-stakes staples account and cooks the books with a trade manager. This one doesn't end the world — it TRAINS the reader to fear the other two.\n\nProposed rhythm: Fuse 3 burns through the middle (near-misses), Fuse 2 ignites at the steal, Fuse 1 sets the final date. The war starts on the eve of the rite because all three converge.\n\n▸ Accept — ratify the three-fuse stack\n▸ Comment — reweight or replace a fuse","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":3,"type":"decision","size":"ruling","title":"FLOW 3 — THE TRAINING BRAID: pre-Hollow scenes re-proposed (and where THE LINE lives)","proposal":"Per your ruling, pre-Hollow training is the emotional wake-up; post-Hollow training is scheming. Here's the re-proposed braid — every scene does double duty like the hunt.\n\nPRE-HOLLOW (learning + waking up):\n1. THE ARCHIVES — Mr. Hamdi, the kind nervous archivist. Carries the Great Rupture history, the proxy war, the rival corporation (named once, here), and the vassal worlds (folded in per your ruling — no separate chapter). Burgundy's want: get the man to say what actually happened; the obstacle: the fear the regime breeds even in its most harmless servant.\n2. THE ENGINEER'S WEEK — your dictated scene, fully specced: infrastructure, the ore trains, the cage elevators on their whisper of osmarine, the gates and the aperture explained in-world (Jaleem Gate, Alborus), and the beat where his \"when I'm king\" optimism meets \"there are many forces working against Dross having machines like that.\" The week his gift-dream gets its first honest weather report.\n3. THE LINE — my placement proposal: its own short scene in the lounge, AFTER Ran's arrest (so the strike story lands on skin), BEFORE the Hollow's militarization debate (so Burgundy walks into that debate already knowing the depot exists). The King shows him the device, tells the strike story, the depot, the accounting. Intimate, terrifying, and it hands Burgundy the exact knowledge the revolution will need — from his father's own mouth. That irony is the scene.\n(The Custom House and the Preserve/hunt already exist and stay.)\n\nPOST-HOLLOW (scheming, stakes, the clock):\n4. THE AUDIT — he volunteers, cooks his mother's staples ledger with a trade manager. Training-as-cover, first active manipulation.\n5. THE MAP ROOM — your dictated scene: the survey map, the \"storage\" rectangle, the babbling map keeper, the worthless 80-year-old map he walks out holding. The quest's payoff.\n6. THE DEFENSE ROTATION — where depot references recur naturally and Oz's conscription lever (planted at the hunt) pays off.\n\n▸ Accept — this braid + THE LINE in the lounge post-arrest\n▸ Comment — reorder or relocate the Line scene","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":4,"type":"decision","size":"ruling","title":"FLOW 4 — THE TUCK BRAID: catch him early or late, and does he ride the heist?","proposal":"Locked already: Pell is gone, Tuck runs the food blind, then sneaks in and gets caught mid-dinner by Skorn's eye-flick, rage-and-forgiveness in one breath, and he's in the meetings from then on. Two decisions remain.\n\nWHEN the catch happens: (A) EARLY — second or third dinner. Tuck is inside the story for the whole middle; the friendship carries the warm era; his jokes become the Hollow's weather. My lean: early. The book breathes better with him in the room, and his savvy gets a whole act to matter. (B) LATE — near the weapons vote, so his arrival lands in the cold era and raises the stakes of every meeting he attends. More dread, less warmth.\n\nWHAT he carries after: (A) The supply line grows into the operation's cover — food crates make excellent munitions crates, and the boy everyone in the market loves is the best smuggler alive. This gives Tuck real weight in the heist and honors \"smart savvy survivor.\" (B) He stays the heart, not hands — feeds them, jokes them through the fear, but Burgundy refuses to let him touch anything hangable, which becomes its own fight between them (the protection instinct vs. Tuck's right to choose). My lean: B for most of the middle, converting to A exactly once, at the steal, when they need him and he says yes before Burgundy finishes the sentence — his ch5 line, paid forward.\n\n▸ Accept — early catch; heart-not-hands until the steal\n▸ Comment — different timing or role","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":5,"type":"decision","size":"ruling","title":"FLOW 5 — THE MANHUNT: 'find me the buyer' needs an owner (your advice request)","proposal":"You asked how to handle the King's buyer-hunt going silent after ch18. The thread is too good to drop: Oz was ordered to find who bought the cores, and the buyer is the prince.\n\n(A) DEAD-END QUIETLY. Ran holds his tongue in the dark; Oz's trail dies at a scrap yard with no ledger; one line at a later council closes it (\"The osmarine buyer, sire. Nothing. Whoever he was, he's gone to ground.\"). Safe, cheap, slightly wasteful.\n\n(B) THE COIN TRAIL — my pick. Burgundy paid Ran in freshly minted gold, his father's young face on every coin. New-struck coins are traceable the way old ones aren't. The hunt goes quiet, then surfaces mid-book: Oz mentions, mildly, at a lounge night, that palace-fresh coin has been turning up in Kettletown scrap circles, and he's begun asking which hands it left the treasury through. Every count Burgundy ever feared now has a face. It costs one scene to plant and pays dread for the whole middle, and it can braid INTO the audit thread (Fuse 3): the coin trail and the ledger trail are the same trail, closing from two ends.\n\n(C) THE TRAP. Oz quietly baits the market with a planted core to catch a returning buyer, and the crew must not bite — a single tense scene, then closure.\n\n▸ Accept — B, the coin trail braided into the audit fuse\n▸ Comment — A, C, or your own","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":6,"type":"decision","size":"ruling","title":"FLOW 6 — RAN: the debt the act owes","proposal":"Ran drove the whole back half of Act I into motion and the book cannot shrug him. Three shapes for his fate (the ch19 seam is already patched; this is the structural call).\n\n(A) THE WALKING WARNING. Released after months, quieter, thinner, a man who looked into the hole and came back. He reopens the yard, says almost nothing about it ever, and his silence radicalizes the reader the way speeches couldn't. He knows exactly what Burgundy is and chooses, again, not to know. His \"make something worth what it cost\" line grows teeth every time we see him.\n\n(B) STILL DOWN AT THE RISING. He is never released. Freeing him is a night-one objective of the revolution — the cells emptied as the first act of the new order, and Burgundy finally stands in front of the man whose arrest he caused. Maximum payoff, but the middle carries his absence for a long time.\n\n(C) THE PRICE. Word comes up, one line, mid-book: Ran died in the dark. No body, no date. It hardens everyone — it can BE the taking that wounds Burgundy in Flow 1's stack — but it spends the character.\n\nMy lean: A, with his release engineered quietly by Hesta's network (showing her reach), and the reader never fully sure whether the crown let him go or lost interest. He belongs at the table for the bread-and-iron era; the Hollow needs its uncle.\n\n▸ Accept — A, released changed, Hesta's fingerprints faint on it\n▸ Comment — B, C, or your own","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"0 · THE FLOW — the middle, condensed to six decisions","seq":7,"type":"decision","size":"ruling","title":"FLOW 7 — THE DEFAULT ORDER (one beat-line to bless, chapters come later)","proposal":"Per your instruction, no chapter numbers — just the flow of rising tension, one line per beat. This is the whole middle on one card, with everything ruled tonight already woven in:\n\nHollow trust (Hesta's spoken math) → suppers begin (the bread novelty; Tuck runs food blind) → TUCK CAUGHT (early) → the factory era: quota-exact Drekkos, freed hands, first builds (warm; the count starts) → THE LINE scene: strike story, depot, accounting (post-Ran-arrest chill) → militarization debate: the depot checkmate, \"I'll find out\" → council probe: south ice plains → THE AUDIT begins (Fuse 3 lit; coin trail murmurs) → machines-build-machines unlock (the count accelerates; Hesta: \"It doesn't need us\") → THE MAP ROOM: the storage rectangle → Maren plots the Ghai route; THE DIG starts (5-6 weeks; rubble-carrier Drekkos) → weapons vote (Skorn on the tally-book; Moss unsheathes) → THE CONVERSION peak (Flow 1's choice) → Mira: the Broker showing → the weapons ask (\"an army to kill your father\") → family terms (Ressa) → dig breaks through: THE MUNITIONS PROBLEM discovered (Fuse 2 revealed) → the steal, between accountings (Tuck says yes) → near-catches stack (coin trail + audit converge) → armory + proving range (the second one gets built) → eve inventory → the survey looms (Fuse 1) → the rising, night before the rite.\n\nRule this as a direction, not a contract — every beat stays movable until chapters exist.\n\n▸ Accept — bless this flow as the working spine\n▸ Comment — move/merge/kill beats","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"1 · NAMES + CONFIRMATIONS","seq":10,"type":"decision","size":"ruling","title":"NAME: the vassal logistics hub world (the region's 'city')","proposal":"The richest vassal world, the regional hub where cargo consolidates. Options, kept un-magical per your taste: (A) MERIDIAN — the crossing point; reads commercial, almost corporate. (B) COPPERGATE HUB, usually just 'the Hub' in speech — blunt, port-town honest. (C) VELLPORT — reads like a place sailors resent. (D) THE ENTREPOT — the old trade word, said plain. (E) KESSEL — short, hard, sounds like it smells of fuel. Bill's lean: MERIDIAN said formally, 'the Hub' in every working mouth — you get both registers free.\n\n▸ Accept — Meridian / the Hub\n▸ Comment — your pick","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"1 · NAMES + CONFIRMATIONS","seq":11,"type":"decision","size":"ruling","title":"NAME: the rival corporation (the Great Rupture's losing side)","proposal":"Named once, in the archives scene, never again. It should sound like Nicholas Corp's peer, a second East-India machine: (A) THE MADRAN COMPANY. (B) HALVEK & SONS — the family-firm menace. (C) THE CONCERN — what people call it instead of its name; almost a superstition. (D) VIREY-KUL — foreign to everyone's mouth, which is the point. Bill's lean: A or C; C is the most chilling in a single mention but might read coy.\n\n▸ Accept — the Madran Company\n▸ Comment — your pick","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"1 · NAMES + CONFIRMATIONS","seq":12,"type":"decision","size":"ruling","title":"CONFIRM: the King's new dinner line (replacing the Dune-adjacent one)","proposal":"Implemented tonight as: \"Our ore keeps the gates of the galaxy open.\" Pride, connection, gates — and it quietly plants the gate concept in chapter one. Alternates if it doesn't sing: (A) \"Half the galaxy passes through a gate our ore holds open.\" (B) \"The gates stay open because of what comes out of our ground.\" (C) \"No planet matters more per ton than this one\" — colder, more him. Confirm the live line or swap.\n\n▸ Accept — keep 'Our ore keeps the gates of the galaxy open'\n▸ Comment — swap to A/B/C or your own","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"1 · NAMES + CONFIRMATIONS","seq":13,"type":"decision","size":"ruling","title":"NAMES: the minor cast (archivist, engineer, map keeper, trade manager)","proposal":"Per your register (\"Mr. Hamdi\"): THE ARCHIVIST: Mr. Hamdi — locked per your example unless you want options. THE HEAD ENGINEER (the man he grew up watching draft): (A) Master Okonn (B) Old Verre (C) Master Deel — someone Burgundy would call by title-plus-name since childhood. THE MAP KEEPER: (A) Brother Callum of the Survey (B) Mr. Pequen (C) just 'the map keeper', unnamed on principle. THE TRADE MANAGER (audit partner): (A) Manager Osk— no, Osk collides with Oz; (B) Manager Tiller (C) Vasquez-style single surname: Manager Brant. Bill's lean: Hamdi, Master Okonn, Mr. Pequen, Manager Brant.\n\n▸ Accept — Hamdi / Okonn / Pequen / Brant\n▸ Comment — swaps","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"1 · NAMES + CONFIRMATIONS","seq":14,"type":"decision","size":"ruling","title":"THE WORD 'ARITHMETIC' — seven live instances in the prose (your ban, your call on the bodies)","proposal":"You banned the word going forward, absolutely. It currently appears seven times in the manuscript, some load-carrying beats among them (I know — that phrase is banned too; last use, as evidence). The bodies: (1) ch1, the notebooks: \"output tables, arithmetic he had run so many times\" → \"output tables, sums he had run so many times\". (2) ch2, the pitch: \"I did the arithmetic twice.\" → \"I did the math twice.\" (3) ch10, the rim memory: \"learning to do that arithmetic without being asked\" → \"learning to do that math without being asked\". (4) ch22, the wall: \"could not stop doing arithmetic on it\" → \"could not stop doing the math on it\". (5) ch22, Halda: \"That's the arithmetic that took the six. That's the arithmetic I do all day\" → \"That's the math that took the six. That's the math I do all day\". (6) ch22, the table: \"Halda doing supply arithmetic behind her dry eyes\" → \"Halda pricing the supply lines behind her dry eyes\". (7) ch22, THE ENDING: \"With arithmetic.\" — the chapter's last two words. Options: \"With the math.\" / \"With a count.\" / \"Counting.\" My honest note: this is the one place the word earns its keep, and also the rule is the rule. Your call.\n\n▸ Accept — sweep all seven, ending becomes 'With the math.'\n▸ Comment — per-instance rulings, or spare the ending","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"2 · OPEN THREADS","seq":20,"type":"decision","size":"ruling","title":"Tuck's back half beyond the catch — what's still yours to call","proposal":"Locked tonight: Pell deleted, Tuck feeds the Hollow blind, the spy-catch scene, membership after. Still open from your 'not sure on this now': does Tuck get a named role in the rising itself (night-one runner? the man who walks Burgundy's message into the kitchens?), and does the friendship take a COST before the end (a near-catch that lands on him, the one thing the old card wanted)? No pressure to rule now — flagging so it doesn't silently vanish like Pell should have.\n\n▸ Accept — bring proposals next round once the flow is blessed\n▸ Comment — rulings now if you have them","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"2 · OPEN THREADS","seq":21,"type":"decision","size":"ruling","title":"The four ch21 Iz notes you left open (kept alive, unchanged)","proposal":"Held open per your rulings, no text touched: (1) \"did not feel empty... not abandoned\" — the house style's own banned construction in the wild; (2) the operator-read of Hesta (earn the leap, clean the fragments); (3) the interior snare-read vs letting the fish/worm speech carry it; (4) \"came back up as something else\" inflation. These sit in the text as-is until you rule. Want them re-proposed with drafted fixes next round, or left sleeping?\n\n▸ Accept — re-propose with drafted fixes in the next round\n▸ Comment — leave sleeping / rule inline","head":"","tail":"","rationale":"a decision for you","draft":""},{"chapter":"2 · OPEN THREADS","seq":22,"type":"decision","size":"ruling","title":"CONFIRM: gates named from chapter one + the engineer scene draft timing","proposal":"Two small confirms. FIRST: the King's new ch1 line says 'gates' — which means the word exists in the reader's world from page four, long before the engineer's week explains apertures and the Jaleem Gate. I think that's right (children on Dross would grow up hearing it), but confirm you want the concept planted that early. SECOND: the engineer's-week scene is fully specced in canon and I can draft it as a standalone green chapter the moment you bless the training braid (Flow 3) — or hold until the whole middle order is ratified. Bill's lean: draft it next round regardless; it's self-contained and the braid can seat it anywhere.\n\n▸ Accept — gates from ch1 confirmed + draft the engineer scene next round\n▸ Comment — adjust either","head":"","tail":"","rationale":"a decision for you","draft":""}],"stats":{"total":15,"byType":"7 flow decisions · 5 names/confirms · 3 open threads"},"coverage":""};
+const KEY = 'bill-burgundy-q6-v1';
+let R = {};
+try{ const p = JSON.parse(localStorage.getItem(KEY) || '{}'); R = (p && typeof p==='object' && !Array.isArray(p)) ? p : {}; }catch(e){ R = {}; }
+const $ = s => document.querySelector(s);
+const esc = s => (s==null?'':String(s)).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const inlineMd = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>');
+function renderProp(s){
+  if(!s) return '';
+  let out=''; let opts=[];
+  const flush=()=>{ if(opts.length){ out+='<ul class="opts">'+opts.map(o=>'<li>'+inlineMd(o)+'</li>').join('')+'</ul>'; opts=[]; } };
+  for(const block of String(s).split(/\n\n+/)){
+    const b = block.trim(); if(!b) continue;
+    const lines = b.split(/\n/).map(l=>l.trim()).filter(Boolean);
+    if(lines.length && lines.every(l=>/^▸\s+/.test(l))){ for(const l of lines) opts.push(l.replace(/^▸\s+/,'')); continue; }
+    flush();
+    if(/^»\s+/.test(b)){ out+='<div class="change">'+inlineMd(b.replace(/^»\s+/,''))+'</div>'; continue; }
+    out += '<p'+(out?'':' class="lead"')+'>'+inlineMd(b).replace(/\n/g,'<br>')+'</p>';
+  }
+  flush();
+  return out;
+}
+
+const TYPE_LABEL = { 'age-fix':'number fix','line-edit':'line edit','timing-marker':'timing marker','new-paragraph':'new paragraph','new-scene':'new scene','new-chapter':'new chapter','restructure':'restructure','flashback-slot':'flashback slot','parked':'parked (geo)','open-question':'open question' };
+const TYPE_COLOR = { 'age-fix':'var(--gold)','line-edit':'var(--gold)','timing-marker':'var(--gold)','new-paragraph':'var(--green)','new-scene':'var(--oxblood)','new-chapter':'var(--oxblood)','restructure':'var(--red)','flashback-slot':'var(--purple)','parked':'var(--purple)','open-question':'var(--blue)' };
+
+function stableId(t){let h=5381;for(let i=0;i<t.length;i++){h=((h<<5)+h+t.charCodeAt(i))|0;}return 'k'+(h>>>0).toString(36);}
+const edits = DATA.edits.map((e,i)=>({...e, id: stableId(e.title)+'-'+i}));
+const total = edits.length;
+
+$('#byline').textContent = 'chronological · '+total+' proposed edits · accept, reject, or comment on each';
+$('#intro').innerHTML = DATA.intro.split(/\n\n+/).map(p=>'<p>'+inlineMd(p)+'</p>').join('');
+
+// legend (only types present)
+const present = [...new Set(edits.map(e=>e.type))];
+$('#legend').innerHTML = present.map(t=>'<span class="lg"><span class="sw" style="background:'+TYPE_COLOR[t]+'"></span>'+esc(TYPE_LABEL[t]||t)+'</span>').join('');
+
+// group by chapter, chronological
+function chapKey(c){ const m = String(c).match(/\d+/); return m ? parseInt(m[0]) + (String(c).toLowerCase().includes('new')? 0.5 : 0) : 99; }
+const groups = {};
+edits.forEach(e=>{ (groups[e.chapter] = groups[e.chapter] || []).push(e); });
+const chapOrder = Object.keys(groups).sort((a,b)=>chapKey(a)-chapKey(b) || String(a).localeCompare(String(b)));
+chapOrder.forEach(c => groups[c].sort((a,b)=>(a.seq||0)-(b.seq||0)));
+
+const cbox = $('#chapters');
+chapOrder.forEach(c=>{
+  const sec = document.createElement('section'); sec.className='chap';
+  let h = '<div class="chap-head"><h2>'+(String(c).match(/^\d+$/)?'Chapter '+c:esc(c))+'</h2><span class="cnt">'+groups[c].length+' edits</span></div>';
+  groups[c].forEach(e=>{
+    const st = R[e.id]||{};
+    h += '<div class="ed" data-t="'+esc(e.type)+'" data-id="'+e.id+'">';
+    h += '<div class="ed-top"><span class="pill type">'+esc(TYPE_LABEL[e.type]||e.type)+'</span><span class="pill">'+esc(e.size)+'</span></div>';
+    h += '<h4>'+esc(e.title)+'</h4>';
+    h += '<div class="prop">'+renderProp(e.proposal)+'</div>';
+    if(e.draft) h += '<div class="draft"><b>the change</b>'+esc(e.draft)+'</div>';
+    if(e.head || e.tail){
+      h += '<p class="anchor">';
+      if(e.head) h += '<b>after</b><span class="h">“…'+esc(e.head)+'”</span> ';
+      h += '<span class="mark">◆</span>';
+      if(e.tail) h += ' <b>before</b><span class="t">“'+esc(e.tail)+'…”</span>';
+      h += '</p>';
+    }
+    if(e.rationale) h += '<p class="why">'+esc(e.rationale)+'</p>';
+    h += '<div class="verd">';
+    h += '<button class="vbtn acc'+(st.v==='accept'?' on':'')+'" data-id="'+e.id+'" data-v="accept">✓ accept</button>';
+    h += '<button class="vbtn rej'+(st.v==='reject'?' on':'')+'" data-id="'+e.id+'" data-v="reject">✗ reject</button>';
+    h += '<span class="cmt"><input data-id="'+e.id+'" placeholder="comment…" value="'+esc(st.c||'')+'"></span>';
+    h += '</div></div>';
+  });
+  sec.innerHTML = h; cbox.appendChild(sec);
+});
+
+function ruled(id){ const s=R[id]||{}; return !!(s.v || (s.c && s.c.trim())); }
+const doneSet = new Set(edits.filter(e=>ruled(e.id)).map(e=>e.id));
+function refreshBar(){
+  $('#pText').textContent = doneSet.size+' of '+total+' ruled';
+  $('#fill').style.width=(total?doneSet.size/total*100:0)+'%';
+}
+function refresh(){ doneSet.clear(); edits.forEach(e=>{ if(ruled(e.id)) doneSet.add(e.id); }); refreshBar(); }
+let saveTimer=null;
+function persist(){ localStorage.setItem(KEY, JSON.stringify(R)); }
+function persistSoon(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist, 400); }
+window.addEventListener('beforeunload', persist);
+window.addEventListener('pagehide', persist);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') persist(); });
+function updateOne(id){ if(ruled(id)) doneSet.add(id); else doneSet.delete(id); refreshBar(); }
+function save(){ persist(); refresh(); }
+
+document.body.addEventListener('click', ev=>{
+  const b=ev.target.closest('.vbtn'); if(!b) return;
+  const id=b.dataset.id, v=b.dataset.v;
+  R[id]=R[id]||{};
+  R[id].v = R[id].v===v ? null : v;
+  const card=document.querySelector('.ed[data-id="'+id+'"]');
+  card.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on', x.dataset.v===R[id].v));
+  updateOne(id); persist();
+});
+document.body.addEventListener('input', ev=>{
+  const inp=ev.target.closest('.cmt input'); if(!inp) return;
+  const id=inp.dataset.id; R[id]=R[id]||{}; R[id].c=inp.value;
+  updateOne(id); persistSoon();
+});
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1900); }
+
+$('#accAllBtn').addEventListener('click', ()=>{
+  edits.forEach(e=>{ if(!ruled(e.id)){ R[e.id]=R[e.id]||{}; R[e.id].v='accept'; } });
+  document.querySelectorAll('.ed').forEach(card=>{
+    const id=card.dataset.id; card.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on', x.dataset.v===(R[id]&&R[id].v)));
+  });
+  save(); toast('accepted the rest');
+});
+$('#clearBtn').addEventListener('click', ()=>{
+  if(!confirm('Clear all your rulings?')) return;
+  R={}; localStorage.removeItem(KEY);
+  document.querySelectorAll('.vbtn').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.cmt input').forEach(i=>i.value='');
+  refresh(); toast('cleared');
+});
+$('#exportBtn').addEventListener('click', async ()=>{
+  let md='# BURGUNDY — Johnny\'s rulings on the Edit Proposal\n\n';
+  chapOrder.forEach(c=>{
+    md+='\n## '+(String(c).match(/^\d+$/)?'Chapter '+c:c)+'\n';
+    groups[c].forEach(e=>{
+      const s=R[e.id]||{};
+      md+='\n### '+e.title+' ['+(TYPE_LABEL[e.type]||e.type)+' · '+e.size+']\n';
+      md+='- **Verdict:** '+(s.v?s.v.toUpperCase():'_(unruled)_')+'\n';
+      if(s.c&&s.c.trim()) md+='- **Johnny:** '+s.c.trim()+'\n';
+    });
+  });
+  try{ await navigator.clipboard.writeText(md); toast('copied — paste it back to Parley'); }catch(e){ toast('downloaded'); }
+  const blob=new Blob([md],{type:'text/markdown'}); const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='BURGUNDY-edit-rulings.md'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+const tb=$('#themeBtn');
+function setTheme(t){ document.documentElement.dataset.theme=t; tb.textContent=t==='night'?'☀ day':'☾ night'; try{localStorage.setItem('bill-theme',t);}catch(e){} }
+let bootTheme='day'; try{ bootTheme=localStorage.getItem('bill-theme')||'day'; }catch(e){}
+setTheme(bootTheme);
+tb.addEventListener('click', ()=>setTheme(document.documentElement.dataset.theme==='night'?'day':'night'));
+refresh();
+</script>
+<div id="gate" style="position:fixed;inset:0;z-index:99999;background:#171310;color:#eadfce;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Georgia,serif;padding:24px;text-align:center">
+  <div style="font-size:56px;line-height:1;color:#eadfce">B<span style="color:#d6b673;font-size:26px;vertical-align:super">&#10022;</span></div>
+  <div style="font-family:monospace;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#8c7c66;margin:18px 0 10px">Bill &middot; the edit proposal</div>
+  <input id="gpw" type="password" placeholder="password" autocomplete="off" autocapitalize="off" autocorrect="off" style="padding:12px 16px;border-radius:10px;border:1px solid #3a2f24;background:#221b15;color:#eadfce;font-size:16px;text-align:center;width:220px;outline:none">
+  <button id="gbtn" style="margin-top:12px;padding:10px 20px;border-radius:8px;border:1px solid #7c2130;background:#7c2130;color:#f3ead9;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;font-size:12px;cursor:pointer">enter</button>
+  <div id="gerr" style="color:#e0776d;font-family:monospace;font-size:11px;margin-top:10px;min-height:14px"></div>
+</div>
+<script>(function(){var g=document.getElementById("gate");function n(s){return (s||"").toLowerCase().replace(/[^a-z]/g,"");}var unlocked=false;try{unlocked=localStorage.getItem("q2-unlocked")==="1";}catch(e){}if(unlocked){g.style.display="none";return;}document.documentElement.style.overflow="hidden";function t(){if(n(document.getElementById("gpw").value)==="mycoldmars"){try{localStorage.setItem("q2-unlocked","1");}catch(e){}g.remove();document.documentElement.style.overflow="";}else{document.getElementById("gerr").textContent="not quite";}}document.getElementById("gbtn").addEventListener("click",t);document.getElementById("gpw").addEventListener("keydown",function(e){if(e.key==="Enter")t();});setTimeout(function(){try{document.getElementById("gpw").focus();}catch(e){}},50);})();</script>
+</body>
+</html>
