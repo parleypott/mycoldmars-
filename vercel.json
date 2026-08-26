@@ -222,32 +222,32 @@
     },
     {
       "source": "/q2",
-      "destination": "/q5/",
+      "destination": "/q6/",
       "permanent": false
     },
     {
       "source": "/q2/",
-      "destination": "/q5/",
+      "destination": "/q6/",
       "permanent": false
     },
     {
       "source": "/q3",
-      "destination": "/q5/",
+      "destination": "/q6/",
       "permanent": false
     },
     {
       "source": "/q3/",
-      "destination": "/q5/",
+      "destination": "/q6/",
       "permanent": false
     },
     {
       "source": "/q4",
-      "destination": "/q5/",
+      "destination": "/q6/",
       "permanent": false
     },
     {
       "source": "/q4/",
-      "destination": "/q5/",
+      "destination": "/q6/",
       "permanent": false
     }
   ],
