@@ -26,7 +26,7 @@ import {
 import {
   findBySlug, syncFromCloud as syncProjectsFromCloud, loadProjectState,
   pushProjectState, beaconProjectState, writeStateCache, touchProject,
-  renameProject, migrateLegacyIfNeeded,
+  renameProject, migrateLegacyIfNeeded, CLOUD_MERGED_EVENT,
 } from './projects.js';
 import { initLibrary, showLibrary, hideLibrary } from './library.js';
 import { saveGifBlob } from './drop-write.js';
@@ -4918,6 +4918,18 @@ window.addEventListener('pagehide', () => {
   if (!currentProject) return;
   clearTimeout(cloudSaveTimer);
   beaconProjectState(currentProject.id, getProjectSnapshot());
+});
+
+// A save hit a conflict and the store merged in entities this tab didn't
+// know about (drawn in another tab / another machine / an assistant
+// session). Adopt the merged snapshot live so the next autosave from this
+// tab can't re-delete them.
+window.addEventListener(CLOUD_MERGED_EVENT, (e) => {
+  const d = e && e.detail;
+  if (!d || !currentProject || currentProject.id !== d.id || !d.state) return;
+  console.info(`[mapkeys] adopted ${d.adopted} entit${d.adopted === 1 ? 'y' : 'ies'} merged from the cloud`);
+  applyProjectSnapshot(d.state);
+  updateSavePill('saved');
 });
 
 // ── apply a snapshot to the live editor ──

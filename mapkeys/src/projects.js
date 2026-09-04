@@ -15,9 +15,12 @@
 // adopted ONCE by migrateLegacyIfNeeded() into a real project, so nothing
 // Johnny has drawn is ever lost.
 
+import { mergeProjectStates } from './state-merge.js';
+
 export const INDEX_KEY = 'mapkeys_index_v1';
 export const MIGRATED_KEY = 'mapkeys_migrated_v1';
 export const PROJECTS_CHANGED_EVENT = 'mk-projects-changed';
+export const CLOUD_MERGED_EVENT = 'mk-cloud-merged';
 export const RESERVED_SLUGS = new Set(['library', 'trash', 'new', 'home']);
 
 const API = '/api/mapkeys-projects';
@@ -142,6 +145,25 @@ async function api(path, init) {
   } catch { return null; }
 }
 
+// Raw variant for callers that need to read non-2xx responses (the CAS save
+// path must distinguish 409-conflict from plain failure).
+async function apiRaw(path, init) {
+  try { return await fetch(`${API}${path || ''}`, init); } catch { return null; }
+}
+
+// The cloud updated_at each project carried when this session last read or
+// wrote it — the compare-and-swap base for saves. Session-scoped on purpose:
+// an empty map degrades to the legacy unconditional save.
+const cloudStamps = new Map();
+
+function statePostInit(state, baseUpdatedAt) {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(baseUpdatedAt ? { state, baseUpdatedAt } : { state }),
+  };
+}
+
 /* ── cloud → cache merge ──────────────────────────────────────────────── */
 
 // Cloud wins for rows it knows about (keyed by id); local-only `local_` rows
@@ -195,6 +217,7 @@ export async function createProject(name, folderId = null, state = {}) {
   const row = res && res.project
     ? res.project
     : { id: localId(), slug, name: clean, folder_id: folderId, created_at: now, updated_at: now, trashed_at: null };
+  if (res && res.project) cloudStamps.set(row.id, row.updated_at);
   const idx = readIndex();
   idx.projects.push(row);
   writeIndex(idx);
@@ -308,6 +331,7 @@ export function loadProjectState(row) {
     const res = await api(`?id=${encodeURIComponent(row.id)}`);
     if (!res || !res.project || !res.project.state) return null;
     const cloud = res.project;
+    cloudStamps.set(row.id, cloud.updated_at); // CAS base for this session's saves
     if (cached && ts(cached.savedAt) >= ts(cloud.updated_at)) return null; // cache is current
     writeStateCache(row.id, cloud.state);
     return cloud.state;
@@ -315,24 +339,58 @@ export function loadProjectState(row) {
   return { state: cached ? cached.state : null, fresh };
 }
 
-/** Push a project's state to the cloud (the debounced autosave target). */
+/**
+ * Push a project's state to the cloud (the debounced autosave target).
+ *
+ * Saves are compare-and-swap: we send the cloud stamp we last saw, and a 409
+ * means someone else (another tab, another machine, an assistant session)
+ * wrote since. On conflict we merge — local wins its own rows, cloud-only
+ * entities survive — push the merged state against the fresh stamp, and
+ * announce the merge via CLOUD_MERGED_EVENT so the open editor adopts it.
+ * Blind last-write-wins deleted real work three times; never again.
+ */
 export async function pushProjectState(id, state) {
   writeStateCache(id, state);
   if (String(id).startsWith('local_')) return false;
-  const res = await api(`?id=${encodeURIComponent(id)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state }),
-  });
+  const first = await apiRaw(`?id=${encodeURIComponent(id)}`, statePostInit(state, cloudStamps.get(id)));
+  if (first && first.status === 409) {
+    const payload = await first.json().catch(() => null);
+    const cloud = payload && payload.project;
+    if (!cloud || !cloud.state) return false;
+    const { state: merged, adopted } = mergeProjectStates(state, cloud.state);
+    const retry = await apiRaw(`?id=${encodeURIComponent(id)}`, statePostInit(merged, cloud.updated_at));
+    if (!retry || !retry.ok) return false; // another writer mid-flight — next debounce retries
+    const res = await retry.json().catch(() => null);
+    if (res && res.project) cloudStamps.set(id, res.project.updated_at);
+    writeStateCache(id, merged);
+    if (adopted > 0) {
+      try {
+        window.dispatchEvent(new CustomEvent(CLOUD_MERGED_EVENT, { detail: { id, state: merged, adopted } }));
+      } catch {}
+    }
+    return true;
+  }
+  if (!first || !first.ok) return false;
+  const res = await first.json().catch(() => null);
+  if (res && res.project) cloudStamps.set(id, res.project.updated_at);
   return !!res;
 }
 
-/** Last-gasp save on tab close — sendBeacon survives page teardown. */
+/**
+ * Last-gasp save on tab close — sendBeacon survives page teardown. Carries
+ * the CAS stamp too: a stale closing tab gets a silent 409 instead of
+ * clobbering, and its state survives in the local cache for the next open
+ * (whose first autosave then merges properly).
+ */
 export function beaconProjectState(id, state) {
   writeStateCache(id, state);
   if (String(id).startsWith('local_')) return;
   try {
-    const blob = new Blob([JSON.stringify({ state })], { type: 'application/json' });
+    const base = cloudStamps.get(id);
+    const blob = new Blob(
+      [JSON.stringify(base ? { state, baseUpdatedAt: base } : { state })],
+      { type: 'application/json' },
+    );
     navigator.sendBeacon(`${API}?id=${encodeURIComponent(id)}`, blob);
   } catch {}
 }

@@ -168,10 +168,44 @@ async function createFolder(folder) {
 }
 
 // State-only save (the autosave hot path; also the sendBeacon target on tab close).
+//
+// Compare-and-swap: when the client sends baseUpdatedAt (the cloud stamp it
+// last saw), the write only lands if the row still carries that stamp. A
+// mismatch returns 409 WITH the current row so the client can merge instead
+// of clobbering — a stale tab must never silently delete what another writer
+// added. Clients that omit baseUpdatedAt (old bundles, beacons) keep the
+// legacy unconditional write.
 async function saveState(id, body) {
   const v = validateState(body && body.state);
   if (!v.ok) return err(400, v.code, v.message);
-  return await patchRow('mapkeys_projects', id, { state: v.state }, 'id,updated_at', 'project');
+  const base = typeof body.baseUpdatedAt === 'string' && body.baseUpdatedAt.trim()
+    ? body.baseUpdatedAt.trim()
+    : null;
+  if (!base) {
+    return await patchRow('mapkeys_projects', id, { state: v.state }, 'id,updated_at', 'project');
+  }
+  const upd = await sb(
+    `/rest/v1/mapkeys_projects?id=eq.${encodeURIComponent(id)}&updated_at=eq.${encodeURIComponent(base)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({ state: v.state, updated_at: new Date().toISOString() }),
+    },
+  );
+  if (!upd.ok) return err(502, 'DB_WRITE', await upd.text());
+  const rows = await upd.json().catch(() => []);
+  if (rows.length) {
+    return ok({ project: { id: rows[0].id, updated_at: rows[0].updated_at } });
+  }
+  // Nothing matched: either the stamp moved (conflict) or the id is unknown.
+  const cur = await sb(`/rest/v1/mapkeys_projects?id=eq.${encodeURIComponent(id)}&select=${FULL_COLS}&limit=1`);
+  if (!cur.ok) return err(502, 'DB_READ', await cur.text());
+  const curRows = await cur.json().catch(() => []);
+  if (!curRows.length) return err(404, 'NOT_FOUND', 'unknown project id');
+  return new Response(
+    JSON.stringify({ error: { code: 'CONFLICT', message: 'state changed since baseUpdatedAt' }, project: curRows[0] }),
+    { status: 409, headers: { 'Content-Type': 'application/json', ...CORS } },
+  );
 }
 
 async function patchRow(table, id, fields, cols, keyName) {
