@@ -1,5 +1,165 @@
 [
   {
+    "id": "F0BUPHMGXD5",
+    "name": "Screenshot 2026-09-04 at 1.21.21 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 26639,
+    "local_path": "images/F0BUPHMGXD5.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1788553830.590789",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1788553830590789",
+    "posted_at": "2026-09-04T20:30:30.590Z",
+    "analysis": {
+      "comment_text": "Damn max chill out these videos get better and better everytime!!",
+      "commenter": "Badahhbean",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "improvement",
+        "host",
+        "videos"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-04T20:55:07.343Z"
+  },
+  {
+    "id": "F0BV8JBDXFE",
+    "name": "Screenshot 2026-09-04 at 1.19.59 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 38819,
+    "local_path": "images/F0BV8JBDXFE.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1788553830.590789",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1788553830590789",
+    "posted_at": "2026-09-04T20:30:30.590Z",
+    "analysis": {
+      "comment_text": "a very good, detailed video. dont really comment on videos but wanna comment on this for a probable algorithm boost.",
+      "commenter": "@nmsh9035",
+      "sentiment": "praise",
+      "themes": [
+        "engagement",
+        "algorithm",
+        "quality",
+        "detail"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-04T20:55:09.582Z"
+  },
+  {
+    "id": "F0BUPHNELUX",
+    "name": "Screenshot 2026-09-04 at 1.20.27 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 107292,
+    "local_path": "images/F0BUPHNELUX.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1788553830.590789",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1788553830590789",
+    "posted_at": "2026-09-04T20:30:30.590Z",
+    "analysis": {
+      "comment_text": "This is such a well researched video. I live in Bozeman, MT (mentioned at 38:41) and the amount of new apartment builds here is astounding. I'll admit, seeing them creates a mixed response. On one hand, the removal of beautiful old single family homes to put in ultra modern apartments is frustrating. But on the other, the thought that more housing will reduce demand and therefore decrease rent is appealing. There is no perfect solution, but it is an interesting perspective to think that new buildings today will eventually hold that feeling of architectural heritage.",
+      "commenter": "tavakessler",
+      "sentiment": "personal_story",
+      "themes": [
+        "housing",
+        "urban development",
+        "architecture",
+        "rent"
+      ],
+      "video_hint": "Video about housing supply, apartment construction, and rent/demand economics; references Bozeman, MT at timestamp 38:41",
+      "is_question": false,
+      "is_criticism": true
+    },
+    "analyzed_at": "2026-09-04T20:55:10.395Z"
+  },
+  {
+    "id": "F0BV0G46MJ9",
+    "name": "Screenshot 2026-09-04 at 1.23.28 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 23754,
+    "local_path": "images/F0BV0G46MJ9.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1788553830.590789",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1788553830590789",
+    "posted_at": "2026-09-04T20:30:30.590Z",
+    "analysis": {
+      "comment_text": "Max making videos about what matters!",
+      "commenter": "DerekBlackwell-km8mh",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "content quality",
+        "relevance",
+        "praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-04T20:55:12.086Z"
+  },
+  {
+    "id": "F0BV30V04P8",
+    "name": "Screenshot 2026-09-04 at 1.22.09 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 26046,
+    "local_path": "images/F0BV30V04P8.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1788553830.590789",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1788553830590789",
+    "posted_at": "2026-09-04T20:30:30.590Z",
+    "analysis": {
+      "comment_text": "BEST VIDEO EVER.",
+      "commenter": "michaelagueci3940",
+      "sentiment": "praise",
+      "themes": [
+        "general praise",
+        "video quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-04T20:55:12.089Z"
+  },
+  {
+    "id": "F0BUPHMB20P",
+    "name": "Screenshot 2026-09-04 at 1.21.43 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 44618,
+    "local_path": "images/F0BUPHMB20P.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1788553830.590789",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1788553830590789",
+    "posted_at": "2026-09-04T20:30:30.590Z",
+    "analysis": {
+      "comment_text": "Thought-provoking. I'd be interested in if these trends held for the majority of say the top 100 or 1000 cities in the US.",
+      "commenter": "myriadpaths",
+      "sentiment": "insightful",
+      "themes": [
+        "urban trends",
+        "us cities",
+        "data",
+        "scalability"
+      ],
+      "video_hint": "Video about trends or data analysis related to US cities",
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-04T20:55:13.322Z"
+  },
+  {
     "id": "F0BSJ4R7S4D",
     "name": "Screenshot 2026-08-25 at 2.33.29 PM.png",
     "ext": "png",
