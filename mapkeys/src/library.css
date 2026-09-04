@@ -263,4 +263,5 @@
   padding: 4px 0;
   min-width: 64px;
 }
-#save-pill.is-saving { color: var(--accent, #b85c3c); }
+/* Save status stays ink — the accent's jobs are selection and hover-link. */
+#save-pill.is-saving { color: rgba(43, 42, 38, 0.4); }

@@ -180,23 +180,26 @@
   </div>
 
   <div id="layers-panel" class="hidden">
-    <div id="layers-header">
+    <div id="layers-header" class="lp-section-head" data-section="layers">
+      <span class="lp-chev">▶</span>
       <span class="lp-title">LAYERS</span>
       <span class="lp-count" id="layers-count">0</span>
     </div>
-    <div id="layers-list"></div>
+    <div id="layers-list" class="lp-body"></div>
     <div id="shapes-divider" class="hidden"></div>
-    <div id="shapes-header" class="hidden">
+    <div id="shapes-header" class="lp-section-head hidden" data-section="shapes">
+      <span class="lp-chev">▶</span>
       <span class="lp-title">SHAPES</span>
       <span class="lp-count" id="shapes-count">0</span>
     </div>
-    <div id="shapes-list"></div>
+    <div id="shapes-list" class="lp-body"></div>
     <div id="oldmaps-divider" class="hidden"></div>
-    <div id="oldmaps-header" class="hidden">
+    <div id="oldmaps-header" class="lp-section-head hidden" data-section="oldmaps">
+      <span class="lp-chev">▶</span>
       <span class="lp-title">OLD MAPS</span>
       <span class="lp-count" id="oldmaps-count">0</span>
     </div>
-    <div id="oldmaps-list"></div>
+    <div id="oldmaps-list" class="lp-body"></div>
     <div id="draw-bar" class="hidden">
       <span class="db-label">DRAW</span>
       <input type="range" id="draw-slider" min="0" max="1000" step="1" value="0">

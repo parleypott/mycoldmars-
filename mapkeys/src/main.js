@@ -2724,45 +2724,368 @@ function showRouteUI() {
   updateSelectionIndicator();
 }
 
+/* ── Panel row system (Figma-discipline: 32px rows, aligned eye gutter,
+      hover-revealed actions, drag-paint eyes, inline rename, scrub numbers).
+      Shared by LAYERS / SHAPES / OLD MAPS. ── */
+
+const EYE_ON_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8s2.4-4.2 6.5-4.2S14.5 8 14.5 8s-2.4 4.2-6.5 4.2S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2.1"/></svg>';
+const EYE_OFF_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8s2.4-4.2 6.5-4.2S14.5 8 14.5 8s-2.4 4.2-6.5 4.2S1.5 8 1.5 8z" opacity="0.4"/><circle cx="8" cy="8" r="2.1" opacity="0.4"/><path d="M4 12.8L12 3.2"/></svg>';
+
+// Drag-paint visibility: mousedown on one eye sets the target state; every
+// eye the pointer crosses while held matches it (idempotent, Photoshop-style).
+let eyePaintState = null;
+window.addEventListener('pointerup', () => { eyePaintState = null; });
+
+// Alt-click solo memory per section: section -> saved {id: visible} map.
+const soloMemory = new Map();
+
+function wireEye(btn, item, sectionItems, sectionKey, setVisible) {
+  btn.innerHTML = item.visible ? EYE_ON_SVG : EYE_OFF_SVG;
+  btn.title = item.visible ? 'Hide (⌥-click to solo)' : 'Show (⌥-click to solo)';
+  btn.addEventListener('click', e => e.stopPropagation());
+  btn.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.altKey) {
+      // Solo with exact restore: first ⌥-click hides all siblings and
+      // remembers the prior set; second ⌥-click on the same solo puts it back.
+      const saved = soloMemory.get(sectionKey);
+      const isSoloed = item.visible && sectionItems.every(it => it === item || !it.visible);
+      if (isSoloed && saved) {
+        for (const it of sectionItems) setVisible(it.id, saved[it.id] !== false);
+        soloMemory.delete(sectionKey);
+      } else {
+        const snap = {};
+        for (const it of sectionItems) snap[it.id] = it.visible;
+        soloMemory.set(sectionKey, snap);
+        for (const it of sectionItems) setVisible(it.id, it === item);
+      }
+      return;
+    }
+    const next = !item.visible;
+    eyePaintState = next;
+    setVisible(item.id, next);
+  });
+  btn.addEventListener('pointerenter', e => {
+    if (eyePaintState === null || !(e.buttons & 1)) return;
+    if (item.visible !== eyePaintState) setVisible(item.id, eyePaintState);
+  });
+}
+
+// In-place rename: same type, accent underline, Enter commits, Esc reverts.
+function wireRename(nameEl, getValue, commit) {
+  nameEl.addEventListener('dblclick', ev => {
+    ev.stopPropagation();
+    const input = document.createElement('input');
+    input.className = 'prow-rename';
+    input.value = getValue();
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      commit(save ? input.value.trim() : null);
+    };
+    input.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') finish(true);
+      if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('click', e => e.stopPropagation());
+  });
+}
+
+// Scrubbable mono number: drag horizontally to change (1 unit/px, ⇧=10x,
+// ⌥=0.2x), Esc reverts, a motionless click falls through to onClick.
+function wireScrub(el, opts) {
+  const { get, set, min = 0, max = 100, onClick, onCommit } = opts;
+  el.classList.add('scrub');
+  el.addEventListener('click', e => e.stopPropagation());
+  el.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startVal = get();
+    let moved = false;
+    el.setPointerCapture(e.pointerId);
+    const onMove = (me) => {
+      const dx = me.clientX - startX;
+      if (!moved && Math.abs(dx) < 3) return;
+      if (!moved) { moved = true; el.classList.add('scrubbing'); }
+      const scale = me.shiftKey ? 10 : me.altKey ? 0.2 : 1;
+      set(Math.max(min, Math.min(max, Math.round(startVal + dx * scale))));
+    };
+    const onKey = (ke) => {
+      if (ke.key === 'Escape') { set(startVal); cleanup(); }
+    };
+    const cleanup = () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      window.removeEventListener('keydown', onKey, true);
+      el.classList.remove('scrubbing');
+    };
+    const onUp = () => {
+      cleanup();
+      if (moved) { if (onCommit) onCommit(); }
+      else if (onClick) onClick();
+    };
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    window.addEventListener('keydown', onKey, true);
+  });
+}
+
+// ── Panel↔map hover link: hovering a row outlines its geometry on the map
+// in terracotta. Nothing animates — it just appears (glanceability, not show).
+
+const HOVER_LINK_SRC = 'lp-hover-link-src';
+
+function ensureHoverLinkLayers() {
+  try {
+    if (!map.getSource(HOVER_LINK_SRC)) {
+      map.addSource(HOVER_LINK_SRC, { type: 'geojson', data: emptyFC() });
+    }
+    if (!map.getLayer('lp-hover-link-line')) {
+      map.addLayer({
+        id: 'lp-hover-link-line',
+        type: 'line',
+        source: HOVER_LINK_SRC,
+        paint: { 'line-color': '#b85c3c', 'line-width': 1.5, 'line-opacity': 0.9 },
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+      });
+    }
+    if (!map.getLayer('lp-hover-link-pt')) {
+      map.addLayer({
+        id: 'lp-hover-link-pt',
+        type: 'circle',
+        source: HOVER_LINK_SRC,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-radius': 9,
+          'circle-color': 'transparent',
+          'circle-stroke-color': '#b85c3c',
+          'circle-stroke-width': 1.5,
+        },
+      });
+    }
+  } catch {}
+}
+
+function clearHoverLink() {
+  const src = map.getSource(HOVER_LINK_SRC);
+  if (src) src.setData(emptyFC());
+}
+
+function hoverLinkGeometry(kind, obj) {
+  try {
+    if (kind === 'layer') return { type: 'LineString', coordinates: obj.coords };
+    if (kind === 'overlay') {
+      const b = obj.bounds || obj.feather?.rect;
+      if (!b) return null;
+      const [[w, s], [e, n]] = b;
+      return { type: 'LineString', coordinates: [[w, s], [e, s], [e, n], [w, n], [w, s]] };
+    }
+    // shapes
+    if (obj.type === 'line') {
+      return { type: 'LineString', coordinates: transformLineCoords(obj.baseCoords, obj.preview.offsetLng, obj.preview.offsetLat, obj.preview.scale) };
+    }
+    if (obj.type === 'polygon') {
+      const ring = regularPolygonCoords(obj.preview.center, obj.sides, obj.preview.radiusKm, obj.preview.rotation);
+      return { type: 'LineString', coordinates: [...ring, ring[0]] };
+    }
+    if (obj.type === 'country') {
+      const g = resolveCountryGeometry(obj);
+      if (!g) return null;
+      const rings = g.type === 'Polygon' ? g.coordinates : g.coordinates.flat();
+      return { type: 'MultiLineString', coordinates: rings };
+    }
+    if (obj.type === 'place') {
+      return { type: 'Point', coordinates: placePosition(obj) };
+    }
+  } catch {}
+  return null;
+}
+
+function wireHoverLink(row, kind, obj) {
+  row.addEventListener('mouseenter', () => {
+    const geom = hoverLinkGeometry(kind, obj);
+    if (!geom) return;
+    ensureHoverLinkLayers();
+    const src = map.getSource(HOVER_LINK_SRC);
+    if (src) src.setData({ type: 'Feature', properties: {}, geometry: geom });
+  });
+  row.addEventListener('mouseleave', clearHoverLink);
+}
+
+// Flat range fill: paint the track terracotta up to the thumb via --fill.
+function syncRangeFill(el) {
+  const min = parseFloat(el.min || 0), max = parseFloat(el.max || 100);
+  const pct = ((parseFloat(el.value) - min) / (max - min || 1)) * 100;
+  el.style.setProperty('--fill', `${pct}%`);
+}
+
+// ── Collapsible sections (UI preference, not project state) ──
+
+const LP_COLLAPSE_KEY = 'mapkeys_lp_collapsed_v1';
+let lpCollapsed = {};
+try { lpCollapsed = JSON.parse(localStorage.getItem(LP_COLLAPSE_KEY) || '{}') || {}; } catch {}
+
+function applySectionCollapse() {
+  for (const head of document.querySelectorAll('.lp-section-head')) {
+    const key = head.dataset.section;
+    const on = !!lpCollapsed[key];
+    head.classList.toggle('collapsed', on);
+    const body = document.getElementById(`${key}-list`);
+    if (body) body.classList.toggle('collapsed', on);
+  }
+}
+
+for (const head of document.querySelectorAll('.lp-section-head')) {
+  head.addEventListener('click', () => {
+    const key = head.dataset.section;
+    lpCollapsed[key] = !lpCollapsed[key];
+    try { localStorage.setItem(LP_COLLAPSE_KEY, JSON.stringify(lpCollapsed)); } catch {}
+    applySectionCollapse();
+  });
+}
+applySectionCollapse();
+
+// ── Old-map thumbnails: real tiles from the overlay's own source ──
+// Bounds-led when known; else a quiet probe near the camera (once per id).
+
+const overlayThumbCache = new Map(); // id -> url | 'pending' | false
+
+function tileXYZ(lng, lat, z) {
+  const x = Math.floor(((lng + 180) / 360) * 2 ** z);
+  const latR = (lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * 2 ** z);
+  return [x, y];
+}
+
+function tileUrlFor(overlay, z, x, y) {
+  return overlay.tiles.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+}
+
+function loadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth > 0 ? url : null);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+async function discoverOverlayThumb(overlay) {
+  const cached = overlayThumbCache.get(overlay.id);
+  if (cached !== undefined) return cached === 'pending' ? null : cached;
+  overlayThumbCache.set(overlay.id, 'pending');
+  const candidates = [];
+  const b = overlay.bounds || overlay.feather?.rect || null;
+  if (b) {
+    const [[w, s], [e, n]] = b;
+    const cx = (w + e) / 2, cy = (s + n) / 2;
+    const span = Math.max(0.01, e - w, (n - s) * 2);
+    let z = Math.max(4, Math.min(7, Math.floor(Math.log2(360 / span)) + 1));
+    for (const zz of [z, z + 1, z - 1]) {
+      const [x, y] = tileXYZ(cx, cy, Math.max(1, zz));
+      candidates.push(tileUrlFor(overlay, Math.max(1, zz), x, y));
+    }
+  } else {
+    // No bounds — probe a small neighborhood around the camera. Old maps in
+    // a project are almost always near where the camera lives.
+    const c = map.getCenter();
+    for (const z of [5, 4, 6]) {
+      const [x, y] = tileXYZ(c.lng, c.lat, z);
+      for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        candidates.push(tileUrlFor(overlay, z, x + dx, y + dy));
+      }
+    }
+  }
+  for (const url of candidates) {
+    const hit = await loadImage(url);
+    if (hit) { overlayThumbCache.set(overlay.id, hit); return hit; }
+  }
+  overlayThumbCache.set(overlay.id, false);
+  return false;
+}
+
+function mountOverlayThumb(markEl, overlay) {
+  const cached = overlayThumbCache.get(overlay.id);
+  if (typeof cached === 'string' && cached !== 'pending') {
+    markEl.innerHTML = `<img class="prow-thumb" src="${cached}" alt="">`;
+    return;
+  }
+  markEl.innerHTML = '<span class="prow-thumb-fallback">▦</span>';
+  if (cached === false || cached === 'pending') return;
+  discoverOverlayThumb(overlay).then(url => {
+    if (url && markEl.isConnected) {
+      markEl.innerHTML = `<img class="prow-thumb" src="${url}" alt="">`;
+    }
+  });
+}
+
+// Long archival titles keep their distinguishing tail (year, edition):
+// middle-truncate instead of end-ellipsis.
+function middleTruncate(name, max = 30) {
+  const s = String(name || '');
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 11).trimEnd()}…${s.slice(-9).trimStart()}`;
+}
+
+function lpEmpty(list, label, actLabel, onAct) {
+  const el = document.createElement('div');
+  el.className = 'lp-empty';
+  el.innerHTML = `${label} —<span class="lp-empty-act">${actLabel}</span>`;
+  el.querySelector('.lp-empty-act').addEventListener('click', onAct);
+  list.appendChild(el);
+}
+
 function renderLayersPanel() {
   const list = document.getElementById('layers-list');
   list.innerHTML = '';
-  if (state.layers.length === 0) return;
+  if (state.layers.length === 0) {
+    lpEmpty(list, 'no layers yet', 'upload a kml', () => document.getElementById('kml-file').click());
+    return;
+  }
   for (const layer of state.layers) {
     const row = document.createElement('div');
-    row.className = 'layer-row';
+    row.className = 'prow';
     if (layer.id === state.activeLayerId) row.classList.add('active');
-    if (!layer.visible) row.classList.add('hidden-layer');
+    if (!layer.visible) row.classList.add('is-hidden');
     row.innerHTML = `
-      <input type="checkbox" class="layer-vis" ${layer.visible ? 'checked' : ''} title="Toggle visibility">
-      <span class="layer-swatch" style="background:${layer.style.color}"></span>
-      <div class="layer-meta">
-        <div class="layer-name" title="${escHtml(layer.name)}">${escHtml(layer.name)}</div>
-        <div class="layer-detail">${layer.coords.length} pts · ${Math.round(layer.totalDist)} km</div>
-      </div>
-      <div class="layer-actions">
-        <button class="layer-btn layer-btn-fit" title="Fit to layer">⊕</button>
-        <button class="layer-btn layer-btn-dup" title="Duplicate layer">⎘</button>
-        <button class="layer-btn layer-btn-del" title="Delete layer">×</button>
+      <button class="prow-eye"></button>
+      <span class="prow-mark"><span class="prow-chip chip-stroke" style="border-color:${layer.style.color}"></span></span>
+      <div class="prow-name" title="${escHtml(layer.name)}">${escHtml(layer.name)}</div>
+      <span class="prow-stat">${Math.round(layer.totalDist)} km</span>
+      <span class="prow-chev-ghost"></span>
+      <div class="prow-acts">
+        <button class="prow-act act-fit" title="Fit to route">⊕</button>
+        <button class="prow-act act-dup" title="Duplicate">⎘</button>
+        <button class="prow-act act-del" title="Delete">×</button>
       </div>
     `;
-    row.querySelector('.layer-vis').addEventListener('click', e => {
-      e.stopPropagation();
-      setLayerVisible(layer.id, e.target.checked);
+    wireEye(row.querySelector('.prow-eye'), layer, state.layers, 'layers', setLayerVisible);
+    wireRename(row.querySelector('.prow-name'), () => layer.name, v => {
+      if (v) { layer.name = v; saveLayers(); }
+      renderLayersPanel();
     });
-    row.querySelector('.layer-btn-del').addEventListener('click', e => {
+    row.querySelector('.act-del').addEventListener('click', e => {
       e.stopPropagation();
       if (confirm(`Delete "${layer.name}"?`)) deleteLayer(layer.id);
     });
-    row.querySelector('.layer-btn-dup').addEventListener('click', e => {
+    row.querySelector('.act-dup').addEventListener('click', e => {
       e.stopPropagation();
       duplicateLayer(layer.id);
     });
-    row.querySelector('.layer-btn-fit').addEventListener('click', e => {
+    row.querySelector('.act-fit').addEventListener('click', e => {
       e.stopPropagation();
       map.fitBounds(coordsBounds(layer.coords), { padding: 80, duration: 800 });
     });
     row.addEventListener('click', () => selectLayer(layer.id));
+    wireHoverLink(row, 'layer', layer);
     list.appendChild(row);
   }
 }
@@ -2834,57 +3157,67 @@ let draggedShapeId = null;
 function renderShapesPanel() {
   const list = document.getElementById('shapes-list');
   list.innerHTML = '';
-  if (state.shapes.length === 0) return;
+  if (state.shapes.length === 0) {
+    lpEmpty(list, 'no shapes yet', 'draw a line', () => document.getElementById('add-line-btn').click());
+    return;
+  }
   // state.shapes is already TOP-FIRST — row order == paint order.
   state.shapes.forEach((shape, displayIdx) => {
     const row = document.createElement('div');
-    row.className = 'shape-row';
+    row.className = 'prow';
     row.draggable = true;
     if (shape.id === state.activeShapeId) row.classList.add('active');
-    if (!shape.visible) row.classList.add('hidden-layer');
+    if (!shape.visible) row.classList.add('is-hidden');
     const glyph =
       shape.type === 'polygon' ? '⬡' :
       shape.type === 'line'    ? '╱' :
-      shape.type === 'place'   ? '◉' :
+      shape.type === 'place'   ? '·' :
       shape.type === 'country' ? '◇' : '?';
     const stat =
-      shape.type === 'polygon' ? `n=${shape.sides} · ${Math.round(shape.preview.radiusKm)} km` :
-      shape.type === 'line'    ? `${shape.baseCoords.length} pts · scale ${shape.preview.scale.toFixed(2)}` :
-      shape.type === 'place'   ? `dot ${shape.dotSize} · text ${shape.labelSize}` :
-      shape.type === 'country' ? `α ${Math.round(shape.fillOpacity * 100)}% · sw ${shape.strokeWidth}` :
+      shape.type === 'polygon' ? `${Math.round(shape.preview.radiusKm)} km` :
+      shape.type === 'line'    ? `${shape.baseCoords.length} pts` :
+      shape.type === 'place'   ? 'place' :
+      shape.type === 'country' ? `fill ${Math.round(shape.fillOpacity * 100)}%` :
                                  '';
+    // Chip grammar, two forms only: stroke-borne shapes (lines, places) get
+    // a stroke swatch; filled shapes get a solid swatch. No glyphs — the
+    // stat column carries the type.
+    const chipCls = shape.type === 'line' ? 'chip-stroke' : shape.type === 'place' ? 'chip-dot' : '';
+    const chipStyle = shape.type === 'line' ? `border-color:${shape.stroke}`
+      : shape.type === 'place' ? `background:${shape.stroke}`
+      : `background:${shape.fill}; border-color:${shape.stroke}`;
     row.innerHTML = `
-      <span class="om-grip" title="Drag to reorder — top row paints on top">⠿</span>
-      <input type="checkbox" class="layer-vis" ${shape.visible ? 'checked' : ''} title="Toggle visibility">
-      <span class="shape-swatch" style="background:${shape.type === 'polygon' ? shape.fill : shape.stroke}; border-color:${shape.stroke};"></span>
-      <span class="shape-glyph">${glyph}</span>
-      <div class="layer-meta">
-        <div class="layer-name" title="${escHtml(shape.name)}">${escHtml(shape.name)}</div>
-        <div class="layer-detail">${stat}</div>
-      </div>
-      <div class="layer-actions">
-        <button class="layer-btn shape-btn-fit" title="Fit to shape">⊕</button>
-        <button class="layer-btn shape-btn-dup" title="Duplicate shape">⎘</button>
-        <button class="layer-btn shape-btn-del" title="Delete shape">×</button>
+      <button class="prow-eye"></button>
+      <span class="prow-mark"><span class="prow-chip ${chipCls}" style="${chipStyle}"></span></span>
+      <div class="prow-name" title="${escHtml(shape.name)}">${escHtml(shape.name)}</div>
+      <span class="prow-stat">${stat}</span>
+      <span class="prow-chev-ghost"></span>
+      <div class="prow-acts">
+        <button class="prow-act act-fit" title="Fit to shape">⊕</button>
+        <button class="prow-act act-dup" title="Duplicate">⎘</button>
+        <button class="prow-act act-del" title="Delete">×</button>
       </div>
     `;
-    row.querySelector('.layer-vis').addEventListener('click', e => {
-      e.stopPropagation();
-      setShapeVisible(shape.id, e.target.checked);
+    wireEye(row.querySelector('.prow-eye'), shape, state.shapes, 'shapes', setShapeVisible);
+    wireRename(row.querySelector('.prow-name'), () => shape.name, v => {
+      if (v) { shape.name = v; saveLayers(); }
+      renderShapesPanel();
+      syncShapeStyleInputs();
     });
-    row.querySelector('.shape-btn-del').addEventListener('click', e => {
+    row.querySelector('.act-del').addEventListener('click', e => {
       e.stopPropagation();
       if (confirm(`Delete "${shape.name}"?`)) deleteShape(shape.id);
     });
-    row.querySelector('.shape-btn-dup').addEventListener('click', e => {
+    row.querySelector('.act-dup').addEventListener('click', e => {
       e.stopPropagation();
       duplicateShape(shape.id);
     });
-    row.querySelector('.shape-btn-fit').addEventListener('click', e => {
+    row.querySelector('.act-fit').addEventListener('click', e => {
       e.stopPropagation();
       fitToShape(shape);
     });
     row.addEventListener('click', () => selectShape(shape.id));
+    wireHoverLink(row, 'shape', shape);
 
     // ── drag to reorder (top row paints on top) ──
     row.addEventListener('dragstart', e => {
@@ -2940,33 +3273,42 @@ function reorderOverlayByDisplay(dragId, targetDisplayIdx) {
   renderOverlaysPanel();
 }
 
+// One detail well open at a time (accordion) — sliders are a focused surface.
+let expandedOverlayId = null;
+
+function toggleOverlayWell(id) {
+  expandedOverlayId = expandedOverlayId === id ? null : id;
+  renderOverlaysPanel();
+}
+
 function renderOverlaysPanel() {
   const list = document.getElementById('oldmaps-list');
   list.innerHTML = '';
-  if (state.overlays.length === 0) return;
+  if (state.overlays.length === 0) {
+    lpEmpty(list, 'no old maps yet', 'paste a tile url', () => openOldMapModal());
+    return;
+  }
   const display = [...state.overlays].reverse();
   display.forEach((overlay, displayIdx) => {
     const f = overlay.feather || (overlay.feather = { ...DEFAULT_FEATHER });
+    const expanded = overlay.id === expandedOverlayId;
     const row = document.createElement('div');
-    row.className = 'layer-row oldmap-row';
+    row.className = 'prow has-chev';
     row.draggable = true;
-    if (!overlay.visible) row.classList.add('hidden-layer');
+    if (expanded) row.classList.add('expanded');
+    if (!overlay.visible) row.classList.add('is-hidden');
     row.innerHTML = `
-      <span class="om-grip" title="Drag to reorder — top row shows on top">⠿</span>
-      <input type="checkbox" class="layer-vis" ${overlay.visible ? 'checked' : ''} title="Toggle visibility">
-      <div class="layer-meta">
-        <div class="layer-name" title="${escHtml(overlay.name)} — double-click to rename">${escHtml(overlay.name)}</div>
-        <div class="oldmap-opacity">
-          <input type="range" class="om-opacity" min="0" max="100" step="1" value="${Math.round(overlay.opacity * 100)}" title="Opacity">
-          <span class="om-opacity-val">${Math.round(overlay.opacity * 100)}%</span>
-        </div>
+      <button class="prow-eye"></button>
+      <span class="prow-mark"></span>
+      <div class="prow-name" title="${escHtml(overlay.name)} — double-click to rename">${escHtml(middleTruncate(overlay.name))}</div>
+      <span class="prow-stat prow-opacity">${Math.round(overlay.opacity * 100)}%</span>
+      <div class="prow-acts">
+        <button class="prow-act act-fit" title="Fit to map">⊕</button>
+        <button class="prow-act act-del" title="Remove old map">×</button>
       </div>
-      <div class="layer-actions">
-        <button class="layer-btn oldmap-btn-feather ${f.on ? 'is-on' : ''}" title="Feathered crop — fade the map's edges">✂</button>
-        <button class="layer-btn oldmap-btn-fit" title="Fit to map">⊕</button>
-        <button class="layer-btn oldmap-btn-del" title="Remove old map">×</button>
-      </div>
+      <button class="prow-chev" title="${expanded ? 'Collapse' : 'Opacity, crop & feather'}">▶</button>
     `;
+    mountOverlayThumb(row.querySelector('.prow-mark'), overlay);
 
     // ── drag to reorder ──
     row.addEventListener('dragstart', e => {
@@ -2999,84 +3341,95 @@ function renderOverlaysPanel() {
       reorderOverlayByDisplay(draggedOverlayId, target);
     });
 
-    // ── rename on double-click ──
-    const nameEl = row.querySelector('.layer-name');
-    nameEl.addEventListener('dblclick', () => {
-      const input = document.createElement('input');
-      input.className = 'om-rename';
-      input.value = overlay.name;
-      nameEl.replaceWith(input);
-      input.focus();
-      input.select();
-      let done = false;
-      const commit = () => {
-        if (done) return;
-        done = true;
-        const v = input.value.trim();
-        if (v) { overlay.name = v; saveLayers(); }
-        renderOverlaysPanel();
-      };
-      input.addEventListener('keydown', e => {
-        e.stopPropagation();
-        if (e.key === 'Enter') commit();
-        if (e.key === 'Escape') { done = true; renderOverlaysPanel(); }
-      });
-      input.addEventListener('blur', commit);
+    // ── rename, eye, scrubbable opacity, actions, disclosure ──
+    wireEye(row.querySelector('.prow-eye'), overlay, state.overlays, 'oldmaps', setOverlayVisible);
+    wireRename(row.querySelector('.prow-name'), () => overlay.name, v => {
+      if (v) { overlay.name = v; saveLayers(); }
+      renderOverlaysPanel();
     });
-
-    row.querySelector('.layer-vis').addEventListener('click', e => {
-      e.stopPropagation();
-      setOverlayVisible(overlay.id, e.target.checked);
+    const opacityEl = row.querySelector('.prow-opacity');
+    wireScrub(opacityEl, {
+      get: () => Math.round(overlay.opacity * 100),
+      set: (v) => {
+        overlay.opacity = v / 100;
+        opacityEl.textContent = `${v}%`;
+        applyOverlayStyle(overlay);
+      },
+      min: 0,
+      max: 100,
+      onCommit: () => saveLayers(),
+      onClick: () => toggleOverlayWell(overlay.id),
     });
-    const slider = row.querySelector('.om-opacity');
-    const sliderVal = row.querySelector('.om-opacity-val');
-    slider.addEventListener('input', e => {
-      overlay.opacity = parseInt(e.target.value, 10) / 100;
-      sliderVal.textContent = e.target.value + '%';
-      applyOverlayStyle(overlay);
-    });
-    slider.addEventListener('change', () => saveLayers());
-    row.querySelector('.oldmap-btn-feather').addEventListener('click', e => {
-      e.stopPropagation();
-      toggleOverlayFeather(overlay);
-    });
-    row.querySelector('.oldmap-btn-fit').addEventListener('click', e => {
+    row.querySelector('.act-fit').addEventListener('click', e => {
       e.stopPropagation();
       fitToOverlay(overlay);
     });
-    row.querySelector('.oldmap-btn-del').addEventListener('click', e => {
+    row.querySelector('.act-del').addEventListener('click', e => {
       e.stopPropagation();
       if (confirm(`Remove "${overlay.name}"?`)) deleteOverlay(overlay.id);
     });
+    row.querySelector('.prow-chev').addEventListener('click', e => {
+      e.stopPropagation();
+      toggleOverlayWell(overlay.id);
+    });
+    row.addEventListener('click', () => toggleOverlayWell(overlay.id));
+    wireHoverLink(row, 'overlay', overlay);
     list.appendChild(row);
 
-    // ── feather controls (expanded under the row while ✂ is on) ──
-    if (f.on) {
-      const ctl = document.createElement('div');
-      ctl.className = 'oldmap-feather-ctl';
-      ctl.innerHTML = `
-        <label class="omf-field"><span>Crop</span>
-          <input type="range" class="omf-crop" min="0" max="45" step="1" value="${Math.round(f.crop * 100)}">
-          <span class="omf-val omf-crop-val">${Math.round(f.crop * 100)}%</span>
+    // ── detail well: opacity always; crop/feather when the crop is armed ──
+    if (expanded) {
+      const well = document.createElement('div');
+      well.className = 'prow-well';
+      well.innerHTML = `
+        <label class="well-field"><span>Opacity</span>
+          <input type="range" class="w-opacity" min="0" max="100" step="1" value="${Math.round(overlay.opacity * 100)}">
+          <span class="well-val w-opacity-val">${Math.round(overlay.opacity * 100)}%</span>
         </label>
-        <label class="omf-field"><span>Feather</span>
-          <input type="range" class="omf-width" min="0" max="40" step="1" value="${Math.round(f.width * 100)}">
-          <span class="omf-val omf-width-val">${Math.round(f.width * 100)}%</span>
+        ${f.on ? `
+        <label class="well-field"><span>Crop</span>
+          <input type="range" class="w-crop" min="0" max="45" step="1" value="${Math.round(f.crop * 100)}">
+          <span class="well-val w-crop-val">${Math.round(f.crop * 100)}%</span>
         </label>
-        <button class="btn ghost omf-setview" title="Use the current viewport as this map's crop frame">⌖ frame = view</button>
+        <label class="well-field"><span>Feather</span>
+          <input type="range" class="w-feather" min="0" max="40" step="1" value="${Math.round(f.width * 100)}">
+          <span class="well-val w-feather-val">${Math.round(f.width * 100)}%</span>
+        </label>` : ''}
+        <div class="well-row">
+          <button class="well-btn w-feather-toggle ${f.on ? 'is-on' : ''}" title="Fade the map's edges with a feathered crop">edge mask</button>
+          ${f.on ? '<button class="well-btn w-setview" title="Use the current viewport as this map\'s crop frame">match view</button>' : ''}
+        </div>
       `;
-      const crop = ctl.querySelector('.omf-crop');
-      crop.addEventListener('input', e => {
-        ctl.querySelector('.omf-crop-val').textContent = e.target.value + '%';
-        mutateOverlayFeather(overlay, ff => { ff.crop = parseInt(e.target.value, 10) / 100; });
+      for (const r of well.querySelectorAll('input[type="range"]')) syncRangeFill(r);
+      const wOpacity = well.querySelector('.w-opacity');
+      wOpacity.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10);
+        overlay.opacity = v / 100;
+        well.querySelector('.w-opacity-val').textContent = `${v}%`;
+        opacityEl.textContent = `${v}%`;
+        syncRangeFill(e.target);
+        applyOverlayStyle(overlay);
       });
-      const width = ctl.querySelector('.omf-width');
-      width.addEventListener('input', e => {
-        ctl.querySelector('.omf-width-val').textContent = e.target.value + '%';
-        mutateOverlayFeather(overlay, ff => { ff.width = parseInt(e.target.value, 10) / 100; });
-      });
-      ctl.querySelector('.omf-setview').addEventListener('click', () => setOverlayFeatherRectToView(overlay));
-      list.appendChild(ctl);
+      wOpacity.addEventListener('change', () => saveLayers());
+      const wCrop = well.querySelector('.w-crop');
+      if (wCrop) {
+        wCrop.addEventListener('input', e => {
+          well.querySelector('.w-crop-val').textContent = `${e.target.value}%`;
+          syncRangeFill(e.target);
+          mutateOverlayFeather(overlay, ff => { ff.crop = parseInt(e.target.value, 10) / 100; });
+        });
+      }
+      const wFeather = well.querySelector('.w-feather');
+      if (wFeather) {
+        wFeather.addEventListener('input', e => {
+          well.querySelector('.w-feather-val').textContent = `${e.target.value}%`;
+          syncRangeFill(e.target);
+          mutateOverlayFeather(overlay, ff => { ff.width = parseInt(e.target.value, 10) / 100; });
+        });
+      }
+      well.querySelector('.w-feather-toggle').addEventListener('click', () => toggleOverlayFeather(overlay));
+      const wSetview = well.querySelector('.w-setview');
+      if (wSetview) wSetview.addEventListener('click', () => setOverlayFeatherRectToView(overlay));
+      list.appendChild(well);
     }
   });
 }

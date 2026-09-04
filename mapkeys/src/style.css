@@ -706,171 +706,403 @@ body.dragging-shape .mapboxgl-canvas {
   cursor: grabbing !important;
 }
 
-/* ─── Layers panel (left rail) ─── */
+/* ─── Layers panel (left rail) ───
+   Tint-layered, flat, Figma-discipline rows: 32px fixed height, aligned
+   eye gutter, hover-revealed actions, instant disclosure. Tokens below are
+   the panel's whole vocabulary — one hairline, three tint steps, one accent. */
+
+:root {
+  --lp-ink-04: rgba(43, 42, 38, 0.04);
+  --lp-ink-07: rgba(43, 42, 38, 0.07);
+  --lp-ink-10: rgba(43, 42, 38, 0.10);
+  --lp-ink-60: rgba(43, 42, 38, 0.60);
+  --lp-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
 
 #layers-panel {
   position: absolute;
   top: 64px;
   left: 16px;
-  width: 240px;
+  width: 288px;
   z-index: 9;
-  background: rgba(246, 239, 222, 0.92);
+  background: rgba(246, 239, 222, 0.94);
   border: 1px solid var(--panel-edge);
-  border-radius: 4px;
-  padding: 10px 0 8px;
-  backdrop-filter: blur(8px);
+  border-radius: 6px;
+  padding: 4px 0 6px;
+  backdrop-filter: blur(10px) saturate(1.05);
   font-family: 'Space Mono', monospace;
   max-height: calc(100vh - 280px);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(43, 42, 38, 0.18) transparent;
 }
-#layers-header {
+#layers-panel::-webkit-scrollbar { width: 6px; }
+#layers-panel::-webkit-scrollbar-track { background: transparent; }
+#layers-panel::-webkit-scrollbar-thumb {
+  background: rgba(43, 42, 38, 0.18);
+  border-radius: 99px;
+}
+
+/* Section headers — collapsible, sticky, one hairline above (none on first) */
+.lp-section-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 12px 8px;
-  border-bottom: 1px solid var(--panel-edge);
-  margin-bottom: 6px;
+  gap: 0;
+  height: 30px;
+  padding: 0 10px 0 6px;
+  cursor: pointer;
+  user-select: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(246, 239, 222, 0.97);
+  border-top: 1px solid var(--panel-edge);
 }
+.lp-section-head:first-child,
+#layers-header { border-top: none; }
+.lp-chev {
+  width: 26px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--lp-ink-60);
+  font-size: 8px;
+  transition: transform 100ms var(--lp-ease);
+  transform: rotate(90deg); /* open = pointing down */
+}
+.lp-section-head.collapsed .lp-chev { transform: rotate(0deg); }
 .lp-title {
   font-size: 10px;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.22em;
   font-weight: 700;
   color: var(--ink);
 }
 .lp-count {
   font-size: 10px;
-  color: var(--ink-soft);
-  background: var(--panel);
-  border: 1px solid var(--panel-edge);
-  border-radius: 8px;
-  padding: 1px 8px;
+  color: var(--lp-ink-60);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
-.layer-row {
+.lp-body.collapsed { display: none; }
+
+/* Empty state — one quiet mono sentence */
+.lp-empty {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  height: 32px;
+  padding: 0 12px 0 54px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.lp-empty .lp-empty-act {
+  color: var(--lp-ink-60);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
+  margin-left: 4px;
+}
+.lp-empty .lp-empty-act:hover { color: var(--ink); }
+/* phantom caret slot: rows without a chevron reserve its width so every
+   meta value in the panel ends on the same x */
+.prow-chev-ghost { width: 16px; height: 32px; flex-shrink: 0; }
+
+/* ── Row: [eye 26] [mark 22] [name flex] [stat] (actions overlay right) ── */
+.prow {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  cursor: pointer;
+  position: relative;
   border-left: 2px solid transparent;
+  transition: background-color 100ms ease;
 }
-.layer-row:hover { background: rgba(43, 42, 38, 0.04); }
-.layer-row.active {
-  border-left-color: var(--ink);
-  background: rgba(43, 42, 38, 0.06);
+.prow:hover { background: var(--lp-ink-04); }
+.prow.active {
+  border-left-color: var(--accent);
+  background: var(--lp-ink-07);
 }
-.layer-row.hidden-layer .layer-name { opacity: 0.4; }
-.layer-vis {
-  appearance: none;
-  -webkit-appearance: none;
+.prow.active:hover { background: var(--lp-ink-10); }
+.prow[draggable="true"] { cursor: grab; }
+.prow.dragging { opacity: 0.35; cursor: grabbing; }
+/* drop indicator: 2px terracotta insertion line, flat */
+.prow.drop-above::before,
+.prow.drop-below::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: var(--accent);
+  z-index: 3;
+}
+.prow.drop-above::before { top: -1px; }
+.prow.drop-below::after { bottom: -1px; }
+
+/* visibility eye — aligned left gutter, quiet at rest, loud when off */
+.prow-eye {
+  width: 26px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--lp-ink-60);
+}
+.prow-eye svg { width: 14px; height: 14px; display: block; }
+.prow-eye:hover { color: var(--ink); }
+.prow.is-hidden .prow-eye { color: rgba(43, 42, 38, 0.45); }
+.prow.is-hidden .prow-eye:hover { color: var(--ink); }
+
+/* type mark: color chip with glyph inked in, or raster thumbnail */
+.prow-mark {
+  width: 24px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+.prow-chip {
   width: 14px;
   height: 14px;
-  border: 1.5px solid var(--ink);
-  border-radius: 2px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-}
-.layer-vis:checked {
-  background: var(--ink);
-}
-.layer-vis:checked::after {
-  content: '✓';
-  color: var(--paper);
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  line-height: 1;
-}
-.layer-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+  border-radius: 3px;
   border: 1px solid var(--panel-edge);
-  flex-shrink: 0;
 }
-.layer-meta {
+.prow-chip.chip-stroke { background: transparent !important; border-width: 2px; }
+.prow-chip.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+}
+.prow-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid rgba(43, 42, 38, 0.15);
+  object-fit: cover;
+  display: block;
+}
+.prow-thumb-fallback {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid rgba(43, 42, 38, 0.2);
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  color: rgba(43, 42, 38, 0.45);
+  background: transparent;
+}
+
+.prow-name {
   flex: 1;
   min-width: 0;
-}
-.layer-name {
-  font-size: 11px;
+  margin-left: 6px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.layer-detail {
+.prow-stat {
+  margin-left: 8px;
   font-size: 9px;
-  color: var(--ink-soft);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  color: var(--lp-ink-60);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.layer-actions {
-  display: flex;
-  gap: 4px;
+.prow-stat.scrub { cursor: ew-resize; }
+.prow-stat.scrub:hover { color: var(--ink); }
+.prow-stat.scrubbing { color: var(--accent); }
+
+/* hidden rows: content dims, eye stays loud */
+.prow.is-hidden .prow-name,
+.prow.is-hidden .prow-mark,
+.prow.is-hidden .prow-stat { opacity: 0.38; }
+
+/* hover actions — overlay the stat on the right, instant reveal, no fade */
+.prow-acts {
+  position: absolute;
+  right: 6px;
+  top: 0;
+  height: 32px;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  background: linear-gradient(90deg, transparent, #f3ecda 22%, #f3ecda);
+  padding-left: 16px;
 }
-.layer-btn {
+.prow:hover .prow-acts { display: flex; }
+/* rows with a disclosure chevron keep stat + chevron reachable: actions
+   overlay stops short of them, fading over the name instead */
+.prow.has-chev .prow-acts { right: 56px; }
+.prow-act {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
   background: none;
   border: none;
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-size: 14px;
+  border-radius: 3px;
+  padding: 0;
+  font-size: 13px;
   line-height: 1;
-  padding: 2px 4px;
-  border-radius: 2px;
-}
-.layer-btn:hover {
-  color: var(--accent);
-  background: rgba(43, 42, 38, 0.06);
-}
-
-/* Shapes section inside layers panel */
-#shapes-divider {
-  height: 1px;
-  background: var(--panel-edge);
-  margin: 8px 0;
-}
-#shapes-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px 8px;
-  border-bottom: 1px solid var(--panel-edge);
-  margin-bottom: 6px;
-}
-.shape-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  color: var(--lp-ink-60);
   cursor: pointer;
-  border-left: 2px solid transparent;
+  transition: transform 120ms var(--lp-ease);
 }
-.shape-row:hover { background: rgba(43, 42, 38, 0.04); }
-.shape-row.active {
-  border-left-color: var(--ink);
-  background: rgba(43, 42, 38, 0.06);
-}
-.shape-row.hidden-layer .layer-name { opacity: 0.4; }
-.shape-glyph {
+.prow-act.act-del { margin-left: 4px; }
+.prow-act:hover { color: var(--ink); background: var(--lp-ink-07); }
+.prow-act:active { transform: scale(0.94); }
+.prow-act.is-on { color: var(--accent); }
+
+/* row disclosure chevron (rows with a detail well) */
+.prow-chev {
   width: 16px;
-  height: 16px;
+  height: 32px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  font-size: 12px;
-  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-size: 8px;
+  transition: transform 100ms var(--lp-ease);
 }
-.shape-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+.prow-chev:hover { color: var(--ink); }
+.prow.expanded .prow-chev { transform: rotate(90deg); color: var(--lp-ink-60); }
+
+/* inline rename — flat, editorial: accent underline only */
+.prow-rename {
+  flex: 1;
+  min-width: 0;
+  margin-left: 6px;
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  padding: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  outline: none;
+}
+
+/* ── detail well: tint step, no border, instant ── */
+.prow-well {
+  background: var(--lp-ink-04);
+  border-bottom: 1px solid var(--panel-edge);
+  padding: 8px 12px 10px 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.well-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-ink-60);
+}
+.well-field > span:first-child { width: 64px; flex-shrink: 0; }
+.well-val {
+  width: 34px;
+  text-align: right;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+/* flat slider: hairline track, terracotta fill up to the thumb, small ink
+   thumb. Fill percentage rides a CSS var set from JS on input. */
+.well-field input[type="range"] {
+  flex: 1;
+  min-width: 0; /* ranges refuse to flex-shrink without this — clips the value column */
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+  --fill: 50%;
+}
+.well-field input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(to right,
+    rgba(184, 92, 60, 0.55) var(--fill), var(--panel-edge) var(--fill));
+}
+.well-field input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: none;
+}
+.well-field input[type="range"]::-moz-range-track {
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(to right,
+    rgba(184, 92, 60, 0.55) var(--fill), var(--panel-edge) var(--fill));
+}
+.well-field input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: none;
+}
+.well-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.well-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-ink-60);
+  background: none;
   border: 1px solid var(--panel-edge);
+  border-radius: 3px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background-color 100ms ease, transform 120ms var(--lp-ease);
+}
+.well-btn:hover { background: var(--lp-ink-04); color: var(--ink); }
+.well-btn:active { transform: scale(0.97); }
+.well-btn.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* keyboard focus only — accent ring */
+#layers-panel :focus-visible {
+  outline: 2px solid rgba(184, 92, 60, 0.5);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-chev, .prow-chev, .prow-act, .well-btn { transition: none; }
 }
 
 /* ─── Draw-on scrub bar — now nested inside the layers panel ─── */
@@ -1502,95 +1734,4 @@ body.dragging-shape .mapboxgl-canvas {
   gap: 8px;
 }
 
-/* ─── Old-maps panel section ─── */
-
-#oldmaps-divider {
-  height: 1px;
-  background: var(--panel-edge);
-  margin: 8px 0;
-}
-#oldmaps-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px 8px;
-  border-bottom: 1px solid var(--panel-edge);
-  margin-bottom: 6px;
-}
-.oldmap-row { cursor: default; }
-.oldmap-opacity {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-.oldmap-opacity .om-opacity {
-  flex: 1;
-  height: 3px;
-  accent-color: var(--ink);
-}
-.om-opacity-val {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--ink-soft);
-  width: 32px;
-  text-align: right;
-}
-
-/* ─── Old-map reordering + feather controls ─── */
-
-.oldmap-row { cursor: grab; }
-.oldmap-row.dragging { opacity: 0.4; cursor: grabbing; }
-.oldmap-row.drop-above { box-shadow: 0 -2px 0 var(--ink); }
-.oldmap-row.drop-below { box-shadow: 0 2px 0 var(--ink); }
-.om-grip {
-  font-size: 11px;
-  color: var(--ink-faint);
-  cursor: grab;
-  user-select: none;
-  padding: 0 2px;
-}
-.oldmap-row:hover .om-grip,
-.shape-row:hover .om-grip { color: var(--ink); }
-.om-rename {
-  appearance: none;
-  background: #fffaf0;
-  border: 1px solid var(--ink);
-  border-radius: 3px;
-  padding: 1px 4px;
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  color: var(--ink);
-  width: 100%;
-}
-.oldmap-btn-feather.is-on {
-  background: var(--ink);
-  color: var(--panel);
-  border-radius: 3px;
-}
-.oldmap-feather-ctl {
-  margin: -2px 10px 6px 30px;
-  padding: 6px 8px;
-  border-left: 2px solid var(--panel-edge);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.omf-field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-.omf-field span:first-child { width: 46px; }
-.omf-field input[type="range"] { flex: 1; height: 3px; accent-color: var(--ink); }
-.omf-val { width: 32px; text-align: right; color: var(--ink); }
-.omf-setview {
-  align-self: flex-start;
-  font-size: 9px;
-  padding: 3px 8px;
-}
+/* ─── Old-maps panel section ─── (row + well styles live in the .prow system) */
