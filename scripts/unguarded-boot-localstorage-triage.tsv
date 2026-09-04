@@ -81,3 +81,5 @@ public/q5/index.html	localStorage.removeItem(KEY)	SAFE	clearBtn click handler on
 public/dune/index.html	localStorage.setItem('dune:theme',d)	SAFE	themeBtn click handler only; never synchronous boot — a storage-blocked write is a user-action no-op, not a boot brick. The boot READS (dune:theme, dune:offline) are now try/catch-guarded.
 public/dune/index.html	localStorage.setItem(hlKey(),JSON.stringify(a))	SAFE	setHls(): reached only from the highlight pill.onclick + delete handlers; never synchronous boot.
 public/dune/index.html	localStorage.setItem(placeKey(),JSON.stringify(	SAFE	savePlace(): reached only from the debounced scroll handler + restorePlace; never synchronous boot.
+public/q6/index.html	localStorage.setItem(KEY,JSON.stringify(R))	SAFE	save(): reached only from Accept/Comment button handlers; never synchronous boot.
+public/q6/index.html	localStorage.removeItem(KEY)	SAFE	reset handler (clear rulings button); user-initiated, never synchronous boot.

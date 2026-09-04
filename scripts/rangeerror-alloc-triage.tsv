@@ -29,3 +29,5 @@ public/ascent/src/app.js	newArray(ys.length)	SAFE	ys.length = one hikes elevatio
 public/ascent/src/app.js	newArray(LM.length)	SAFE	LM = window.LANDMARKS, fixed 12-entry seed (bounded)
 burma-script/src/tk-pattern.js	.repeat(child.nodeSize)	SAFE	PM node.nodeSize — always a positive integer (>=1) far below 2^32
 scripts/dune-audio.mjs	newArray(items.length)	SAFE	items = Hume narration timing segments for one essay, bounded by the essay word/segment count (a few thousand); .length is a non-negative integer far below 2^32. Build-time script (runs on Johnnys Mac), not a served surface.
+mapkeys/src/osm-feature.js	newArray(clean.length)	SAFE	stitchSegments used[] flags — clean is a filtered Array of segment arrays; .length is a non-negative integer bounded by Overpass way-member counts (dozens), far below 2^32.
+mapkeys/src/osm-feature.js	newArray(pts.length)	SAFE	simplifyLine keep[] flags — pts is a coordinate Array (river polylines, tens of thousands max); .length is a non-negative integer far below 2^32.

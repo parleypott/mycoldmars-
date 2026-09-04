@@ -20,6 +20,10 @@ import { classifyOldMapInput, annotationBounds, annotationLabel } from './oldmap
 import { featherPlan } from './feather-mask.js';
 import { escHtml } from './esc.js';
 import {
+  mapNominatimResults, overpassLineSegments, stitchSegments, simplifyLine,
+  geometryToPayload, mergeSearchResults,
+} from './osm-feature.js';
+import {
   findBySlug, syncFromCloud as syncProjectsFromCloud, loadProjectState,
   pushProjectState, beaconProjectState, writeStateCache, touchProject,
   renameProject, migrateLegacyIfNeeded,
@@ -371,7 +375,8 @@ window.__mapkeys = {
   map,
   state,
   fns: {
-    addCountry, addPlace, saveLayers, renderShapesPanel, renderLayersPanel,
+    addCountry, addPlace, addLineFromCoords, addAreaFromGeometry, addOsmFeature,
+    saveLayers, renderShapesPanel, renderLayersPanel,
     applyShapeOrder, reorderShapeByDisplay,
     ensureShapeOnMap, redrawShape, backfillShapeIntoKeyframes,
     ensureBordersOnMap, applyBordersToMap, applySatGrade,
@@ -1169,14 +1174,48 @@ function addCountry(country) {
   showRouteUI();
 }
 
-function addLineFromCoords(coords) {
+// An OSM area feature (province, lake, park…) rides the country-shape rails:
+// geometry lives in customGeometry (the same slot vertex edits promote into),
+// so every country affordance — fill, stroke, vertex editing, keyframing —
+// works unchanged. countryId gets an osm_ prefix so it can never collide with
+// (or be resolved against) the Natural Earth COUNTRIES table.
+function addAreaFromGeometry(name, geometry) {
+  if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return null;
+  snapshotForUndo('add area');
+  const id = newShapeId();
+  const shape = {
+    id,
+    type: 'country',
+    name: name || 'Area',
+    countryId: 'osm_' + id,
+    countryName: name || 'Area',
+    customGeometry: geometry,
+    stroke: SHAPE_DEFAULTS.stroke,
+    fill: pickShapeFill(),
+    strokeWidth: 1.5,
+    fillOpacity: 0.35,
+    visible: true,
+    preview: {},
+  };
+  state.shapes.unshift(shape);
+  backfillShapeIntoKeyframes(shape);
+  ensureShapeOnMap(shape);
+  redrawShape(shape);
+  saveLayers();
+  renderShapesPanel();
+  showRouteUI();
+  selectShape(id);
+  return shape;
+}
+
+function addLineFromCoords(coords, opts = {}) {
   if (!coords || coords.length < 2) return;
   snapshotForUndo('add line');
   const id = newShapeId();
   const shape = {
     id,
     type: 'line',
-    name: nextShapeName('line'),
+    name: opts.name || nextShapeName('line'),
     baseCoords: coords.map(c => [c[0], c[1]]),
     stroke: pickShapeFill(),
     fill: '#000000',  // unused for lines but persisted
@@ -1194,6 +1233,7 @@ function addLineFromCoords(coords) {
   renderShapesPanel();
   renderLayersPanel();
   showRouteUI();
+  return shape;
 }
 
 function duplicateShape(id) {
@@ -2516,8 +2556,10 @@ function hydrateShape(raw) {
   if (base.type === 'place' && !base.center) return null;
   if (base.type === 'country') {
     // Resolve geometry now so subsequent renders just read from _geometry.
+    // OSM area features carry their whole geometry in customGeometry (no
+    // COUNTRIES-table row to resolve against) — they hydrate on that alone.
     resolveCountryGeometry(base);
-    if (!base._geometry) return null;
+    if (!base._geometry && !base.customGeometry) return null;
   }
   return base;
 }
@@ -3725,13 +3767,90 @@ async function geocodePlaces(q) {
   }));
 }
 
+// OSM (Nominatim) search runs alongside the Mapbox geocoder: it's what knows
+// rivers, provinces, lakes, parks — features with real geometry, not just a
+// point. Rows from here can be traced into editable shapes via addOsmFeature.
+async function searchOsmFeatures(q, signal) {
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=en&q='
+    + encodeURIComponent(q);
+  const res = await fetch(url, { signal, headers: { accept: 'application/json' } });
+  if (!res || !res.ok) return [];
+  const json = await res.json().catch(() => null);
+  return mapNominatimResults(json);
+}
+
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const LINEAR_KINDS = new Set(['river', 'stream', 'canal', 'road']);
+
+// Fetch the real geometry behind an OSM search row. Braided rivers are the
+// hard case: Nominatim's polygon_geojson flattens a waterway relation into a
+// MultiLineString of EVERY channel (side arms included), but the Overpass
+// relation dump keeps member roles, so main_stream can be isolated into one
+// continuous source→mouth line. Everything else goes through Nominatim lookup.
+async function fetchOsmGeometry(r) {
+  if (r.osmType === 'relation' && LINEAR_KINDS.has(r.kind)) {
+    try {
+      const q = `[out:json][timeout:60];rel(${r.osmId});out body;way(r);out geom;`;
+      const res = await fetch(OVERPASS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(q),
+      });
+      if (res && res.ok) {
+        const segs = overpassLineSegments(await res.json());
+        const coords = simplifyLine(stitchSegments(segs), 0.002);
+        if (coords.length >= 2) return { type: 'LineString', coordinates: coords };
+      }
+    } catch (err) {
+      console.warn('[mapkeys] overpass fetch failed, falling back to nominatim:', err.message);
+    }
+  }
+  try {
+    const code = r.osmType === 'relation' ? 'R' : r.osmType === 'way' ? 'W' : 'N';
+    const url = `https://nominatim.openstreetmap.org/lookup?osm_ids=${code}${r.osmId}`
+      + '&format=jsonv2&polygon_geojson=1';
+    const res = await fetch(url, { headers: { accept: 'application/json' } });
+    if (res && res.ok) {
+      const json = await res.json().catch(() => null);
+      const row = Array.isArray(json) ? json[0] : null;
+      if (row && row.geojson) return row.geojson;
+    }
+  } catch (err) {
+    console.warn('[mapkeys] nominatim lookup failed:', err.message);
+  }
+  // Last resort: the search row's own center — at least a pin lands.
+  return Array.isArray(r.center) ? { type: 'Point', coordinates: r.center } : null;
+}
+
+// Trace an OSM feature into a real, editable shape: rivers/roads become line
+// shapes (same rails as hand-drawn lines), provinces/lakes become area shapes
+// (country rails + customGeometry), point-only features become place dots.
+async function addOsmFeature(r) {
+  const geom = await fetchOsmGeometry(r);
+  const payload = geom ? geometryToPayload(geom) : null;
+  if (!payload) {
+    console.warn('[mapkeys] no usable geometry for feature:', r.name);
+    return null;
+  }
+  let shape = null;
+  if (payload.kind === 'line') shape = addLineFromCoords(payload.coords, { name: r.name });
+  else if (payload.kind === 'area') shape = addAreaFromGeometry(r.name, payload.geometry);
+  else shape = addPlace({ name: r.name, center: payload.center });
+  if (shape && r.bbox) map.fitBounds(r.bbox, { padding: 80, duration: 1200 });
+  return shape;
+}
+
 function searchZoomFor(kind) {
   return kind === 'country' ? 3.8 : kind === 'region' ? 5.2 : kind === 'locality' ? 9 : 7.2;
 }
 
 function navigateToResult(r) {
   showSearchPin(r);
-  map.flyTo({ center: r.center, zoom: Math.max(map.getZoom(), searchZoomFor(r.kind)), duration: 1500 });
+  if (r.bbox) {
+    map.fitBounds(r.bbox, { padding: 80, duration: 1500 });
+  } else {
+    map.flyTo({ center: r.center, zoom: Math.max(map.getZoom(), searchZoomFor(r.kind)), duration: 1500 });
+  }
 }
 
 function closeSearchResults() {
@@ -3746,21 +3865,40 @@ function renderSearchResults() {
   psFeatures.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'ps-row' + (i === psHighlight ? ' active' : '');
+    // OSM relations/ways carry real geometry — their ✎ traces an editable
+    // shape (river → line, province/lake → area). Everything else stays the
+    // classic dot+label place.
+    const traceable = r.source === 'osm' && (r.osmType === 'relation' || r.osmType === 'way');
+    const context = [r.source === 'osm' ? r.kind : null, r.context].filter(Boolean).join(' · ');
     row.innerHTML = `
       <div class="ps-meta">
         <div class="ps-name">${escHtml(r.name)}</div>
-        <div class="ps-context">${escHtml(r.context)}</div>
+        <div class="ps-context">${escHtml(context)}</div>
       </div>
-      <button class="ps-pin" title="Add as a place layer (dot + label)">✎</button>
+      <button class="ps-pin" title="${traceable
+        ? 'Add as an editable shape (traced from OpenStreetMap)'
+        : 'Add as a place layer (dot + label)'}">✎</button>
     `;
     row.addEventListener('click', () => {
       psHighlight = i;
       navigateToResult(r);
       closeSearchResults();
     });
-    row.querySelector('.ps-pin').addEventListener('click', (e) => {
+    const pinBtn = row.querySelector('.ps-pin');
+    pinBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       clearSearchPin();
+      if (traceable) {
+        // Keep the dropdown up while tracing — the … is the loading state.
+        pinBtn.textContent = '…';
+        pinBtn.disabled = true;
+        const shape = await addOsmFeature(r);
+        closeSearchResults();
+        psInput.value = '';
+        psInput.blur();
+        if (!shape) console.warn('[mapkeys] trace failed for:', r.name);
+        return;
+      }
       addPlace(r);
       map.flyTo({ center: r.center, zoom: Math.max(map.getZoom(), searchZoomFor(r.kind)), duration: 1200 });
       closeSearchResults();
@@ -3777,7 +3915,12 @@ psInput.addEventListener('input', () => {
   if (!q) { psFeatures = []; closeSearchResults(); clearSearchPin(); return; }
   psTimer = setTimeout(async () => {
     try {
-      psFeatures = await geocodePlaces(q);
+      // geocodePlaces resets psAbort synchronously, so the OSM query rides
+      // the same controller — one Escape/retype cancels both.
+      const mbPromise = geocodePlaces(q);
+      const osmPromise = searchOsmFeatures(q, psAbort.signal).catch(() => []);
+      const [mb, osm] = await Promise.all([mbPromise, osmPromise]);
+      psFeatures = mergeSearchResults(mb, osm, 10);
       psHighlight = 0;
       renderSearchResults();
     } catch (err) {
