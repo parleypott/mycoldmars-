@@ -4941,6 +4941,10 @@ async function drainRenderQueue() {
   next.status = 'rendering';
   renderQueuePanelUpdate();
   try {
+    // The render is the one thing that can take the whole tab down (OOM on a
+    // long capture). Make sure the cloud holds the latest state BEFORE we
+    // start, so a crash can never cost work again (Burma Paper, 2026-09-09).
+    try { await flushCloudSave(); } catch {}
     await runRenderJob(next);
     next.status = 'done';
     next.progress = 1;
@@ -5116,8 +5120,23 @@ async function runRenderJob(job) {
   const totalFrames = Math.max(1, Math.round(outDur * fps));
   const sourceCanvas = map.getCanvas();
   const crop = renderCropRect(sourceCanvas);
-  const w = Math.round(crop.cssW * scalePct);
-  const h = crop.is169 ? Math.round((w * 9) / 16) : Math.round(crop.cssH * scalePct);
+  let w = Math.round(crop.cssW * scalePct);
+  let h = crop.is169 ? Math.round((w * 9) / 16) : Math.round(crop.cssH * scalePct);
+
+  // gif.js holds every captured frame in memory until encode. A long range at
+  // full res is gigabytes — the tab OOM-crashes with zero output (and, before
+  // the pre-render flush existed, took unsaved work with it). Cap the frame
+  // buffer and downscale to fit rather than die.
+  const MAX_FRAME_BYTES = 600 * 1024 * 1024;
+  const estBytes = totalFrames * w * h * 4;
+  if (estBytes > MAX_FRAME_BYTES) {
+    const k = Math.sqrt(MAX_FRAME_BYTES / estBytes);
+    w = Math.max(320, 2 * Math.round((w * k) / 2));
+    h = crop.is169
+      ? Math.round((w * 9) / 16)
+      : Math.max(180, Math.round(w * (crop.cssH / crop.cssW)));
+    flashToast(`long render — downscaled to ${w}×${h} so the tab can't crash`);
+  }
 
   const off = document.createElement('canvas');
   off.width = w; off.height = h;
@@ -5138,12 +5157,16 @@ async function runRenderJob(job) {
   for (let i = 0; i < totalFrames; i++) {
     const t = tStart + Math.min(total, i * stepPerFrame);
     applyAtTime(t);
+    // A stalled tile source (rate-limited WMTS old map, dead network) must
+    // slow a frame, not hang the whole job forever with no error.
     await new Promise(resolve => {
+      const bail = setTimeout(resolve, 4000);
+      const done = () => { clearTimeout(bail); resolve(); };
       if (map.areTilesLoaded()) {
-        map.once('render', resolve);
+        map.once('render', done);
         map.triggerRepaint();
       } else {
-        map.once('idle', resolve);
+        map.once('idle', done);
       }
     });
     const src = map.getCanvas();
@@ -5257,14 +5280,22 @@ function scheduleCloudSave() {
 function flushCloudSave() {
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer = null;
-  if (!currentProject) return;
+  if (!currentProject) return Promise.resolve(false);
   const id = currentProject.id;
   const snap = getProjectSnapshot();
   touchProject(id);
-  pushProjectState(id, snap).then((ok) => {
+  return pushProjectState(id, snap).then((ok) => {
     if (currentProject && currentProject.id === id) updateSavePill(ok ? 'saved' : 'local');
+    return ok;
   });
 }
+
+// The cloud fetch on project open failed even after retries — the user is
+// looking at the local cache and should know it, not find out via lost work.
+window.addEventListener('mapkeys:cloud-load-failed', () => {
+  flashToast('⚠ cloud unreachable — showing the local copy; retry with a reload');
+  updateSavePill('local');
+});
 
 // Last gasp — a beacon survives the tab closing mid-debounce.
 window.addEventListener('pagehide', () => {

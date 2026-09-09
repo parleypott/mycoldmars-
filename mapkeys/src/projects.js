@@ -99,9 +99,17 @@ export function readStateCache(id) {
   } catch { return null; }
 }
 
-export function writeStateCache(id, state) {
+// Cache entries carry provenance: `stamp` is the cloud updated_at this state
+// is known to include (server clock — the only clock trusted for freshness),
+// `dirty` marks local edits not yet confirmed by the cloud. Comparing the
+// client's savedAt against the server's updated_at let a stale cache
+// resurrect over real work (incident 2026-09-09, Burma Paper).
+export function writeStateCache(id, state, opts = {}) {
   try {
-    localStorage.setItem(stateKey(id), JSON.stringify({ state, savedAt: new Date().toISOString() }));
+    const prev = readStateCache(id);
+    const stamp = opts.stamp !== undefined ? opts.stamp : (prev && prev.stamp) || null;
+    const dirty = opts.dirty !== undefined ? !!opts.dirty : true;
+    localStorage.setItem(stateKey(id), JSON.stringify({ state, savedAt: new Date().toISOString(), stamp, dirty }));
   } catch (e) {
     console.warn('[mapkeys] project cache write failed (likely quota):', e.message);
   }
@@ -328,12 +336,35 @@ export function loadProjectState(row) {
   const cached = readStateCache(row.id);
   const fresh = (async () => {
     if (String(row.id).startsWith('local_')) return null;
-    const res = await api(`?id=${encodeURIComponent(row.id)}`);
-    if (!res || !res.project || !res.project.state) return null;
+    // The one-shot fetch was a data-loss vector: one failed request and a
+    // stale cache ruled the session, silently. Retry, then say so out loud.
+    let res = null;
+    for (const wait of [0, 300, 1200]) {
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      res = await api(`?id=${encodeURIComponent(row.id)}`);
+      if (res && res.project) break;
+    }
+    if (!res || !res.project || !res.project.state) {
+      try { window.dispatchEvent(new CustomEvent('mapkeys:cloud-load-failed', { detail: { id: row.id } })); } catch {}
+      return null;
+    }
     const cloud = res.project;
     cloudStamps.set(row.id, cloud.updated_at); // CAS base for this session's saves
-    if (cached && ts(cached.savedAt) >= ts(cloud.updated_at)) return null; // cache is current
-    writeStateCache(row.id, cloud.state);
+    // Freshness is judged server-clock vs server-clock. A cache whose stamp
+    // already covers the cloud row is current (it may hold offline edits).
+    if (cached && cached.stamp && ts(cached.stamp) >= ts(cloud.updated_at)) return null;
+    if (cached && cached.stamp && cached.dirty) {
+      // Both sides moved: keep this tab's unsaved edits, preserve everything
+      // the cloud gained. Cache the merge as dirty so the next autosave
+      // pushes it through the normal CAS path.
+      const { state: merged } = mergeProjectStates(cached.state, cloud.state);
+      writeStateCache(row.id, merged, { stamp: cloud.updated_at, dirty: true });
+      return merged;
+    }
+    // Clean cache behind the cloud, or a legacy cache with no provenance:
+    // the cloud row is the truth. (A provenance-less cache resurrecting over
+    // newer cloud work is exactly the Burma Paper incident.)
+    writeStateCache(row.id, cloud.state, { stamp: cloud.updated_at, dirty: false });
     return cloud.state;
   })();
   return { state: cached ? cached.state : null, fresh };
@@ -362,7 +393,7 @@ export async function pushProjectState(id, state) {
     if (!retry || !retry.ok) return false; // another writer mid-flight — next debounce retries
     const res = await retry.json().catch(() => null);
     if (res && res.project) cloudStamps.set(id, res.project.updated_at);
-    writeStateCache(id, merged);
+    writeStateCache(id, merged, { stamp: res && res.project ? res.project.updated_at : undefined, dirty: false });
     if (adopted > 0) {
       try {
         window.dispatchEvent(new CustomEvent(CLOUD_MERGED_EVENT, { detail: { id, state: merged, adopted } }));
@@ -372,7 +403,10 @@ export async function pushProjectState(id, state) {
   }
   if (!first || !first.ok) return false;
   const res = await first.json().catch(() => null);
-  if (res && res.project) cloudStamps.set(id, res.project.updated_at);
+  if (res && res.project) {
+    cloudStamps.set(id, res.project.updated_at);
+    writeStateCache(id, state, { stamp: res.project.updated_at, dirty: false });
+  }
   return !!res;
 }
 
