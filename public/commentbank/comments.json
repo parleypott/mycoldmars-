@@ -1,5 +1,192 @@
 [
   {
+    "id": "F0C16B91T2N",
+    "name": "Screenshot 2026-09-10 at 9.07.47 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31967,
+    "local_path": "images/F0C16B91T2N.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "just on time . Johnny thanks for keeping me busy",
+      "commenter": "JUNIORAPOPA",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "engagement",
+        "timing",
+        "gratitude"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:37.797Z"
+  },
+  {
+    "id": "F0C16B8J7S6",
+    "name": "Screenshot 2026-09-10 at 10.19.29 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 37090,
+    "local_path": "images/F0C16B8J7S6.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "Finally a new video...let me grab some snacks😂🎉🎉",
+      "commenter": "me_rahulsharma",
+      "sentiment": "funny",
+      "themes": [
+        "anticipation",
+        "upload frequency",
+        "excitement",
+        "humor"
+      ],
+      "video_hint": "A long-awaited new upload from the creator",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:39.030Z"
+  },
+  {
+    "id": "F0C1A2WDJKE",
+    "name": "Screenshot 2026-09-10 at 10.20.15 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 43395,
+    "local_path": "images/F0C1A2WDJKE.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "Great job guys! I really appreciate this piece. Very informative and tasteful. Thank you.",
+      "commenter": "Happy_Shenanigans",
+      "sentiment": "praise",
+      "themes": [
+        "appreciation",
+        "informative",
+        "quality",
+        "general"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:40.598Z"
+  },
+  {
+    "id": "F0C16B61V3L",
+    "name": "Screenshot 2026-09-10 at 1.04.56 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 33848,
+    "local_path": "images/F0C16B61V3L.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "What amazing educational content. Thank you for your service.",
+      "commenter": "@aliaungst1174",
+      "sentiment": "praise",
+      "themes": [
+        "educational",
+        "gratitude",
+        "content quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:41.522Z"
+  },
+  {
+    "id": "F0C20PARB96",
+    "name": "Screenshot 2026-09-10 at 1.05.09 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 82124,
+    "local_path": "images/F0C20PARB96.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "Wow very nice video. I'm currently building a YouTube channel focused on development, infrastructure, energy and geopolitics in the Caribbean, and your work is honestly one of the benchmarks for the level of storytelling I'd eventually love to reach.\n\nHave you ever considered making a course or something that breaks down your process — research, scripting, storytelling, visuals, editing, etc.? I'd genuinely …",
+      "commenter": "@MalGent",
+      "sentiment": "praise",
+      "themes": [
+        "storytelling",
+        "course request",
+        "caribbean",
+        "process"
+      ],
+      "video_hint": null,
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:41.688Z"
+  },
+  {
+    "id": "F0C14ELUCGN",
+    "name": "Screenshot 2026-09-10 at 10.20.29 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31600,
+    "local_path": "images/F0C14ELUCGN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "Tag Trump\nHe needs to see this 😄\nLove the block thing ❤️",
+      "commenter": "charleshulsey3103",
+      "sentiment": "other",
+      "themes": [
+        "trump",
+        "politics",
+        "blocking",
+        "engagement"
+      ],
+      "video_hint": "Likely a video related to Trump or a political blocking/moderation feature",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:42.484Z"
+  },
+  {
+    "id": "F0C18AR8PUH",
+    "name": "Screenshot 2026-09-10 at 10.20.46 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 44933,
+    "local_path": "images/F0C18AR8PUH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789126890.743529",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789126890743529",
+    "posted_at": "2026-09-11T11:41:30.743Z",
+    "analysis": {
+      "comment_text": "Amazing video. I feel incredibly informed on what democracy actually is now. Thanks for the amazing work! Keep it up <3",
+      "commenter": "barnos4393",
+      "sentiment": "praise",
+      "themes": [
+        "democracy",
+        "education",
+        "appreciation"
+      ],
+      "video_hint": "explainer video about democracy",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T14:50:43.532Z"
+  },
+  {
     "id": "F0C0K7QNVD3",
     "name": "Screenshot 2026-09-09 at 2.12.28 PM.png",
     "ext": "png",
