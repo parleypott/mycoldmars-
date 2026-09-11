@@ -1,5 +1,137 @@
 [
   {
+    "id": "F0C13GT07NZ",
+    "name": "Screenshot 2026-09-11 at 11.12.32 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29070,
+    "local_path": "images/F0C13GT07NZ.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789139638.069469",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789139638069469",
+    "posted_at": "2026-09-11T15:13:58.069Z",
+    "analysis": {
+      "comment_text": "Great journalism as always!",
+      "commenter": "DimitrisMourgelas",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "quality",
+        "consistency"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T18:10:35.777Z"
+  },
+  {
+    "id": "F0C0SQ1NEGP",
+    "name": "Screenshot 2026-09-11 at 8.14.55 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 23171,
+    "local_path": "images/F0C0SQ1NEGP.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789139638.069469",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789139638069469",
+    "posted_at": "2026-09-11T15:13:58.069Z",
+    "analysis": {
+      "comment_text": "we all love his explanation with the BOARD",
+      "commenter": "@AhlanMaths",
+      "sentiment": "praise",
+      "themes": [
+        "teaching style",
+        "visual aids",
+        "host",
+        "explanation"
+      ],
+      "video_hint": "math or educational video featuring a board/whiteboard",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T18:10:36.326Z"
+  },
+  {
+    "id": "F0C1A3J3LQZ",
+    "name": "Screenshot 2026-09-11 at 10.21.37 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 41578,
+    "local_path": "images/F0C1A3J3LQZ.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789139638.069469",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789139638069469",
+    "posted_at": "2026-09-11T15:13:58.069Z",
+    "analysis": {
+      "comment_text": "Wow, what a fucking awesome video. I moved to another PC so I was able to leave a comment to say that. (Canadian here 😄)",
+      "commenter": "endo_kun_da",
+      "sentiment": "praise",
+      "themes": [
+        "enthusiasm",
+        "viewer_effort",
+        "canada",
+        "general_praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T18:10:37.523Z"
+  },
+  {
+    "id": "F0C18428E9Y",
+    "name": "Screenshot 2026-09-11 at 8.24.35 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 60871,
+    "local_path": "images/F0C18428E9Y.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789139638.069469",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789139638069469",
+    "posted_at": "2026-09-11T15:13:58.069Z",
+    "analysis": {
+      "comment_text": "Love this channel love these breakdowns! I'd like to note TRADE TERMS HE HIMSELF CREATED IN HIS PREVIOUS ADMINISTRATION! It's wild. I have never seen anything like this in my living memory.",
+      "commenter": "DerianMcCrea",
+      "sentiment": "insightful",
+      "themes": [
+        "trade policy",
+        "politics",
+        "tariffs",
+        "history"
+      ],
+      "video_hint": "A breakdown video about trade policy or tariffs, likely related to Trump administration trade terms",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T18:10:37.752Z"
+  },
+  {
+    "id": "F0C1675G1BQ",
+    "name": "Screenshot 2026-09-11 at 11.12.36 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31842,
+    "local_path": "images/F0C1675G1BQ.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1789139638.069469",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1789139638069469",
+    "posted_at": "2026-09-11T15:13:58.069Z",
+    "analysis": {
+      "comment_text": "This is One of the BEST channels ive ever Seen",
+      "commenter": "@NZ-Endo",
+      "sentiment": "praise",
+      "themes": [
+        "channel quality",
+        "overall impression"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-11T18:10:38.354Z"
+  },
+  {
     "id": "F0C16B91T2N",
     "name": "Screenshot 2026-09-10 at 9.07.47 AM.png",
     "ext": "png",
