@@ -188,13 +188,31 @@ export function trashListFilter(nowMs = Date.now()) {
 // Exported for tests.
 export function publicProjectView(row) {
   if (!row || typeof row !== 'object') return null;
-  return {
+  const view = {
     id: row.id,
     slug: row.slug,
     title: row.title,
     episode: row.episode ?? null,
     updated_at: row.updated_at ?? null,
   };
+  // ATTACHED CUT (cut dock) — the ONE config sub-key a guest may see, because the read-only share is
+  // where "click a box, scrub the cut" matters most. Narrow by construction: only {url,label,duration},
+  // only when url is a non-empty string; the rest of the free-form config bag never leaves. Absent → the
+  // key is omitted so the wire shape for cut-less projects is byte-identical to before.
+  const cut = publicCutView(row.config);
+  if (cut) view.cut = cut;
+  return view;
+}
+
+// PURE — the guest-safe projection of config.cut. Mirrors burma-script/src/cut-anchor.js readCut
+// (kept inline: api/ stays free of frontend imports). Exported for tests.
+export function publicCutView(config) {
+  const c = config && typeof config === 'object' ? config.cut : null;
+  if (!c || typeof c !== 'object' || typeof c.url !== 'string' || !c.url.trim()) return null;
+  const out = { url: c.url.trim() };
+  if (typeof c.label === 'string' && c.label) out.label = c.label;
+  if (typeof c.duration === 'number' && Number.isFinite(c.duration)) out.duration = c.duration;
+  return out;
 }
 
 // GUEST slug → project resolution (anonymous). One PUBLIC + ACTIVE row or null — and the SAME null
@@ -208,7 +226,7 @@ async function resolvePublicBySlug(slugRaw) {
   }
   const r = await sb(
     `/rest/v1/script_projects?slug=eq.${pgrValue(slug)}&is_public=not.is.false&${ACTIVE_LIST_FILTER}` +
-    `&select=id,slug,title,episode,updated_at&limit=1`
+    `&select=id,slug,title,episode,updated_at,config&limit=1` // config is read for publicCutView ONLY; publicProjectView drops the rest
   );
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json().catch(() => []);

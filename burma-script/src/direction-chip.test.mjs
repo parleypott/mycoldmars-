@@ -70,7 +70,7 @@ ok('schema accepts inline directionChip and round-trips attrs', () => {
         attrs: { role: 'full' },
         content: [{
           type: 'oncamBlock',
-          attrs: { blockId: 'dir_1', flavor: null, chapterId: null, pendingViz: null },
+          attrs: { blockId: 'dir_1', flavor: null, chapterId: null, pendingViz: null, cutTc: null },
           content: [{
             type: 'paragraph',
             content: [

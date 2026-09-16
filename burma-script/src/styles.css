@@ -3818,3 +3818,34 @@ body:has(.wp-save-banner) .wp-page[data-chfocus] .wp-mode { top: 96px; }
   vertical-align: 1px;
 }
 /* ══ end VERIFY ALL ══ */
+
+/* ── CUT DOCK + CUT ANCHORS (CutDock.jsx / cut-anchor.js) ─────────────────────────────────────
+   Renders only when a project carries an attached cut. Anchored cartridges get a small mono
+   time badge top-right; the one under the playhead is outlined. Unanchored boxes: no change. */
+.wp-cut-dock {
+  position: fixed; left: 18px; bottom: 18px; z-index: 470; width: 380px; max-width: calc(100vw - 36px);
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18); font-family: var(--mono); color: var(--ink);
+}
+.wp-cut-dock.is-collapsed { width: auto; border-radius: 999px; }
+.wp-cut-dock-head { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 13px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.wp-cut-dock-kind { border: 1.5px solid var(--ink); border-radius: 4px; padding: 1px 5px; }
+.wp-cut-dock-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.wp-cut-dock-time { font-variant-numeric: tabular-nums; }
+.wp-cut-dock-btn { border: 1.5px solid var(--ink); background: transparent; color: var(--ink); border-radius: 999px; padding: 3px 9px; font: inherit; font-size: 10px; letter-spacing: .1em; cursor: pointer; }
+.wp-cut-dock-btn:hover { background: var(--ink); color: var(--frame); }
+.wp-cut-dock-body { border-top: 1.5px solid var(--ink); }
+.wp-cut-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.wp-cut-video.is-hidden { display: none; }
+.wp-cut-dock-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; font-size: 10px; letter-spacing: .04em; }
+.wp-cut-dock-hint { opacity: .7; }
+@media print { .wp-cut-dock { display: none; } }
+
+.wp-cart[data-cut-label] { position: relative; }
+.wp-cart[data-cut-label]::before {
+  content: attr(data-cut-label); position: absolute; top: -9px; right: 12px; z-index: 2;
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .08em; font-variant-numeric: tabular-nums;
+  color: var(--frame); background: var(--ink); border-radius: 4px; padding: 1px 6px; pointer-events: none;
+}
+.wp-cart.wp-cut-active { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wp-cart.wp-cut-active[data-cut-label]::before { background: #2b7fff; }

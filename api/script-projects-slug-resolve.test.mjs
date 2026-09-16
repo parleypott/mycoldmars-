@@ -96,8 +96,9 @@ const ROW = {
   ok(q.includes('is_public=not.is.false'), 'DB query filters to PUBLIC rows');
   ok(q.includes('trashed_at=is.null') && q.includes('deleted_at=is.null'), 'DB query filters to ACTIVE rows');
   ok(q.includes('limit=1'), 'DB query is limit 1');
-  ok(q.includes('select=id,slug,title,episode,updated_at'), 'DB select is the minimal field set');
-  ok(!q.includes('config'), 'DB select never pulls config');
+  ok(q.includes('select=id,slug,title,episode,updated_at,config'), 'DB select is the minimal field set + config (read only to project the attached cut)');
+  // config is pulled ONLY so publicCutView can project {url,label,duration}; the wire row never carries it.
+  eq('config' in (body.project || {}), false, 'wire row never carries config');
 }
 
 /* ── 3. unknown / private / trashed are indistinguishable ───────────────────── */
@@ -139,6 +140,13 @@ const ROW = {
   );
   eq(publicProjectView(null), null, 'null-safe');
   eq(publicProjectView('x'), null, 'non-object-safe');
+  // ATTACHED CUT — the one config sub-key a guest may see (cut dock). Only {url,label,duration}; the
+  // rest of the config bag never leaves; a cut-less row keeps the exact five-field shape above.
+  const withCut = publicProjectView({ ...ROW, config: { picker: { days: [9] }, cut: { url: ' https://x/cut.mp4 ', label: 'L', duration: 12.5, secret: 'no' } } });
+  eq(JSON.stringify(withCut.cut), JSON.stringify({ url: 'https://x/cut.mp4', label: 'L', duration: 12.5 }), 'cut projected to url/label/duration only');
+  eq('picker' in withCut || 'config' in withCut, false, 'no other config leaks');
+  eq('cut' in publicProjectView({ ...ROW, config: { cut: { url: '' } } }), false, 'empty url → no cut key');
+  eq('cut' in publicProjectView({ ...ROW, config: { cut: 'https://x' } }), false, 'non-object cut → no cut key');
 }
 
 console.log(`script-projects-slug-resolve: ${pass} passed, ${fail} failed`);

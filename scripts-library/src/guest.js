@@ -55,6 +55,9 @@ export function rowForGuest(p) {
     createdAt: null,
     updatedAt: p.updated_at || null,
     trashedAt: null,
+    // ATTACHED CUT — the one config key the scoped resolver exposes (api/script-projects publicCutView),
+    // so a guest's read-only view mounts the cut dock too. Absent → empty bag, exactly as before.
+    config: (p.cut && typeof p.cut === 'object' && typeof p.cut.url === 'string') ? { cut: p.cut } : {},
   };
 }
 

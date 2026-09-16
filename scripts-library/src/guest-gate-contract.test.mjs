@@ -79,6 +79,10 @@ const eq = (g, w, m) => ok(g === w, `${m} (got ${JSON.stringify(g)}, want ${JSON
 
   eq(rowForGuest(null), null, 'null-safe');
   eq(rowForGuest({}), null, 'id-less wire row → null');
+  // ATTACHED CUT rides the guest row into the engine config (cut dock on the read-only share view).
+  const cut = { url: 'https://x/cut.mp4', label: 'L', duration: 5 };
+  eq(JSON.stringify(configForProject(rowForGuest({ id: uuid, slug: 'nile-river', title: 'Nile River', cut })).cut), JSON.stringify(cut), 'guest row with cut → cfg.cut');
+  eq(configForProject(row).cut, null, 'guest row without cut → cfg.cut null');
 }
 
 /* ── 3. forceReadOnly is a one-way latch, and boot latches before the engine ─── */
