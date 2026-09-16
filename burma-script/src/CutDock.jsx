@@ -4,7 +4,7 @@
 // other project renders nothing here and is untouched. Two bindings, both view-local:
 //   • click on an anchored cartridge (`.ProseMirror [data-cut-tc]`) → the player seeks there
 //   • player `timeupdate` → the anchored cartridge with the greatest tc <= playhead gets
-//     `data-cut-active` (an attribute on the cartridge DOM — no doc change, no transaction)
+//     highlighted through one dynamic <style> rule keyed on its data-cut-tc (no doc change, no transaction)
 // Unanchored boxes are inert on both paths. The ONE write is the explicit "ANCHOR @ PLAYHEAD"
 // button (edit mode only): it stamps `cutTc` on the block that holds the selection through the
 // editor's normal transaction path, so it saves, syncs and undoes like any other edit.
@@ -15,9 +15,14 @@ import { getEpisode, onEpisodeChange } from './episode-config.js';
 import { isEditMode } from './edit-mode.js';
 import { readCut, activeAnchor, formatTc, normalizeCutTc } from './cut-anchor.js';
 
-// The live cartridge is marked with a DATA ATTRIBUTE, not a class: NodeView updates reassign className
-// on every editor transaction (telemetry, snapshots, decorations), which wiped a class within a second.
-const ACTIVE_ATTR = 'data-cut-active';
+// The live cartridge is highlighted through ONE dynamic <style> rule keyed on the anchor attribute the
+// NodeView itself renders (data-cut-tc). Anything written onto the cartridge DOM directly — a class, an
+// attribute — is lost the next time ProseMirror re-creates the node view (decorations change on every
+// transaction), which is what emptied the highlight ~1 s after a real seek on the live site. A selector
+// survives re-creation because the new DOM carries the same data-cut-tc.
+const STYLE_ID = 'wp-cut-active-style';
+const activeRule = (tc) => tc == null ? '' : `.ProseMirror .wp-cart[data-cut-tc="${tc}"]{outline:2px solid var(--ink);outline-offset:2px}.ProseMirror .wp-cart[data-cut-tc="${tc}"][data-cut-label]::before{background:#2b7fff}`;
+function activeStyleEl() { let el = document.getElementById(STYLE_ID); if (!el) { el = document.createElement('style'); el.id = STYLE_ID; document.head.appendChild(el); } return el; }
 const LS_COLLAPSED = 'wp_cut_dock_collapsed_v1';
 
 // Controls inside a cartridge (REC pill, VO tag, grips, buttons) must keep their own click; only
@@ -98,13 +103,13 @@ export function CutDock({ editorRef, readOnly = false }) {
     return () => document.removeEventListener('click', onClick, true);
   }, [cut]);
 
-  // PLAYHEAD → HIGHLIGHT. Class toggling on cartridge DOM only.
+  // PLAYHEAD → HIGHLIGHT. One <style> rule; the cartridge DOM is never touched.
   const paintActive = useCallback((t) => {
     const root = document.querySelector('.ProseMirror');
     if (!root) return;
     const anchors = anchorsInDoc(root);
     const live = activeAnchor(anchors, t);
-    for (const a of anchors) { if (live && a.el === live.el) a.el.setAttribute(ACTIVE_ATTR, '1'); else a.el.removeAttribute(ACTIVE_ATTR); }
+    activeStyleEl().textContent = activeRule(live ? live.tc : null);
   }, []);
   useEffect(() => {
     if (!cut) return undefined;
@@ -113,7 +118,7 @@ export function CutDock({ editorRef, readOnly = false }) {
     const onTime = () => { const t = Number.isFinite(v.currentTime) ? v.currentTime : 0; setNow(t); paintActive(t); };
     v.addEventListener('timeupdate', onTime);
     v.addEventListener('seeked', onTime);
-    return () => { v.removeEventListener('timeupdate', onTime); v.removeEventListener('seeked', onTime); document.querySelectorAll('[' + ACTIVE_ATTR + ']').forEach((el) => el.removeAttribute(ACTIVE_ATTR)); };
+    return () => { v.removeEventListener('timeupdate', onTime); v.removeEventListener('seeked', onTime); const st = document.getElementById(STYLE_ID); if (st) st.textContent = ''; };
   }, [cut, collapsed, paintActive]);
 
   if (!cut) return null;
