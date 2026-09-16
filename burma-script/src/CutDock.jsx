@@ -4,7 +4,7 @@
 // other project renders nothing here and is untouched. Two bindings, both view-local:
 //   • click on an anchored cartridge (`.ProseMirror [data-cut-tc]`) → the player seeks there
 //   • player `timeupdate` → the anchored cartridge with the greatest tc <= playhead gets
-//     `.wp-cut-active` (a class on the cartridge DOM — no doc change, no transaction)
+//     `data-cut-active` (an attribute on the cartridge DOM — no doc change, no transaction)
 // Unanchored boxes are inert on both paths. The ONE write is the explicit "ANCHOR @ PLAYHEAD"
 // button (edit mode only): it stamps `cutTc` on the block that holds the selection through the
 // editor's normal transaction path, so it saves, syncs and undoes like any other edit.
@@ -15,7 +15,9 @@ import { getEpisode, onEpisodeChange } from './episode-config.js';
 import { isEditMode } from './edit-mode.js';
 import { readCut, activeAnchor, formatTc, normalizeCutTc } from './cut-anchor.js';
 
-const ACTIVE_CLASS = 'wp-cut-active';
+// The live cartridge is marked with a DATA ATTRIBUTE, not a class: NodeView updates reassign className
+// on every editor transaction (telemetry, snapshots, decorations), which wiped a class within a second.
+const ACTIVE_ATTR = 'data-cut-active';
 const LS_COLLAPSED = 'wp_cut_dock_collapsed_v1';
 
 // Controls inside a cartridge (REC pill, VO tag, grips, buttons) must keep their own click; only
@@ -102,7 +104,7 @@ export function CutDock({ editorRef, readOnly = false }) {
     if (!root) return;
     const anchors = anchorsInDoc(root);
     const live = activeAnchor(anchors, t);
-    for (const a of anchors) a.el.classList.toggle(ACTIVE_CLASS, live ? a.el === live.el : false);
+    for (const a of anchors) { if (live && a.el === live.el) a.el.setAttribute(ACTIVE_ATTR, '1'); else a.el.removeAttribute(ACTIVE_ATTR); }
   }, []);
   useEffect(() => {
     if (!cut) return undefined;
@@ -111,7 +113,7 @@ export function CutDock({ editorRef, readOnly = false }) {
     const onTime = () => { const t = Number.isFinite(v.currentTime) ? v.currentTime : 0; setNow(t); paintActive(t); };
     v.addEventListener('timeupdate', onTime);
     v.addEventListener('seeked', onTime);
-    return () => { v.removeEventListener('timeupdate', onTime); v.removeEventListener('seeked', onTime); document.querySelectorAll('.' + ACTIVE_CLASS).forEach((el) => el.classList.remove(ACTIVE_CLASS)); };
+    return () => { v.removeEventListener('timeupdate', onTime); v.removeEventListener('seeked', onTime); document.querySelectorAll('[' + ACTIVE_ATTR + ']').forEach((el) => el.removeAttribute(ACTIVE_ATTR)); };
   }, [cut, collapsed, paintActive]);
 
   if (!cut) return null;
