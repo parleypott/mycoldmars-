@@ -6,7 +6,7 @@
 // the only doc write in the whole flow stays the human approve (footnote drop → green).
 
 import { findPendingFcRuns } from './extensions/marks.js';
-import { getEpisodeStorage } from './episode-config.js';
+import { getEpisodeStorage, episodeProject } from './episode-config.js';
 import { runVerifyAll, makeBatchController, DEEP_CLIENT_TIMEOUT_MS, SHALLOW_CLIENT_TIMEOUT_MS } from './verify-all-core.js';
 import { makeCorpusFor } from './corpus-retrieval.js';
 
@@ -70,6 +70,7 @@ export function startVerifyAll(editor, { onProgress, controller, force, corpusFo
     controller,
     force,
     mode,
+    project: episodeProject(),
     corpusFor: corpusFor === undefined ? makeCorpusFor() : corpusFor,
   });
 }

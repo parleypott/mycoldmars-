@@ -19,7 +19,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { isReadOnly } from '../read-mode.js';
-import { getEpisode } from '../episode-config.js';
+import { getEpisode, episodeProject } from '../episode-config.js';
 
 function el(tag, cls, attrs) {
   const n = document.createElement(tag);
@@ -385,7 +385,7 @@ function createFootnotePanel(editor, getPos, iconDom) {
         const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'quote', marker: claim, block: blockText, context: [noteValue, src.value].filter(Boolean).join('\n').slice(0, 3000) }),
+          body: JSON.stringify({ mode: 'quote', marker: claim, block: blockText, context: [noteValue, src.value].filter(Boolean).join('\n').slice(0, 3000), project: episodeProject() }),
           signal: ac.signal,
         });
         const rawBody = await res.text();
@@ -711,7 +711,7 @@ function createFootnoteStage(editor, getPos) {
         const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'quote', marker: claimText, block: blockText, context: [noteValue, sourceLines.join('\n')].filter(Boolean).join('\n').slice(0, 3000) }),
+          body: JSON.stringify({ mode: 'quote', marker: claimText, block: blockText, context: [noteValue, sourceLines.join('\n')].filter(Boolean).join('\n').slice(0, 3000), project: episodeProject() }),
           signal: ac.signal,
         });
         const rawBody = await res.text();

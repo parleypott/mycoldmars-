@@ -19,7 +19,7 @@
 // a null body and the handler rejects, failing these cases).
 
 import assert from 'node:assert';
-import handler, { tkPrompt, fcPrompt, quotePrompt, rateLimitCheck, identityKey, buildPayload, FC_UPSTREAM_TIMEOUT_MS } from './burma-tk.js';
+import handler, { tkPrompt, fcPrompt, quotePrompt, deepPrompt, readProject, framing, rateLimitCheck, identityKey, buildPayload, FC_UPSTREAM_TIMEOUT_MS } from './burma-tk.js';
 
 // The valid-marker path would reach the Anthropic fetch; unset the key so the handler
 // stops at the apiKey guard (500 'not set') BEFORE any network call — proving it runs
@@ -98,12 +98,34 @@ for (const bad of [null, 42, 'a string', [1, 2, 3], true]) {
   ok('tkPrompt embeds the context', p.includes('CONTEXT_TEXT'));
   ok('tkPrompt calls for emit_options', p.includes('emit_options'));
   ok('tkPrompt asks for FIVE alternatives', p.includes('FIVE'));
-  ok('tkPrompt names Johnny / Burma', p.includes('Johnny Harris') && p.includes('Burma'));
+  ok('tkPrompt without a project is neutral (no hardcoded production)', !p.includes('Burma') && p.includes('a Newpress documentary script'));
 }
 {
   const p = tkPrompt({ marker: 'M' });
   ok('tkPrompt missing block -> fallback string', p.includes('(no surrounding block)'));
   ok('tkPrompt missing context -> fallback string', p.includes('(no extra context)'));
+}
+
+// ---- project framing (2026-09-16): prompts are framed by the ACTIVE script, never a hardcoded Burma ----
+{
+  const nile = { slug: 'nile-river', title: 'NILE RIVER', series: 'The Human Element' };
+  for (const [name, build] of [['tkPrompt', tkPrompt], ['fcPrompt', fcPrompt], ['quotePrompt', quotePrompt], ['deepPrompt', deepPrompt]]) {
+    const bare = build({ marker: 'M', block: 'B', context: 'C', corpus: [], today: '2026-09-16' });
+    ok(`${name} without project: no Burma/Myanmar anywhere`, !/burma|myanmar/i.test(bare));
+    ok(`${name} without project: neutral framing`, bare.includes('a Newpress documentary script'));
+    const framed = build({ marker: 'M', block: 'B', context: 'C', corpus: [], today: '2026-09-16', project: nile });
+    ok(`${name} with project: names the script`, framed.includes('"NILE RIVER"') && framed.includes('(The Human Element)'));
+    ok(`${name} with project: still no Burma`, !/burma|myanmar/i.test(framed));
+  }
+  const burma = { slug: 'burma', title: 'Burma — The Human Element', subject: 'Burma / Myanmar', series: 'The Human Element' };
+  ok('Burma keeps its own framing through its brief', fcPrompt({ marker: 'M', project: burma }).includes('Subject: Burma / Myanmar'));
+  ok('readProject: null for junk', readProject(null) === null && readProject('x') === null && readProject([]) === null && readProject({}) === null);
+  ok('readProject: clamps title to 200', readProject({ title: 'x'.repeat(500) }).title.length === 200);
+  ok('readProject: drops non-strings', readProject({ title: 'T', subject: 42 }).subject === '');
+  ok('framing: null -> neutral', framing(null) === 'a Newpress documentary script');
+  const payload = buildPayload('fc', { marker: 'M', block: '', context: '', corpus: [], today: '2026-09-16', project: nile });
+  const text = JSON.stringify(payload);
+  ok('buildPayload threads project into the prompt', text.includes('NILE RIVER') && !/burma|myanmar/i.test(text));
 }
 
 // ---- prompt builders: fcPrompt ----
