@@ -48,7 +48,11 @@ function hasUsableSrc(src) { return isSafeImageSrc(src); }
 //                 Cleared ONLY by explicit action (re-running /pending, deleting the content, or
 //                 running a visual slash command — slash-menu.js PENDING_CLEARING_KINDS). Default
 //                 null (additive), round-trips via data-pending-viz.
-const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }, chapterId: { default: null }, pendingViz: { default: null } });
+//   • cutTc     — CUT ANCHOR: where this box lives in the attached cut, in seconds (cut-anchor.js /
+//                 CutDock.jsx). Default null (additive: every existing doc parses unchanged and
+//                 renders no anchor attrs). Round-trips via data-cut-tc + data-cut-label.
+import { cutDomAttrs } from '../cut-anchor.js';
+const baseAttrs = () => ({ blockId: { default: null }, flavor: { default: null }, chapterId: { default: null }, pendingViz: { default: null }, cutTc: { default: null } });
 
 // WP-09 — EXPLICIT marks allowlist per block node, replacing ProseMirror's allow-all default. The
 // live schema registers the five Burma spans + StarterKit bold/italic/link (v3 StarterKit ships a
@@ -104,6 +108,9 @@ function syncSharedDomAttrs(dom, attrs) {
   // '1' when pending, attribute ABSENT when not — the CSS keys on bare [data-pending-viz]
   // presence, and syncing here means a remote y-sync stamp/clear repaints without a rebuild.
   syncNullableAttr(dom, 'data-pending-viz', attrs?.pendingViz ? '1' : null);
+  const cut = cutDomAttrs(attrs?.cutTc);
+  syncNullableAttr(dom, 'data-cut-tc', cut['data-cut-tc'] ?? null);
+  syncNullableAttr(dom, 'data-cut-label', cut['data-cut-label'] ?? null);
 }
 
 function appendIfChildren(head, child) {
@@ -114,7 +121,7 @@ function sharedRenderAttrs(node, attrs) {
   let out = maybeDataAttr(attrs, 'data-flavor', node.attrs.flavor);
   out = maybeDataAttr(out, 'data-chapter-id', node.attrs.chapterId);
   out = maybeDataAttr(out, 'data-pending-viz', node.attrs.pendingViz ? '1' : null);
-  return out;
+  return { ...out, ...cutDomAttrs(node.attrs.cutTc) };
 }
 
 function isPalauChromeEnabled() {

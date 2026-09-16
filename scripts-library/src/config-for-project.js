@@ -93,12 +93,17 @@ export function recoveryDbNameForConfig(cfg) {
 // when Johnny adds a new day/sequence, which writes it back to the durable per-project config so it
 // SURVIVES RELOAD and SYNCS to teammates. Legacy episodes (Burma/Palau) get the exact same augmentation
 // (their hardcoded days stay the base; additions ride on top) — nothing about their pinned doc changes.
+import { readCut } from '../../burma-script/src/cut-anchor.js';
 function withPickerConfig(cfg, row) {
   const persisted = readPicker(row && row.config);
   return {
     ...cfg,
     days: mergeDays(cfg.days, persisted.days),
     pickerSequences: persisted.sequences,
+    // ATTACHED CUT (cut dock): `config.cut = { url, label, duration }` on the project row. Read
+    // through readCut so only a real url qualifies; absent → null and the engine mounts no dock.
+    // Legacy episodes get the same passthrough, so Burma could attach a cut without a code change.
+    cut: readCut(row && row.config) ?? cfg.cut ?? null,
     // The engine calls this from the DAY/SEQUENCE picker's "+ Add" affordances. It persists to the cache
     // + cloud per-project config (project-store handles the RMW + cloud PATCH). A guest / local-only row
     // with no id resolves to a no-op inside patchPickerEntry, so read-only sessions never write.

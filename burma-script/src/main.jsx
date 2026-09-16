@@ -36,6 +36,7 @@ import { ScriptMap } from './ScriptMap.jsx';
 import { startVersionBeacon } from './version-beacon.js';
 import { ShortcutsOverlay } from './ShortcutsOverlay.jsx';
 import { ShareToggle } from './ShareToggle.jsx';
+import { CutDock } from './CutDock.jsx';
 import { stickyHeaderVisible } from './sticky-header.js';
 
 // EPISODE is selected by the per-entry boot module (burma-script/src/boot.jsx or
@@ -2265,6 +2266,8 @@ function App({ readOnly = false, readOnlyDoc = null, recoveredDoc = null }) {
       <CopyToast />
       {readOnly ? <ReadOnlyBadge /> : <SaveStatus />}
       <VersionPill />
+      {/* CUT DOCK — renders only when the project config carries an attached cut (CutDock.jsx). */}
+      <CutDock editorRef={editorRef} readOnly={readOnly} />
       {/* ADMIN BACKUPS (Johnny: "all of this is clutter… find another way to access backups
           from the library"). The recovery banner + cloud-history pill no longer live in the
           everyday editor — they mount ONLY when the project is opened through the library's
