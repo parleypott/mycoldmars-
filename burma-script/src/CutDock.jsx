@@ -40,26 +40,33 @@ function anchorsInDoc(root) {
   return out;
 }
 
-// Stamp cutTc on the block node that contains the selection. Walks up from the selection's $from
-// to the nearest ancestor whose type declares a `cutTc` attribute (every script cartridge does via
-// baseAttrs; paragraphs/table cells do not). Returns the stamped seconds or null when nothing applies.
-export function anchorSelectionAt(editor, seconds) {
+// PURE CORE — the transaction that stamps cutTc on the cartridge holding the selection. Walks up from
+// the selection's $from to the nearest ancestor whose type declares a `cutTc` attribute (every script
+// cartridge does via baseAttrs; paragraphs/table cells/doc do not). Returns { tr, tc } or null when the
+// caret is not inside a cartridge. Testable with a bare EditorState (cut-anchor-tr.test.mjs).
+export function anchorTrFor(state, seconds) {
   const tc = normalizeCutTc(seconds);
-  if (!editor || editor.isDestroyed || tc == null) return null;
-  const { state } = editor;
+  if (!state || tc == null) return null;
   const $from = state.selection.$from;
-  for (let d = $from.depth; d >= 0; d--) {
+  for (let d = $from.depth; d >= 1; d--) {
     const node = $from.node(d);
-    if (node?.type?.spec?.attrs && 'cutTc' in node.type.spec.attrs && node.type.name !== 'doc') {
-      const pos = d === 0 ? 0 : $from.before(d);
-      editor.chain().focus().command(({ tr }) => {
-        tr.setNodeMarkup(pos, undefined, { ...node.attrs, cutTc: tc });
-        return true;
-      }).run();
-      return tc;
+    if (node?.type?.spec?.attrs && 'cutTc' in node.type.spec.attrs) {
+      const pos = $from.before(d);
+      return { tr: state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, cutTc: tc }), tc };
     }
   }
   return null;
+}
+
+// Editor wrapper: dispatch the core transaction through the editor (so it saves, syncs and undoes like
+// any other edit). Returns the stamped seconds or null.
+export function anchorSelectionAt(editor, seconds) {
+  if (!editor || editor.isDestroyed) return null;
+  const r = anchorTrFor(editor.state, seconds);
+  if (!r) return null;
+  editor.view.dispatch(r.tr);
+  try { editor.commands.focus(); } catch {}
+  return r.tc;
 }
 
 export function CutDock({ editorRef, readOnly = false }) {
