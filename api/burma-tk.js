@@ -1,4 +1,5 @@
-// WP-01 Burma Script — the {TK} writing helper + fact-check backend.
+// Script tool — the {TK} writing helper + fact-check backend. Born as the WP-01 Burma
+// script's; since 2026-09-16 every prompt is framed by the PROJECT the caller sends.
 // MIRRORS api/research-claude.js: an Edge handler that POSTs straight to the Anthropic
 // Messages API with x-api-key / anthropic-version 2023-06-01 / claude-sonnet-4-5. No SDK.
 //
@@ -188,11 +189,33 @@ const FC_DEEP_TOOL = {
   },
 };
 
-export function deepPrompt({ marker, block, context, corpus, today }) {
+// PROJECT FRAMING — which script this claim belongs to. Sent by the client from the active
+// episode config (episodeProject() in burma-script/src/episode-config.js); OPTIONAL so old
+// bundles and the batch/beacon paths keep working. Before this, every prompt opened with a
+// hardcoded "Burma/Myanmar documentary script" and a Nile or Palau claim was checked as a
+// Burma claim (Ryan, 2026-09-16). Clamped like every other body field.
+export function readProject(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+  const s = (k, n) => (typeof p[k] === 'string' ? p[k].trim().slice(0, n) : '');
+  const project = { slug: s('slug', 80), title: s('title', 200), subject: s('subject', 200), series: s('series', 120), context: s('context', 600) };
+  return project.title || project.subject || project.context ? project : null;
+}
+
+// The one phrase every prompt opens with. Neutral when the caller sent nothing.
+export function framing(project) {
+  if (!project) return 'a Newpress documentary script';
+  let out = project.title ? `the Newpress documentary script "${project.title}"` : 'a Newpress documentary script';
+  if (project.series) out += ` (${project.series})`;
+  if (project.subject) out += `. Subject: ${project.subject}`;
+  if (project.context) out += `. Background: ${project.context}`;
+  return out;
+}
+
+export function deepPrompt({ marker, block, context, corpus, today, project = null }) {
   const corpusSection = corpus && corpus.length
     ? `\nVETTED NEWPRESS SOURCES — research this team has already vetted and trusts. CHECK THESE FIRST: if a vetted source grounds a claim, cite it (kind: "corpus") before reaching for the open web. Use web_search only for claims these do not cover, or to check whether a vetted source has been superseded.\n\n${corpus.map((c, i) => `[NP-${i + 1}] ${c.label}${c.url ? ` <${c.url}>` : ''}\n${c.text}`).join('\n\n')}\n`
     : '';
-  return `You are deep-fact-checking a claim in Johnny Harris's Burma/Myanmar documentary script. This runs in the BACKGROUND — no one is waiting on you, so favor rigor over speed. You have up to 8 web_search uses; search iteratively (search, read, refine, search again) until the evidence is settled or exhausted. Today is ${today} — anchor time-sensitive facts to this date and prefer the most recent authoritative reporting for anything still unfolding.
+  return `You are deep-fact-checking a claim in ${framing(project)}. This runs in the BACKGROUND — no one is waiting on you, so favor rigor over speed. You have up to 8 web_search uses; search iteratively (search, read, refine, search again) until the evidence is settled or exhausted. Today is ${today} — anchor time-sensitive facts to this date and prefer the most recent authoritative reporting for anything still unfolding.
 
 CLAIM / FACT NEEDED: ${marker}
 
@@ -227,7 +250,7 @@ const QUOTE_TOOL = {
           type: 'object',
           properties: {
             quote: { type: 'string', description: 'The VERBATIM sentence(s) from the source that check the fact — an exact quotation or tight excerpt, never a paraphrase.' },
-            source: { type: 'string', description: 'Publication + piece + date, e.g. "Reuters, 2024-03-02 — Myanmar fuel crisis deepens".' },
+            source: { type: 'string', description: 'Publication + piece + date, e.g. "Reuters, 2024-03-02 — <headline>".' },
             url: { type: 'string', description: 'Direct URL of the piece. Empty string if unavailable.' },
           },
           required: ['quote', 'source'],
@@ -238,8 +261,8 @@ const QUOTE_TOOL = {
   },
 };
 
-export function quotePrompt({ marker, block, context }) {
-  return `You are re-checking a fact in Johnny Harris's Burma/Myanmar documentary script. The fact was already checked once; what's needed NOW is the RECEIPT — the specific quotation or short excerpt from a reputable source that verifies (or refutes) it. Time budget: at most 3 web_search uses (prefer 1-2 well-chosen queries), then commit. If you can't surface a verbatim quote, call emit_quotes anyway with verdict "unclear" and the closest sourced excerpt you found — never keep searching.
+export function quotePrompt({ marker, block, context, project = null }) {
+  return `You are re-checking a fact in ${framing(project)}. The fact was already checked once; what's needed NOW is the RECEIPT — the specific quotation or short excerpt from a reputable source that verifies (or refutes) it. Time budget: at most 3 web_search uses (prefer 1-2 well-chosen queries), then commit. If you can't surface a verbatim quote, call emit_quotes anyway with verdict "unclear" and the closest sourced excerpt you found — never keep searching.
 
   CLAIM: ${marker}
 
@@ -249,8 +272,8 @@ Existing fact-check notes/sources (start from these — if they name a source, p
 Find the exact supporting sentence(s). Quote them VERBATIM — the writer needs the actual words from the source, not your summary. Then call emit_quotes exactly once.`;
 }
 
-export function tkPrompt({ marker, block, context }) {
-  return `You are a writing partner for Johnny Harris's documentary about Burma/Myanmar (The Human Element). The script is voice-over for a cinematic explainer — plain, vivid, emotionally grounded, never academic or marketing-shouty. One idea per line. Lowercase-friendly, declarative.
+export function tkPrompt({ marker, block, context, project = null }) {
+  return `You are a writing partner on ${framing(project)}. The script is voice-over for a cinematic explainer — plain, vivid, emotionally grounded, never academic or marketing-shouty. One idea per line. Lowercase-friendly, declarative.
 
 A {TK} marker is a GAP the writer left for you to fill. The marker text describes what's needed:
 
@@ -267,8 +290,8 @@ Nearby script for tone/rhythm/voice:
 Write FIVE genuinely DISTINCT alternatives that could REPLACE the {TK} marker in place. Match the surrounding sentence so the line reads continuously — if the gap is mid-sentence, write a fragment that completes it; if it's a whole line, write a whole line. Vary the five across: length (one tight, one fuller), rhythm, and angle (factual / lyrical / punchy). For any factual claim, put a brief real source in the source field. Do NOT include the curly braces. Call emit_options exactly once.`;
 }
 
-export function fcPrompt({ marker, block, context }) {
-  return `You are fact-checking a claim in Johnny Harris's Burma/Myanmar documentary script. You have a strict time budget: use web_search efficiently (at most 3 searches — prefer 1-2 well-chosen queries), then commit to a verdict. If the evidence is thin after your searches, call emit_verdict anyway with verdict "unclear" and say what you found — never keep searching. The {fc} marker states the claim or the fact to nail down:
+export function fcPrompt({ marker, block, context, project = null }) {
+  return `You are fact-checking a claim in ${framing(project)}. You have a strict time budget: use web_search efficiently (at most 3 searches — prefer 1-2 well-chosen queries), then commit to a verdict. If the evidence is thin after your searches, call emit_verdict anyway with verdict "unclear" and say what you found — never keep searching. The {fc} marker states the claim or the fact to nail down:
 
   CLAIM / FACT NEEDED: ${marker}
 
@@ -303,6 +326,7 @@ async function innerHandler(req) {
   const marker = typeof body.marker === 'string' ? body.marker.trim() : '';
   const block = typeof body.block === 'string' ? body.block.slice(0, 2000) : '';
   const context = typeof body.context === 'string' ? body.context.slice(0, 3000) : '';
+  const project = readProject(body.project);
   // Corpus seam (deep mode only): pre-vetted Newpress research chunks the client (or a future
   // retrieval layer) wants checked BEFORE the open web. Validated + clipped hard so a bad
   // caller can't balloon the prompt: ≤12 chunks, each ≤1500 chars text / ≤200 label / ≤300 url.
@@ -352,7 +376,7 @@ async function innerHandler(req) {
 
   const isFc = mode === 'fc' || mode === 'quote' || mode === 'fc-deep'; // all web_search modes
   const isDeep = mode === 'fc-deep';
-  const payload = buildPayload(mode, { marker, block, context, corpus, today: new Date().toISOString().slice(0, 10) });
+  const payload = buildPayload(mode, { marker, block, context, corpus, project, today: new Date().toISOString().slice(0, 10) });
 
   // HARD DEADLINE via Promise.race — not just an AbortController on the fetch.
   //
@@ -520,13 +544,13 @@ async function innerHandler(req) {
 // Exported for tests: the exact Anthropic request body per mode. fc gets the current-generation
 // web_search tool (20260209 — dynamic filtering, results filtered before they hit context) capped
 // at 3 uses (was 5 — the biggest single latency lever), on the current Sonnet.
-export function buildPayload(mode, { marker, block, context, corpus, today }) {
+export function buildPayload(mode, { marker, block, context, corpus, today, project = null }) {
   const webMode = mode === 'fc' || mode === 'quote' || mode === 'fc-deep'; // tk is generation-only
   const tool = mode === 'quote' ? QUOTE_TOOL : mode === 'fc-deep' ? FC_DEEP_TOOL : mode === 'fc' ? FC_TOOL : TK_TOOL;
-  const prompt = mode === 'quote' ? quotePrompt({ marker, block, context })
-    : mode === 'fc-deep' ? deepPrompt({ marker, block, context, corpus, today })
-    : mode === 'fc' ? fcPrompt({ marker, block, context })
-    : tkPrompt({ marker, block, context });
+  const prompt = mode === 'quote' ? quotePrompt({ marker, block, context, project })
+    : mode === 'fc-deep' ? deepPrompt({ marker, block, context, corpus, today, project })
+    : mode === 'fc' ? fcPrompt({ marker, block, context, project })
+    : tkPrompt({ marker, block, context, project });
   // Deep: 8 searches (vs 3 interactive) + a bigger output ceiling — claims[] + per-source
   // grounding quotes are materially larger than the shallow verdict.
   const maxUses = mode === 'fc-deep' ? 8 : 3;

@@ -6,6 +6,7 @@ import scriptData from './palau-blocks.json';
 export const PALAU = {
   id: 'palau',
   title: scriptData.title || 'Palau — The Human Element',
+  brief: { subject: 'Palau', series: 'The Human Element' }, // frames the {TK}/fact-check prompts (episodeProject())
   favicon: '/newpress-favicon.svg',
   wordmark: 'WP·02',
   figLabel: 'fig.04 — REEF RACK',

@@ -110,6 +110,7 @@ export async function runVerifyAll({
   force = false,
   mode = 'fc-deep',
   timeoutMs = null, // null = derive from the ACTIVE mode (it can downgrade mid-batch)
+  project = null, // the active script's descriptor — the server frames every prompt with it
 }) {
   const ctl = controller || makeBatchController();
   const { toRun, skipped } = planRuns(runs, storage.load(), { force, mode });
@@ -150,6 +151,7 @@ export async function runVerifyAll({
       const killer = setTimeout(() => ac.abort(), timeoutMs || clientBoundFor(activeMode));
       try {
         const body = { mode: activeMode, marker: run.text, block: run.block || '', context: run.context || '' };
+        if (project) body.project = project;
         // Corpus pre-flight. AWAITED — corpusFor is async now that it's wired to the
         // citations RAG over HTTP (corpus-retrieval.js); the earlier sync call would have
         // handed Array.isArray a Promise and silently dropped every chunk.

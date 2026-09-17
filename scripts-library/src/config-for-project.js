@@ -111,6 +111,17 @@ function withPickerConfig(cfg, row) {
   };
 }
 
+// The project BRIEF — what the {TK}/fact-check backend is told this script is about
+// (episodeProject() → api/burma-tk.js framing). Teammates write it into
+// script_projects.config.brief as { subject, series, context }; legacy episodes carry one in
+// their config file. Strings only; anything else is dropped.
+export function readBrief(cfg) {
+  const b = cfg && typeof cfg === 'object' && cfg.brief && typeof cfg.brief === 'object' ? cfg.brief : {};
+  const out = {};
+  for (const k of ['subject', 'series', 'context']) if (typeof b[k] === 'string' && b[k].trim()) out[k] = b[k].trim();
+  return out;
+}
+
 /** Build the EPISODE config the engine understands from a library index row. */
 export function configForProject(row) {
   if (!row || typeof row !== 'object') {
@@ -120,7 +131,8 @@ export function configForProject(row) {
   // LEGACY: adopt the existing episode config + its pinned namespace verbatim.
   const legacy = row.episode && LEGACY[row.episode];
   if (legacy) {
-    return withPickerConfig({ ...legacy, favicon: SHARED_FAVICON }, row);
+    // A team-written brief on the row overrides the config file's, field by field.
+    return withPickerConfig({ ...legacy, favicon: SHARED_FAVICON, brief: { ...(legacy.brief || {}), ...readBrief(row.config) } }, row);
   }
 
   // BRAND-NEW: derive an isolated namespace off the row id. recovery-store derives
@@ -145,6 +157,7 @@ export function configForProject(row) {
   return withPickerConfig({
     id,
     title,
+    brief: readBrief(row.config),
     favicon: SHARED_FAVICON,
     wordmark: 'WP···',
     figLabel: 'fig — SCRIPT',

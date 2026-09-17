@@ -37,6 +37,17 @@ export function getEpisodeStorage() {
   return getEpisode().storage;
 }
 
+// The project descriptor the {TK}/fact-check backend frames its prompts with — THIS script's
+// identity, read live from the active episode so a Nile claim is never checked as a Burma claim
+// (api/burma-tk.js used to hardcode Burma; 2026-09-16). `brief` is optional per config: legacy
+// episodes carry it in their config file, library projects in script_projects.config.brief.
+export function episodeProject() {
+  const ep = getEpisode();
+  const brief = ep && ep.brief && typeof ep.brief === 'object' ? ep.brief : {};
+  const str = (v) => (typeof v === 'string' ? v : '');
+  return { slug: str(ep.id), title: str(ep.title), subject: str(brief.subject), series: str(brief.series), context: str(brief.context) };
+}
+
 // Feature-flag read for the active episode's `features` object. Replaces the old hardcoded
 // `getEpisode()?.id === 'palau'` gates — episodes opt into engine features via config instead
 // of the engine special-casing an id. Always read LIVE (never freeze at module init) and

@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import RESEARCH from '../tk-research.json';
-import { getEpisode, getEpisodeStorage, onEpisodeChange } from './episode-config.js';
+import { getEpisode, getEpisodeStorage, onEpisodeChange, episodeProject } from './episode-config.js';
 
 let LS_WS_WIDTH = '';
 let LS_WORKSHOP = '';
@@ -237,7 +237,7 @@ export function Workshop() {
       const res = await fetch(getEpisode()?.cloud?.tkApi || '/api/burma-tk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, marker: span.text, block: span.block, context: span.context }),
+        body: JSON.stringify({ mode, marker: span.text, block: span.block, context: span.context, project: episodeProject() }),
         signal: ac.signal,
       });
       // SAFE PARSE — a timed-out / crashed function returns a plain-text platform error page, not our

@@ -4,6 +4,9 @@ import { DAY_SEQUENCES } from './schema.ts';
 export const BURMA = {
   id: 'burma',
   title: scriptData.title || 'Burma — The Human Element',
+  // What the {TK}/fact-check backend is told this script is about (episodeProject()). Burma used
+  // to be the backend's hardcoded framing for EVERY script; now it is just this script's brief.
+  brief: { subject: 'Burma / Myanmar', series: 'The Human Element', context: "Johnny Harris's documentary about Burma/Myanmar" },
   favicon: '/newpress-favicon.svg',
   wordmark: 'WP·01',
   figLabel: 'fig.03 — CARTRIDGE RACK',
