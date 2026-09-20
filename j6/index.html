@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J-6 Field Manual</title>
+<style>
+  :root{
+    --bg:#0e0d0c; --panel:#171614; --line:#2a2825; --ink:#e9e4da;
+    --dim:#8d867a; --accent:#ff4d1c; --green:#8fd67a;
+    --mono:'SF Mono',ui-monospace,Menlo,monospace;
+    --serif:Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--serif);line-height:1.6;padding-bottom:90px}
+  .wrap{max-width:640px;margin:0 auto;padding:0 20px}
+
+  header{padding:56px 0 36px;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:clamp(30px,7vw,44px);font-weight:400;font-style:italic;line-height:1.05}
+  .dek{color:var(--dim);font-style:italic;margin-top:10px;font-size:16px}
+
+  section{padding:36px 0;border-bottom:1px solid var(--line)}
+  h2{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+  p{margin-bottom:14px;font-size:16.5px}
+  p.lead{font-size:18px}
+  em{color:var(--dim)}
+
+  .ctl{display:flex;gap:14px;padding:11px 0;border-top:1px solid var(--line);align-items:baseline}
+  .ctl:first-of-type{border-top:none}
+  .ctl b{font-family:var(--mono);font-size:12px;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+         border-radius:4px;padding:3px 8px;white-space:nowrap;flex:none;min-width:104px;text-align:center;font-weight:400}
+  .ctl span{font-size:15px;color:var(--dim)}
+  .ctl span strong{color:var(--ink);font-weight:400}
+  .shift{color:var(--accent);font-family:var(--mono);font-size:11px}
+
+  .step{display:flex;gap:14px;margin-bottom:14px}
+  .step .n{font-family:var(--mono);color:var(--accent);font-size:13px;flex:none;padding-top:3px}
+  .step p{margin:0;font-size:15.5px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;margin-bottom:14px}
+  .card h3{font-size:19px;font-style:italic;font-weight:400;margin-bottom:4px}
+  .card .pads{font-family:var(--mono);font-size:13px;color:var(--green);margin:8px 0 6px;letter-spacing:.04em}
+  .card .feel{color:var(--dim);font-size:14.5px;font-style:italic}
+  .card .set{font-family:var(--mono);font-size:10.5px;color:var(--accent);letter-spacing:.12em;text-transform:uppercase}
+
+  .know{border:1px solid var(--accent);border-radius:8px;padding:18px;margin:26px 0 0;background:rgba(255,77,28,.05)}
+  .know h4{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .know p{font-size:15px;margin:0}
+
+  .warn{font-family:var(--mono);font-size:13px;color:var(--bg);background:var(--accent);border-radius:6px;padding:12px 14px;margin-top:18px}
+  ul.gotchas{list-style:none}
+  ul.gotchas li{padding:9px 0;border-top:1px solid var(--line);font-size:15px;color:var(--dim)}
+  ul.gotchas li:first-child{border-top:none}
+  ul.gotchas li strong{color:var(--ink);font-weight:400}
+  footer{padding:36px 20px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.1em}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">Roland J-6 · Field Manual</div>
+  <h1>Beautiful chords,<br>one small box</h1>
+  <div class="dek">Everything you need to make emotional house progressions. Nothing you don't.</div>
+</header>
+
+<section>
+  <h2>The idea in four sentences</h2>
+  <p class="lead">The J-6 is a Juno-60 that plays whole chords when you press one pad. A <em>chord set</em> decides which twelve chords live on the twelve pads. A <em>style</em> decides how each chord is performed: held, stabbed, or rolled into an arpeggio. The <em>sequencer</em> records which pads you pressed and loops them.</p>
+  <p>So the whole instrument is: pick a set, find four pads that sound like a feeling, record them, turn on a style, and ride the filter. That's the entire game.</p>
+</section>
+
+<section>
+  <h2>Panel map · the controls that matter</h2>
+
+  <div class="ctl"><b>CHORD</b><span><strong>Chord mode on/off.</strong> Lit = each pad plays a full chord. <span class="shift">SHIFT+CHORD</span> = choose which chord set (1–100) with the value knob, press CHORD to confirm.</span></div>
+  <div class="ctl"><b>TEMPO/VALUE</b><span>The one knob that edits everything. Alone = tempo. In any menu = the value.</span></div>
+  <div class="ctl"><b>SOUND</b><span>Pick one of 64 Juno sounds: press SOUND, then a step button 1–8. Hold SOUND + step = switch bank (8×8).</span></div>
+  <div class="ctl"><b>PATTERN</b><span>Same logic: press, then step 1–8. Hold + step = bank. Factory demos fill banks 1–2; banks 3–8 are yours.</span></div>
+  <div class="ctl"><b>▶ / ●</b><span>Play and record. Press ● then ▶ to record live. Press ● <em>during</em> playback to punch in.</span></div>
+  <div class="ctl"><b>STEPS 1–8</b><span>Press a step to open it, press a pad to write a chord into it, press again to close. <span class="shift">SHIFT+step</span> = jump pages (up to 64 steps).</span></div>
+  <div class="ctl"><b>STYLE / VAR</b><span>Nine style banks × twelve variations. Banks 1–2 arpeggios, 3 rhythmic re-triggers, 4–5 house stabs, 6–9 chord and strum phrases. <strong>STYLE ON</strong> switches the engine on.</span></div>
+  <div class="ctl"><b>HOLD</b><span>Latches a chord so it keeps sounding hands-free. In step edit: writes a <em>tie</em> so a chord sustains across steps.</span></div>
+  <div class="ctl"><b>FILTER</b><span>Low-pass cutoff. Your main performance move. <span class="shift">SHIFT</span> = resonance.</span></div>
+  <div class="ctl"><b>ENVELOPE</b><span>Release. Clockwise = chords bleed into each other. <span class="shift">SHIFT</span> = attack (soft swells).</span></div>
+  <div class="ctl"><b>DELAY</b><span>Level. <span class="shift">SHIFT</span> = time. Set <em>d.Syn On</em> in the menu once so it locks to tempo.</span></div>
+  <div class="ctl"><b>REVERB</b><span>Level. <span class="shift">SHIFT</span> = tail length. Be generous.</span></div>
+  <div class="ctl"><b>KEY pad (A)</b><span><span class="shift">SHIFT+A</span> = transpose the whole keyboard in semitones. Exit with C.</span></div>
+  <div class="ctl"><b>WRITE (top C)</b><span><span class="shift">SHIFT+top C</span> = save. Choose <em>Ptn</em> or <em>ALL</em>, confirm with D.</span></div>
+
+  <div class="warn">NOTHING AUTO-SAVES. Power off without SHIFT + WRITE and your pattern is gone. Save after every keeper.</div>
+</section>
+
+<section>
+  <h2>First loop · ten minutes</h2>
+  <div class="step"><div class="n">01</div><p>CHORD lit. SHIFT+CHORD, dial <strong>set 50</strong>, confirm. Tempo around 118.</p></div>
+  <div class="step"><div class="n">02</div><p>STYLE OFF for now. Press pads and just listen. Set 50 is built so every pad flatters every other pad. Find four that ache.</p></div>
+  <div class="step"><div class="n">03</div><p>Press step 1, press your first pad, press step 1 again. Same for steps 3, 5, 7. SHIFT+F sets the loop length to 8.</p></div>
+  <div class="step"><div class="n">04</div><p>Press ▶. Turn STYLE ON, try bank 1 or 2 (arpeggios), spin VARIATION until it rolls. SHIFT+E adds shuffle: instant house.</p></div>
+  <div class="step"><div class="n">05</div><p>The wash: ENVELOPE up (long release), delay synced and audible, reverb big, FILTER closed to 9 o'clock, then open it over eight bars. That slow bloom is the Porter move.</p></div>
+  <div class="step"><div class="n">06</div><p>SHIFT + WRITE → Ptn → confirm. Now it exists.</p></div>
+</section>
+
+<section>
+  <h2>The chord sets worth knowing</h2>
+  <div class="ctl"><b>SET 50</b><span><strong>The Porter set.</strong> House. Wall-to-wall maj7s and 9ths, all in one family. Live here first.</span></div>
+  <div class="ctl"><b>SET 53</b><span>House, with the <strong>heartbreak chord</strong> built in: Cmaj7 → Em7 → Fmaj7 → <strong>Fm6</strong>. That major-to-minor melt is the most emotional move in pop.</span></div>
+  <div class="ctl"><b>SET 54</b><span>Plain diatonic 7th chords in C. Instant classic progressions, nothing exotic.</span></div>
+  <div class="ctl"><b>SET 22</b><span>A minor-9 chord on all twelve roots. The deep-house stab set. Two pads = a track.</span></div>
+  <div class="ctl"><b>SET 55–56</b><span>Jazz House. 13ths, m11s, altered colors. When plain maj7 stops being enough.</span></div>
+  <div class="ctl"><b>SET 85 / 23</b><span>maj7♯11 everywhere: the lydian shimmer. One chord, held, reverb up, filter sweeping = an entire intro.</span></div>
+  <div class="ctl"><b>SET 68</b><span>Lo-fi R&B. Dark, gorgeous, borrowed chords. For the sadder cue.</span></div>
+</section>
+
+<section>
+  <h2>Six progressions · press these pads</h2>
+
+  <div class="card"><div class="set">Set 50 · pads F · G · E · A</div>
+    <h3>The Royal Road</h3>
+    <div class="pads">Fmaj7 → G → Em7 → Am7</div>
+    <div class="feel">The Shelter progression. Endless lift that never lands on home. Euphoric-nostalgic, the anime sunset.</div>
+  </div>
+
+  <div class="card"><div class="set">Set 50 · pads A · F · C · G</div>
+    <h3>Axis of Melancholy</h3>
+    <div class="pads">Am7 → Fmaj9 → Cmaj7 → G</div>
+    <div class="feel">Bittersweet stadium emotion. The safest big-feelings loop in music.</div>
+  </div>
+
+  <div class="card"><div class="set">Set 53 · pads for CM7 · Em7 · FM7 · Fm6</div>
+    <h3>The Gut-Punch</h3>
+    <div class="pads">Cmaj7 → Em7 → Fmaj7 → Fm6</div>
+    <div class="feel">Heartbreak inside the euphoria. The borrowed minor-iv melt. Peak Porter.</div>
+  </div>
+
+  <div class="card"><div class="set">Set 22 · pads C · F</div>
+    <h3>Deep House Vamp</h3>
+    <div class="pads">Cm9 → Fm9</div>
+    <div class="feel">Two chords, style bank 4 stabs, shuffle on. Hypnotic, late-night.</div>
+  </div>
+
+  <div class="card"><div class="set">Set 49 · pads C · G♯ · D♯ · A♯</div>
+    <h3>Sea of Voices</h3>
+    <div class="pads">Cm7 → A♭maj7 → E♭maj7 → B♭maj7</div>
+    <div class="feel">Cinematic minor-key swell. Big, slow, filmic.</div>
+  </div>
+
+  <div class="card"><div class="set">Set 86 · or mix sets 21/22</div>
+    <h3>Jazzy Turnaround</h3>
+    <div class="pads">Dm9 → G13 → Cmaj9 → Am9</div>
+    <div class="feel">The ii–V dressed for the club. Kerri Chandler warmth, sophisticated but never cold.</div>
+  </div>
+
+  <div class="know">
+    <h4>Did you know</h4>
+    <p>"The Royal Road" (王道進行, ōdō shinkō) is the actual Japanese name for progression No. 1: IVmaj7–V–iii–vi. It powers a huge share of J-pop and anime themes, which is exactly where Porter Robinson learned it. You are borrowing the same road.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Practice ladder · one rung a day</h2>
+  <div class="step"><div class="n">D1</div><p>Set 50 only, style off. Learn which pads love each other. Record one 4-chord loop and save it.</p></div>
+  <div class="step"><div class="n">D2</div><p>Same loop, styles on. Audition all 12 variations of banks 1, 2, and 4. Notice how the same chords become different songs.</p></div>
+  <div class="step"><div class="n">D3</div><p>Performance day: one loop, hands on FILTER and ENVELOPE the whole time. Build an 8-bar rise, then cut the filter at the top.</p></div>
+  <div class="step"><div class="n">D4</div><p>Copy your pattern to a new slot, change the style and mood, and practice switching patterns while playing. That's an arrangement.</p></div>
+  <div class="step"><div class="n">D5</div><p>New color: rebuild your best loop on set 53 and add the Fm6. Then try it transposed with SHIFT+A until it sits where it hurts.</p></div>
+</section>
+
+<section>
+  <h2>Gotchas</h2>
+  <ul class="gotchas">
+    <li><strong>Save or lose it.</strong> SHIFT + WRITE, every time. The J-6 forgets everything at power-off.</li>
+    <li><strong>Style on changes the pads.</strong> If you want to hear the raw chord, turn STYLE ON off first.</li>
+    <li><strong>Steps remember styles.</strong> If the groove changes mysteriously mid-loop, a step has its own style stamped on it. Select it, SHIFT+G clears it.</li>
+    <li><strong>Ties need empty steps.</strong> Long sustained chords are written with HOLD in step edit, into steps with nothing in them.</li>
+    <li><strong>The display shows numbers, not chord names.</strong> This page is your chord chart. Keep it on the phone.</li>
+    <li><strong>Battery is ~4.5 hours.</strong> Red charge light = about 30 minutes left. USB-C, any power bank works.</li>
+    <li><strong>No automation.</strong> Filter moves aren't recorded. They're a performance, every take. On camera, that's a feature.</li>
+  </ul>
+</section>
+
+</div>
+<footer>J-6 FIELD MANUAL · SOURCED FROM ROLAND'S OWNER'S MANUAL V1.02 · WORKS OFFLINE</footer>
+</body>
+</html>
