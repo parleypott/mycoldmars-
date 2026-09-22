@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Jaba Card — The Karnali Essays</title>
+<style>
+  :root{
+    --bg:#faf7f2; --ink:#1c1a17; --muted:#8a8378; --accent:#b3502d;
+    --hl:#f3e3c9; --serif:'Georgia','Times New Roman',serif;
+    --mono:'SF Mono',ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#171512; --ink:#e8e2d8; --muted:#7d766b; --accent:#d97b52; --hl:#3a2f1e; }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--serif);line-height:1.72;}
+  .wrap{max-width:680px;margin:0 auto;padding:48px 24px 140px;}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+  h1{font-size:clamp(30px,6vw,44px);line-height:1.12;font-weight:400;font-style:italic;margin-bottom:10px;}
+  .dek{font-size:18px;color:var(--muted);font-style:italic;margin-bottom:6px;}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;margin-bottom:44px;}
+  .essay p{margin:0 0 1.35em;font-size:18.5px;}
+  .essay p:first-of-type::first-letter{font-size:3.1em;float:left;line-height:.85;padding-right:.09em;color:var(--accent);}
+  .w{border-radius:3px;transition:background .12s;}
+  .w.on{background:var(--hl);}
+  .p-on{border-left:2px solid var(--accent);padding-left:14px;margin-left:-16px;}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 88%,transparent);
+       backdrop-filter:blur(12px);border-top:1px solid color-mix(in srgb,var(--ink) 12%,transparent);}
+  .bar-in{max-width:680px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px;}
+  button.play{width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:#fff;
+       font-size:17px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;}
+  .scrub{flex:1;height:4px;background:color-mix(in srgb,var(--ink) 14%,transparent);border-radius:2px;cursor:pointer;position:relative;}
+  .scrub .fill{height:100%;background:var(--accent);border-radius:2px;width:0%;}
+  .time{font-family:var(--mono);font-size:11px;color:var(--muted);flex:none;min-width:86px;text-align:right;}
+  .speed{font-family:var(--mono);font-size:11px;border:1px solid color-mix(in srgb,var(--ink) 20%,transparent);
+       background:none;color:var(--ink);border-radius:12px;padding:4px 10px;cursor:pointer;flex:none;}
+  nav.essays{margin-top:70px;border-top:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding-top:18px;
+       font-family:var(--mono);font-size:12px;display:flex;justify-content:space-between;}
+  nav.essays a{color:var(--accent);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">The Karnali Essays · No. 2</div>
+  <h1>The Jaba Card</h1>
+  <div class="dek">Replay before every visit with Jaba</div>
+  <div class="meta">read by Imani Carter · 1 min · tap any word to jump</div>
+  <div class="essay" id="essay"></div>
+  <nav class="essays"><a href="01-field-brief.html">&larr; previous</a><a href="index.html">the karnali essays</a><a href="index.html">index</a></nav>
+</div>
+<div class="bar"><div class="bar-in">
+  <button class="play" id="btn">▶</button>
+  <div class="scrub" id="scrub"><div class="fill" id="fill"></div></div>
+  <div class="time" id="time">0:00 / 0:00</div>
+  <button class="speed" id="speed">1.0×</button>
+</div></div>
+<audio id="audio" src="audio/02-jaba-card.mp3" preload="metadata"></audio>
+<script>
+const WORDS = [{"w":"8","s":0,"e":0.22,"p":0},{"w":"QUESTIONS,","s":0.22,"e":0.74,"p":0},{"w":"IN","s":0.74,"e":1.02,"p":0},{"w":"ORDER.","s":1.02,"e":1.34,"p":0},{"w":"What","s":1.78,"e":2.18,"p":0},{"w":"was","s":2.18,"e":2.36,"p":0},{"w":"the","s":2.36,"e":2.5,"p":0},{"w":"heaviest","s":2.5,"e":2.88,"p":0},{"w":"load","s":2.88,"e":3.16,"p":0},{"w":"you","s":3.16,"e":3.3,"p":0},{"w":"ever","s":3.3,"e":3.5,"p":0},{"w":"carried,","s":3.5,"e":3.88,"p":0},{"w":"before","s":3.88,"e":4.18,"p":0},{"w":"the","s":4.18,"e":4.36,"p":0},{"w":"road?","s":4.36,"e":4.68,"p":0},{"w":"Show","s":4.9,"e":5.26,"p":0},{"w":"me","s":5.26,"e":5.44,"p":0},{"w":"how.","s":5.44,"e":5.74,"p":0},{"w":"Tell","s":6.42,"e":6.86,"p":0},{"w":"me","s":6.86,"e":7.02,"p":0},{"w":"about","s":7.02,"e":7.24,"p":0},{"w":"the","s":7.24,"e":7.36,"p":0},{"w":"day","s":7.36,"e":7.5,"p":0},{"w":"the","s":7.5,"e":7.7,"p":0},{"w":"first","s":7.7,"e":7.94,"p":0},{"w":"truck","s":7.94,"e":8.2,"p":0},{"w":"reached","s":8.2,"e":8.5,"p":0},{"w":"Simikot.","s":8.93,"e":9.21,"p":0},{"w":"Where","s":9.36,"e":9.68,"p":0},{"w":"were","s":9.68,"e":9.82,"p":0},{"w":"you","s":9.82,"e":9.94,"p":0},{"w":"standing?","s":9.94,"e":10.32,"p":0},{"w":"Tell","s":10.66,"e":10.94,"p":0},{"w":"me","s":10.94,"e":11.1,"p":0},{"w":"about","s":11.1,"e":11.32,"p":0},{"w":"your","s":11.32,"e":11.5,"p":0},{"w":"sons.","s":11.5,"e":11.88,"p":0},{"w":"What","s":12.16,"e":12.6,"p":0},{"w":"does","s":12.6,"e":12.74,"p":0},{"w":"your","s":12.74,"e":12.88,"p":0},{"w":"youngest","s":12.88,"e":13.2,"p":0},{"w":"do","s":13.2,"e":13.42,"p":0},{"w":"in","s":13.42,"e":13.58,"p":0},{"w":"Surkhet?","s":13.84,"e":14.12,"p":0},{"w":"Do","s":14.1,"e":14.3,"p":0},{"w":"you","s":14.3,"e":14.4,"p":0},{"w":"remember","s":14.4,"e":14.7,"p":0},{"w":"the","s":14.7,"e":14.86,"p":0},{"w":"morning","s":14.86,"e":15.1,"p":0},{"w":"he","s":15.1,"e":15.3,"p":0},{"w":"left?","s":15.3,"e":15.62,"p":0},{"w":"What","s":15.96,"e":16.38,"p":0},{"w":"did","s":16.38,"e":16.54,"p":0},{"w":"you","s":16.54,"e":16.66,"p":0},{"w":"cook?","s":16.66,"e":16.98,"p":0},{"w":"Where","s":17.32,"e":17.8,"p":0},{"w":"is","s":17.8,"e":17.94,"p":0},{"w":"your","s":17.94,"e":18.06,"p":0},{"w":"husband","s":18.06,"e":18.32,"p":0},{"w":"right","s":18.32,"e":18.58,"p":0},{"w":"now,","s":18.58,"e":18.86,"p":0},{"w":"today?","s":19.04,"e":19.28,"p":0},{"w":"What","s":19.74,"e":20.18,"p":0},{"w":"was","s":20.18,"e":20.32,"p":0},{"w":"the","s":20.32,"e":20.44,"p":0},{"w":"last","s":20.44,"e":20.68,"p":0},{"w":"thing","s":20.68,"e":20.86,"p":0},{"w":"you","s":20.86,"e":21.02,"p":0},{"w":"two","s":21.02,"e":21.16,"p":0},{"w":"did","s":21.16,"e":21.36,"p":0},{"w":"together?","s":21.36,"e":21.74,"p":0},{"w":"The","s":22.36,"e":22.84,"p":0},{"w":"road","s":22.84,"e":23.1,"p":0},{"w":"made","s":23.1,"e":23.34,"p":0},{"w":"life","s":23.34,"e":23.6,"p":0},{"w":"easier,","s":23.6,"e":24.04,"p":0},{"w":"and","s":24.18,"e":24.4,"p":0},{"w":"your","s":24.4,"e":24.54,"p":0},{"w":"family","s":24.54,"e":24.88,"p":0},{"w":"is","s":24.88,"e":25.04,"p":0},{"w":"separated.","s":25.04,"e":25.52,"p":0},{"w":"Which","s":25.86,"e":26.28,"p":0},{"w":"do","s":26.28,"e":26.42,"p":0},{"w":"you","s":26.42,"e":26.54,"p":0},{"w":"think","s":26.54,"e":26.74,"p":0},{"w":"about","s":26.74,"e":27.0,"p":0},{"w":"more?","s":27.0,"e":27.32,"p":0},{"w":"You're","s":27.72,"e":27.84,"p":0},{"w":"smiling","s":27.84,"e":28.22,"p":0},{"w":"while","s":28.22,"e":28.42,"p":0},{"w":"you","s":28.42,"e":28.56,"p":0},{"w":"say","s":28.56,"e":28.76,"p":0},{"w":"that.","s":28.76,"e":29.04,"p":0},{"w":"Why?","s":29.24,"e":29.62,"p":0},{"w":"(THE","s":29.94,"e":30.36,"p":0},{"w":"question.","s":30.36,"e":30.76,"p":0},{"w":"Never","s":31.16,"e":31.6,"p":0},{"w":"skip.","s":31.6,"e":31.92,"p":0},{"w":"Never","s":32.14,"e":32.42,"p":0},{"w":"early.)","s":32.42,"e":32.76,"p":0},{"w":"If","s":33.1,"e":33.54,"p":0},{"w":"giving","s":33.54,"e":33.8,"p":0},{"w":"back","s":33.8,"e":34.02,"p":0},{"w":"the","s":34.02,"e":34.16,"p":0},{"w":"road","s":34.16,"e":34.38,"p":0},{"w":"would","s":34.38,"e":34.54,"p":0},{"w":"bring","s":34.54,"e":34.74,"p":0},{"w":"your","s":34.74,"e":34.9,"p":0},{"w":"sons","s":34.9,"e":35.2,"p":0},{"w":"home,","s":35.2,"e":35.5,"p":0},{"w":"would","s":35.66,"e":35.82,"p":0},{"w":"you?","s":35.82,"e":36.04,"p":0},{"w":"(Sit","s":36.5,"e":37.1,"p":0},{"w":"in","s":37.1,"e":37.2,"p":0},{"w":"whatever","s":37.2,"e":37.4,"p":0},{"w":"comes.)","s":37.4,"e":37.86,"p":0},{"w":"Will","s":38.04,"e":38.34,"p":0},{"w":"they","s":38.34,"e":38.46,"p":0},{"w":"come","s":38.46,"e":38.66,"p":0},{"w":"home","s":38.66,"e":38.84,"p":0},{"w":"for","s":38.84,"e":39.02,"p":0},{"w":"Dashain?","s":39.42,"e":39.7,"p":0},{"w":"(\"Not","s":39.82,"e":40.3,"p":0},{"w":"this","s":40.3,"e":40.54,"p":0},{"w":"year\"","s":40.54,"e":40.82,"p":0},{"w":"is","s":40.82,"e":41.04,"p":0},{"w":"the","s":41.04,"e":41.16,"p":0},{"w":"wound.","s":41.16,"e":41.52,"p":0},{"w":"Either","s":41.76,"e":42.08,"p":0},{"w":"answer","s":42.08,"e":42.48,"p":0},{"w":"is","s":42.48,"e":42.92,"p":0},{"w":"the","s":42.92,"e":43.04,"p":0},{"w":"episode.)","s":43.04,"e":43.56,"p":0},{"w":"Exits,","s":44.24,"e":44.84,"p":1},{"w":"every","s":45.24,"e":45.7,"p":1},{"w":"visit:","s":45.7,"e":46.14,"p":1},{"w":"What","s":46.48,"e":46.78,"p":1},{"w":"did","s":46.78,"e":46.92,"p":1},{"w":"I","s":46.92,"e":47.06,"p":1},{"w":"not","s":47.06,"e":47.3,"p":1},{"w":"ask?","s":47.3,"e":47.84,"p":1},{"w":"Anything","s":48.36,"e":48.96,"p":1},{"w":"you","s":48.96,"e":49.22,"p":1},{"w":"don't","s":49.22,"e":49.48,"p":1},{"w":"want","s":49.48,"e":49.66,"p":1},{"w":"in","s":49.66,"e":49.8,"p":1},{"w":"the","s":49.8,"e":49.9,"p":1},{"w":"film?","s":49.9,"e":50.26,"p":1},{"w":"4","s":50.56,"e":50.84,"p":2},{"w":"HARD","s":50.86,"e":51.28,"p":2},{"w":"RULES.","s":51.28,"e":51.8,"p":2},{"w":"Raw","s":52.26,"e":52.64,"p":2},{"w":"line","s":52.64,"e":53.08,"p":2},{"w":"\u2192","s":53.32,"e":53.6,"p":2},{"w":"silence.","s":53.56,"e":54.02,"p":2},{"w":"Hold","s":54.6,"e":54.94,"p":2},{"w":"her","s":54.94,"e":55.1,"p":2},{"w":"face","s":55.1,"e":55.4,"p":2},{"w":"ten","s":55.52,"e":55.8,"p":2},{"w":"full","s":55.64,"e":55.92,"p":2},{"w":"seconds.","s":55.92,"e":56.38,"p":2},{"w":"Translator","s":56.96,"e":57.44,"p":2},{"w":"stays","s":57.44,"e":57.74,"p":2},{"w":"quiet","s":57.74,"e":58.14,"p":2},{"w":"too.","s":58.14,"e":58.44,"p":2},{"w":"Second","s":58.96,"e":59.56,"p":2},{"w":"question","s":59.56,"e":60.0,"p":2},{"w":"goes","s":60.0,"e":60.38,"p":2},{"w":"INTO","s":60.38,"e":60.68,"p":2},{"w":"the","s":60.68,"e":60.84,"p":2},{"w":"wound,","s":60.84,"e":61.26,"p":2},{"w":"smaller:","s":61.48,"e":62.02,"p":2},{"w":"\"what","s":62.18,"e":62.66,"p":2},{"w":"did","s":62.66,"e":62.84,"p":2},{"w":"you","s":62.84,"e":63.0,"p":2},{"w":"cook","s":63.0,"e":63.24,"p":2},{"w":"that","s":63.24,"e":63.48,"p":2},{"w":"night,\"","s":63.48,"e":63.76,"p":2},{"w":"\"where","s":64.0,"e":64.4,"p":2},{"w":"were","s":64.4,"e":64.58,"p":2},{"w":"you","s":64.58,"e":64.72,"p":2},{"w":"standing.\"","s":64.72,"e":65.16,"p":2},{"w":"Never","s":65.58,"e":65.96,"p":2},{"w":"\"how","s":65.96,"e":66.18,"p":2},{"w":"does","s":66.18,"e":66.34,"p":2},{"w":"that","s":66.34,"e":66.56,"p":2},{"w":"feel.\"","s":66.56,"e":66.92,"p":2},{"w":"No","s":67.16,"e":67.58,"p":2},{"w":"giggle","s":67.58,"e":67.92,"p":2},{"w":"exit.","s":67.92,"e":68.32,"p":2},{"w":"She","s":68.7,"e":69.34,"p":2},{"w":"laughs","s":69.34,"e":69.68,"p":2},{"w":"when","s":69.68,"e":69.86,"p":2},{"w":"it","s":69.86,"e":69.98,"p":2},{"w":"hurts","s":69.98,"e":70.32,"p":2},{"w":"and","s":70.32,"e":70.66,"p":2},{"w":"will","s":70.66,"e":70.8,"p":2},{"w":"offer","s":70.8,"e":71.1,"p":2},{"w":"you","s":71.1,"e":71.28,"p":2},{"w":"the","s":71.28,"e":71.4,"p":2},{"w":"way","s":71.4,"e":71.62,"p":2},{"w":"out.","s":71.62,"e":71.96,"p":2},{"w":"Decline","s":72.32,"e":72.74,"p":2},{"w":"it.","s":72.74,"e":72.92,"p":2},{"w":"Ask","s":73.28,"e":73.74,"p":2},{"w":"about","s":73.74,"e":73.98,"p":2},{"w":"the","s":73.98,"e":74.14,"p":2},{"w":"smile.","s":74.14,"e":74.58,"p":2},{"w":"Reshoot","s":75.14,"e":75.54,"p":2},{"w":"the","s":75.54,"e":75.7,"p":2},{"w":"scout","s":75.7,"e":76.02,"p":2},{"w":"two-shot:","s":76.44,"e":76.72,"p":2},{"w":"her","s":76.86,"e":77.18,"p":2},{"w":"behind","s":77.18,"e":77.5,"p":2},{"w":"the","s":77.5,"e":77.68,"p":2},{"w":"counter,","s":77.68,"e":78.0,"p":2},{"w":"the","s":78.34,"e":78.62,"p":2},{"w":"space","s":78.62,"e":78.96,"p":2},{"w":"beside","s":78.96,"e":79.34,"p":2},{"w":"her","s":79.34,"e":79.52,"p":2},{"w":"empty.","s":79.52,"e":79.9,"p":2},{"w":"Then","s":80.34,"e":80.74,"p":2},{"w":"film","s":80.74,"e":81.02,"p":2},{"w":"her","s":81.02,"e":81.18,"p":2},{"w":"watching","s":81.18,"e":81.58,"p":2},{"w":"the","s":81.58,"e":81.76,"p":2},{"w":"old","s":81.76,"e":81.98,"p":2},{"w":"clip.","s":81.98,"e":82.3,"p":2},{"w":"\"What","s":82.64,"e":83.14,"p":2},{"w":"do","s":83.14,"e":83.26,"p":2},{"w":"you","s":83.26,"e":83.42,"p":2},{"w":"see?\"","s":83.42,"e":83.72,"p":2},{"w":"3","s":83.94,"e":84.22,"p":3},{"w":"SCENES","s":84.16,"e":84.54,"p":3},{"w":"WITH","s":84.54,"e":84.72,"p":3},{"w":"HER.","s":84.72,"e":85.04,"p":3},{"w":"Inventory","s":85.66,"e":86.38,"p":3},{"w":"walk.","s":86.38,"e":86.74,"p":3},{"w":"Five","s":87.2,"e":87.84,"p":3},{"w":"objects,","s":87.84,"e":88.36,"p":3},{"w":"shelf","s":88.68,"e":88.86,"p":3},{"w":"by","s":88.86,"e":89.06,"p":3},{"w":"shelf:","s":89.06,"e":89.42,"p":3},{"w":"cost","s":90.06,"e":90.48,"p":3},{"w":"now,","s":90.48,"e":90.78,"p":3},{"w":"cost","s":91.04,"e":91.3,"p":3},{"w":"before,","s":91.3,"e":91.6,"p":3},{"w":"how","s":91.98,"e":92.28,"p":3},{"w":"she","s":92.28,"e":92.46,"p":3},{"w":"carried","s":92.46,"e":92.76,"p":3},{"w":"it","s":92.76,"e":92.9,"p":3},{"w":"then.","s":92.9,"e":93.14,"p":3},{"w":"Once","s":94.12,"e":94.52,"p":3},{"w":"talking,","s":94.52,"e":94.92,"p":3},{"w":"once","s":95.34,"e":95.62,"p":3},{"w":"silent","s":95.62,"e":96.0,"p":3},{"w":"and","s":96.0,"e":96.22,"p":3},{"w":"tight.","s":96.22,"e":96.46,"p":3},{"w":"The","s":97.02,"e":97.4,"p":3},{"w":"message.","s":97.4,"e":97.82,"p":3},{"w":"Play","s":98.4,"e":98.76,"p":3},{"w":"her","s":98.76,"e":98.94,"p":3},{"w":"son's","s":98.94,"e":99.26,"p":3},{"w":"video,","s":99.26,"e":99.58,"p":3},{"w":"phone","s":100.0,"e":100.22,"p":3},{"w":"to","s":100.28,"e":100.56,"p":3},{"w":"phone.","s":100.34,"e":100.68,"p":3},{"w":"Ask","s":101.14,"e":101.42,"p":3},{"w":"permission","s":101.42,"e":101.8,"p":3},{"w":"on","s":101.8,"e":102.02,"p":3},{"w":"camera.","s":102.02,"e":102.36,"p":3},{"w":"Hold","s":102.58,"e":102.86,"p":3},{"w":"her","s":102.8,"e":102.94,"p":3},{"w":"face;","s":102.94,"e":103.34,"p":3},{"w":"ten","s":103.58,"e":103.86,"p":3},{"w":"seconds;","s":103.82,"e":104.28,"p":3},{"w":"second","s":104.64,"e":104.86,"p":3},{"w":"question.","s":104.86,"e":105.32,"p":3},{"w":"The","s":105.9,"e":106.38,"p":3},{"w":"empty","s":106.38,"e":106.64,"p":3},{"w":"rooms.","s":106.64,"e":107.04,"p":3},{"w":"She","s":107.96,"e":108.68,"p":3},{"w":"shows","s":108.68,"e":109.0,"p":3},{"w":"the","s":109.0,"e":109.14,"p":3},{"w":"house.","s":109.14,"e":109.5,"p":3},{"w":"Whose","s":109.5,"e":110.58,"p":3},{"w":"bed","s":110.58,"e":110.86,"p":3},{"w":"was","s":110.86,"e":111.06,"p":3},{"w":"whose.","s":111.06,"e":111.46,"p":3},{"w":"Shoot","s":112.02,"e":112.58,"p":3},{"w":"only","s":112.58,"e":112.82,"p":3},{"w":"what","s":112.82,"e":113.0,"p":3},{"w":"she","s":113.0,"e":113.16,"p":3},{"w":"offers,","s":113.16,"e":113.54,"p":3},{"w":"tight,","s":113.8,"e":114.06,"p":3},{"w":"daylight.","s":114.46,"e":115.02,"p":3},{"w":"If","s":115.56,"e":115.98,"p":3},{"w":"she","s":115.98,"e":116.12,"p":3},{"w":"goes","s":116.12,"e":116.34,"p":3},{"w":"quiet,","s":116.34,"e":116.8,"p":3},{"w":"the","s":117.14,"e":117.52,"p":3},{"w":"quiet","s":117.52,"e":117.84,"p":3},{"w":"is","s":117.84,"e":118.02,"p":3},{"w":"the","s":118.02,"e":118.12,"p":3},{"w":"scene.","s":118.12,"e":118.4,"p":3}]; // [{w:"word", s:start, e:end, p:paraIndex}]
+const essay = document.getElementById('essay');
+const audio = document.getElementById('audio');
+const btn = document.getElementById('btn');
+const fill = document.getElementById('fill');
+const timeEl = document.getElementById('time');
+const speedBtn = document.getElementById('speed');
+
+// build paragraphs of word spans
+let paras = [];
+WORDS.forEach(t => { (paras[t.p] = paras[t.p] || []).push(t); });
+let spans = [];
+paras.forEach((ws) => {
+  if(!ws) return;
+  const p = document.createElement('p');
+  ws.forEach((t) => {
+    const s = document.createElement('span');
+    s.className = 'w'; s.textContent = t.w + ' ';
+    s.onclick = () => { audio.currentTime = t.s + 0.01; if(audio.paused) toggle(); };
+    p.appendChild(s); spans.push({el:s, t, pEl:p});
+  });
+  essay.appendChild(p);
+});
+
+function fmt(s){ s=Math.max(0,s|0); return (s/60|0)+':'+String(s%60).padStart(2,'0'); }
+function toggle(){ audio.paused ? audio.play() : audio.pause(); }
+btn.onclick = toggle;
+audio.onplay = () => btn.textContent = '⏸';
+audio.onpause = () => btn.textContent = '▶';
+
+let idx = 0, curP = null;
+function tick(){
+  const t = audio.currentTime;
+  fill.style.width = (100*t/(audio.duration||1))+'%';
+  timeEl.textContent = fmt(t)+' / '+fmt(audio.duration||0);
+  // find active word (spans sorted by start)
+  while(idx < spans.length-1 && spans[idx+1].t.s <= t) idx++;
+  while(idx > 0 && spans[idx].t.s > t) idx--;
+  spans.forEach((s,i)=> s.el.classList.toggle('on', i===idx && t >= s.t.s && t <= s.t.e + .25));
+  const pEl = spans[idx] && spans[idx].pEl;
+  if(pEl !== curP){ if(curP) curP.classList.remove('p-on'); curP = pEl; if(curP){ curP.classList.add('p-on');
+    const r = curP.getBoundingClientRect();
+    if(r.top < 80 || r.bottom > innerHeight-160) curP.scrollIntoView({behavior:'smooth', block:'center'});
+  }}
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+document.getElementById('scrub').onclick = (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX-r.left)/r.width) * (audio.duration||0);
+};
+const SPEEDS=[1,1.15,1.3,1.5,.9]; let si=0;
+speedBtn.onclick=()=>{ si=(si+1)%SPEEDS.length; audio.playbackRate=SPEEDS[si]; speedBtn.textContent=SPEEDS[si].toFixed(2).replace(/0$/,'')+'×'; };
+document.body.onkeydown=(e)=>{ if(e.code==='Space'&&e.target===document.body){e.preventDefault();toggle();} };
+</script>
+</body>
+</html>
