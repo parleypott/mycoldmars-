@@ -45,6 +45,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     onSeek = () => {},
     onTimeUpdate = () => {},
     onPeaksReady = null,  // (peaks) => void — fires once after the first decode so caller can persist
+    onRefreshUrl = null,  // async () => freshSignedUrl — re-mint an expired signed URL
   } = opts;
 
   if (!signedUrl) {
@@ -329,6 +330,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   // MediaError codes: 1=aborted, 2=network, 3=decode, 4=src not supported.
   // Codes 3 and 4 are codec/format failures (most ProRes proxies) — flip
   // straight to the audio-only fallback panel instead of a generic error.
+  let refreshedUrlOnce = false;
   video.addEventListener('error', () => {
     const err = video.error;
     const code = err ? err.code : 'unknown';
@@ -337,6 +339,21 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     if ((code === 3 || code === 4) && noVideoEl) {
       noVideoEl.hidden = false;
       videoFrame.classList.add('media-deck-video--audioonly');
+    } else if (code === 2 && typeof onRefreshUrl === 'function' && !refreshedUrlOnce) {
+      // Network error on a 4h signed URL that expired under a pinned tab:
+      // re-mint once, swap src, restore position — instead of a dead player
+      // until full page reload.
+      refreshedUrlOnce = true;
+      const resumeAt = video.currentTime || 0;
+      Promise.resolve(onRefreshUrl()).then((freshUrl) => {
+        if (!freshUrl) throw new Error('no fresh URL');
+        video.src = freshUrl;
+        video.load();
+        video.addEventListener('loadedmetadata', () => { try { video.currentTime = resumeAt; } catch {} }, { once: true });
+      }).catch((e) => {
+        console.error('[media-deck] URL refresh failed:', e?.message || e);
+        showError(`Couldn't reload video (code ${code}). Refresh the page.`);
+      });
     } else {
       showError(`Couldn't load video (code ${code}). Check console for details.`);
     }

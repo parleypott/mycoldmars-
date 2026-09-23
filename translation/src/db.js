@@ -757,17 +757,41 @@ export function releaseLockBeacon(transcriptId, holderId) {
  */
 export function subscribeToTranscript(transcriptId, onChange) {
   if (!supabase || !transcriptId) return () => {};
-  const channel = supabase.channel(`transcript:${transcriptId}`)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'transcripts',
-      filter: `id=eq.${transcriptId}`,
-    }, (payload) => {
-      try { onChange(payload.new); } catch (err) { console.warn('[realtime] handler threw:', err); }
-    })
-    .subscribe();
+  // Self-healing: a CHANNEL_ERROR / TIMED_OUT / CLOSED channel used to die
+  // silently — the tab looked subscribed but never heard another word, so
+  // remote edits stopped arriving until a full reload. Re-create with
+  // capped exponential backoff.
+  let disposed = false;
+  let channel = null;
+  let retries = 0;
+  let retryTimer = null;
+  const connect = () => {
+    if (disposed) return;
+    channel = supabase.channel(`transcript:${transcriptId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'transcripts',
+        filter: `id=eq.${transcriptId}`,
+      }, (payload) => {
+        try { onChange(payload.new); } catch (err) { console.warn('[realtime] handler threw:', err); }
+      })
+      .subscribe((status) => {
+        if (disposed) return;
+        if (status === 'SUBSCRIBED') { retries = 0; return; }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          try { supabase.removeChannel(channel); } catch {}
+          const delay = Math.min(30000, 1000 * Math.pow(2, retries++));
+          console.warn(`[realtime] channel ${status}; reconnecting in ${delay}ms`);
+          clearTimeout(retryTimer);
+          retryTimer = setTimeout(connect, delay);
+        }
+      });
+  };
+  connect();
   return () => {
+    disposed = true;
+    clearTimeout(retryTimer);
     try { supabase.removeChannel(channel); } catch {}
   };
 }

@@ -118,8 +118,22 @@ function saveLibraryCacheToDisk(cache) {
       deleted: (cache.deleted || []).slice(0, 50),
     };
     localStorage.setItem(LIBRARY_CACHE_LS_KEY, JSON.stringify(trimmed));
-  } catch {
-    // Ignore quota errors — cache is a perf nicety, not load-bearing.
+  } catch (e) {
+    // The 5MB quota is shared across every deployment on this origin. On
+    // quota errors, evict our own stale key and retry once — a cache frozen
+    // at some old state forever is worse than no cache (it repainted a
+    // library that no longer matched reality on every load).
+    if (e?.name === 'QuotaExceededError' || /quota/i.test(e?.message || '')) {
+      try {
+        localStorage.removeItem(LIBRARY_CACHE_LS_KEY);
+        localStorage.setItem(LIBRARY_CACHE_LS_KEY, JSON.stringify({
+          ts: cache.ts,
+          transcripts: (cache.transcripts || []).slice(0, 50),
+          projects: cache.projects || [],
+          deleted: [],
+        }));
+      } catch { /* still full — run cacheless */ }
+    }
   }
 }
 
@@ -1750,6 +1764,7 @@ async function handleDelete(id) {
     fetchLibrary();
   } catch (err) {
     console.error('Failed to delete:', err);
+    showError(`Delete failed: ${err?.message || 'Unknown error'} — the transcript is still in your library.`);
   }
 }
 
@@ -4650,6 +4665,12 @@ async function mountMediaDeckForCurrent(editorContainer) {
 
   mediaDeck = mountMediaDeck(editorContainer, {
     signedUrl,
+    // 4h signed URLs expire under long/pinned sessions → dead player with a
+    // network MediaError. The deck calls this to mint a fresh URL and resume.
+    onRefreshUrl: () => getMediaSignedUrl(playbackPath, {
+      bucket: media.storage_bucket || 'media',
+      expiresInSeconds: 4 * 60 * 60,
+    }),
     mimeType: playbackMime,
     transcodeStatus: media.transcode_status || 'not_needed',
     segments,
@@ -5859,6 +5880,7 @@ async function generateAutoSummary() {
 
     if (!res.ok) {
       console.error('Summary API returned', res.status, await res.text().catch(() => ''));
+      showError(`Summary generation failed (${res.status}). Try again.`);
       return;
     }
 
@@ -5886,6 +5908,7 @@ async function generateAutoSummary() {
     autoSave();
   } catch (err) {
     console.error('Auto-summary generation failed:', err);
+    showError(`Summary generation failed: ${err?.message || 'Unknown error'}. Your transcript is unaffected — try again.`);
   } finally {
     chattyEnd(loaderId);
   }
