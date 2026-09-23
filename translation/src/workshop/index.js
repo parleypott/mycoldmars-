@@ -55,7 +55,13 @@ export function mountWorkshop(container, opts) {
 
   if (state.soundbites.length > 0) state.phase = 'viewer';
 
+  // Set by destroy(). Long-running async work (theme detection, soundbite
+  // extraction, zap) finishing after the user switched transcripts must not
+  // persist into — or repaint over — whatever transcript is now open.
+  let destroyed = false;
+
   function persist() {
+    if (destroyed) return;
     if (typeof opts.onUpdate === 'function') {
       opts.onUpdate({
         themes: state.themes,
@@ -66,6 +72,7 @@ export function mountWorkshop(container, opts) {
   }
 
   function render() {
+    if (destroyed) return;
     if (state.phase === 'bank') return renderBank();
     if (state.phase === 'processing') return renderProcessing();
     return renderViewer();
@@ -426,7 +433,16 @@ export function mountWorkshop(container, opts) {
           const z = state.zaps[segNum];
           const seg = opts.segments.find(s => s.number === segNum);
           if (z && seg) {
-            seg.text = z.polished;
+            // The card displays the TRANSLATION when one exists (biteText),
+            // so the polish must land there too. Writing it into seg.text
+            // silently overwrote the source-language original.
+            if (translatedByNum[segNum] !== undefined) {
+              const t = (opts.translations || []).find(x => x && x.number === segNum);
+              if (t) t.translated = z.polished;
+              translatedByNum[segNum] = z.polished;
+            } else {
+              seg.text = z.polished;
+            }
             delete state.zaps[segNum];
             // Notify the host so the segment mutation gets autosaved.
             // Without this the polished text vanishes on reload.
@@ -464,7 +480,9 @@ export function mountWorkshop(container, opts) {
     state.zaps[segNum] = { status: 'loading', token };
     render();
     try {
-      const result = await polishSoundbite(seg.text);
+      // Polish what the user SEES (translation when present), not the
+      // source-language original.
+      const result = await polishSoundbite(biteText(seg));
       if (state.zaps[segNum]?.token !== token) return; // newer request superseded
       state.zaps[segNum] = { status: 'ready', token, chunks: result.chunks, polished: result.polished };
     } catch (err) {
@@ -504,7 +522,7 @@ export function mountWorkshop(container, opts) {
 
   // Public API: nothing yet, but return a destroy fn for symmetry.
   return {
-    destroy() { container.innerHTML = ''; },
+    destroy() { destroyed = true; container.innerHTML = ''; },
   };
 }
 

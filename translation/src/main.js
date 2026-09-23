@@ -5540,13 +5540,19 @@ function mountWorkshop() {
   import('./workshop/index.js').then(({ mountWorkshop: mw }) => {
     try {
       mount.innerHTML = '';
-      workshopInstance = mw(mount, {
+      // Identity guard: async workshop work (detect/process/zap) can finish
+      // after the user opened another transcript. Callbacks from an instance
+      // that is no longer the mounted one must not write into the new
+      // transcript's workshopState or trigger its autosave.
+      let inst = null;
+      inst = mw(mount, {
         segments,
         translations,   // English per-segment — workshop shows English, not the source language
         editorialFocus: $('#editorial-focus')?.value || '',
         narrativeSummary: currentSummary || '',
         initialState: workshopState || {},
         onUpdate: (newState) => {
+          if (inst !== workshopInstance) return;
           workshopState = newState;
           debouncedAutoSave();
         },
@@ -5555,10 +5561,12 @@ function mountWorkshop() {
         // workshop was mutating the global `segments` array directly with
         // no autosave hook.
         onSegmentsMutated: () => {
+          if (inst !== workshopInstance) return;
           markDirty();
           debouncedAutoSave();
         },
       });
+      workshopInstance = inst;
     } catch (err) {
       console.error('Workshop mount failed:', err);
       mount.innerHTML = `<div class="workshop-placeholder"><p style="color:var(--np-red);">Workshop failed to mount.</p><pre style="font-size:11px;color:var(--np-sepia);background:rgba(221,44,30,0.06);padding:12px;border:1px solid var(--np-red);border-radius:2px;text-align:left;max-width:600px;margin:12px auto;white-space:pre-wrap;">${escapeHtmlSafe(err?.stack || err?.message || String(err))}</pre></div>`;
