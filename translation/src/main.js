@@ -2710,6 +2710,13 @@ async function runSaveOnce(opts = {}) {
   }
   saveInFlight = true;
   setSaveState('saving');
+  // Capture the save target NOW. If the user opens another transcript while
+  // this save is in flight (slow network, multi-MB payload), the live
+  // globals move to the new transcript — writing through them would stamp
+  // the old content onto the new transcript's snapshot, revision history,
+  // and conflict token.
+  const savingId = currentTranscriptId;
+  const staleNow = () => (savingId ? savingId !== currentTranscriptId : currentTranscriptId !== null);
   try {
     const payload = gatherState();
     payload.metadata = { ...payload.metadata, segmentCount: segments.length };
@@ -2720,11 +2727,11 @@ async function runSaveOnce(opts = {}) {
     // show "edited by X 2h ago".
     const me = currentUserId();
     let savedRow;
-    if (currentTranscriptId) {
+    if (savingId) {
       if (me) payload.lastEditedBy = me;
-      savedRow = await updateTranscript(currentTranscriptId, payload, { expectedUpdatedAt: lastServerUpdatedAt });
-      lastServerUpdatedAt = savedRow.updated_at;
-      saveSnapshot(currentTranscriptId, payload, savedRow.updated_at);
+      savedRow = await updateTranscript(savingId, payload, { expectedUpdatedAt: lastServerUpdatedAt });
+      if (!staleNow()) lastServerUpdatedAt = savedRow.updated_at;
+      saveSnapshot(savingId, payload, savedRow.updated_at);
     } else {
       const name = currentTranscriptName || generateAutoName();
       payload.name = name;
@@ -2735,14 +2742,16 @@ async function runSaveOnce(opts = {}) {
         payload.lastEditedBy = me;
       }
       savedRow = await saveTranscript(payload);
-      currentTranscriptId = savedRow.id;
-      currentTranscriptName = name;
-      currentSlug = savedRow.slug || payload.slug;
-      lastServerUpdatedAt = savedRow.updated_at;
-      rememberLastTranscript(savedRow.id);
-      setPermalinkHash(currentSlug);
-      updateTranscriptTitle();
-      saveSnapshot(currentTranscriptId, payload, savedRow.updated_at);
+      if (!staleNow()) {
+        currentTranscriptId = savedRow.id;
+        currentTranscriptName = name;
+        currentSlug = savedRow.slug || payload.slug;
+        lastServerUpdatedAt = savedRow.updated_at;
+        rememberLastTranscript(savedRow.id);
+        setPermalinkHash(currentSlug);
+        updateTranscriptTitle();
+      }
+      saveSnapshot(savedRow.id, payload, savedRow.updated_at);
       // First save landed — clear the pre-id draft snapshot so we don't
       // offer to recover it on the next session.
       try { clearDraftSnapshot(); } catch {}
@@ -2754,13 +2763,13 @@ async function runSaveOnce(opts = {}) {
       pendingSourceLanguage = null;
       pendingTranslationEnabled = null;
       // Subscribe to remote updates as soon as we have an id.
-      ensureRealtimeSubscription();
+      if (!staleNow()) ensureRealtimeSubscription();
     }
     // Cheap insurance: write a revision row. Trigger trims to last 50
     // per transcript. Track consecutive failures so we can surface a
     // "version history unavailable" indicator after N strikes — the
     // user shouldn't silently lose their rewind safety net.
-    insertRevision(currentTranscriptId, payload, {
+    insertRevision(savingId || savedRow.id, payload, {
       source: opts.source || 'autosave',
       clientId: CLIENT_ID,
       clientLabel: currentClientLabel(),
@@ -2775,11 +2784,15 @@ async function runSaveOnce(opts = {}) {
           showError('Version history is unavailable — your edits are saving but the rewind snapshots aren\'t. Check the schema migration banner or contact support.');
         }
       });
-    setSaveState('saved');
+    if (!staleNow()) setSaveState('saved');
     invalidateLibraryCache();
   } catch (err) {
     console.error('Save failed:', err);
-    if (err && err.code === 'CONFLICT') {
+    if (staleNow()) {
+      // The user has moved to another transcript; don't stamp this save's
+      // late CONFLICT/error UI (or its retry loop) onto the new one.
+      console.warn('[save] stale save result for', savingId, 'suppressed');
+    } else if (err && err.code === 'CONFLICT') {
       setSaveState('conflict', err);
     } else {
       setSaveState('error', err);
@@ -7605,7 +7618,9 @@ function safeInit(name, fn) {
         await runSaveOnce({ awaitInFlight: true }).catch(err => {
           console.warn('[draft-recover] save failed; data is still in memory:', err);
         });
-        clearDraftSnapshot();
+        // Do NOT clear the draft here: runSaveOnce clears it itself on a
+        // successful first save, and if the save failed (offline, wedged
+        // auth) this snapshot is the only copy of the work.
         // Render whatever step we ended up at.
         if (segments.length > 0 && editorState) { goToStep(5); switchView('editor'); }
         else if (segments.length > 0) goToStep(2);
