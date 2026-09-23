@@ -36,6 +36,7 @@ export const BEARER_JWT_SHAPE = /^Bearer\s+(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+
 // body carried no id) — cached alongside ok so requestUserId() below
 // costs zero extra round-trips on the hot save path.
 const _jwtCache = new Map();
+const _jwtInflight = new Map(); // token → in-flight verification promise
 const JWT_CACHE_TTL_MS = 60_000;
 const JWT_CACHE_MAX = 200;
 
@@ -75,21 +76,43 @@ async function verifyBearerJwt(token) {
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   if (!supaUrl || !anon) return { ok: false, userId: null };
-  let ok = false;
-  let userId = null;
-  try {
-    const r = await fetch(`${supaUrl}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: anon },
-      signal: AbortSignal.timeout(5000),
-    });
-    ok = r.ok;
-    if (r.ok) {
-      const body = await r.json().catch(() => null);
-      userId = (body && typeof body.id === 'string' && body.id) ? body.id : null;
+  // Share one in-flight verification per token: N concurrent API calls with
+  // the same JWT used to fire N parallel GoTrue lookups (N × 5s worst case).
+  const inflight = _jwtInflight.get(token);
+  if (inflight) return inflight;
+  const p = (async () => {
+    let ok = false;
+    let userId = null;
+    let definitive = false; // GoTrue actually ruled on the token
+    try {
+      const r = await fetch(`${supaUrl}/auth/v1/user`, {
+        headers: { Authorization: `Bearer ${token}`, apikey: anon },
+        signal: AbortSignal.timeout(5000),
+      });
+      ok = r.ok;
+      // 401/403 = token really invalid; timeouts/5xx/429 are indeterminate.
+      definitive = r.ok || r.status === 401 || r.status === 403;
+      if (r.ok) {
+        const body = await r.json().catch(() => null);
+        userId = (body && typeof body.id === 'string' && body.id) ? body.id : null;
+      }
+    } catch {}
+    if (definitive) {
+      _jwtCache.set(token, { ok, userId, expiresAt: now + JWT_CACHE_TTL_MS });
+    } else if (cached?.ok) {
+      // Transient GoTrue failure with a previously-good token: extend the
+      // known-good entry through the blip instead of turning a network hiccup
+      // into 60 seconds of 401s for a signed-in user.
+      _jwtCache.set(token, { ...cached, expiresAt: now + JWT_CACHE_TTL_MS });
+      return { ok: cached.ok, userId: cached.userId ?? null };
+    } else {
+      // Indeterminate and no history — fail closed, but only briefly.
+      _jwtCache.set(token, { ok: false, userId: null, expiresAt: now + 2000 });
     }
-  } catch {}
-  _jwtCache.set(token, { ok, userId, expiresAt: now + JWT_CACHE_TTL_MS });
-  return { ok, userId };
+    return { ok, userId };
+  })().finally(() => _jwtInflight.delete(token));
+  _jwtInflight.set(token, p);
+  return p;
 }
 
 // WHO is making this request? Resolves the Authorization bearer JWT to the

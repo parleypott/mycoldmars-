@@ -108,9 +108,20 @@ async function runDeepgram({ mediaUrl, language, prompt, apiKey }) {
       method: 'POST',
       headers: { 'Authorization': `Token ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: mediaUrl }),
+      // Return clean JSON with a real message BEFORE Vercel kills the
+      // function at maxDuration (300s) — a platform kill sends the browser
+      // an HTML 504 page and the client surfaced an empty error.
+      signal: AbortSignal.timeout(280000),
     });
   } catch (e) {
-    return { status: 502, body: err('deepgram_fetch_failed', e.message || String(e)) };
+    const timedOut = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+    return {
+      status: timedOut ? 504 : 502,
+      body: err(
+        timedOut ? 'deepgram_timeout' : 'deepgram_fetch_failed',
+        timedOut ? 'Transcription exceeded the 5-minute server limit — try a shorter clip or compress the file.' : (e.message || String(e)),
+      ),
+    };
   }
 
   if (!dgRes.ok) {

@@ -610,12 +610,21 @@ export async function transcribeMedia({ mediaUrl, mediaSizeBytes, language, prom
     body: JSON.stringify({ mediaUrl, mediaSizeBytes, language, prompt }),
   });
   if (!res.ok) {
+    // Read the body ONCE as text, then try JSON. The old json()-then-text()
+    // fallback always yielded '' for HTML error pages (a consumed body can't
+    // be re-read), so Vercel 504s surfaced as "Transcription failed (504): ".
     let detail = '';
     try {
-      const j = await res.json();
-      detail = j?.error?.message || j?.error?.code || '';
-    } catch {
-      detail = await res.text().catch(() => '');
+      const raw = await res.text();
+      try {
+        const j = JSON.parse(raw);
+        detail = j?.error?.message || j?.error?.code || '';
+      } catch {
+        detail = /<html/i.test(raw) ? '' : raw.slice(0, 200);
+      }
+    } catch {}
+    if (res.status === 504 && !detail) {
+      detail = 'long file hit the 5-minute server limit — try a shorter clip';
     }
     const err = new Error(`Transcription failed (${res.status}): ${detail || res.statusText}`);
     err.status = res.status;
