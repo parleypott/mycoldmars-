@@ -215,39 +215,72 @@ function showLibrary() {
 // list pops up in <100ms), but it is NEVER trusted as the final answer.
 // If the fetch fails, we surface a visible error banner — no more silent
 // ghost rows that fail when clicked.
-async function fetchLibrary() {
-  // Stale-while-revalidate: paint the disk cache immediately if we have
-  // it, then always re-fetch from Supabase.
-  let renderedFromDisk = false;
+// Timeout that CLEANS UP after itself: the loser of the race used to keep
+// its timer alive and fire a phantom "timed out" unhandled rejection into
+// telemetry seconds after a successful load.
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`${label} timed out — tap retry`)), ms); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+let _libGen = 0; // stale async results must not repaint a newer library view
+
+async function fetchLibrary(opts = {}) {
+  const gen = ++_libGen;
+  // Stale-while-revalidate: paint memory first, then disk, then re-fetch.
+  let renderedStale = false;
   const disk = loadLibraryCacheFromDisk();
-  if (disk && (disk.transcripts?.length || disk.projects?.length)) {
-    projects = disk.projects || [];
-    renderLibrary(disk.transcripts, disk.projects, disk.deleted);
-    renderedFromDisk = true;
+  const seed = (libraryCache?.transcripts?.length || libraryCache?.projects?.length) ? libraryCache : disk;
+  if (seed && (seed.transcripts?.length || seed.projects?.length)) {
+    projects = seed.projects || [];
+    renderLibrary(seed.transcripts, seed.projects, seed.deleted);
+    renderedStale = true;
   } else {
     renderLibrarySkeleton();
   }
 
   let transcripts = [];
   let p = [];
+  // Keep a handle on the real fetch: when it loses the 15s race but lands
+  // later (wedged auth queue that unwedges), harvest the result instead of
+  // discarding a completed multi-second query.
+  const fetchAll = Promise.all([listProjects(), listTranscripts()]);
+  fetchAll.then(([lateP, lateT]) => {
+    if (gen !== _libGen) return; // a newer load owns the view
+    if (libraryCache && libraryCache.ts && libraryCache.fetchGen === gen) return; // we won the race normally
+    projects = lateP;
+    const deletedSoFar = libraryCache?.deleted || disk?.deleted || [];
+    libraryCache = { transcripts: lateT, projects: lateP, deleted: deletedSoFar, ts: Date.now(), fetchGen: gen };
+    saveLibraryCacheToDisk(libraryCache);
+    clearLibraryError();
+    if (libraryShowing) renderLibrary(lateT, lateP, deletedSoFar);
+  }).catch(() => {}); // the racing await below owns error handling
   try {
     // Never hang on the skeleton forever — if the fetch stalls (stuck save
     // holding the auth refresh, network), time out into the visible error +
     // retry banner instead of leaving the user frozen on loading rows.
-    const withTimeout = (promise, ms, label) => Promise.race([
-      promise,
-      new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out — tap retry`)), ms)),
-    ]);
-    [p, transcripts] = await withTimeout(Promise.all([listProjects(), listTranscripts()]), 15000, 'Library load');
+    [p, transcripts] = await withTimeout(fetchAll, 15000, 'Library load');
+    if (gen !== _libGen) return;
     projects = p;
     const deletedSoFar = libraryCache?.deleted || disk?.deleted || [];
-    libraryCache = { transcripts, projects, deleted: deletedSoFar, ts: Date.now() };
+    libraryCache = { transcripts, projects, deleted: deletedSoFar, ts: Date.now(), fetchGen: gen };
     renderLibrary(transcripts, projects, deletedSoFar);
     saveLibraryCacheToDisk(libraryCache);
     clearLibraryError();
   } catch (err) {
+    if (gen !== _libGen) return;
     console.error('Failed to load library:', err);
-    showLibraryError(err, renderedFromDisk);
+    const isTimeout = /timed out/i.test(err?.message || '');
+    if (isTimeout && renderedStale && !opts.isRetry) {
+      // Cached list is on screen — retry once quietly before alarming the
+      // user; the late-result harvester above may also land meanwhile.
+      setTimeout(() => { if (gen === _libGen) fetchLibrary({ isRetry: true }); }, 5000);
+    } else {
+      showLibraryError(err, renderedStale);
+    }
     return;
   }
 
@@ -7551,7 +7584,8 @@ function safeInit(name, fn) {
   // themselves based on the result. Banner is shown only if something
   // is missing.
   try {
-    const status = await getSchemaStatus();
+    // Bounded: a wedged network here used to hang boot silently forever.
+    const status = await withTimeout(getSchemaStatus(), 12000, 'Schema probe');
     if (status?.missing?.length) showSchemaMigrationBanner(status);
   } catch (err) {
     console.warn('Schema probe failed:', err);
@@ -7639,7 +7673,10 @@ function safeInit(name, fn) {
   const route = parseRoute();
 
   // Load projects and (optional) transcript in parallel
-  const projectsPromise = listProjects().then(p => { projects = p; }).catch(() => {});
+  // Bounded + swallowed: routing must reach showLibrary/showSequencer even
+  // when this first query hangs (fetchLibrary re-fetches projects anyway).
+  const projectsPromise = withTimeout(listProjects(), 12000, 'Projects load')
+    .then(p => { projects = p; }).catch(() => {});
 
   if (route.kind === 'sequencer') {
     await projectsPromise;
