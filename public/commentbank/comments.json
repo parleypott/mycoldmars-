@@ -1,5 +1,240 @@
 [
   {
+    "id": "F0C3Y94RBAA",
+    "name": "Screenshot 2026-09-23 at 3.16.17 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 16074,
+    "local_path": "images/F0C3Y94RBAA.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "Tier 1 journalism",
+      "commenter": "gavintoole9325",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "quality",
+        "reporting"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:25.631Z"
+  },
+  {
+    "id": "F0C4UJ748FJ",
+    "name": "Screenshot 2026-09-23 at 3.16.19 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 24233,
+    "local_path": "images/F0C4UJ748FJ.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "Smashed it.",
+      "commenter": "framedman",
+      "sentiment": "praise",
+      "themes": [
+        "performance",
+        "achievement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:26.166Z"
+  },
+  {
+    "id": "F0C3V7G7ZE1",
+    "name": "Screenshot 2026-09-23 at 2.09.36 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 58774,
+    "local_path": "images/F0C3V7G7ZE1.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "Finally someone has done a video about this, the whole X platforms is full of these accounts fueling wars and chaos and hate for money...since monetization came social media died",
+      "commenter": "@mnyomb1",
+      "sentiment": "insightful",
+      "themes": [
+        "social media",
+        "monetization",
+        "hate content",
+        "platform accountability"
+      ],
+      "video_hint": "Video about X (Twitter) accounts profiting from rage/hate/conflict content",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:27.533Z"
+  },
+  {
+    "id": "F0C3V7HN0BX",
+    "name": "Screenshot 2026-09-23 at 3.16.54 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31924,
+    "local_path": "images/F0C3V7HN0BX.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "Superb journalism as always. ❤️ this channel.",
+      "commenter": "@suikakujyuu",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "channel appreciation",
+        "quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:28.497Z"
+  },
+  {
+    "id": "F0C3Y94Q894",
+    "name": "Screenshot 2026-09-23 at 3.15.44 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 94991,
+    "local_path": "images/F0C3Y94Q894.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "Excellent investigation Christophe. It's funny how there's a sort of symbiotic relationship. Like you demonstrated, the slop accounts profit from the engagement but also, speaking from my experience in UK, I see the older demographic share and amplify these xenophobic messages and it just adds to the overall tipping of the scale in direction of media becoming so right-wing and right wing parties like Reform and Restore Britain benefit.",
+      "commenter": "noisyshaun",
+      "sentiment": "insightful",
+      "themes": [
+        "misinformation",
+        "uk politics",
+        "social media algorithms",
+        "xenophobia"
+      ],
+      "video_hint": "Investigation into social media 'slop' accounts spreading xenophobic or right-wing content",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:29.510Z"
+  },
+  {
+    "id": "F0C4044UR34",
+    "name": "Screenshot 2026-09-23 at 10.00.23 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30778,
+    "local_path": "images/F0C4044UR34.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "Thanks for the Information! A Plus for my Digital Literacy!",
+      "commenter": "PhilipThePrudent03",
+      "sentiment": "praise",
+      "themes": [
+        "digital literacy",
+        "information",
+        "education"
+      ],
+      "video_hint": "A video related to digital literacy or an informational/educational topic",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:30.204Z"
+  },
+  {
+    "id": "F0C4UJ85DJL",
+    "name": "Screenshot 2026-09-23 at 10.01.02 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 36678,
+    "local_path": "images/F0C4UJ85DJL.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "good job, well written and researched, top tier",
+      "commenter": "brettthickhammer1546",
+      "sentiment": "praise",
+      "themes": [
+        "writing quality",
+        "research",
+        "overall quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:31.907Z"
+  },
+  {
+    "id": "F0C425SHJC9",
+    "name": "Screenshot 2026-09-23 at 10.00.13 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 67443,
+    "local_path": "images/F0C425SHJC9.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "thank you Christophe for shedding a light on this topic. people need to be smart enough to understand soc med platform benefit the most out of our anger/hatred. that's when you engage more. what you're seeing online doesn't even depict real life 100%.",
+      "commenter": "tusmon94",
+      "sentiment": "insightful",
+      "themes": [
+        "social media",
+        "algorithm",
+        "misinformation",
+        "online behavior"
+      ],
+      "video_hint": "Video by or featuring someone named Christophe about social media algorithms and online anger/engagement",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:33.288Z"
+  },
+  {
+    "id": "F0C3Y95HZK8",
+    "name": "Screenshot 2026-09-23 at 10.00.39 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 34199,
+    "local_path": "images/F0C3Y95HZK8.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790191277.274169",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790191277274169",
+    "posted_at": "2026-09-23T19:21:17.274Z",
+    "analysis": {
+      "comment_text": "The quality of your content is absurd! Congrats",
+      "commenter": "@brun0gfs1",
+      "sentiment": "praise",
+      "themes": [
+        "content quality",
+        "production value"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-23T19:45:34.142Z"
+  },
+  {
     "id": "F0C232VAF34",
     "name": "Screenshot 2026-09-15 at 4.07.20 PM.png",
     "ext": "png",
