@@ -220,12 +220,26 @@ export async function bootstrap() {
   // Listen for changes (sign-in via magic link, sign-out from another tab,
   // token refresh, etc.).
   try {
-    supabase.auth.onAuthStateChange(async (_evt, session) => {
+    // DEADLOCK GUARD: this callback runs INSIDE the auth lock during token
+    // refresh. It must be synchronous — awaiting a Supabase query here queues
+    // that query behind the very refresh that is awaiting this callback,
+    // freezing every DB call in the tab (~hourly, on TOKEN_REFRESHED).
+    // Profile fetch is deferred out of the lock and skipped when we already
+    // have it for the same user.
+    supabase.auth.onAuthStateChange((_evt, session) => {
       const next = session?.user || null;
       const userChanged = (next?.id || null) !== (_user?.id || null);
       _user = next;
-      if (_user) await loadProfile(_user.id);
-      else _profile = null;
+      if (!_user) {
+        _profile = null;
+        if (userChanged) notify();
+        return;
+      }
+      if (!userChanged && _profile) return; // token refresh, profile cached
+      const id = _user.id;
+      setTimeout(() => {
+        loadProfile(id).catch(() => {}).then(() => notify());
+      }, 0);
       if (userChanged) notify();
     });
   } catch (err) {

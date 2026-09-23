@@ -40,7 +40,19 @@ try {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (url && key) {
-    supabase = createClient(url, key);
+    // Bounded fetch: a hung auth token-refresh POST otherwise wedges the
+    // cross-tab auth lock and every PostgREST call queues behind it forever
+    // (the library "timed out" brick). 10s on /auth/v1/ frees the lock before
+    // the UI's 15s timeout; 60s on REST because multi-MB transcript rows on
+    // slow field wifi legitimately need it.
+    supabase = createClient(url, key, {
+      global: {
+        fetch: (u, o) => fetch(u, {
+          ...o,
+          signal: o?.signal ?? AbortSignal.timeout(String(u).includes('/auth/v1/') ? 10000 : 60000),
+        }),
+      },
+    });
   } else {
     initError = 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY';
     console.warn('[db] ' + initError);
