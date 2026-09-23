@@ -1,0 +1,85 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>The Soul Finder</title><style>
+:root{--bg:#0f0e0c;--ink:#ece7db;--dim:#8b8577;--tc:#e0983a;--line:#2b2923;--green:#7fb389}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Georgia,serif;line-height:1.5;padding:34px 18px 80px}
+.w{max-width:600px;margin:0 auto}
+.kicker{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--tc);margin-bottom:8px}
+h1{font-size:30px;font-style:italic;font-weight:400;margin-bottom:6px}
+.sub{color:var(--dim);font-style:italic;font-size:14px;margin-bottom:26px}
+.loom{border:1px solid var(--line);border-radius:14px;padding:22px 20px;margin-bottom:14px}
+.layer{padding:10px 0;border-bottom:1px dotted var(--line);display:flex;gap:10px;align-items:flex-start;cursor:pointer;-webkit-user-select:none;user-select:none}
+.layer:last-of-type{border-bottom:none}
+.layer .txt{font-size:21px;line-height:1.35;flex:1;font-style:italic}
+.layer.locked .txt{color:var(--green)}
+.layer .lk{font-size:15px;opacity:.45;padding-top:4px}
+.layer.locked .lk{opacity:1}
+.lname{font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);width:64px;flex:none;padding-top:8px}
+.controls{display:flex;gap:10px;margin:14px 0 30px}
+button{flex:1;background:#1c1a17;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:13px;font-family:Georgia,serif;font-style:italic;font-size:15px;cursor:pointer}
+button.primary{background:var(--tc);color:#131210;border-color:var(--tc)}
+h2{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--tc);margin:30px 0 6px;border-top:1px solid var(--line);padding-top:20px}
+.note{font-size:12.5px;color:var(--dim);font-style:italic;margin-bottom:12px}
+.th{padding:13px 0;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.th p{flex:1;font-size:16.5px;font-style:italic}
+.star{font-size:17px;cursor:pointer;opacity:.35;flex:none;padding-top:2px}
+.star.on{opacity:1;color:var(--tc)}
+#favs .th p{color:var(--green)}
+.empty{color:var(--dim);font-size:13px;font-style:italic;padding:8px 0}
+.hint{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--dim);letter-spacing:.06em;margin-top:6px}
+</style></head><body><div class="w">
+<div class="kicker">Newpress · thesis sandbox</div>
+<h1>The Soul Finder</h1>
+<div class="sub">Tap a line to change it. Tap the lock to keep it. Shuffle the rest until the sentence rings.</div>
+<div class="loom" id="loom"></div>
+<div class="controls">
+<button class="primary" onclick="shuffle()">Shuffle unlocked</button>
+<button onclick="starLoom()">★ Keep this one</button>
+</div>
+<h2>Kept sentences</h2>
+<div id="favs"><div class="empty">Nothing kept yet. When one rings, keep it.</div></div>
+<h2>The fifty</h2>
+<div class="note">50 finished theses in nine schools. Star the ones that ring; steal their parts for the loom.</div>
+<div id="gallery"></div>
+</div><script>
+const DATA = {"layers":[{"name":"the world","options":["The biggest forces shaping the world","Geopolitics","The systems that run the world","The headlines everyone scrolls past","The important issues of our time","Power, money, and borders","A world changing faster than we can feel","The invisible forces behind the news","The places where history is happening","The stories too big to feel","What's actually happening out there","The forces redrawing ordinary lives","Global change","The world's hardest questions"]},{"name":"the method","options":["told through intimate human stories","told through one person at a time","experienced from the inside","told at eye level","found in the lives they land on","told by the people living them","witnessed up close, in person","traced into a single kitchen, a single store, a single face","explored by actually going there","told through the human element","made human again","told from the ground, not the desk","carried by real people, not experts","seen through the eyes of those who stay"]},{"name":"the feeling","options":["so understanding becomes feeling","until the abstract becomes personal","so you feel it before you understand it","until a headline has a heartbeat","so the far away comes close","so you can't look away, and don't want to","until it stops being someone else's story","so the world stops being noise","until you recognize yourself in a stranger","so it lands in the body, not just the brain","until you care about someone you've never met","so the numbers turn back into people","so you're there, not just informed","until distance stops protecting you"]},{"name":"the why","options":["because when we truly understand, we act differently","because feeling is the deepest kind of understanding","because the world makes more sense up close","because connection is the antidote to noise","because in a synthetic age, the real is precious","because empathy scales better than information","because nobody changes their life over a chart","because understanding the world makes us better actors in it","because everyone deserves to feel the world, not just know it","because the news tells you what happened, never what it's like","because we can't care for a world we can't feel","because strangers are just stories we haven't heard","because clarity without feeling changes nothing","because that's how the world becomes ours to care for"]}],"schools":[{"school":"The Missionary","note":"the show as moral project","theses":["When we truly understand the world, we become better actors in it. This show exists to make understanding feel like something.","The news tells you what happened. We exist to tell you what it's like.","We can't care for a world we can't feel. This show closes that distance.","Empathy is a technology. This show is how we scale it.","The goal was never to explain the world. It's to hand it to you, still warm."]},{"school":"The Poet","note":"image-first, felt language","theses":["Every headline lands somewhere. We film where it lands.","The world is loud and far away. We make it quiet and close.","History doesn't happen to countries. It happens to kitchens, to stores, to the space beside a woman at her counter.","Big stories, held up to the light of one life at a time.","The far away, brought close enough to touch.","We follow the biggest forces in the world into the smallest rooms they reach.","A show that mistakes nothing for small, because nothing that happens to a person is small."]},{"school":"The Bourdain","note":"first-person, appetite-driven, unpretentious","theses":["I go to the places in the headlines and stay long enough to stop being a stranger.","The world explains itself, if you show up and shut up long enough to hear it.","You can't understand a place from a desk. So we went.","Everyone's arguing about the world. We went to meet it.","This is a show about what the world's biggest stories feel like at the kitchen table.","The point was never the place. It's who you become by really going."]},{"school":"The Systems-Thinker","note":"Johnny's native register, elevated","theses":["Every system has a human element: the person the system lands on. That's who this show is about.","The forces shaping the world are invisible until they touch a life. We film the touch.","Maps show you where. Charts show you how much. People show you what it means.","The biggest forces on earth, measured in the only unit that matters.","Between the headline and the human is a gap where understanding dies. This show lives in the gap."]},{"school":"The Witness","note":"presence, testimony, the real","theses":["In a world flooding with the synthetic, one thing gets more valuable every day: a real person, in a real place, telling the truth.","Somebody should be there when the world changes. We go, so you're there too.","This show is a record of what it was like to be alive where it mattered.","The world deserves witnesses, not just analysts. We're the witnesses.","Real places. Real people. The realest thing left on the internet."]},{"school":"The Confessor","note":"the host's own transformation as the engine","theses":["I used to explain the world for a living. Then I started letting it explain itself to me.","I go into the world's biggest stories as a journalist and come out as something else. The show is what happens in between.","Every episode is the same experiment: can a story I understand become a story I feel?","I know how to make you understand. This show is me learning to make us both feel.","A journalist teaches himself to feel, one country at a time."]},{"school":"The Invitation","note":"second person, the viewer inside the frame","theses":["Come stand where the world is changing. Meet who's standing there already.","You've read about this place. Now sit in its kitchen.","This is the world, one stranger at a time, until they're not strangers.","You know the story. You've never met it.","An invitation to feel the news instead of consuming it."]},{"school":"The Aphorist","note":"compressed, poster-ready","theses":["Understanding is what feeling looks like when it grows up.","The human element: what every big story is missing, and what this show is for.","Scale and intimacy, in the same frame.","Feel first. Understand forever.","The world, at eye level.","Big world. Close up.","News gives you information. We give you acquaintance."]},{"school":"The Anti-Thesis","note":"define by refusal","theses":["Not an explainer. Not a travel show. A show about what it costs to be alive inside the world's biggest stories.","No experts on couches. No stock footage. Just the people the story happened to, and the time it takes to know them.","This isn't the news. The news ends when the cameras leave. We're what happens after.","Less explanation than you expect. More feeling than you're ready for.","Not content. A correspondence with the world."]}]};
+const idx = DATA.layers.map(()=>0);
+const locked = DATA.layers.map(()=>false);
+const K='soulfinder-v1';
+let store = JSON.parse(localStorage.getItem(K)||'{"kept":[],"starred":{}}');
+function save(){ localStorage.setItem(K, JSON.stringify(store)); }
+const loomEl = document.getElementById('loom');
+function renderLoom(){
+  loomEl.innerHTML = DATA.layers.map((L,i)=>`
+   <div class="layer ${locked[i]?'locked':''}">
+     <div class="lname">${L.name}</div>
+     <div class="txt" onclick="cycle(${i})">${L.options[idx[i]]}</div>
+     <div class="lk" onclick="toggleLock(${i})">${locked[i]?'🔒':'🔓'}</div>
+   </div>`).join('');
+}
+function cycle(i){ idx[i]=(idx[i]+1)%DATA.layers[i].options.length; renderLoom(); }
+function toggleLock(i){ locked[i]=!locked[i]; renderLoom(); }
+function shuffle(){
+  DATA.layers.forEach((L,i)=>{ if(!locked[i]) idx[i]=Math.floor(Math.random()*L.options.length); });
+  renderLoom();
+}
+function sentence(){ return DATA.layers.map((L,i)=>L.options[idx[i]]).join(', ')+'.'; }
+function starLoom(){ store.kept.unshift(sentence()); store.kept=store.kept.slice(0,40); save(); renderFavs(); }
+function unkeep(n){ store.kept.splice(n,1); save(); renderFavs(); }
+function renderFavs(){
+  const f=document.getElementById('favs');
+  const starredTheses = [];
+  DATA.schools.forEach((s,si)=>s.theses.forEach((t,ti)=>{ if(store.starred[si+'-'+ti]) starredTheses.push(t); }));
+  const rows = store.kept.map((s,n)=>`<div class="th"><p>${s}</p><div class="star on" onclick="unkeep(${n})">★</div></div>`).join('')
+    + starredTheses.map(t=>`<div class="th"><p>${t}</p><div class="star on">★</div></div>`).join('');
+  f.innerHTML = rows || '<div class="empty">Nothing kept yet. When one rings, keep it.</div>';
+}
+function toggleStar(si,ti){ const k=si+'-'+ti; store.starred[k]=!store.starred[k]; if(!store.starred[k]) delete store.starred[k]; save(); renderGallery(); renderFavs(); }
+function renderGallery(){
+  document.getElementById('gallery').innerHTML = DATA.schools.map((s,si)=>`
+   <h2 style="border:none;padding-top:10px">${s.school}</h2><div class="note">${s.note}</div>
+   ${s.theses.map((t,ti)=>`<div class="th"><p>${t}</p><div class="star ${store.starred[si+'-'+ti]?'on':''}" onclick="toggleStar(${si},${ti})">★</div></div>`).join('')}`).join('');
+}
+renderLoom(); renderFavs(); renderGallery();
+</script></body></html>
