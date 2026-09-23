@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Story Hunter — exploration B (split pane)</title>
+<style>
+  :root{
+    --sheet:#FFFFFF;
+    --ink:#000000;
+    --grid:#D8D8D8;
+    --head:#F1F1F1;
+    --accent:#F04A16;
+    --ghost:#8C8C8C;
+    --r1:#FDE4DB; --r2:#FAC5B2; --r3:#F79E7F; --r4:#F4744A; --r5:#F04A16;
+    --st-reviewed:#F1F1F1; --st-shortlisted:#FAC5B2; --st-archived:#E6E6E6;
+    --ease:cubic-bezier(0.2, 0, 0, 1);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size:13px; line-height:18px; font-weight:400;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink); background:var(--sheet);
+    overflow:hidden;
+  }
+  b,strong{ font-weight:400; }
+
+  .app{ height:100vh; display:flex; flex-direction:column; }
+
+  /* ── formula bar: one row of the grid ─────────────────────────── */
+  .fbar{ display:flex; height:19px; flex:none; }
+  .fbar .fx{
+    width:56px; flex:none; height:19px; padding:0 8px;
+    background:var(--head); color:var(--ghost);
+    border-right:1px solid var(--grid); border-bottom:1px solid var(--grid);
+  }
+  .fbar .fcontent{
+    flex:1; min-width:0; height:19px; padding:0 8px;
+    border-bottom:1px solid var(--grid);
+    white-space:nowrap; overflow:hidden;
+  }
+  .fbar .fcontent.ghost{ color:var(--ghost); }
+
+  /* ── main: sheet + dossier pane ───────────────────────────────── */
+  .main{ flex:1; min-height:0; display:flex; }
+  .sheetwrap{
+    flex:1; min-width:0; overflow:auto;
+    cursor:cell;
+    scroll-padding-top:19px; scroll-padding-left:56px;
+  }
+  table{ border-collapse:separate; border-spacing:0; table-layout:fixed; }
+  th,td{
+    height:19px; padding:0 8px;
+    border-right:1px solid var(--grid); border-bottom:1px solid var(--grid);
+    white-space:nowrap; overflow:hidden;
+    text-align:left; font-weight:400;
+    background:var(--sheet);
+  }
+  thead th{
+    position:sticky; top:0; z-index:4;
+    background:var(--head);
+  }
+  thead th.rownum{ z-index:5; }
+  thead th.eletter{ color:var(--ghost); }
+  td.rownum, th.rownum{
+    position:sticky; left:0; z-index:3;
+    background:var(--head); text-align:right;
+  }
+  tr.emptyrow td.rownum{ color:var(--ghost); }
+
+  td.num{ text-align:right; }
+  td.score{ color:var(--ghost); text-align:right; }
+
+  /* row hover: flat, instant */
+  tbody tr.hoverable:hover > td{ background:#FAFAFA; }
+  tbody tr.hoverable:hover > td.rownum{ background:var(--head); }
+
+  /* week bands: merged rows, accent text on white */
+  tr.band td{
+    color:var(--accent); background:var(--sheet);
+  }
+  tr.band td .bandlabel{ position:sticky; left:64px; display:inline-block; }
+
+  /* selected row while dossier open: its fill runs into the pane */
+  tbody tr.sel.sel td{ background:var(--sheet); }
+  tbody tr.sel.st-reviewed td{ background:var(--st-reviewed); }
+  tbody tr.sel.st-shortlisted td{ background:var(--st-shortlisted); }
+  tbody tr.sel.st-archived td{ background:var(--st-archived); }
+  tbody tr.sel td.rownum{ background:var(--head); color:var(--accent); }
+
+  /* status fills (after sel rules so they hold inside a selected row) */
+  td.status.st-reviewed{ background:var(--st-reviewed); }
+  td.status.st-shortlisted{ background:var(--st-shortlisted); }
+  td.status.st-archived{ background:var(--st-archived); color:var(--ghost); }
+
+  /* rating ramp fills (after hover + sel so the fill always wins) */
+  td.rate{ text-align:right; }
+  td.rate.r1{ background:var(--r1); }
+  td.rate.r2{ background:var(--r2); }
+  td.rate.r3{ background:var(--r3); }
+  td.rate.r4{ background:var(--r4); color:#FFFFFF; }
+  td.rate.r5{ background:var(--r5); color:#FFFFFF; }
+
+  /* comment corner triangle */
+  td.comments{ position:relative; text-align:right; }
+  td.comments .ctri{
+    position:absolute; top:0; right:0; width:0; height:0;
+    border-left:5px solid transparent; border-top:5px solid var(--accent);
+  }
+
+  /* the one cell cursor: 2px inset accent, 0ms */
+  td.cur{ outline:2px solid var(--accent); outline-offset:-2px; }
+
+  /* ── dossier: right split pane, grid-ruled ────────────────────── */
+  .pane{
+    width:0; flex:none; overflow:hidden;
+    transition:width 180ms var(--ease);
+    background:var(--sheet);
+  }
+  .pane.open{ width:480px; }
+  .pane-inner{
+    width:480px; height:100%;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .pane-spacer{ flex:none; overflow:hidden; }
+  .pane-fill{ flex:1; min-height:0; overflow:hidden; }
+  .rule{
+    height:19px; border-bottom:1px solid var(--grid);
+    border-left:1px solid var(--grid);
+  }
+  .pane-body{ flex:none; max-height:100%; overflow-y:auto; }
+  .ptitle{
+    min-height:57px; padding:8px 8px 8px 8px;
+    font-size:28px; line-height:34px;
+    border-bottom:1px solid var(--grid);
+    background:var(--sheet);
+    overflow:hidden;
+  }
+  .ptitle.st-reviewed{ background:var(--st-reviewed); }
+  .ptitle.st-shortlisted{ background:var(--st-shortlisted); }
+  .ptitle.st-archived{ background:var(--st-archived); }
+  .prow{ display:flex; border-left:1px solid var(--grid); }
+  .prow .plabel{
+    width:96px; flex:none; padding:0 8px; height:19px;
+    background:var(--head); color:var(--ghost);
+    border-right:1px solid var(--grid); border-bottom:1px solid var(--grid);
+    white-space:nowrap; overflow:hidden;
+  }
+  .prow .pval{
+    flex:1; min-width:0; padding:0 8px; height:19px;
+    border-bottom:1px solid var(--grid);
+    white-space:nowrap; overflow:hidden;
+  }
+  .prow .pval.score{ color:var(--ghost); }
+  .prow .pval.rate.r1{ background:var(--r1); }
+  .prow .pval.rate.r2{ background:var(--r2); }
+  .prow .pval.rate.r3{ background:var(--r3); }
+  .prow .pval.rate.r4{ background:var(--r4); color:#FFFFFF; }
+  .prow .pval.rate.r5{ background:var(--r5); color:#FFFFFF; }
+  .prow .pval.st-reviewed{ background:var(--st-reviewed); }
+  .prow .pval.st-shortlisted{ background:var(--st-shortlisted); }
+  .prow .pval.st-archived{ background:var(--st-archived); color:var(--ghost); }
+  .prow .pval.reason{ color:var(--ghost); }
+  .ppremise{
+    padding:8px; max-width:72ch;
+    font-style:italic;
+    border-left:1px solid var(--grid);
+    border-bottom:1px solid var(--grid);
+    min-height:57px;
+  }
+  .phint{
+    padding:0 8px; height:19px; color:var(--ghost);
+    border-left:1px solid var(--grid);
+    border-bottom:1px solid var(--grid);
+    white-space:nowrap; overflow:hidden;
+  }
+
+  /* ── sheet tabs row (visual only) ─────────────────────────────── */
+  .tabs{ display:flex; height:19px; flex:none; border-top:1px solid var(--grid); }
+  .tabs .tab{
+    padding:0 12px; height:19px;
+    border-right:1px solid var(--grid);
+    background:var(--head); color:var(--ghost);
+  }
+  .tabs .tab.active{ background:var(--sheet); color:var(--ink); }
+  .tabs .rest{ flex:1; background:var(--head); }
+
+  /* ── status bar ───────────────────────────────────────────────── */
+  .statusbar{
+    display:flex; height:19px; flex:none;
+    border-top:1px solid var(--grid);
+    padding:0 8px; color:var(--ghost);
+    white-space:nowrap; overflow:hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .pane{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="fbar">
+    <div class="fx">fx</div>
+    <div class="fcontent ghost" id="fcontent"></div>
+  </div>
+  <div class="main">
+    <div class="sheetwrap" id="wrap"></div>
+    <div class="pane" id="pane">
+      <div class="pane-inner">
+        <div class="pane-spacer" id="paneSpacer"></div>
+        <div class="pane-body" id="paneBody"></div>
+        <div class="pane-fill" id="paneFill"></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active">Stories</div>
+    <div class="tab">This week</div>
+    <div class="tab">Shortlist</div>
+    <div class="tab">Archive</div>
+    <div class="rest"></div>
+  </div>
+  <div class="statusbar" id="statusbar"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ── seed data (design/explorations/seed.json, verbatim) ─────────── */
+const WEEKS = [
+  { iso:'2026-W37', starts:'2026-09-07', count:18 },
+  { iso:'2026-W38', starts:'2026-09-14', count:21 },
+  { iso:'2026-W39', starts:'2026-09-21', count:12 }
+];
+
+/* [row, week, title, premise, publisher, region, tags, score, rating, status, archive_reason, comments, found] */
+const RAW = [
+["0401","2026-W37","Night School for Fishermen","On a shrinking lagoon, grandfathers learn export law after dark to save the morning catch","Kustbladet (.test)","Africa",["migration","borders"],52,5,"new",null,2,"2026-09-07"],
+["0402","2026-W37","The Last Switchboard","A mountain county keeps a human phone exchange alive because the valley eats cell signal","The Chinook Review (.test)","South Asia",["climate","housing","migration"],57,null,"new",null,0,"2026-09-07"],
+["0403","2026-W37","A Ferry Runs on Sundays Only","Two islands share one priest, one nurse, and one boat, and the schedule is the social contract","The Meridian Post (.test)","Oceania",["infrastructure","sport"],83,3,"reviewed",null,1,"2026-09-07"],
+["0404","2026-W37","The Apricot Futures Club","Teenage traders in a drought valley invented a fruit futures market on a whiteboard","The Chinook Review (.test)","Africa",["craft","food","infrastructure"],54,3,"reviewed",null,0,"2026-09-07"],
+["0405","2026-W37","Church of the Spare Parts","A congregation that rebuilds flood-ruined motorbikes as liturgy","Harbor Ledger (.test)","North America",["language","work","food"],75,3,"archived","too_thin",3,"2026-09-07"],
+["0406","2026-W37","The Women Who Map the Caves","A sisterhood of surveyors keeps the only maps of a karst labyrinth the state forgot","The Chinook Review (.test)","Oceania",["ritual","food","climate"],70,null,"new",null,0,"2026-09-07"],
+["0407","2026-W37","Checkpoint Bakery","A bread oven that serves both sides of a frozen border, four meters apart","The Chinook Review (.test)","North America",["faith","language","craft"],63,4,"reviewed",null,0,"2026-09-07"],
+["0408","2026-W37","The Town That Votes on Weather","An alpine commune votes each spring on whether to seed the clouds","The Causeway Times (.test)","South America",["faith"],82,3,"new",null,1,"2026-09-07"],
+["0409","2026-W37","Karaoke for the Deported","A bar on the frontier where returnees sing the songs of cities they were expelled from","Mokuli Star (.test)","Southeast Asia",["infrastructure","faith","climate"],96,4,"reviewed",null,0,"2026-09-07"],
+["0410","2026-W37","The Village That Rents Its Silence","A hamlet outside Ghent charges film crews for total quiet, and the noise of success is splitting it","The Meridian Post (.test)","Central Asia",["water","borders"],69,1,"archived","timing",0,"2026-09-07"],
+["0411","2026-W37","Night School for Fishermen II","On a shrinking lagoon, grandfathers learn export law after dark to save the morning catch","Palta Noticias (.test)","Central Asia",["work"],85,3,"reviewed",null,0,"2026-09-07"],
+["0412","2026-W37","The Last Switchboard II","A mountain county keeps a human phone exchange alive because the valley eats cell signal","Kustbladet (.test)","Central Asia",["housing"],86,null,"new",null,0,"2026-09-07"],
+["0413","2026-W37","A Ferry Runs on Sundays Only II","Two islands share one priest, one nurse, and one boat, and the schedule is the social contract","Delta Weekly (.test)","South Asia",["climate","migration"],47,5,"new",null,3,"2026-09-07"],
+["0414","2026-W37","The Apricot Futures Club II","Teenage traders in a drought valley invented a fruit futures market on a whiteboard","Kustbladet (.test)","South America",["water"],91,2,"archived","too_thin",1,"2026-09-07"],
+["0415","2026-W37","Church of the Spare Parts II","A congregation that rebuilds flood-ruined motorbikes as liturgy","Alto Diario (.test)","South Asia",["water","borders"],47,null,"new",null,1,"2026-09-07"],
+["0416","2026-W37","The Women Who Map the Caves II","A sisterhood of surveyors keeps the only maps of a karst labyrinth the state forgot","The Meridian Post (.test)","East Asia",["craft","islands"],41,2,"archived","not_a_story",0,"2026-09-07"],
+["0417","2026-W37","Checkpoint Bakery II","A bread oven that serves both sides of a frozen border, four meters apart","The Causeway Times (.test)","Europe",["food","climate","ritual"],88,1,"reviewed",null,3,"2026-09-07"],
+["0418","2026-W37","The Town That Votes on Weather II","An alpine commune votes each spring on whether to seed the clouds","Kustbladet (.test)","South Asia",["work","food"],61,2,"archived","too_thin",0,"2026-09-07"],
+["0419","2026-W38","Karaoke for the Deported","A bar on the frontier where returnees sing the songs of cities they were expelled from","Alto Diario (.test)","South Asia",["work"],62,4,"reviewed",null,0,"2026-09-14"],
+["0420","2026-W38","The Village That Rents Its Silence","A hamlet outside Ghent charges film crews for total quiet, and the noise of success is splitting it","The Chinook Review (.test)","North America",["music"],96,4,"new",null,3,"2026-09-14"],
+["0421","2026-W38","Night School for Fishermen","On a shrinking lagoon, grandfathers learn export law after dark to save the morning catch","Harbor Ledger (.test)","South Asia",["borders","faith"],97,5,"reviewed",null,1,"2026-09-14"],
+["0422","2026-W38","The Last Switchboard","A mountain county keeps a human phone exchange alive because the valley eats cell signal","Harbor Ledger (.test)","Europe",["housing","faith","migration"],96,2,"new",null,1,"2026-09-14"],
+["0423","2026-W38","A Ferry Runs on Sundays Only","Two islands share one priest, one nurse, and one boat, and the schedule is the social contract","The Meridian Post (.test)","Middle East",["migration","housing","water"],47,3,"archived","not_a_story",0,"2026-09-14"],
+["0424","2026-W38","The Apricot Futures Club","Teenage traders in a drought valley invented a fruit futures market on a whiteboard","Delta Weekly (.test)","East Asia",["language","islands"],69,null,"new",null,0,"2026-09-14"],
+["0425","2026-W38","Church of the Spare Parts","A congregation that rebuilds flood-ruined motorbikes as liturgy","The Meridian Post (.test)","South Asia",["water"],70,1,"shortlisted",null,0,"2026-09-14"],
+["0426","2026-W38","The Women Who Map the Caves","A sisterhood of surveyors keeps the only maps of a karst labyrinth the state forgot","The Chinook Review (.test)","Oceania",["music"],40,null,"reviewed",null,0,"2026-09-14"],
+["0427","2026-W38","Checkpoint Bakery","A bread oven that serves both sides of a frozen border, four meters apart","Alto Diario (.test)","North America",["sport","climate"],66,5,"shortlisted",null,0,"2026-09-14"],
+["0428","2026-W38","The Town That Votes on Weather","An alpine commune votes each spring on whether to seed the clouds","Delta Weekly (.test)","South Asia",["food"],61,null,"shortlisted",null,1,"2026-09-14"],
+["0429","2026-W38","Karaoke for the Deported II","A bar on the frontier where returnees sing the songs of cities they were expelled from","Mokuli Star (.test)","Africa",["housing"],40,3,"reviewed",null,0,"2026-09-14"],
+["0430","2026-W38","The Village That Rents Its Silence II","A hamlet outside Ghent charges film crews for total quiet, and the noise of success is splitting it","The Causeway Times (.test)","South America",["food","borders"],68,3,"new",null,0,"2026-09-14"],
+["0431","2026-W38","Night School for Fishermen II","On a shrinking lagoon, grandfathers learn export law after dark to save the morning catch","The Fen Gazette (.test)","Central Asia",["music","water"],88,5,"new",null,0,"2026-09-14"],
+["0432","2026-W38","The Last Switchboard II","A mountain county keeps a human phone exchange alive because the valley eats cell signal","Mokuli Star (.test)","North America",["work","ritual"],55,4,"new",null,0,"2026-09-14"],
+["0433","2026-W38","A Ferry Runs on Sundays Only II","Two islands share one priest, one nurse, and one boat, and the schedule is the social contract","Palta Noticias (.test)","Central Asia",["borders","food"],53,4,"new",null,0,"2026-09-14"],
+["0434","2026-W38","The Apricot Futures Club II","Teenage traders in a drought valley invented a fruit futures market on a whiteboard","Mokuli Star (.test)","Southeast Asia",["craft","migration"],44,1,"new",null,2,"2026-09-14"],
+["0435","2026-W38","Church of the Spare Parts II","A congregation that rebuilds flood-ruined motorbikes as liturgy","Delta Weekly (.test)","Middle East",["music","housing"],83,3,"shortlisted",null,3,"2026-09-14"],
+["0436","2026-W38","The Women Who Map the Caves II","A sisterhood of surveyors keeps the only maps of a karst labyrinth the state forgot","The Causeway Times (.test)","East Asia",["sport","faith","borders"],88,3,"new",null,3,"2026-09-14"],
+["0437","2026-W38","Checkpoint Bakery II","A bread oven that serves both sides of a frozen border, four meters apart","Delta Weekly (.test)","Southeast Asia",["food","craft"],52,null,"new",null,0,"2026-09-14"],
+["0438","2026-W38","The Town That Votes on Weather II","An alpine commune votes each spring on whether to seed the clouds","Palta Noticias (.test)","Central Asia",["sport"],91,2,"archived","timing",2,"2026-09-14"],
+["0439","2026-W38","Karaoke for the Deported II","A bar on the frontier where returnees sing the songs of cities they were expelled from","Delta Weekly (.test)","Southeast Asia",["music","islands"],75,null,"new",null,0,"2026-09-14"],
+["0440","2026-W39","The Town That Fired Everyone","This Mexican Town Fired Every Politician 15 Years Ago","Field verification","Mexico",["resilience"],82,4,"shortlisted",null,0,"2026-09-21"],
+["0441","2026-W39","The Island That Forges China's Bombs Into Kitchen Knives","China Fired 470,000 Bombs at This Island. They Made Knives.","Field verification","Taiwan",["resilience"],80,null,"reviewed",null,1,"2026-09-21"],
+["0442","2026-W39","The Crab They Named After ISIS Made Them Rich","Fishermen Named This Crab \"ISIS.\" Then It Made Them Rich.","Field verification","Tunisia",["absurd"],86,3,"new",null,1,"2026-09-21"],
+["0443","2026-W39","The Donkey Wears Couture","Why This Town Puts Its Donkeys in Costumes Every Easter","Field verification","Colombia",["absurd"],78,null,"reviewed",null,0,"2026-09-21"],
+["0444","2026-W39","The Book Fair of a Country That Doesn't Exist","Inside the Biggest Book Festival in a Country That Doesn't Exist","Field verification","Somaliland (unrecognized), Somalia de jure",["joy"],79,null,"new",null,0,"2026-09-21"],
+["0445","2026-W39","The Town That Built Its Own Sun","This Norwegian Town Didn't See the Sun for 5 Months. So They Built One.","Field verification","Norway",["joy"],97,5,"new",null,1,"2026-09-21"],
+["0446","2026-W39","The Cafe Street the Government Cannot Kill","Why Vietnam Can't Shut Down the World's Most Dangerous Cafe","Field verification","Vietnam",["absurd"],87,2,"archived","not_a_story",1,"2026-09-21"],
+["0447","2026-W39","The World's Highest Ski Resort Has No Snow","Bolivia Built a Ski Resort at 17,000 Feet. Then the Glacier Vanished.","Field verification","Bolivia",["loss"],92,null,"shortlisted",null,1,"2026-09-21"],
+["0448","2026-W39","The Last Bang Bang Men of the Stair City","The Last Porters of the World's Most Vertical City","Field verification","China",["loss"],88,2,"new",null,0,"2026-09-21"],
+["0449","2026-W39","The City That Lost Its Vultures","Why a Painkiller Broke a 3,000-Year-Old Funeral","Field verification","India",["loss"],82,2,"archived","too_thin",2,"2026-09-21"],
+["0450","2026-W39","The Town America Forgot to Attach","The US Town That Canada Can Turn Off","Field verification","United States",["connection"],95,5,"new",null,3,"2026-09-21"],
+["0451","2026-W39","The Water Court That Meets Every Thursday on the Cathedral Steps","The 1,000-Year-Old Court With No Lawyers, No Paper, and No Appeals","Field verification","Spain",["connection"],83,4,"new",null,1,"2026-09-21"]
+];
+
+const STORIES = RAW.map(r => ({
+  row:r[0], week:r[1], title:r[2], premise:r[3], publisher:r[4], region:r[5],
+  tags:r[6], score:r[7], rating:r[8], status:r[9], reason:r[10], comments:r[11], found:r[12]
+}));
+
+/* ── columns: A..K data, then empty letters to the viewport edge ── */
+const COLS = [
+  { k:'week',      label:'Week',      w:64,  letter:'A' },
+  { k:'title',     label:'Title',     w:320, letter:'B' },
+  { k:'premise',   label:'Premise',   w:380, letter:'C' },
+  { k:'publisher', label:'Publisher', w:140, letter:'D' },
+  { k:'region',    label:'Region',    w:110, letter:'E' },
+  { k:'tags',      label:'Tags',      w:150, letter:'F' },
+  { k:'score',     label:'Score',     w:60,  letter:'G' },
+  { k:'rating',    label:'Rating',    w:60,  letter:'H' },
+  { k:'status',    label:'Status',    w:96,  letter:'I' },
+  { k:'comments',  label:'Comments',  w:56,  letter:'J' },
+  { k:'found',     label:'Found',     w:88,  letter:'K' }
+];
+'LMNOPQRS'.split('').forEach(l => COLS.push({ k:null, label:l, w:100, letter:l }));
+
+const EMPTY_ROWS = 40;
+const ROWNUM_W = 56;
+
+function weekNo(iso){ return iso.slice(6); }
+function fmtDate(iso){
+  const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [y,mo,d] = iso.split('-');
+  return `${parseInt(d,10)} ${m[parseInt(mo,10)-1]} ${y}`;
+}
+
+/* ── build the sheet ─────────────────────────────────────────────── */
+const wrap = document.getElementById('wrap');
+const table = document.createElement('table');
+table.style.width = (ROWNUM_W + COLS.reduce((s,c)=>s+c.w,0)) + 'px';
+
+const colgroup = document.createElement('colgroup');
+[ROWNUM_W, ...COLS.map(c=>c.w)].forEach(w => {
+  const col = document.createElement('col');
+  col.style.width = w + 'px';
+  colgroup.appendChild(col);
+});
+table.appendChild(colgroup);
+
+const thead = document.createElement('thead');
+const hr = document.createElement('tr');
+const corner = document.createElement('th');
+corner.className = 'rownum';
+corner.textContent = '#';
+hr.appendChild(corner);
+COLS.forEach(c => {
+  const th = document.createElement('th');
+  th.textContent = c.label;
+  if (!c.k) th.className = 'eletter';
+  hr.appendChild(th);
+});
+thead.appendChild(hr);
+table.appendChild(thead);
+
+const tbody = document.createElement('tbody');
+const navRows = []; /* {type:'story'|'empty', story?, rownum, tr, tds[]} */
+let firstBand39 = null;
+
+function cellText(s, k){
+  switch(k){
+    case 'week': return 'W' + weekNo(s.week);
+    case 'title': return s.title;
+    case 'premise': return s.premise;
+    case 'publisher': return s.publisher;
+    case 'region': return s.region;
+    case 'tags': return s.tags.join(', ');
+    case 'score': return String(s.score);
+    case 'rating': return s.rating == null ? '' : String(s.rating);
+    case 'status': return s.status;
+    case 'comments': return s.comments > 0 ? String(s.comments) : '';
+    case 'found': return s.found;
+    default: return '';
+  }
+}
+
+function paintCell(td, s, k){
+  td.textContent = cellText(s, k);
+  td.className = td.className.replace(/\br[1-5]\b|\bst-\w+\b/g, '').trim();
+  if (k === 'rating' && s.rating != null) td.classList.add('r' + s.rating);
+  if (k === 'status' && s.status !== 'new') td.classList.add('st-' + s.status);
+  if (k === 'comments'){
+    if (s.comments > 0){
+      const t = document.createElement('span');
+      t.className = 'ctri';
+      td.appendChild(t);
+    }
+  }
+}
+
+WEEKS.forEach(wk => {
+  const band = document.createElement('tr');
+  band.className = 'band';
+  const td = document.createElement('td');
+  td.colSpan = COLS.length + 1;
+  const span = document.createElement('span');
+  span.className = 'bandlabel';
+  span.textContent = `Week ${weekNo(wk.iso)} · ${fmtDate(wk.starts)} · ${wk.count} new`;
+  td.appendChild(span);
+  band.appendChild(td);
+  tbody.appendChild(band);
+  if (wk.iso === '2026-W39') firstBand39 = band;
+
+  STORIES.filter(s => s.week === wk.iso).forEach(s => {
+    const tr = document.createElement('tr');
+    tr.className = 'hoverable';
+    const nav = { type:'story', story:s, rownum:s.row, tr, tds:[] };
+    const rn = document.createElement('td');
+    rn.className = 'rownum';
+    rn.textContent = s.row;
+    tr.appendChild(rn);
+    COLS.forEach((c, ci) => {
+      const td = document.createElement('td');
+      td.dataset.r = navRows.length;
+      td.dataset.c = ci;
+      if (c.k === 'score') td.classList.add('score');
+      if (c.k === 'rating') td.classList.add('rate');
+      if (c.k === 'status') td.classList.add('status');
+      if (c.k === 'comments') td.classList.add('comments');
+      if (c.k === 'found' || c.k === 'week') td.classList.add('num');
+      if (c.k) paintCell(td, s, c.k);
+      tr.appendChild(td);
+      nav.tds.push(td);
+    });
+    s._tr = tr;
+    s._nav = nav;
+    tbody.appendChild(tr);
+    navRows.push(nav);
+  });
+});
+
+/* endless sheet: empty rows below content */
+let nextNum = 452;
+for (let i = 0; i < EMPTY_ROWS; i++){
+  const tr = document.createElement('tr');
+  tr.className = 'hoverable emptyrow';
+  const rownum = String(nextNum++).padStart(4, '0');
+  const nav = { type:'empty', rownum, tr, tds:[] };
+  const rn = document.createElement('td');
+  rn.className = 'rownum';
+  rn.textContent = rownum;
+  tr.appendChild(rn);
+  COLS.forEach((c, ci) => {
+    const td = document.createElement('td');
+    td.dataset.r = navRows.length;
+    td.dataset.c = ci;
+    tr.appendChild(td);
+    nav.tds.push(td);
+  });
+  tbody.appendChild(tr);
+  navRows.push(nav);
+}
+
+table.appendChild(tbody);
+wrap.appendChild(table);
+
+/* ── state ───────────────────────────────────────────────────────── */
+const state = { cur:null /* {r,c} */, open:null /* story */ };
+const storyList = STORIES; /* seed order = ledger order */
+
+const fcontent = document.getElementById('fcontent');
+const statusbar = document.getElementById('statusbar');
+const pane = document.getElementById('pane');
+const paneSpacer = document.getElementById('paneSpacer');
+const paneBody = document.getElementById('paneBody');
+const paneFill = document.getElementById('paneFill');
+
+const w39 = WEEKS.find(w => w.iso === '2026-W39');
+
+/* ── the living formula bar ──────────────────────────────────────── */
+let flashTimer = null;
+
+function cellRef(nav, ci){
+  return COLS[ci].letter + nav.rownum;
+}
+
+function selectionText(){
+  if (!state.cur) return null;
+  const nav = navRows[state.cur.r];
+  const col = COLS[state.cur.c];
+  const ref = cellRef(nav, state.cur.c);
+  if (nav.type === 'story' && col.k){
+    const v = cellText(nav.story, col.k);
+    if (v === '') return ref;
+    return `${ref} · ${col.label}: ${v}`;
+  }
+  return ref;
+}
+
+function renderFormulaBar(){
+  if (flashTimer) return; /* a formula is speaking; it reverts on its own */
+  const sel = selectionText();
+  if (sel == null){
+    fcontent.classList.add('ghost');
+    fcontent.textContent = `=HUNT(week 39) → ${w39.count} stories`;
+  } else {
+    fcontent.classList.remove('ghost');
+    fcontent.textContent = sel;
+  }
+}
+
+function flash(formula){
+  if (flashTimer) clearTimeout(flashTimer);
+  fcontent.classList.remove('ghost');
+  fcontent.textContent = formula;
+  flashTimer = setTimeout(() => {
+    flashTimer = null;
+    renderFormulaBar();
+  }, 1400);
+}
+
+/* ── status bar: live counts ─────────────────────────────────────── */
+function renderStatusBar(){
+  const shortlisted = storyList.filter(s => s.status === 'shortlisted').length;
+  const archived = storyList.filter(s => s.status === 'archived').length;
+  statusbar.textContent =
+    `${storyList.length} stories · ${WEEKS.length} weeks · ${shortlisted} shortlisted · ${archived} archived`;
+}
+
+/* ── cell cursor ─────────────────────────────────────────────────── */
+function curTd(){
+  if (!state.cur) return null;
+  return navRows[state.cur.r].tds[state.cur.c];
+}
+
+function setCursor(r, c){
+  const prev = curTd();
+  if (prev) prev.classList.remove('cur');
+  state.cur = { r, c };
+  const td = curTd();
+  td.classList.add('cur');
+  td.scrollIntoView({ block:'nearest', inline:'nearest' });
+  renderFormulaBar();
+}
+
+function moveCursor(dr, dc){
+  if (!state.cur){
+    setCursor(storyList.find(s => s.week === '2026-W39')._nav === undefined ? 0
+      : navRows.indexOf(storyList.find(s => s.week === '2026-W39')._nav), 0);
+    return;
+  }
+  const r = Math.max(0, Math.min(navRows.length - 1, state.cur.r + dr));
+  const c = Math.max(0, Math.min(COLS.length - 1, state.cur.c + dc));
+  setCursor(r, c);
+  if (state.open && dr !== 0){
+    const nav = navRows[r];
+    if (nav.type === 'story' && nav.story !== state.open) openStory(nav.story, false);
+  }
+}
+
+/* ── dossier pane (variant B: right split pane, attached to its row) */
+function ruleRows(n){
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i++){
+    const d = document.createElement('div');
+    d.className = 'rule';
+    frag.appendChild(d);
+  }
+  return frag;
+}
+paneFill.appendChild(ruleRows(60));
+
+function markSelectedRow(){
+  storyList.forEach(s => {
+    s._tr.classList.remove('sel','st-reviewed','st-shortlisted','st-archived','st-new');
+  });
+  if (state.open){
+    const s = state.open;
+    s._tr.classList.add('sel');
+    if (s.status !== 'new') s._tr.classList.add('st-' + s.status);
+  }
+}
+
+function prow(label, value, valClass){
+  const row = document.createElement('div');
+  row.className = 'prow';
+  const l = document.createElement('div');
+  l.className = 'plabel';
+  l.textContent = label;
+  const v = document.createElement('div');
+  v.className = 'pval' + (valClass ? ' ' + valClass : '');
+  v.textContent = value;
+  row.appendChild(l); row.appendChild(v);
+  return row;
+}
+
+function renderPane(){
+  const s = state.open;
+  if (!s) return;
+  paneBody.textContent = '';
+
+  const title = document.createElement('div');
+  title.className = 'ptitle' + (s.status !== 'new' ? ' st-' + s.status : '');
+  title.textContent = s.title;
+  paneBody.appendChild(title);
+
+  const prem = document.createElement('div');
+  prem.className = 'ppremise';
+  prem.textContent = s.premise;
+  paneBody.appendChild(prem);
+
+  paneBody.appendChild(prow('week', 'W' + weekNo(s.week) + ', found ' + fmtDate(s.found)));
+  paneBody.appendChild(prow('row', s.row));
+  paneBody.appendChild(prow('publisher', s.publisher));
+  paneBody.appendChild(prow('region', s.region));
+  paneBody.appendChild(prow('tags', s.tags.join(', ')));
+  paneBody.appendChild(prow('score', String(s.score), 'score'));
+  paneBody.appendChild(prow('rating', s.rating == null ? '' : String(s.rating),
+    'rate' + (s.rating != null ? ' r' + s.rating : '')));
+  paneBody.appendChild(prow('status', s.status, s.status !== 'new' ? 'st-' + s.status : ''));
+  if (s.status === 'archived' && s.reason){
+    paneBody.appendChild(prow('reason', s.reason, 'reason'));
+  }
+  paneBody.appendChild(prow('comments', s.comments > 0 ? String(s.comments) : 'none'));
+
+  const hint = document.createElement('div');
+  hint.className = 'phint';
+  hint.textContent = 'J/K walk stories. 1-5 rates. Esc closes.';
+  paneBody.appendChild(hint);
+}
+
+function alignPane(){
+  if (!state.open) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const rowRect = state.open._tr.getBoundingClientRect();
+  let y = rowRect.top - wrapRect.top;
+  y = Math.max(0, Math.min(y, wrap.clientHeight - 280));
+  paneSpacer.textContent = '';
+  paneSpacer.style.height = y + 'px';
+  paneSpacer.appendChild(ruleRows(Math.ceil(y / 19)));
+}
+
+function openStory(s, moveCursorToo){
+  state.open = s;
+  if (moveCursorToo !== false){
+    const r = navRows.indexOf(s._nav);
+    const c = state.cur ? state.cur.c : 1;
+    setCursor(r, c);
+  }
+  markSelectedRow();
+  renderPane();
+  pane.classList.add('open');
+  /* seat the row four grid rows below the header, then attach the pane */
+  wrap.scrollTop = s._tr.offsetTop - 19 * 4;
+  alignPane();
+  flash(`=OPEN(C${s.row})`);
+}
+
+function closePane(){
+  if (!state.open) return;
+  flash(`=CLOSE(C${state.open.row})`);
+  state.open = null;
+  markSelectedRow();
+  pane.classList.remove('open');
+}
+
+function walk(delta){
+  if (!state.open) return;
+  const i = storyList.indexOf(state.open);
+  const next = storyList[i + delta];
+  if (next) openStory(next);
+}
+
+/* ── actions that write themselves as formulas ───────────────────── */
+function repaintStoryRow(s){
+  COLS.forEach((c, ci) => {
+    if (c.k === 'rating' || c.k === 'status' || c.k === 'comments'){
+      s._nav.tds[ci].textContent = '';
+      paintCell(s._nav.tds[ci], s, c.k);
+    }
+  });
+  markSelectedRow();
+}
+
+function cursorStory(){
+  if (state.open) return state.open;
+  if (!state.cur) return null;
+  const nav = navRows[state.cur.r];
+  return nav.type === 'story' ? nav.story : null;
+}
+
+function rate(n){
+  const s = cursorStory();
+  if (!s) return;
+  s.rating = n;
+  repaintStoryRow(s);
+  if (state.open === s) renderPane();
+  flash(`=RATE(C${s.row}, ${n})`);
+}
+
+function shortlist(){
+  const s = cursorStory();
+  if (!s) return;
+  s.status = 'shortlisted';
+  s.reason = null;
+  repaintStoryRow(s);
+  if (state.open === s) renderPane();
+  renderStatusBar();
+  flash(`=SHORTLIST(C${s.row})`);
+}
+
+function archive(){
+  const s = cursorStory();
+  if (!s) return;
+  s.status = 'archived';
+  s.reason = s.reason || 'too_thin';
+  repaintStoryRow(s);
+  if (state.open === s) renderPane();
+  renderStatusBar();
+  flash(`=ARCHIVE(C${s.row}, "${s.reason}")`);
+}
+
+/* ── input ───────────────────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  switch(e.key){
+    case 'ArrowUp':    e.preventDefault(); moveCursor(-1, 0); break;
+    case 'ArrowDown':  e.preventDefault(); moveCursor(1, 0);  break;
+    case 'ArrowLeft':  e.preventDefault(); moveCursor(0, -1); break;
+    case 'ArrowRight': e.preventDefault(); moveCursor(0, 1);  break;
+    case 'Enter': {
+      e.preventDefault();
+      const s = state.cur && navRows[state.cur.r].type === 'story'
+        ? navRows[state.cur.r].story : null;
+      if (s) openStory(s, false);
+      break;
+    }
+    case 'Escape':
+      if (state.open) closePane();
+      else if (state.cur){
+        curTd().classList.remove('cur');
+        state.cur = null;
+        renderFormulaBar();
+      }
+      break;
+    case 'j': case 'J': walk(1);  break;
+    case 'k': case 'K': walk(-1); break;
+    case '1': case '2': case '3': case '4': case '5':
+      rate(parseInt(e.key, 10)); break;
+    case 's': case 'S': shortlist(); break;
+    case 'x': case 'X': archive(); break;
+  }
+});
+
+wrap.addEventListener('click', e => {
+  const td = e.target.closest('td');
+  if (!td || td.dataset.r === undefined) return;
+  setCursor(parseInt(td.dataset.r, 10), parseInt(td.dataset.c, 10));
+});
+
+wrap.addEventListener('dblclick', e => {
+  const td = e.target.closest('td');
+  if (!td || td.dataset.r === undefined) return;
+  const nav = navRows[parseInt(td.dataset.r, 10)];
+  if (nav.type === 'story') openStory(nav.story, false);
+});
+
+/* the pane stays attached to its row while the sheet scrolls */
+wrap.addEventListener('scroll', alignPane);
+window.addEventListener('resize', alignPane);
+
+/* ── boot: land on the latest hunt ───────────────────────────────── */
+renderFormulaBar();
+renderStatusBar();
+wrap.scrollTop = firstBand39.offsetTop - 19 * 2;
+</script>
+</body>
+</html>

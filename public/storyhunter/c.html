@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Story Hunter, exploration C: the record sheet</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:13px;font-weight:400;color:#000;background:#FFFFFF;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  /* ---- formula bar: the top grid row ---- */
+  #fx{display:flex;height:20px;flex:none;border-bottom:1px solid #D8D8D8;background:#FFFFFF}
+  #fx .fxlab{
+    width:56px;flex:none;background:#F1F1F1;color:#8C8C8C;font-style:italic;
+    text-align:right;padding:0 8px;line-height:19px;border-right:1px solid #D8D8D8;
+  }
+  #fxc{flex:1;line-height:19px;padding:0 8px;white-space:nowrap;overflow:hidden}
+  .ghost{color:#8C8C8C}
+  .ghi{color:#8C8C8C;font-style:italic}
+  .rcell{
+    display:inline-block;border:1px solid #D8D8D8;background:#F1F1F1;
+    padding:0 8px;height:19px;line-height:17px;vertical-align:top;
+    margin-left:-1px;cursor:pointer;
+  }
+  .rcell:hover{background:#FAFAFA}
+  .rcell .num{font-variant-numeric:tabular-nums}
+  /* ---- the sheet ---- */
+  #sh{flex:1;overflow:auto;cursor:cell;background:#FFFFFF}
+  table{border-collapse:separate;border-spacing:0;table-layout:fixed;background:#FFFFFF}
+  td,th{
+    border-right:1px solid #D8D8D8;border-bottom:1px solid #D8D8D8;
+    padding:0;vertical-align:top;text-align:left;font-weight:400;overflow:hidden;
+  }
+  .ci{
+    padding:0 8px;height:18px;line-height:18px;
+    white-space:nowrap;overflow:hidden;position:relative;
+  }
+  thead th{position:sticky;top:0;background:#F1F1F1;z-index:2}
+  td.rn,th.rn{position:sticky;left:0;background:#F1F1F1;z-index:1}
+  thead th.rn{z-index:3}
+  .rn .ci{text-align:right}
+  .num{font-variant-numeric:tabular-nums}
+  .right .ci{text-align:right}
+  .it .ci{font-style:italic}
+  .gh{color:#8C8C8C}
+  .cl{color:#8C8C8C}
+  .cl .ci{text-align:center}
+  .bandc .ci{color:#F04A16}
+  /* row hover: flat fill on plain cells only; meaning fills keep their color */
+  #sh tbody tr:hover td.pl{background:#FAFAFA}
+  /* rating ramp: single hue, fills */
+  td.rt1{background:#FDE4DB}
+  td.rt2{background:#FAC5B2}
+  td.rt3{background:#F79E7F}
+  td.rt4{background:#F4744A;color:#FFFFFF}
+  td.rt5{background:#F04A16;color:#FFFFFF}
+  /* status fills */
+  td.st-rev{background:#F1F1F1}
+  td.st-short{background:#FAC5B2}
+  td.st-arch{background:#E6E6E6;color:#8C8C8C}
+  /* cell cursor: 2px inset accent, 0ms */
+  td.cur{outline:2px solid #F04A16;outline-offset:-2px}
+  /* comment corner triangle */
+  .tri{
+    position:absolute;top:0;right:0;width:0;height:0;
+    border-top:5px solid #F04A16;border-left:5px solid transparent;
+  }
+  /* record sheet pieces */
+  td.lab{background:#F1F1F1}
+  td.back{color:#F04A16;cursor:pointer}
+  tr.bigrow .big .ci{height:34px;line-height:34px;font-size:28px}
+  .wrap .ci{height:auto;min-height:18px;white-space:normal;max-width:72ch}
+  #cmtin{
+    font-family:inherit;font-size:13px;font-weight:400;color:#000;
+    border:0;outline:0;width:100%;height:18px;line-height:18px;background:transparent;
+  }
+  #cmtin::placeholder{color:#8C8C8C;font-style:italic}
+  /* archive as collapse: the row folds upward, 180ms, the only easing */
+  tr.archrow .ci{transition:height 180ms cubic-bezier(0.2,0,0,1)}
+  tr.collapsing .ci{height:0}
+  @media (prefers-reduced-motion:reduce){
+    tr.archrow .ci{transition:none}
+  }
+  /* ---- sheet tabs ---- */
+  #tabs{display:flex;height:20px;flex:none;border-top:1px solid #D8D8D8;background:#F1F1F1}
+  .tabpad{width:56px;flex:none;border-right:1px solid #D8D8D8}
+  .tab{
+    padding:0 12px;line-height:19px;border-right:1px solid #D8D8D8;
+    color:#8C8C8C;cursor:pointer;white-space:nowrap;
+  }
+  .tab.on{background:#FFFFFF;color:#000}
+  .tab.rec{background:#FFFFFF;color:#F04A16}
+  /* ---- status bar ---- */
+  #status{
+    display:flex;height:20px;flex:none;border-top:1px solid #D8D8D8;
+    background:#F1F1F1;color:#8C8C8C;line-height:19px;
+    font-variant-numeric:tabular-nums;
+  }
+  #stL{flex:1;padding:0 8px;white-space:nowrap;overflow:hidden}
+  #stR{padding:0 8px;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div id="fx"><span class="fxlab">fx</span><span id="fxc"></span></div>
+<div id="sh"></div>
+<div id="tabs"></div>
+<div id="status"><span id="stL"></span><span id="stR"></span></div>
+
+<script>
+/* ---------------- seed data (faithful to seed.json) ---------------- */
+var P={
+ f:"On a shrinking lagoon, grandfathers learn export law after dark to save the morning catch",
+ s:"A mountain county keeps a human phone exchange alive because the valley eats cell signal",
+ y:"Two islands share one priest, one nurse, and one boat, and the schedule is the social contract",
+ a:"Teenage traders in a drought valley invented a fruit futures market on a whiteboard",
+ c:"A congregation that rebuilds flood-ruined motorbikes as liturgy",
+ w:"A sisterhood of surveyors keeps the only maps of a karst labyrinth the state forgot",
+ b:"A bread oven that serves both sides of a frozen border, four meters apart",
+ t:"An alpine commune votes each spring on whether to seed the clouds",
+ k:"A bar on the frontier where returnees sing the songs of cities they were expelled from",
+ v:"A hamlet outside Ghent charges film crews for total quiet, and the noise of success is splitting it"
+};
+var WEEKS=[
+ {n:37,iso:"2026-W37",starts:"2026-09-07",count:18},
+ {n:38,iso:"2026-W38",starts:"2026-09-14",count:21},
+ {n:39,iso:"2026-W39",starts:"2026-09-21",count:12}
+];
+var FOUND={37:"2026-09-07",38:"2026-09-14",39:"2026-09-21"};
+/* [id, wk, title, premise(1-char key or full text), publisher, region, tags, score, rating, status, reason, comments] */
+var T=[
+[401,37,"Night School for Fishermen","f","Kustbladet (.test)","Africa","migration, borders",52,5,"new",null,2],
+[402,37,"The Last Switchboard","s","The Chinook Review (.test)","South Asia","climate, housing, migration",57,null,"new",null,0],
+[403,37,"A Ferry Runs on Sundays Only","y","The Meridian Post (.test)","Oceania","infrastructure, sport",83,3,"reviewed",null,1],
+[404,37,"The Apricot Futures Club","a","The Chinook Review (.test)","Africa","craft, food, infrastructure",54,3,"reviewed",null,0],
+[405,37,"Church of the Spare Parts","c","Harbor Ledger (.test)","North America","language, work, food",75,3,"archived","too_thin",3],
+[406,37,"The Women Who Map the Caves","w","The Chinook Review (.test)","Oceania","ritual, food, climate",70,null,"new",null,0],
+[407,37,"Checkpoint Bakery","b","The Chinook Review (.test)","North America","faith, language, craft",63,4,"reviewed",null,0],
+[408,37,"The Town That Votes on Weather","t","The Causeway Times (.test)","South America","faith",82,3,"new",null,1],
+[409,37,"Karaoke for the Deported","k","Mokuli Star (.test)","Southeast Asia","infrastructure, faith, climate",96,4,"reviewed",null,0],
+[410,37,"The Village That Rents Its Silence","v","The Meridian Post (.test)","Central Asia","water, borders",69,1,"archived","timing",0],
+[411,37,"Night School for Fishermen II","f","Palta Noticias (.test)","Central Asia","work",85,3,"reviewed",null,0],
+[412,37,"The Last Switchboard II","s","Kustbladet (.test)","Central Asia","housing",86,null,"new",null,0],
+[413,37,"A Ferry Runs on Sundays Only II","y","Delta Weekly (.test)","South Asia","climate, migration",47,5,"new",null,3],
+[414,37,"The Apricot Futures Club II","a","Kustbladet (.test)","South America","water",91,2,"archived","too_thin",1],
+[415,37,"Church of the Spare Parts II","c","Alto Diario (.test)","South Asia","water, borders",47,null,"new",null,1],
+[416,37,"The Women Who Map the Caves II","w","The Meridian Post (.test)","East Asia","craft, islands",41,2,"archived","not_a_story",0],
+[417,37,"Checkpoint Bakery II","b","The Causeway Times (.test)","Europe","food, climate, ritual",88,1,"reviewed",null,3],
+[418,37,"The Town That Votes on Weather II","t","Kustbladet (.test)","South Asia","work, food",61,2,"archived","too_thin",0],
+[419,38,"Karaoke for the Deported","k","Alto Diario (.test)","South Asia","work",62,4,"reviewed",null,0],
+[420,38,"The Village That Rents Its Silence","v","The Chinook Review (.test)","North America","music",96,4,"new",null,3],
+[421,38,"Night School for Fishermen","f","Harbor Ledger (.test)","South Asia","borders, faith",97,5,"reviewed",null,1],
+[422,38,"The Last Switchboard","s","Harbor Ledger (.test)","Europe","housing, faith, migration",96,2,"new",null,1],
+[423,38,"A Ferry Runs on Sundays Only","y","The Meridian Post (.test)","Middle East","migration, housing, water",47,3,"archived","not_a_story",0],
+[424,38,"The Apricot Futures Club","a","Delta Weekly (.test)","East Asia","language, islands",69,null,"new",null,0],
+[425,38,"Church of the Spare Parts","c","The Meridian Post (.test)","South Asia","water",70,1,"shortlisted",null,0],
+[426,38,"The Women Who Map the Caves","w","The Chinook Review (.test)","Oceania","music",40,null,"reviewed",null,0],
+[427,38,"Checkpoint Bakery","b","Alto Diario (.test)","North America","sport, climate",66,5,"shortlisted",null,0],
+[428,38,"The Town That Votes on Weather","t","Delta Weekly (.test)","South Asia","food",61,null,"shortlisted",null,1],
+[429,38,"Karaoke for the Deported II","k","Mokuli Star (.test)","Africa","housing",40,3,"reviewed",null,0],
+[430,38,"The Village That Rents Its Silence II","v","The Causeway Times (.test)","South America","food, borders",68,3,"new",null,0],
+[431,38,"Night School for Fishermen II","f","The Fen Gazette (.test)","Central Asia","music, water",88,5,"new",null,0],
+[432,38,"The Last Switchboard II","s","Mokuli Star (.test)","North America","work, ritual",55,4,"new",null,0],
+[433,38,"A Ferry Runs on Sundays Only II","y","Palta Noticias (.test)","Central Asia","borders, food",53,4,"new",null,0],
+[434,38,"The Apricot Futures Club II","a","Mokuli Star (.test)","Southeast Asia","craft, migration",44,1,"new",null,2],
+[435,38,"Church of the Spare Parts II","c","Delta Weekly (.test)","Middle East","music, housing",83,3,"shortlisted",null,3],
+[436,38,"The Women Who Map the Caves II","w","The Causeway Times (.test)","East Asia","sport, faith, borders",88,3,"new",null,3],
+[437,38,"Checkpoint Bakery II","b","Delta Weekly (.test)","Southeast Asia","food, craft",52,null,"new",null,0],
+[438,38,"The Town That Votes on Weather II","t","Palta Noticias (.test)","Central Asia","sport",91,2,"archived","timing",2],
+[439,38,"Karaoke for the Deported II","k","Delta Weekly (.test)","Southeast Asia","music, islands",75,null,"new",null,0],
+[440,39,"The Town That Fired Everyone","This Mexican Town Fired Every Politician 15 Years Ago","Field verification","Mexico","resilience",82,4,"shortlisted",null,0],
+[441,39,"The Island That Forges China's Bombs Into Kitchen Knives","China Fired 470,000 Bombs at This Island. They Made Knives.","Field verification","Taiwan","resilience",80,null,"reviewed",null,1],
+[442,39,"The Crab They Named After ISIS Made Them Rich",'Fishermen Named This Crab "ISIS." Then It Made Them Rich.',"Field verification","Tunisia","absurd",86,3,"new",null,1],
+[443,39,"The Donkey Wears Couture","Why This Town Puts Its Donkeys in Costumes Every Easter","Field verification","Colombia","absurd",78,null,"reviewed",null,0],
+[444,39,"The Book Fair of a Country That Doesn't Exist","Inside the Biggest Book Festival in a Country That Doesn't Exist","Field verification","Somaliland (unrecognized), Somalia de jure","joy",79,null,"new",null,0],
+[445,39,"The Town That Built Its Own Sun","This Norwegian Town Didn't See the Sun for 5 Months. So They Built One.","Field verification","Norway","joy",97,5,"new",null,1],
+[446,39,"The Cafe Street the Government Cannot Kill","Why Vietnam Can't Shut Down the World's Most Dangerous Cafe","Field verification","Vietnam","absurd",87,2,"archived","not_a_story",1],
+[447,39,"The World's Highest Ski Resort Has No Snow","Bolivia Built a Ski Resort at 17,000 Feet. Then the Glacier Vanished.","Field verification","Bolivia","loss",92,null,"shortlisted",null,1],
+[448,39,"The Last Bang Bang Men of the Stair City","The Last Porters of the World's Most Vertical City","Field verification","China","loss",88,2,"new",null,0],
+[449,39,"The City That Lost Its Vultures","Why a Painkiller Broke a 3,000-Year-Old Funeral","Field verification","India","loss",82,2,"archived","too_thin",2],
+[450,39,"The Town America Forgot to Attach","The US Town That Canada Can Turn Off","Field verification","United States","connection",95,5,"new",null,3],
+[451,39,"The Water Court That Meets Every Thursday on the Cathedral Steps","The 1,000-Year-Old Court With No Lawyers, No Paper, and No Appeals","Field verification","Spain","connection",83,4,"new",null,1]
+];
+var S=T.map(function(t){
+ return {
+  id:t[0], row:String(t[0]).padStart(4,"0"), wk:t[1], iso:"2026-W"+t[1],
+  title:t[2], premise:(t[3].length===1?P[t[3]]:t[3]),
+  publisher:t[4], region:t[5], tags:t[6],
+  score:t[7], rating:t[8], status:t[9], reason:t[10], comments:t[11],
+  found:FOUND[t[1]], _local:[], _gone:false
+ };
+});
+var REASONS=[
+ {k:"duplicate",t:"duplicate"},
+ {k:"too_thin",t:"too thin"},
+ {k:"timing",t:"timing"},
+ {k:"not_a_story",t:"not a story"}
+];
+var TODAY="2026-09-23";
+
+/* ---------------- helpers ---------------- */
+var L="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+var COLS=[
+ {h:"#",w:56},{h:"Week",w:64},{h:"Title",w:320},{h:"Premise",w:380},
+ {h:"Publisher",w:140},{h:"Region",w:110},{h:"Tags",w:150},{h:"Score",w:60},
+ {h:"Rating",w:60},{h:"Status",w:96},{h:"Comments",w:56},{h:"Found",w:88}
+];
+var XCOLS=10;                       /* endless empty column letters to the right */
+var STORY_W=2580, RECORD_W=1826;
+function el(id){return document.getElementById(id)}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function byId(id){for(var i=0;i<S.length;i++)if(S[i].id===id)return S[i];return null}
+function pad4(n){return String(n).padStart(4,"0")}
+function fmtDate(d){
+ var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+ var p=d.split("-");
+ return (+p[2])+" "+m[+p[1]-1]+" "+p[0];
+}
+function stCls(s){
+ return s==="reviewed"?"st-rev":s==="shortlisted"?"st-short":s==="archived"?"st-arch":"pl";
+}
+function reasonText(k){for(var i=0;i<REASONS.length;i++)if(REASONS[i].k===k)return REASONS[i].t;return k}
+
+/* ---------------- state ---------------- */
+var mode="stories", openId=null, pendingArchive=null;
+var cursor=null, storiesCursor=null, navRows=[];
+var sh=el("sh"), fxc=el("fxc");
+
+/* ---------------- stories sheet ---------------- */
+function storiesHTML(){
+ var h='<table id="grid" style="width:'+STORY_W+'px"><colgroup>';
+ COLS.forEach(function(c){h+='<col style="width:'+c.w+'px">'});
+ for(var i=0;i<XCOLS;i++)h+='<col style="width:100px">';
+ h+='</colgroup><thead><tr><th class="rn num"><div class="ci">#</div></th>';
+ COLS.slice(1).forEach(function(c){h+='<th><div class="ci">'+c.h+'</div></th>'});
+ for(var i=0;i<XCOLS;i++)h+='<th class="cl"><div class="ci">'+L[11+i]+'</div></th>';
+ h+='</tr></thead><tbody>';
+ WEEKS.forEach(function(w){
+  h+='<tr class="band" id="band'+w.n+'"><td class="rn num"><div class="ci"></div></td>'
+   +'<td colspan="21" class="bandc"><div class="ci">Week '+w.n+' &middot; '+fmtDate(w.starts)+' &middot; '+w.count+' new</div></td></tr>';
+  S.filter(function(s){return s.wk===w.n&&!s._gone}).forEach(function(s){
+   var fv=s.status==="archived"&&s.reason?' data-fv="archived ('+reasonText(s.reason)+')"':'';
+   h+='<tr data-nav data-sid="'+s.id+'">'
+    +'<td class="rn num"><div class="ci">'+s.row+'</div></td>'
+    +'<td class="num pl" data-c="1"><div class="ci">W'+s.wk+'</div></td>'
+    +'<td class="pl" data-c="2"><div class="ci">'+esc(s.title)+'</div></td>'
+    +'<td class="pl it" data-c="3"><div class="ci">'+esc(s.premise)+'</div></td>'
+    +'<td class="pl" data-c="4"><div class="ci">'+esc(s.publisher)+'</div></td>'
+    +'<td class="pl" data-c="5"><div class="ci">'+esc(s.region)+'</div></td>'
+    +'<td class="pl" data-c="6"><div class="ci">'+esc(s.tags)+'</div></td>'
+    +'<td class="num right gh pl" data-c="7"><div class="ci">'+s.score+'</div></td>'
+    +'<td class="num right '+(s.rating?'rt'+s.rating:'pl')+'" data-c="8" id="rat'+s.id+'"><div class="ci">'+(s.rating||"")+'</div></td>'
+    +'<td class="'+stCls(s.status)+'" data-c="9" id="st'+s.id+'"'+fv+'><div class="ci">'+s.status+'</div></td>'
+    +'<td class="num right pl" data-c="10" id="cm'+s.id+'"><div class="ci">'+(s.comments||"")+(s.comments?'<span class="tri"></span>':'')+'</div></td>'
+    +'<td class="num pl" data-c="11"><div class="ci">'+s.found+'</div></td>';
+   for(var c=12;c<=21;c++)h+='<td class="pl" data-c="'+c+'"><div class="ci"></div></td>';
+   h+='</tr>';
+  });
+ });
+ for(var r=452;r<492;r++){                       /* the endless sheet: 40 empty rows */
+  h+='<tr data-nav data-empty><td class="rn num"><div class="ci">'+pad4(r)+'</div></td>';
+  for(var c=1;c<=21;c++)h+='<td class="pl" data-c="'+c+'"><div class="ci"></div></td>';
+  h+='</tr>';
+ }
+ h+='</tbody></table>';
+ return h;
+}
+
+/* ---------------- record sheet (variant C: dossier as its own sheet) ---------------- */
+function recordHTML(st){
+ var RW=[160,560,140,110,100,100,100,100,100,100,100,100];  /* cols A..L */
+ var n=0;
+ function rn(){n++;return '<td class="rn num"><div class="ci">'+n+'</div></td>'}
+ function cell(c,content,cls,extra){
+  return '<td class="'+(cls||"pl")+'" data-c="'+c+'"'+(extra||"")+'><div class="ci">'+content+'</div></td>';
+ }
+ function tail(from){var h="";for(var c=from;c<=12;c++)h+=cell(c,"");return h}
+ function fieldRow(label,val,cls){
+  return '<tr data-nav>'+rn()+cell(1,label,"lab")+cell(2,val,cls)+tail(3)+'</tr>';
+ }
+ var h='<table id="grid" style="width:'+RECORD_W+'px"><colgroup><col style="width:56px">';
+ RW.forEach(function(w){h+='<col style="width:'+w+'px">'});
+ h+='</colgroup><thead><tr><th class="rn num"><div class="ci">#</div></th>';
+ for(var i=0;i<12;i++)h+='<th class="cl"><div class="ci">'+L[i]+'</div></th>';
+ h+='</tr></thead><tbody>';
+ /* A1: the back cell */
+ h+='<tr data-nav>'+rn()+cell(1,"&larr; Stories","back",' data-act="back"')+tail(2)+'</tr>';
+ /* title: the only large type */
+ h+='<tr data-nav class="bigrow">'+rn()+cell(1,"title","lab")
+  +'<td class="big pl" data-c="2" colspan="11"><div class="ci">'+esc(st.title)+'</div></td></tr>';
+ /* premise: richer text for week 39 lives here */
+ h+='<tr data-nav>'+rn()+cell(1,"premise","lab")
+  +'<td class="pl it wrap" data-c="2" colspan="11"><div class="ci">'+esc(st.premise)+'</div></td></tr>';
+ h+=fieldRow("record","C"+st.row,"num pl");
+ h+=fieldRow("week",st.iso,"num pl");
+ h+=fieldRow("found",st.found,"num pl");
+ h+=fieldRow("publisher",esc(st.publisher));
+ h+=fieldRow("region",esc(st.region));
+ h+=fieldRow("tags",esc(st.tags));
+ h+=fieldRow("hunt score",String(st.score),"num gh pl");
+ h+=fieldRow("scored by","=HUNT(week "+st.wk+")","gh pl");
+ /* rating and status: value plus a one-cell legend swatch */
+ h+='<tr data-nav>'+rn()+cell(1,"rating (keys 1 to 5)","lab")
+  +cell(2,st.rating?String(st.rating):'<span class="ghi">unrated</span>',"num pl",' id="recRating"')
+  +cell(3,"",st.rating?"rt"+st.rating:"pl",' id="recSwatch"')+tail(4)+'</tr>';
+ h+='<tr data-nav>'+rn()+cell(1,"status","lab")
+  +cell(2,st.status,"pl",' id="recStatus"')
+  +cell(3,"",st.status==="new"?"pl":stCls(st.status),' id="recStSwatch"')+tail(4)+'</tr>';
+ if(st.status==="archived"&&st.reason)h+=fieldRow("archive reason",reasonText(st.reason));
+ /* sources: a sub-table on the same sheet */
+ h+='<tr class="band">'+rn()+'<td colspan="12" class="bandc"><div class="ci">Sources (2)</div></td></tr>';
+ h+='<tr data-nav>'+rn()+cell(1,"","lab")+cell(2,"Source","lab")+cell(3,"Type","lab")+cell(4,"Date","lab")+tail(5)+'</tr>';
+ h+='<tr data-nav>'+rn()+cell(1,"")+cell(2,esc(st.publisher))+cell(3,"publisher")+cell(4,st.found,"num pl")+tail(5)+'</tr>';
+ h+='<tr data-nav>'+rn()+cell(1,"")+cell(2,"=HUNT(week "+st.wk+")","gh pl")+cell(3,"hunt job","gh pl")+cell(4,st.found,"num gh pl")+tail(5)+'</tr>';
+ /* comments: rows plus a composer row */
+ h+='<tr class="band" id="cmts">'+rn()+'<td colspan="12" class="bandc"><div class="ci">Comments ('+st.comments+')</div></td></tr>';
+ var seedN=st.comments-st._local.length;
+ if(st.comments===0){
+  h+='<tr data-nav>'+rn()+cell(1,"")+cell(2,'<span class="ghi">no comments yet</span>')+tail(3)+'</tr>';
+ }else{
+  for(var i=0;i<seedN;i++)
+   h+='<tr data-nav>'+rn()+cell(1,"")+cell(2,'<span class="ghi">(comment body not in seed.json)</span>')+tail(3)+'</tr>';
+  st._local.forEach(function(c){
+   h+='<tr data-nav>'+rn()+cell(1,"")+cell(2,esc(c.b))+cell(3,"johnny")+cell(4,c.d,"num pl")+tail(5)+'</tr>';
+  });
+ }
+ h+='<tr data-nav>'+rn()+cell(1,"")
+  +'<td class="pl" data-c="2"><div class="ci"><input id="cmtin" placeholder="Add a comment, press Enter"></div></td>'
+  +cell(3,"johnny","gh pl")+cell(4,TODAY,"num gh pl")+tail(5)+'</tr>';
+ /* the endless sheet continues below the record too */
+ for(var r=0;r<40;r++){
+  h+='<tr data-nav data-empty>'+rn();
+  for(var c=1;c<=12;c++)h+='<td class="pl" data-c="'+c+'"><div class="ci"></div></td>';
+  h+='</tr>';
+ }
+ h+='</tbody></table>';
+ return h;
+}
+
+/* ---------------- chrome ---------------- */
+function renderTabs(){
+ var h='<span class="tabpad"></span>';
+ h+='<span class="tab'+(mode==="stories"?" on":"")+'" id="tabStories">Stories</span>';
+ h+='<span class="tab">This week</span><span class="tab">Shortlist</span><span class="tab">Archive</span>';
+ if(mode==="record"&&openId)h+='<span class="tab rec">C'+byId(openId).row+'</span>';
+ el("tabs").innerHTML=h;
+ el("tabStories").addEventListener("click",function(){if(mode==="record")closeRecord()});
+}
+function renderStatus(){
+ var short=0,arch=0;
+ S.forEach(function(s){if(s.status==="shortlisted")short++;if(s.status==="archived")arch++});
+ el("stL").textContent=S.length+" stories · "+WEEKS.length+" weeks · "+short+" shortlisted · "+arch+" archived";
+ el("stR").textContent="Enter opens · Esc closes · 1-5 rate · S shortlist · X archive";
+}
+function fxDefault(){
+ if(mode==="stories"){
+  fxc.innerHTML='<span class="ghost">=HUNT(week 39) &rarr; 12 stories</span>';
+ }else{
+  fxc.innerHTML='<span class="ghost">=RECORD('+byId(openId).row+')</span>';
+ }
+}
+function colLetter(c){return L[c-1]}
+
+/* ---------------- cursor ---------------- */
+function refreshNav(){navRows=Array.prototype.slice.call(sh.querySelectorAll("tr[data-nav]"))}
+function maxCol(){return mode==="stories"?21:12}
+function clearCur(){var p=sh.querySelector("td.cur");if(p)p.classList.remove("cur")}
+function applyCursor(){
+ clearCur();
+ if(pendingArchive)return;
+ if(!cursor){fxDefault();return}
+ cursor.r=Math.max(0,Math.min(cursor.r,navRows.length-1));
+ cursor.c=Math.max(1,Math.min(cursor.c,maxCol()));
+ var tr=navRows[cursor.r];
+ var td=tr.querySelector('td[data-c="'+cursor.c+'"]');
+ if(!td){                                   /* landed inside a colspan: snap to it */
+  var tds=tr.querySelectorAll("td[data-c]");
+  td=tds[tds.length-1];
+  for(var i=0;i<tds.length;i++){if(+tds[i].dataset.c<=cursor.c)td=tds[i];else break}
+ }
+ td.classList.add("cur");
+ ensureVisible(td);
+ var rowLab=tr.querySelector(".rn .ci").textContent;
+ var ref=colLetter(+td.dataset.c)+rowLab;
+ var label=(mode==="stories"&&+td.dataset.c<12)?COLS[+td.dataset.c].h.toLowerCase():"";
+ var v=td.dataset.fv||td.querySelector(".ci").textContent.trim();
+ var out=esc(ref);
+ if(label&&v)out+=" · "+esc(label)+": "+esc(v);
+ else if(v)out+=" · "+esc(v);
+ fxc.innerHTML=out;
+}
+function ensureVisible(td){
+ var r1=td.getBoundingClientRect(),r0=sh.getBoundingClientRect();
+ if(r1.top<r0.top+20)sh.scrollTop-=(r0.top+20-r1.top);
+ else if(r1.bottom>r0.bottom)sh.scrollTop+=r1.bottom-r0.bottom;
+ if(r1.left<r0.left+56)sh.scrollLeft-=(r0.left+56-r1.left);
+ else if(r1.right>r0.right)sh.scrollLeft+=r1.right-r0.right;
+}
+function cursorStory(){
+ if(!cursor)return null;
+ var tr=navRows[cursor.r];
+ return tr&&tr.dataset.sid?byId(+tr.dataset.sid):null;
+}
+
+/* ---------------- record open/close ---------------- */
+function openRecord(id,gotoComments){
+ storiesCursor=mode==="stories"?cursor:storiesCursor;
+ mode="record";openId=id;cursor=null;pendingArchive=null;
+ sh.innerHTML=recordHTML(byId(id));
+ refreshNav();renderTabs();fxDefault();
+ sh.scrollTop=0;sh.scrollLeft=0;
+ if(gotoComments){var b=el("cmts");if(b)sh.scrollTop=b.offsetTop-20}
+}
+function closeRecord(){
+ mode="stories";openId=null;cursor=storiesCursor;
+ sh.innerHTML=storiesHTML();
+ refreshNav();renderTabs();
+ if(cursor){cursor.r=Math.min(cursor.r,navRows.length-1);applyCursor()}
+ else{fxDefault();var b=el("band39");if(b)sh.scrollTop=b.offsetTop-20}
+}
+function recordStep(dir){
+ var live=S.filter(function(s){return !s._gone});
+ var i=-1;
+ for(var j=0;j<live.length;j++)if(live[j].id===openId)i=j;
+ var next=live[i+dir];
+ if(next)openRecord(next.id);
+}
+
+/* ---------------- rating / shortlist ---------------- */
+function rate(nv){
+ var s=mode==="record"?byId(openId):cursorStory();
+ if(!s)return;
+ s.rating=nv;
+ if(mode==="stories"){
+  var td=el("rat"+s.id);
+  td.className="num right rt"+nv;
+  td.querySelector(".ci").textContent=nv;
+  applyCursor();
+ }else{
+  el("recRating").querySelector(".ci").textContent=nv;
+  el("recSwatch").className="rt"+nv;
+  applyCursor();
+ }
+}
+function toggleShortlist(){
+ if(mode!=="stories")return;
+ var s=cursorStory();
+ if(!s||s.status==="archived")return;
+ s.status=s.status==="shortlisted"?"reviewed":"shortlisted";
+ var td=el("st"+s.id);
+ td.className=stCls(s.status);
+ td.querySelector(".ci").textContent=s.status;
+ renderStatus();applyCursor();
+}
+
+/* ---------------- archive as collapse ---------------- */
+function startArchive(){
+ if(mode!=="stories")return;
+ var s=cursorStory();
+ if(!s||s.status==="archived")return;
+ pendingArchive=s.id;
+ clearCur();
+ var h='Archive '+s.row+': ';
+ REASONS.forEach(function(r,i){
+  h+='<span class="rcell" data-i="'+i+'"><span class="ghost num">'+(i+1)+'</span> '+r.t+'</span>';
+ });
+ h+='<span class="rcell ghost" data-i="-1">esc cancel</span>';
+ fxc.innerHTML=h;
+}
+function cancelArchive(){pendingArchive=null;applyCursor()}
+function doArchive(reasonKey){
+ var s=byId(pendingArchive);
+ pendingArchive=null;
+ s.status="archived";s.reason=reasonKey;s._gone=true;
+ renderStatus();                                          /* the count ticks */
+ var tr=sh.querySelector('tr[data-sid="'+s.id+'"]');
+ if(!tr){applyCursor();return}
+ tr.classList.add("archrow");
+ void tr.offsetHeight;
+ tr.classList.add("collapsing");                          /* 180ms fold upward */
+ setTimeout(function(){
+  tr.remove();
+  refreshNav();
+  if(cursor){cursor.r=Math.min(cursor.r,navRows.length-1)}
+  applyCursor();
+ },180);
+}
+
+/* ---------------- comments ---------------- */
+function submitComment(input){
+ var v=input.value.trim();
+ if(!v)return;
+ var st=byId(openId);
+ st._local.push({b:v,d:TODAY});
+ st.comments++;
+ var keep=sh.scrollTop,keepL=sh.scrollLeft;
+ sh.innerHTML=recordHTML(st);
+ refreshNav();
+ sh.scrollTop=keep;sh.scrollLeft=keepL;
+ fxDefault();
+}
+
+/* ---------------- events ---------------- */
+sh.addEventListener("click",function(e){
+ var act=e.target.closest("[data-act]");
+ if(act){if(act.dataset.act==="back")closeRecord();return}
+ var td=e.target.closest("td[data-c]");
+ if(!td)return;
+ var tr=td.closest("tr[data-nav]");
+ if(!tr)return;
+ if(pendingArchive)cancelArchive();
+ cursor={r:navRows.indexOf(tr),c:+td.dataset.c};
+ applyCursor();
+});
+fxc.addEventListener("click",function(e){
+ var r=e.target.closest(".rcell");
+ if(!r||pendingArchive===null)return;
+ var i=+r.dataset.i;
+ if(i<0)cancelArchive();else doArchive(REASONS[i].k);
+});
+document.addEventListener("keydown",function(e){
+ if(e.target.tagName==="INPUT"){
+  if(e.key==="Enter")submitComment(e.target);
+  else if(e.key==="Escape")e.target.blur();
+  return;
+ }
+ if(pendingArchive){
+  if(e.key>="1"&&e.key<="4")doArchive(REASONS[+e.key-1].k);
+  else if(e.key==="Escape")cancelArchive();
+  e.preventDefault();
+  return;
+ }
+ var k=e.key;
+ if(k==="ArrowUp"||k==="ArrowDown"||k==="ArrowLeft"||k==="ArrowRight"){
+  e.preventDefault();
+  if(!cursor){
+   if(mode==="stories"){
+    var first=sh.querySelector('tr[data-sid="440"]')||navRows[0];
+    cursor={r:navRows.indexOf(first),c:2};
+   }else cursor={r:0,c:1};
+  }else{
+   if(k==="ArrowUp")cursor.r--;
+   if(k==="ArrowDown")cursor.r++;
+   if(k==="ArrowLeft")cursor.c--;
+   if(k==="ArrowRight")cursor.c++;
+  }
+  applyCursor();
+ }else if(k==="Enter"){
+  if(mode==="stories"){
+   var s=cursorStory();
+   if(s)openRecord(s.id);
+  }else if(cursor){
+   var tr=navRows[cursor.r];
+   var td=tr.querySelector("td.cur")||tr.querySelector('td[data-c="'+cursor.c+'"]');
+   if(td&&td.dataset.act==="back"){closeRecord();return}
+   var inp=td&&td.querySelector("input");
+   if(inp){inp.focus();e.preventDefault()}
+  }
+ }else if(k==="Escape"){
+  if(mode==="record")closeRecord();
+  else{cursor=null;clearCur();fxDefault()}
+ }else if(k>="1"&&k<="5"){
+  rate(+k);
+ }else if(k==="x"||k==="X"){
+  startArchive();
+ }else if(k==="s"||k==="S"){
+  toggleShortlist();
+ }else if(k==="c"||k==="C"){
+  if(mode==="stories"){var s2=cursorStory();if(s2)openRecord(s2.id,true)}
+ }else if(k==="j"||k==="J"){
+  if(mode==="record")recordStep(1);
+ }else if(k==="k"||k==="K"){
+  if(mode==="record")recordStep(-1);
+ }
+});
+
+/* ---------------- boot ---------------- */
+sh.innerHTML=storiesHTML();
+refreshNav();renderTabs();renderStatus();fxDefault();
+var b39=el("band39");
+if(b39)sh.scrollTop=b39.offsetTop-20;
+</script>
+</body>
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Story Hunter · exploration A · expanding row</title>
+<style>
+:root{
+  --sheet:#FFFFFF;
+  --ink:#000000;
+  --grid:#D8D8D8;
+  --head:#F1F1F1;
+  --accent:#F04A16;
+  --ghost:#8C8C8C;
+  --ramp1:#FDE4DB; --ramp2:#FAC5B2; --ramp3:#F79E7F; --ramp4:#F4744A; --ramp5:#F04A16;
+  --cols:56px 64px 320px minmax(380px,1fr) 140px 110px 150px 60px 60px 96px 56px 88px 100px 100px 100px 100px 100px 100px;
+  --ease:cubic-bezier(0.2,0,0,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:13px;font-weight:400;color:var(--ink);background:var(--sheet);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#scroll{flex:1;overflow:auto;cursor:cell;}
+#grid{display:grid;grid-template-columns:var(--cols);position:relative;}
+.row,.hrow,.brow{display:contents;}
+.c{
+  height:19px;line-height:18px;padding:0 8px;
+  border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
+  background:var(--sheet);overflow:hidden;white-space:nowrap;position:relative;
+}
+.tn{font-variant-numeric:tabular-nums;}
+.rgt{text-align:right;}
+.it{font-style:italic;}
+.g{color:var(--ghost);}
+.row:where(:hover) > .c, .row:where(.hov) > .c{background:#FAFAFA;}
+/* meaning fills stay put under hover: same specificity, later in the sheet */
+.c.num{background:var(--head);position:sticky;left:0;z-index:2;text-align:right;font-variant-numeric:tabular-nums;}
+.c.sc{color:var(--ghost);}
+.c.ramp1{background:var(--ramp1);}
+.c.ramp2{background:var(--ramp2);}
+.c.ramp3{background:var(--ramp3);}
+.c.ramp4{background:var(--ramp4);color:#FFFFFF;}
+.c.ramp5{background:var(--ramp5);color:#FFFFFF;}
+.c.st-reviewed{background:var(--head);}
+.c.st-shortlisted{background:var(--ramp2);}
+.c.st-archived{background:#E6E6E6;color:var(--ghost);}
+.c.cur{outline:2px solid var(--accent);outline-offset:-2px;}
+/* formula bar: one row of the grid */
+.c.fx{position:sticky;left:0;top:0;z-index:6;background:var(--head);color:var(--ghost);font-style:italic;text-align:right;}
+.c.fbar{grid-column:2/-1;position:sticky;top:0;z-index:5;display:flex;align-items:center;padding:0;overflow:visible;}
+#ftext{position:sticky;left:56px;padding:0 8px;white-space:nowrap;overflow:hidden;max-width:calc(100vw - 180px);}
+#huntbtn{
+  position:sticky;right:0;margin-left:auto;height:100%;flex:none;
+  border:0;border-left:1px solid var(--grid);background:var(--head);
+  font:inherit;padding:0 8px;cursor:pointer;color:var(--ink);
+}
+#huntbtn:disabled{color:var(--ghost);cursor:default;}
+/* header row: sticky, --head */
+.c.hd{position:sticky;top:19px;z-index:4;background:var(--head);}
+.c.hd.num{z-index:5;}
+.c.hd.gl{color:var(--ghost);text-align:center;}
+/* week band: merged row, accent text on white */
+.c.band{grid-column:1/-1;color:var(--accent);padding:0;overflow:visible;}
+.c.band span{position:sticky;left:0;display:inline-block;padding:0 8px;font-variant-numeric:tabular-nums;}
+/* comment corner triangle */
+.tri{position:absolute;top:0;right:0;width:0;height:0;border-top:5px solid var(--accent);border-left:5px solid transparent;}
+/* dossier: the sheet parts and the record lives below the row, as cells */
+.dossier{grid-column:1/-1;overflow:hidden;height:0;transition:height 180ms var(--ease);background:var(--sheet);}
+.drow{display:grid;grid-template-columns:var(--cols);}
+.drow .c{height:auto;min-height:19px;}
+.drow .c.num{min-height:19px;}
+.trow .c{min-height:38px;display:flex;align-items:center;}
+.dtitle{font-size:28px;line-height:34px;}
+.dl{background:var(--head);}
+.wrap{white-space:normal;line-height:19px;}
+.wrap span{display:block;max-width:72ch;}
+/* marching ants: SVG stroke, no fills harmed */
+.ants{position:absolute;pointer-events:none;overflow:visible;z-index:3;}
+.ants rect{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:6 4;animation:march 0.4s linear infinite;}
+@keyframes march{to{stroke-dashoffset:-20;}}
+/* sheet tabs: a row of cells, visual only */
+#tabs{display:flex;height:19px;flex:none;border-top:1px solid var(--grid);background:var(--head);}
+#tabs .tab{height:100%;line-height:18px;padding:0 8px;border-right:1px solid var(--grid);}
+#tabs .tab.on{background:var(--sheet);}
+#tabs .tabfill{flex:1;}
+/* status bar */
+#status{
+  display:flex;justify-content:space-between;height:19px;flex:none;line-height:18px;
+  padding:0 8px;border-top:1px solid var(--grid);background:var(--head);color:var(--ghost);
+  font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;
+}
+@media (prefers-reduced-motion:reduce){
+  .dossier{transition:none;}
+  .ants rect{animation:none;}
+}
+</style>
+</head>
+<body>
+<div id="scroll"><div id="grid"></div></div>
+<div id="tabs">
+  <div class="tab on">Stories</div>
+  <div class="tab">This week</div>
+  <div class="tab">Shortlist</div>
+  <div class="tab">Archive</div>
+  <div class="tabfill"></div>
+</div>
+<div id="status"><span id="counts"></span><span>arrows move · Enter opens · Esc closes · 1&ndash;5 rate · J/K walk</span></div>
+<script>
+'use strict';
+/* ---------- seed data (design/explorations/seed.json, verbatim) ---------- */
+var P_FISH="On a shrinking lagoon, grandfathers learn export law after dark to save the morning catch";
+var P_SWCH="A mountain county keeps a human phone exchange alive because the valley eats cell signal";
+var P_FRRY="Two islands share one priest, one nurse, and one boat, and the schedule is the social contract";
+var P_APRI="Teenage traders in a drought valley invented a fruit futures market on a whiteboard";
+var P_CHUR="A congregation that rebuilds flood-ruined motorbikes as liturgy";
+var P_CAVE="A sisterhood of surveyors keeps the only maps of a karst labyrinth the state forgot";
+var P_BAKE="A bread oven that serves both sides of a frozen border, four meters apart";
+var P_WTHR="An alpine commune votes each spring on whether to seed the clouds";
+var P_KARA="A bar on the frontier where returnees sing the songs of cities they were expelled from";
+var P_SLNC="A hamlet outside Ghent charges film crews for total quiet, and the noise of success is splitting it";
+var weeks={
+  "2026-W37":{n:37,starts:"2026-09-07",count:18},
+  "2026-W38":{n:38,starts:"2026-09-14",count:21},
+  "2026-W39":{n:39,starts:"2026-09-21",count:12}
+};
+var stories=[
+ {id:401,row:"0401",week:"2026-W37",title:"Night School for Fishermen",premise:P_FISH,publisher:"Kustbladet (.test)",region:"Africa",tags:["migration","borders"],score:52,rating:5,status:"new",ar:null,com:2,found:"2026-09-07"},
+ {id:402,row:"0402",week:"2026-W37",title:"The Last Switchboard",premise:P_SWCH,publisher:"The Chinook Review (.test)",region:"South Asia",tags:["climate","housing","migration"],score:57,rating:null,status:"new",ar:null,com:0,found:"2026-09-07"},
+ {id:403,row:"0403",week:"2026-W37",title:"A Ferry Runs on Sundays Only",premise:P_FRRY,publisher:"The Meridian Post (.test)",region:"Oceania",tags:["infrastructure","sport"],score:83,rating:3,status:"reviewed",ar:null,com:1,found:"2026-09-07"},
+ {id:404,row:"0404",week:"2026-W37",title:"The Apricot Futures Club",premise:P_APRI,publisher:"The Chinook Review (.test)",region:"Africa",tags:["craft","food","infrastructure"],score:54,rating:3,status:"reviewed",ar:null,com:0,found:"2026-09-07"},
+ {id:405,row:"0405",week:"2026-W37",title:"Church of the Spare Parts",premise:P_CHUR,publisher:"Harbor Ledger (.test)",region:"North America",tags:["language","work","food"],score:75,rating:3,status:"archived",ar:"too_thin",com:3,found:"2026-09-07"},
+ {id:406,row:"0406",week:"2026-W37",title:"The Women Who Map the Caves",premise:P_CAVE,publisher:"The Chinook Review (.test)",region:"Oceania",tags:["ritual","food","climate"],score:70,rating:null,status:"new",ar:null,com:0,found:"2026-09-07"},
+ {id:407,row:"0407",week:"2026-W37",title:"Checkpoint Bakery",premise:P_BAKE,publisher:"The Chinook Review (.test)",region:"North America",tags:["faith","language","craft"],score:63,rating:4,status:"reviewed",ar:null,com:0,found:"2026-09-07"},
+ {id:408,row:"0408",week:"2026-W37",title:"The Town That Votes on Weather",premise:P_WTHR,publisher:"The Causeway Times (.test)",region:"South America",tags:["faith"],score:82,rating:3,status:"new",ar:null,com:1,found:"2026-09-07"},
+ {id:409,row:"0409",week:"2026-W37",title:"Karaoke for the Deported",premise:P_KARA,publisher:"Mokuli Star (.test)",region:"Southeast Asia",tags:["infrastructure","faith","climate"],score:96,rating:4,status:"reviewed",ar:null,com:0,found:"2026-09-07"},
+ {id:410,row:"0410",week:"2026-W37",title:"The Village That Rents Its Silence",premise:P_SLNC,publisher:"The Meridian Post (.test)",region:"Central Asia",tags:["water","borders"],score:69,rating:1,status:"archived",ar:"timing",com:0,found:"2026-09-07"},
+ {id:411,row:"0411",week:"2026-W37",title:"Night School for Fishermen II",premise:P_FISH,publisher:"Palta Noticias (.test)",region:"Central Asia",tags:["work"],score:85,rating:3,status:"reviewed",ar:null,com:0,found:"2026-09-07"},
+ {id:412,row:"0412",week:"2026-W37",title:"The Last Switchboard II",premise:P_SWCH,publisher:"Kustbladet (.test)",region:"Central Asia",tags:["housing"],score:86,rating:null,status:"new",ar:null,com:0,found:"2026-09-07"},
+ {id:413,row:"0413",week:"2026-W37",title:"A Ferry Runs on Sundays Only II",premise:P_FRRY,publisher:"Delta Weekly (.test)",region:"South Asia",tags:["climate","migration"],score:47,rating:5,status:"new",ar:null,com:3,found:"2026-09-07"},
+ {id:414,row:"0414",week:"2026-W37",title:"The Apricot Futures Club II",premise:P_APRI,publisher:"Kustbladet (.test)",region:"South America",tags:["water"],score:91,rating:2,status:"archived",ar:"too_thin",com:1,found:"2026-09-07"},
+ {id:415,row:"0415",week:"2026-W37",title:"Church of the Spare Parts II",premise:P_CHUR,publisher:"Alto Diario (.test)",region:"South Asia",tags:["water","borders"],score:47,rating:null,status:"new",ar:null,com:1,found:"2026-09-07"},
+ {id:416,row:"0416",week:"2026-W37",title:"The Women Who Map the Caves II",premise:P_CAVE,publisher:"The Meridian Post (.test)",region:"East Asia",tags:["craft","islands"],score:41,rating:2,status:"archived",ar:"not_a_story",com:0,found:"2026-09-07"},
+ {id:417,row:"0417",week:"2026-W37",title:"Checkpoint Bakery II",premise:P_BAKE,publisher:"The Causeway Times (.test)",region:"Europe",tags:["food","climate","ritual"],score:88,rating:1,status:"reviewed",ar:null,com:3,found:"2026-09-07"},
+ {id:418,row:"0418",week:"2026-W37",title:"The Town That Votes on Weather II",premise:P_WTHR,publisher:"Kustbladet (.test)",region:"South Asia",tags:["work","food"],score:61,rating:2,status:"archived",ar:"too_thin",com:0,found:"2026-09-07"},
+ {id:419,row:"0419",week:"2026-W38",title:"Karaoke for the Deported",premise:P_KARA,publisher:"Alto Diario (.test)",region:"South Asia",tags:["work"],score:62,rating:4,status:"reviewed",ar:null,com:0,found:"2026-09-14"},
+ {id:420,row:"0420",week:"2026-W38",title:"The Village That Rents Its Silence",premise:P_SLNC,publisher:"The Chinook Review (.test)",region:"North America",tags:["music"],score:96,rating:4,status:"new",ar:null,com:3,found:"2026-09-14"},
+ {id:421,row:"0421",week:"2026-W38",title:"Night School for Fishermen",premise:P_FISH,publisher:"Harbor Ledger (.test)",region:"South Asia",tags:["borders","faith"],score:97,rating:5,status:"reviewed",ar:null,com:1,found:"2026-09-14"},
+ {id:422,row:"0422",week:"2026-W38",title:"The Last Switchboard",premise:P_SWCH,publisher:"Harbor Ledger (.test)",region:"Europe",tags:["housing","faith","migration"],score:96,rating:2,status:"new",ar:null,com:1,found:"2026-09-14"},
+ {id:423,row:"0423",week:"2026-W38",title:"A Ferry Runs on Sundays Only",premise:P_FRRY,publisher:"The Meridian Post (.test)",region:"Middle East",tags:["migration","housing","water"],score:47,rating:3,status:"archived",ar:"not_a_story",com:0,found:"2026-09-14"},
+ {id:424,row:"0424",week:"2026-W38",title:"The Apricot Futures Club",premise:P_APRI,publisher:"Delta Weekly (.test)",region:"East Asia",tags:["language","islands"],score:69,rating:null,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:425,row:"0425",week:"2026-W38",title:"Church of the Spare Parts",premise:P_CHUR,publisher:"The Meridian Post (.test)",region:"South Asia",tags:["water"],score:70,rating:1,status:"shortlisted",ar:null,com:0,found:"2026-09-14"},
+ {id:426,row:"0426",week:"2026-W38",title:"The Women Who Map the Caves",premise:P_CAVE,publisher:"The Chinook Review (.test)",region:"Oceania",tags:["music"],score:40,rating:null,status:"reviewed",ar:null,com:0,found:"2026-09-14"},
+ {id:427,row:"0427",week:"2026-W38",title:"Checkpoint Bakery",premise:P_BAKE,publisher:"Alto Diario (.test)",region:"North America",tags:["sport","climate"],score:66,rating:5,status:"shortlisted",ar:null,com:0,found:"2026-09-14"},
+ {id:428,row:"0428",week:"2026-W38",title:"The Town That Votes on Weather",premise:P_WTHR,publisher:"Delta Weekly (.test)",region:"South Asia",tags:["food"],score:61,rating:null,status:"shortlisted",ar:null,com:1,found:"2026-09-14"},
+ {id:429,row:"0429",week:"2026-W38",title:"Karaoke for the Deported II",premise:P_KARA,publisher:"Mokuli Star (.test)",region:"Africa",tags:["housing"],score:40,rating:3,status:"reviewed",ar:null,com:0,found:"2026-09-14"},
+ {id:430,row:"0430",week:"2026-W38",title:"The Village That Rents Its Silence II",premise:P_SLNC,publisher:"The Causeway Times (.test)",region:"South America",tags:["food","borders"],score:68,rating:3,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:431,row:"0431",week:"2026-W38",title:"Night School for Fishermen II",premise:P_FISH,publisher:"The Fen Gazette (.test)",region:"Central Asia",tags:["music","water"],score:88,rating:5,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:432,row:"0432",week:"2026-W38",title:"The Last Switchboard II",premise:P_SWCH,publisher:"Mokuli Star (.test)",region:"North America",tags:["work","ritual"],score:55,rating:4,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:433,row:"0433",week:"2026-W38",title:"A Ferry Runs on Sundays Only II",premise:P_FRRY,publisher:"Palta Noticias (.test)",region:"Central Asia",tags:["borders","food"],score:53,rating:4,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:434,row:"0434",week:"2026-W38",title:"The Apricot Futures Club II",premise:P_APRI,publisher:"Mokuli Star (.test)",region:"Southeast Asia",tags:["craft","migration"],score:44,rating:1,status:"new",ar:null,com:2,found:"2026-09-14"},
+ {id:435,row:"0435",week:"2026-W38",title:"Church of the Spare Parts II",premise:P_CHUR,publisher:"Delta Weekly (.test)",region:"Middle East",tags:["music","housing"],score:83,rating:3,status:"shortlisted",ar:null,com:3,found:"2026-09-14"},
+ {id:436,row:"0436",week:"2026-W38",title:"The Women Who Map the Caves II",premise:P_CAVE,publisher:"The Causeway Times (.test)",region:"East Asia",tags:["sport","faith","borders"],score:88,rating:3,status:"new",ar:null,com:3,found:"2026-09-14"},
+ {id:437,row:"0437",week:"2026-W38",title:"Checkpoint Bakery II",premise:P_BAKE,publisher:"Delta Weekly (.test)",region:"Southeast Asia",tags:["food","craft"],score:52,rating:null,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:438,row:"0438",week:"2026-W38",title:"The Town That Votes on Weather II",premise:P_WTHR,publisher:"Palta Noticias (.test)",region:"Central Asia",tags:["sport"],score:91,rating:2,status:"archived",ar:"timing",com:2,found:"2026-09-14"},
+ {id:439,row:"0439",week:"2026-W38",title:"Karaoke for the Deported II",premise:P_KARA,publisher:"Delta Weekly (.test)",region:"Southeast Asia",tags:["music","islands"],score:75,rating:null,status:"new",ar:null,com:0,found:"2026-09-14"},
+ {id:440,row:"0440",week:"2026-W39",title:"The Town That Fired Everyone",premise:"This Mexican Town Fired Every Politician 15 Years Ago",publisher:"Field verification",region:"Mexico",tags:["resilience"],score:82,rating:4,status:"shortlisted",ar:null,com:0,found:"2026-09-21"},
+ {id:441,row:"0441",week:"2026-W39",title:"The Island That Forges China's Bombs Into Kitchen Knives",premise:"China Fired 470,000 Bombs at This Island. They Made Knives.",publisher:"Field verification",region:"Taiwan",tags:["resilience"],score:80,rating:null,status:"reviewed",ar:null,com:1,found:"2026-09-21"},
+ {id:442,row:"0442",week:"2026-W39",title:"The Crab They Named After ISIS Made Them Rich",premise:"Fishermen Named This Crab \"ISIS.\" Then It Made Them Rich.",publisher:"Field verification",region:"Tunisia",tags:["absurd"],score:86,rating:3,status:"new",ar:null,com:1,found:"2026-09-21"},
+ {id:443,row:"0443",week:"2026-W39",title:"The Donkey Wears Couture",premise:"Why This Town Puts Its Donkeys in Costumes Every Easter",publisher:"Field verification",region:"Colombia",tags:["absurd"],score:78,rating:null,status:"reviewed",ar:null,com:0,found:"2026-09-21"},
+ {id:444,row:"0444",week:"2026-W39",title:"The Book Fair of a Country That Doesn't Exist",premise:"Inside the Biggest Book Festival in a Country That Doesn't Exist",publisher:"Field verification",region:"Somaliland (unrecognized), Somalia de jure",tags:["joy"],score:79,rating:null,status:"new",ar:null,com:0,found:"2026-09-21"},
+ {id:445,row:"0445",week:"2026-W39",title:"The Town That Built Its Own Sun",premise:"This Norwegian Town Didn't See the Sun for 5 Months. So They Built One.",publisher:"Field verification",region:"Norway",tags:["joy"],score:97,rating:5,status:"new",ar:null,com:1,found:"2026-09-21"},
+ {id:446,row:"0446",week:"2026-W39",title:"The Cafe Street the Government Cannot Kill",premise:"Why Vietnam Can't Shut Down the World's Most Dangerous Cafe",publisher:"Field verification",region:"Vietnam",tags:["absurd"],score:87,rating:2,status:"archived",ar:"not_a_story",com:1,found:"2026-09-21"},
+ {id:447,row:"0447",week:"2026-W39",title:"The World's Highest Ski Resort Has No Snow",premise:"Bolivia Built a Ski Resort at 17,000 Feet. Then the Glacier Vanished.",publisher:"Field verification",region:"Bolivia",tags:["loss"],score:92,rating:null,status:"shortlisted",ar:null,com:1,found:"2026-09-21"},
+ {id:448,row:"0448",week:"2026-W39",title:"The Last Bang Bang Men of the Stair City",premise:"The Last Porters of the World's Most Vertical City",publisher:"Field verification",region:"China",tags:["loss"],score:88,rating:2,status:"new",ar:null,com:0,found:"2026-09-21"},
+ {id:449,row:"0449",week:"2026-W39",title:"The City That Lost Its Vultures",premise:"Why a Painkiller Broke a 3,000-Year-Old Funeral",publisher:"Field verification",region:"India",tags:["loss"],score:82,rating:2,status:"archived",ar:"too_thin",com:2,found:"2026-09-21"},
+ {id:450,row:"0450",week:"2026-W39",title:"The Town America Forgot to Attach",premise:"The US Town That Canada Can Turn Off",publisher:"Field verification",region:"United States",tags:["connection"],score:95,rating:5,status:"new",ar:null,com:3,found:"2026-09-21"},
+ {id:451,row:"0451",week:"2026-W39",title:"The Water Court That Meets Every Thursday on the Cathedral Steps",premise:"The 1,000-Year-Old Court With No Lawyers, No Paper, and No Appeals",publisher:"Field verification",region:"Spain",tags:["connection"],score:83,rating:4,status:"new",ar:null,com:1,found:"2026-09-21"}
+];
+/* stories a future hunt drops in (same fictional register as the seed) */
+var huntPool=[
+ {title:"The Lighthouse Keepers' Union of One",premise:"The last manned light on the coast is a family of three who refuse automation",publisher:"Harbor Ledger (.test)",region:"Europe",tags:["craft","islands"],score:74},
+ {title:"A Timetable Written in Chalk",premise:"Every dawn a stationmaster chalks the only schedule a valley railway has ever had",publisher:"The Fen Gazette (.test)",region:"South Asia",tags:["infrastructure","ritual"],score:68},
+ {title:"The Border Orchard Splits Its Harvest",premise:"An apple orchard straddles the line, and two customs posts weigh the same crop twice",publisher:"The Causeway Times (.test)",region:"Europe",tags:["borders","food"],score:81},
+ {title:"Radio for a Flooded Parish",premise:"A drowned village broadcasts its old church bells from a transmitter on stilts",publisher:"Delta Weekly (.test)",region:"Southeast Asia",tags:["water","faith"],score:77},
+ {title:"The Glacier Notary",premise:"A clerk records the ice's retreat in a ledger the town treats as law",publisher:"Alto Diario (.test)",region:"South America",tags:["climate","work"],score:90}
+];
+
+/* ---------- constants ---------- */
+var NCOLS=18, EMPTY_ROWS=40;
+var LET="ABCDEFGHIJKLMNOPQR";
+var HEADS=["#","Week","Title","Premise","Publisher","Region","Tags","Score","Rating","Status","Cmts","Found","M","N","O","P","Q","R"];
+var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var RM=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+var grid=document.getElementById("grid");
+var scroller=document.getElementById("scroll");
+var navRows=[];          /* {w, s} story rows and {w} empty rows, in sheet order */
+var emptyEls=[];         /* empty row wrappers */
+var storyByWrap=new Map();
+var cur=null;            /* {w, col} */
+var open=null;           /* {el, sid, w, ratingCell} */
+var hov=null;
+var hunting=false;
+var nextId=452, nextHuntWeek=40;
+var ftext, huntbtn;
+
+/* ---------- small helpers ---------- */
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+function pad(n){return String(n).padStart(4,"0");}
+function fdate(iso){var p=iso.split("-");return (+p[2])+" "+MONTHS[+p[1]-1]+" "+p[0];}
+function weekNum(iso){return +iso.split("W")[1];}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function statusCls(s){return s.status==="new"?"":"st-"+s.status;}
+function rampCls(r){return r?"ramp"+r:"";}
+
+/* ---------- build the sheet ---------- */
+function buildFormulaRow(){
+  var w=el("div","hrow");
+  var fx=el("div","c fx","fx");
+  var bar=el("div","c fbar");
+  ftext=el("span","g");ftext.id="ftext";
+  ftext.textContent="=HUNT(week 39) → 12 stories";
+  huntbtn=el("button",null,"=HUNT()");huntbtn.id="huntbtn";huntbtn.type="button";
+  huntbtn.addEventListener("click",runHunt);
+  bar.appendChild(ftext);bar.appendChild(huntbtn);
+  w.appendChild(fx);w.appendChild(bar);
+  grid.appendChild(w);
+}
+function buildHeaderRow(){
+  var w=el("div","hrow");
+  for(var i=0;i<NCOLS;i++){
+    var c=el("div","c hd"+(i===0?" num":"")+(i>11?" gl":""),HEADS[i]);
+    if(i===0){c.style.left="0";}
+    w.appendChild(c);
+  }
+  grid.appendChild(w);
+}
+function bandRow(wk){
+  var meta=weeks[wk];
+  var w=el("div","brow");
+  var c=el("div","c band");
+  var sp=el("span",null,"Week "+meta.n+" · "+fdate(meta.starts)+" · "+meta.count+" new");
+  c.appendChild(sp);w.appendChild(c);
+  return w;
+}
+function storyRow(s){
+  var w=el("div","row");
+  w.dataset.sid=s.id;
+  var num=el("div","c num",s.row);
+  var week=el("div","c","W"+weekNum(s.week));
+  var title=el("div","c",s.title);
+  if(s.com>0)title.appendChild(el("span","tri"));
+  var prem=el("div","c",s.premise);
+  var pub=el("div","c",s.publisher);
+  var reg=el("div","c",s.region);
+  var tags=el("div","c",s.tags.join(", "));
+  var score=el("div","c tn rgt sc",String(s.score));
+  var rating=el("div","c tn rgt "+rampCls(s.rating),s.rating?String(s.rating):"");
+  var status=el("div","c "+statusCls(s),s.status);
+  var com=el("div","c tn rgt",s.com>0?String(s.com):"");
+  var found=el("div","c tn",s.found);
+  [num,week,title,prem,pub,reg,tags,score,rating,status,com,found].forEach(function(c){w.appendChild(c);});
+  for(var i=12;i<NCOLS;i++)w.appendChild(el("div","c"));
+  storyByWrap.set(w,s);
+  return w;
+}
+function emptyRow(n){
+  var w=el("div","row");
+  w.dataset.num=pad(n);
+  w.appendChild(el("div","c num g",pad(n)));
+  for(var i=1;i<NCOLS;i++)w.appendChild(el("div","c"));
+  return w;
+}
+function buildSheet(){
+  buildFormulaRow();
+  buildHeaderRow();
+  var lastWeek=null;
+  stories.forEach(function(s){
+    if(s.week!==lastWeek){grid.appendChild(bandRow(s.week));lastWeek=s.week;}
+    var w=storyRow(s);
+    grid.appendChild(w);
+    navRows.push({w:w,s:s});
+  });
+  var base=nextId;
+  for(var i=0;i<EMPTY_ROWS;i++){
+    var w=emptyRow(base+i);
+    grid.appendChild(w);
+    emptyEls.push(w);
+    navRows.push({w:w});
+  }
+  reindex();
+  updateStatus();
+}
+function reindex(){navRows.forEach(function(r,i){r.w.dataset.nav=i;});}
+function renumberEmpties(){
+  emptyEls.forEach(function(w,i){
+    var n=pad(nextId+i);
+    w.dataset.num=n;
+    w.children[0].textContent=n;
+  });
+}
+function updateStatus(){
+  var wk={},sh=0,ar=0;
+  stories.forEach(function(s){wk[s.week]=1;if(s.status==="shortlisted")sh++;if(s.status==="archived")ar++;});
+  document.getElementById("counts").textContent=
+    stories.length+" stories · "+Object.keys(wk).length+" weeks · "+sh+" shortlisted · "+ar+" archived";
+}
+
+/* ---------- selection ---------- */
+function ensureVisible(cell){
+  var top=cell.offsetTop,left=cell.offsetLeft,hdr=38;
+  if(top-hdr<scroller.scrollTop)scroller.scrollTop=top-hdr;
+  else if(top+19>scroller.scrollTop+scroller.clientHeight)scroller.scrollTop=top+19-scroller.clientHeight;
+  if(left-56<scroller.scrollLeft&&left>0)scroller.scrollLeft=Math.max(0,left-56);
+  else if(left+cell.offsetWidth>scroller.scrollLeft+scroller.clientWidth)
+    scroller.scrollLeft=left+cell.offsetWidth-scroller.clientWidth;
+}
+function showSel(){
+  if(!cur||hunting)return;
+  var s=storyByWrap.get(cur.w);
+  var rowid=s?s.row:cur.w.dataset.num;
+  var out=LET[cur.col]+rowid;
+  var txt=cur.w.children[cur.col].textContent.trim();
+  if(s&&txt&&cur.col<12)out+=" · "+HEADS[cur.col]+": "+txt;
+  ftext.textContent=out;
+  ftext.classList.remove("g");
+}
+function setCursor(w,col){
+  col=Math.min(Math.max(col,1),NCOLS-1);
+  if(cur)cur.w.children[cur.col].classList.remove("cur");
+  cur={w:w,col:col};
+  var cell=w.children[col];
+  cell.classList.add("cur");
+  showSel();
+  ensureVisible(cell);
+}
+function moveCursor(dr,dc){
+  if(!cur){setCursor(navRows[0].w,2);return;}
+  if(dr!==0){
+    var i=+cur.w.dataset.nav+dr;
+    i=Math.min(Math.max(i,0),navRows.length-1);
+    setCursor(navRows[i].w,cur.col);
+  }else{
+    setCursor(cur.w,cur.col+dc);
+  }
+}
+
+/* ---------- dossier: the row expands downward ---------- */
+function drow(specs,rcls){
+  var d=el("div","drow"+(rcls?" "+rcls:""));
+  var by={};specs.forEach(function(s){by[s.col]=s;});
+  d.appendChild(el("div","c num"));
+  var i=2;
+  while(i<=NCOLS){
+    var s=by[i];
+    if(s){
+      var c=el("div","c "+(s.cls||""));
+      if(s.html)c.appendChild(s.html);else c.textContent=s.txt!=null?s.txt:"";
+      var span=s.span||1;
+      if(span>1)c.style.gridColumn=i+" / span "+span;
+      d.appendChild(c);
+      i+=span;
+    }else{
+      d.appendChild(el("div","c"));
+      i++;
+    }
+  }
+  return d;
+}
+function buildDossier(s){
+  var box=el("div","dossier");
+  var inner=el("div");
+  var premSpan=el("span",null,s.premise);
+  var rows=[
+    drow([{col:3,span:5,txt:s.title,cls:"dtitle"}],"trow"),
+    drow([{col:3,txt:"Premise",cls:"dl"},{col:4,span:3,html:premSpan,cls:"wrap it"}]),
+    drow([{col:3,txt:"Publisher",cls:"dl"},{col:4,txt:s.publisher}]),
+    drow([{col:3,txt:"Region",cls:"dl"},{col:4,txt:s.region}]),
+    drow([{col:3,txt:"Tags",cls:"dl"},{col:4,txt:s.tags.join(", ")}]),
+    drow([{col:3,txt:"Hunt score",cls:"dl"},{col:4,txt:String(s.score),cls:"g tn"}]),
+    drow([{col:3,txt:"Rating",cls:"dl"},
+          {col:4,txt:s.rating?String(s.rating):"press 1 to 5 to rate",cls:"drt tn "+(s.rating?rampCls(s.rating):"g it")}]),
+    drow([{col:3,txt:"Status",cls:"dl"},{col:4,txt:s.status,cls:statusCls(s)}])
+  ];
+  if(s.ar)rows.push(drow([{col:3,txt:"Archive reason",cls:"dl"},{col:4,txt:s.ar.replace(/_/g," "),cls:"g"}]));
+  rows.push(drow([{col:3,txt:"Comments",cls:"dl"},{col:4,txt:String(s.com),cls:"tn"}]));
+  rows.push(drow([{col:3,txt:"Found",cls:"dl"},{col:4,txt:s.found,cls:"tn"}]));
+  rows.forEach(function(r){inner.appendChild(r);});
+  box.appendChild(inner);
+  return box;
+}
+function openDossier(w,s){
+  var box=buildDossier(s);
+  w.after(box);
+  var h=box.firstChild.offsetHeight;
+  open={el:box,sid:s.id,w:w,ratingCell:box.querySelector(".drt")};
+  if(RM){box.style.height=h+"px";}
+  else{
+    box.getBoundingClientRect();
+    box.style.height=h+"px";
+  }
+  var rowTop=w.children[0].offsetTop;
+  var want=Math.min(h,scroller.clientHeight-4*19);
+  var bottom=rowTop+19+want;
+  if(bottom>scroller.scrollTop+scroller.clientHeight)scroller.scrollTop=bottom-scroller.clientHeight;
+}
+function closeDossier(immediate){
+  if(!open)return;
+  var box=open.el;
+  open=null;
+  if(immediate||RM){box.remove();return;}
+  box.style.height="0px";
+  setTimeout(function(){box.remove();},200);
+}
+function toggleDossier(){
+  if(!cur)return;
+  var s=storyByWrap.get(cur.w);
+  if(!s)return;
+  if(open&&open.sid===s.id){closeDossier();return;}
+  if(open)closeDossier(true);
+  openDossier(cur.w,s);
+}
+function walk(dir){
+  if(!open)return;
+  var i=navRows.findIndex(function(r){return r.s&&r.s.id===open.sid;});
+  var j=i+dir;
+  while(j>=0&&j<navRows.length&&!navRows[j].s)j+=dir;
+  if(j<0||j>=navRows.length||!navRows[j].s)return;
+  var t=navRows[j];
+  closeDossier(true);
+  setCursor(t.w,cur?cur.col:2);
+  openDossier(t.w,t.s);
+}
+
+/* ---------- rating 1 to 5, live fill ---------- */
+function rate(n){
+  if(!cur)return;
+  var s=storyByWrap.get(cur.w);
+  if(!s)return;
+  s.rating=n;
+  var cell=cur.w.children[8];
+  var wasCur=cell.classList.contains("cur");
+  cell.className="c tn rgt "+rampCls(n)+(wasCur?" cur":"");
+  cell.textContent=String(n);
+  if(open&&open.sid===s.id&&open.ratingCell){
+    open.ratingCell.className="c drt tn "+rampCls(n);
+    open.ratingCell.textContent=String(n);
+  }
+  if(cur.col===8)showSel();
+}
+
+/* ---------- the hunt paste-in ---------- */
+function huntDate(wn){
+  var t=Date.UTC(2026,8,21)+(wn-39)*7*864e5;
+  return new Date(t).toISOString().slice(0,10);
+}
+async function runHunt(){
+  if(hunting)return;
+  hunting=true;huntbtn.disabled=true;
+  var wn=nextHuntWeek++;
+  var iso="2026-W"+wn, starts=huntDate(wn);
+  weeks[iso]={n:wn,starts:starts,count:huntPool.length};
+  /* the formula types itself */
+  ftext.classList.remove("g");
+  ftext.textContent="";
+  var f="=HUNT(week "+wn+")";
+  for(var i=0;i<f.length;i++){ftext.textContent+=f[i];if(!RM)await sleep(40);}
+  if(!RM)await sleep(240);
+  /* band, then rows paste in top-down */
+  var anchor=emptyEls[0];
+  grid.insertBefore(bandRow(iso),anchor);
+  var pasted=[];
+  var insertAt=navRows.findIndex(function(r){return !r.s;});
+  for(var k=0;k<huntPool.length;k++){
+    var p=huntPool[k];
+    var s={id:nextId,row:pad(nextId),week:iso,title:p.title,premise:p.premise,
+           publisher:p.publisher,region:p.region,tags:p.tags.slice(),score:p.score,
+           rating:null,status:"new",ar:null,com:0,found:starts};
+    nextId++;
+    stories.push(s);
+    var w=storyRow(s);
+    grid.insertBefore(w,anchor);
+    navRows.splice(insertAt+k,0,{w:w,s:s});
+    pasted.push(w);
+    ensureVisible(w.children[1]);
+    if(!RM)await sleep(60);
+  }
+  reindex();
+  renumberEmpties();
+  updateStatus();
+  /* marching ants around the pasted block for 2s */
+  var first=pasted[0],last=pasted[pasted.length-1];
+  var top=first.children[1].offsetTop,left=first.children[1].offsetLeft;
+  var rc=first.children[11];
+  var wdt=rc.offsetLeft+rc.offsetWidth-left;
+  var hgt=last.children[1].offsetTop+19-top;
+  var NS="http://www.w3.org/2000/svg";
+  var svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("class","ants");
+  svg.setAttribute("width",wdt);svg.setAttribute("height",hgt);
+  svg.style.top=top+"px";svg.style.left=left+"px";
+  var rect=document.createElementNS(NS,"rect");
+  rect.setAttribute("x",1);rect.setAttribute("y",1);
+  rect.setAttribute("width",wdt-2);rect.setAttribute("height",hgt-2);
+  svg.appendChild(rect);
+  grid.appendChild(svg);
+  setTimeout(function(){svg.remove();},2000);
+  ftext.textContent="=HUNT(week "+wn+") → "+pasted.length+" stories";
+  ftext.classList.add("g");
+  hunting=false;huntbtn.disabled=false;
+}
+
+/* ---------- events ---------- */
+window.addEventListener("keydown",function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  switch(e.key){
+    case "ArrowUp":e.preventDefault();moveCursor(-1,0);break;
+    case "ArrowDown":e.preventDefault();moveCursor(1,0);break;
+    case "ArrowLeft":e.preventDefault();moveCursor(0,-1);break;
+    case "ArrowRight":e.preventDefault();moveCursor(0,1);break;
+    case "Enter":e.preventDefault();toggleDossier();break;
+    case "Escape":closeDossier();break;
+    case "j":walk(1);break;
+    case "k":walk(-1);break;
+    default:
+      if(e.key>="1"&&e.key<="5")rate(+e.key);
+  }
+});
+scroller.addEventListener("mousedown",function(e){
+  if(e.target.closest("#huntbtn"))return;
+  var c=e.target.closest(".c");
+  if(!c)return;
+  var w=c.parentElement;
+  if(!w||!w.classList.contains("row"))return;
+  var col=Array.prototype.indexOf.call(w.children,c);
+  setCursor(w,col===0?1:col);
+});
+scroller.addEventListener("dblclick",function(e){
+  var c=e.target.closest(".c");
+  if(!c)return;
+  var w=c.parentElement;
+  if(w&&w.classList.contains("row")&&storyByWrap.get(w))toggleDossier();
+});
+scroller.addEventListener("mouseover",function(e){
+  var r=e.target.closest(".row");
+  if(r!==hov){if(hov)hov.classList.remove("hov");hov=r;if(hov)hov.classList.add("hov");}
+});
+scroller.addEventListener("mouseleave",function(){if(hov){hov.classList.remove("hov");hov=null;}});
+
+buildSheet();
+</script>
+</body>
+</html>
