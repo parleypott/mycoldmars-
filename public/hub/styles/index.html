@@ -1,0 +1,158 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>THE Hub · Five Styles</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#111;color:#eee;font-family:Georgia,serif;padding-bottom:100px}
+.head{padding:40px 20px 10px;max-width:640px;margin:0 auto}
+.head .k{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#e0983a}
+.head h1{font-size:30px;font-style:italic;font-weight:400;margin:6px 0}
+.head p{color:#999;font-size:14px;font-style:italic;margin-bottom:8px}
+.style-block{margin:34px auto;max-width:640px;padding:0 20px}
+.meta{margin-bottom:12px}
+.meta .num{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#e0983a;letter-spacing:.18em}
+.meta h2{font-size:24px;font-style:italic;font-weight:400}
+.meta .trad{font-size:13.5px;color:#999;font-style:italic;margin-top:2px}
+.meta .why{font-size:14px;color:#ccc;margin-top:8px}
+.pick{margin-top:12px;background:none;border:1px solid #555;border-radius:20px;color:#ccc;padding:9px 18px;font-family:Georgia,serif;font-style:italic;font-size:14px;cursor:pointer}
+.pick.on{border-color:#7fb389;color:#7fb389}
+.spec{border-radius:14px;overflow:hidden;margin-top:14px;border:1px solid #333}
+
+/* 1 ATLAS BUREAU */
+.s1{background:#f2ecdc;color:#26221a;font-family:Georgia,serif;padding:26px 22px}
+.s1 .coord{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;color:#8a7a55;border-bottom:1px solid #d8cfb4;padding-bottom:8px;display:flex;justify-content:space-between}
+.s1 h3{font-size:26px;font-style:italic;font-weight:400;margin:14px 0 2px}
+.s1 .reg{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.2em;color:#a33f2a;text-transform:uppercase}
+.s1 .hook{font-size:15.5px;margin:12px 0;line-height:1.55}
+.s1 .imgbox{height:110px;background:repeating-linear-gradient(45deg,#e6ddc4,#e6ddc4 3px,#efe8d3 3px,#efe8d3 9px);border:1px solid #d8cfb4;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#8a7a55;letter-spacing:.2em;margin:12px 0}
+.s1 .stamps{display:flex;gap:8px}
+.s1 .stamp{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;border:2px solid #a33f2a;color:#a33f2a;padding:5px 12px;transform:rotate(-2deg)}
+.s1 .stamp.g{border-color:#5a7a4a;color:#5a7a4a;transform:rotate(1.5deg)}
+
+/* 2 FIELD LEDGER */
+.s2{background:#131210;color:#e6e1d6;font-family:Charter,Georgia,serif;padding:26px 22px}
+.s2 .tc{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#e0983a;background:#2e2617;border-radius:4px;padding:2px 7px}
+.s2 h3{font-size:25px;font-style:italic;font-weight:700;margin:12px 0 4px}
+.s2 .reg{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.2em;color:#8b8577;text-transform:uppercase}
+.s2 .hook{font-size:15.5px;line-height:1.6;margin:12px 0;color:#cfc9bc}
+.s2 .imgbox{height:110px;background:#000;border:1px solid #2b2923;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#555;letter-spacing:.2em;margin:12px 0}
+.s2 .verd{display:flex;gap:8px}
+.s2 .v{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;border:1px solid #2b2923;border-radius:16px;padding:5px 12px;color:#8b8577}
+.s2 .v.on{border-color:#7fb389;color:#7fb389}
+
+/* 3 BROADSHEET */
+.s3{background:#faf8f4;color:#141210;padding:26px 22px;position:relative}
+.s3:before,.s3:after{content:"+";position:absolute;font-family:ui-monospace,monospace;color:#c9c2b4;font-size:12px}
+.s3:before{top:8px;left:10px}.s3:after{bottom:8px;right:10px}
+.s3 .lab{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:#f44315;border-bottom:2px solid #141210;padding-bottom:6px;display:flex;justify-content:space-between}
+.s3 h3{font-size:28px;font-style:italic;font-weight:400;margin:14px 0 2px}
+.s3 .hook{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;margin:10px 0;color:#3a352c}
+.s3 .imgbox{height:110px;background:#141210;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,monospace;font-size:10px;color:#faf8f4;letter-spacing:.2em;margin:12px 0}
+.s3 .slash{color:#f44315;font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.1em}
+
+/* 4 ARCHIVE CARD */
+.s4{background:#e8d9b5;color:#3a3226;font-family:ui-monospace,Menlo,monospace;padding:26px 22px;position:relative}
+.s4:before{content:"";position:absolute;left:14px;top:0;bottom:0;width:1px;background:#c9b384}
+.s4 .file{font-size:10px;letter-spacing:.18em;color:#7a6a4a;display:flex;justify-content:space-between}
+.s4 h3{font-family:Georgia,serif;font-size:24px;font-weight:700;margin:12px 0 3px;text-transform:uppercase;letter-spacing:.03em}
+.s4 .hook{font-size:12px;line-height:1.75;margin:10px 0}
+.s4 .imgbox{height:110px;background:#d9c898;border:1px solid #c9b384;display:flex;align-items:center;justify-content:center;font-size:10px;color:#7a6a4a;letter-spacing:.2em;margin:12px 0;box-shadow:3px 3px 0 #c9b384}
+.s4 .stamp{display:inline-block;border:2px double #7a2a1f;color:#7a2a1f;padding:4px 14px;font-size:11px;letter-spacing:.22em;transform:rotate(-3deg)}
+
+/* 5 SIGNAL ROOM */
+.s5{background:#0a0c0e;color:#d8dde2;font-family:Helvetica,Arial,sans-serif;padding:26px 22px}
+.s5 .grid{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.14em;color:#4a5560;display:flex;justify-content:space-between;border-bottom:1px solid #1c2126;padding-bottom:8px}
+.s5 h3{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:14px 0 4px}
+.s5 .reg{font-size:10px;letter-spacing:.28em;color:#4fa0c7;text-transform:uppercase}
+.s5 .hook{font-size:13.5px;line-height:1.65;margin:12px 0;color:#9aa4ad}
+.s5 .imgbox{height:110px;background:linear-gradient(#10141a,#0a0c0e);border:1px solid #1c2126;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,monospace;font-size:10px;color:#4a5560;letter-spacing:.2em;margin:12px 0}
+.s5 .sig{display:flex;gap:6px}
+.s5 .dot{width:8px;height:8px;border-radius:50%;background:#4fa0c7}
+.s5 .dot.g{background:#57b87a}.s5 .dot.r{background:#c74f4f}
+.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(17,17,17,.95);border-top:1px solid #333;padding:12px 20px}
+.bar button{width:100%;max-width:600px;display:block;margin:0 auto;padding:13px;border-radius:10px;border:none;background:#e0983a;color:#111;font-family:Georgia,serif;font-style:italic;font-size:15px;cursor:pointer}
+</style></head><body>
+<div class="head">
+<div class="k">The Human Element Hub · design direction</div>
+<h1>Five Styles, One Dossier</h1>
+<p>The same story card rendered five ways. Tap "this one" on any you'd live with; notes to me can be plural. My pick is marked.</p>
+</div>
+
+<div class="style-block"><div class="meta">
+<div class="num">DIRECTION 01 · MY PICK</div><h2>The Atlas Bureau</h2>
+<div class="trad">Tradition: 1960s National Geographic expedition files × Swiss cartography</div>
+<div class="why">Paper, ink, coordinates, stamps. Says: this is an institution that goes places and keeps records. The map view becomes the hero surface, and a growing canon feels like an archive of expeditions waiting to happen. Warm, human, unmistakably yours.</div>
+<button class="pick" data-s="atlas">this one</button></div>
+<div class="spec s1">
+<div class="coord"><span>DOSSIER Nº 047</span><span>29°58′N 81°49′E</span></div>
+<h3>The Last Ferryman of the Karnali</h3>
+<div class="reg">Nepal · Rivers · Disappearing work</div>
+<p class="hook">A bridge is coming to the crossing his family has rowed for four generations. He is voting for the bridge.</p>
+<div class="imgbox">[ SCOUTED IMAGERY ]</div>
+<div class="stamps"><span class="stamp g">GREEN LIGHT</span><span class="stamp">HOLD</span></div>
+</div></div>
+
+<div class="style-block"><div class="meta">
+<div class="num">DIRECTION 02</div><h2>The Field Ledger</h2>
+<div class="trad">Tradition: cutting-room monitors × the Nepal kit we already built</div>
+<div class="why">Dark, timecode amber, working-document energy. Says: production tool, not brochure. Continuity with everything from this week. Safest choice; least distinctive as a recruiting surface.</div>
+<button class="pick" data-s="ledger">this one</button></div>
+<div class="spec s2">
+<span class="tc">DOSSIER 047 · SCOUTED 09-23</span>
+<h3>The Last Ferryman of the Karnali</h3>
+<div class="reg">Nepal · Rivers · Disappearing work</div>
+<p class="hook">A bridge is coming to the crossing his family has rowed for four generations. He is voting for the bridge.</p>
+<div class="imgbox">[ SCOUTED IMAGERY ]</div>
+<div class="verd"><span class="v on">GREEN</span><span class="v">YELLOW</span><span class="v">RED</span></div>
+</div></div>
+
+<div class="style-block"><div class="meta">
+<div class="num">DIRECTION 03</div><h2>The Broadsheet</h2>
+<div class="trad">Tradition: the Newpress deck system itself, flat is law, one ink one accent</div>
+<div class="why">Registration marks, hot orange, editorial confidence. Says: this hub IS Newpress. Strongest brand coherence; the recruiting surface argument writes itself. Risk: feels like a deck, not a workshop.</div>
+<button class="pick" data-s="broadsheet">this one</button></div>
+<div class="spec s3">
+<div class="lab"><span>STORY / 047</span><span>SCOUTED 09.23</span></div>
+<h3>The Last Ferryman of the Karnali</h3>
+<div class="slash">NEPAL // RIVERS // DISAPPEARING WORK</div>
+<p class="hook">A bridge is coming to the crossing his family has rowed for four generations. He is voting for the bridge.</p>
+<div class="imgbox">[ SCOUTED IMAGERY ]</div>
+</div></div>
+
+<div class="style-block"><div class="meta">
+<div class="num">DIRECTION 04</div><h2>The Archive Card</h2>
+<div class="trad">Tradition: mid-century institutional index files, Ellis Island manifest energy</div>
+<div class="why">Manila, typewriter, rubber stamps. Says: every human story is a record worth keeping. Charming and tactile; the verdict stamps are deeply satisfying. Risk: drifts twee if overplayed.</div>
+<button class="pick" data-s="archive">this one</button></div>
+<div class="spec s4">
+<div class="file"><span>FILE 047-NPL</span><span>ENTERED 23 SEP 26</span></div>
+<h3>The Last Ferryman</h3>
+<p class="hook">A bridge is coming to the crossing his family has rowed for four generations. He is voting for the bridge. Subject located. Access probable.</p>
+<div class="imgbox">[ PHOTOGRAPH AFFIXED ]</div>
+<span class="stamp">APPROVED</span>
+</div></div>
+
+<div class="style-block"><div class="meta">
+<div class="num">DIRECTION 05</div><h2>The Signal Room</h2>
+<div class="trad">Tradition: Otl Aicher × mission control, the international style</div>
+<div class="why">Cool, gridded, data-forward. Says: serious global operation, stories as signals detected. Most scalable to dense data; least warm, and warmth is rather the whole thesis of your show.</div>
+<button class="pick" data-s="signal">this one</button></div>
+<div class="spec s5">
+<div class="grid"><span>SIG 047</span><span>28.9N 81.8E</span><span>CONF 0.82</span></div>
+<h3>The Last Ferryman of the Karnali</h3>
+<div class="reg">Nepal — Rivers — Disappearing Work</div>
+<p class="hook">A bridge is coming to the crossing his family has rowed for four generations. He is voting for the bridge.</p>
+<div class="imgbox">[ SCOUTED IMAGERY ]</div>
+<div class="sig"><span class="dot g"></span><span class="dot"></span><span class="dot r"></span></div>
+</div></div>
+
+<div class="bar"><button onclick="exp(this)">Copy my picks</button></div>
+<script>
+const K='hub-style-v1';let S=JSON.parse(localStorage.getItem(K)||'[]');
+function paint(){document.querySelectorAll('.pick').forEach(b=>b.classList.toggle('on',S.includes(b.dataset.s)))}
+document.querySelectorAll('.pick').forEach(b=>b.addEventListener('click',()=>{
+  const s=b.dataset.s;const i=S.indexOf(s);i>=0?S.splice(i,1):S.push(s);
+  localStorage.setItem(K,JSON.stringify(S));paint();
+}));
+function exp(btn){navigator.clipboard.writeText('HUB STYLE PICKS: '+(S.join(', ')||'none yet')).then(()=>btn.textContent='Copied ✓')}
+paint();
+</script></body></html>
