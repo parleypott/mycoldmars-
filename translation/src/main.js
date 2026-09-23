@@ -76,6 +76,17 @@ let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
 let wordTimingsMap = null;    // JSON word-level timings: flat [{ word, start, end }] or legacy { segNum: { start, end } }
 let currentSlug = null;       // clean URL slug for permalink
 let lastServerUpdatedAt = null; // last updated_at the server confirmed for this transcript (optimistic concurrency)
+
+// After an out-of-band write (rename, folder move) to the OPEN transcript,
+// refresh the conflict token from the returned row. Without this the next
+// autosave treats our own write as a remote edit — spurious "Save Conflict"
+// modals, and folder moves silently reverted by the next save's stale
+// projectId. Also restores realtime echo suppression in handleRemoteUpdate.
+function absorbOwnWrite(row) {
+  if (!row || row.id !== currentTranscriptId) return;
+  if (row.updated_at) lastServerUpdatedAt = row.updated_at;
+  if ('project_id' in row) currentProjectId = row.project_id || null;
+}
 let libraryCurrentProject = null;  // null = root (show all projects + unsorted)
 let librarySortKey = 'updated_at';
 let librarySortAsc = false;
@@ -688,7 +699,7 @@ function renderSidebarFolders(projectsList) {
       const fileId = e.dataTransfer.getData('text/plain');
       if (!fileId) return;
       try {
-        await updateTranscript(fileId, { projectId: el.dataset.sideFolder });
+        absorbOwnWrite(await updateTranscript(fileId, { projectId: el.dataset.sideFolder }));
         invalidateLibraryCache();
         fetchLibrary();
         showSuccess('Moved');
@@ -989,7 +1000,7 @@ function startInlineRename(el) {
       // and reverted on next load. Now: optimistic UI, but revert + toast on
       // failure so the user sees what happened.
       updateTranscript(id, { name: newName })
-        .then(() => { invalidateLibraryCache(); })
+        .then((row) => { absorbOwnWrite(row); invalidateLibraryCache(); })
         .catch((err) => {
           console.error('rename failed:', err);
           el.textContent = oldName;
@@ -1057,7 +1068,7 @@ function wireLibraryDragAndDrop() {
       if (!fileId) return;
       const projectId = folder.dataset.projectId;
       try {
-        await updateTranscript(fileId, { projectId });
+        absorbOwnWrite(await updateTranscript(fileId, { projectId }));
         invalidateLibraryCache();
         fetchLibrary();
       } catch (err) {
@@ -1084,7 +1095,7 @@ function wireLibraryDragAndDrop() {
       const fileId = e.dataTransfer.getData('text/plain');
       if (!fileId) return;
       try {
-        await updateTranscript(fileId, { projectId: null });
+        absorbOwnWrite(await updateTranscript(fileId, { projectId: null }));
         invalidateLibraryCache();
         fetchLibrary();
       } catch (err) {
@@ -1426,7 +1437,7 @@ async function applyMove(ids, projectId) {
     }
   }
   try {
-    await Promise.all(ids.map(id => updateTranscript(id, { projectId })));
+    await Promise.all(ids.map(id => updateTranscript(id, { projectId }).then(absorbOwnWrite)));
     invalidateLibraryCache();
     await fetchLibrary();
     librarySelected.clear();
@@ -1435,7 +1446,7 @@ async function applyMove(ids, projectId) {
       action: 'Undo',
       onAction: async () => {
         try {
-          await Promise.all([...prior.entries()].map(([id, pid]) => updateTranscript(id, { projectId: pid })));
+          await Promise.all([...prior.entries()].map(([id, pid]) => updateTranscript(id, { projectId: pid }).then(absorbOwnWrite)));
           invalidateLibraryCache();
           fetchLibrary();
           showSuccess('Move undone');
@@ -1487,7 +1498,9 @@ if (transcriptTitleEl) {
       const newName = transcriptTitleEl.textContent.trim();
       if (newName && newName !== currentTranscriptName) {
         currentTranscriptName = newName;
-        updateTranscript(currentTranscriptId, { name: newName });
+        updateTranscript(currentTranscriptId, { name: newName })
+          .then(absorbOwnWrite)
+          .catch(err => console.warn('title rename failed:', err));
         invalidateLibraryCache();
       } else {
         transcriptTitleEl.textContent = currentTranscriptName;
