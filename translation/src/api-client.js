@@ -27,40 +27,34 @@ async function mapWithConcurrency(items, concurrency, fn) {
 }
 
 /**
- * Call Claude via our proxy. Streams the response and accumulates text.
- * All waiting happens in the browser — the proxy just pipes bytes.
+ * Shared SSE consumer for Anthropic-style streams (via our /api/claude
+ * proxy, which pipes bytes verbatim). This replaces six copy-pasted
+ * reader loops that all silently swallowed two failure modes:
+ *  - mid-stream `error` events (overloaded_error, rate limits) → the loop
+ *    just ended and the partial text was returned as if complete;
+ *  - `max_tokens` truncation → silently returned a cut-off response,
+ *    which downstream JSON parsing then blamed on "bad model output".
+ * Throws on both, with err.status set for retry classification.
+ *
+ * opts.onText(delta, fullText) — incremental UI updates.
+ * opts.onActivity() — fires on every chunk read (watchdog reset).
+ * opts.onEvent(event) — raw event tap for callers that need more.
+ * The reader is ALWAYS cancelled in finally — a dangling reader holds the
+ * HTTP connection open and browsers cap ~6 per origin.
  */
-async function callClaude(systemPrompt, userMessage, maxTokens = 2000) {
-  const res = await fetch('/api/claude', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens,
-      stream: true,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Claude API error ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  // Parse SSE stream in the browser. The reader MUST be cancelled in a
-  // finally block — leaving it dangling holds the underlying HTTP
-  // connection open, and browsers cap ~6 connections per origin, so a
-  // few leaks freeze every subsequent request.
+export async function streamClaude(res, opts = {}) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let fullText = '';
   let buffer = '';
+  let sawStop = false;
+  let stopReason = null;
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      if (opts.onActivity) opts.onActivity();
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
@@ -69,20 +63,107 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 2000) {
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6);
-        if (data === '[DONE]') continue;
-        try {
-          const event = JSON.parse(data);
-          if (event.type === 'content_block_delta' && event.delta?.text) {
-            fullText += event.delta.text;
-          }
-        } catch {}
+        if (data === '[DONE]') { sawStop = true; continue; }
+        let event;
+        try { event = JSON.parse(data); } catch { continue; }
+        if (opts.onEvent) { try { opts.onEvent(event); } catch {} }
+        if (event.type === 'error' || (event.error && !event.type)) {
+          const e = event.error || event;
+          const err = new Error(`Claude stream error: ${e.type || 'error'} — ${e.message || 'unknown'}`);
+          if (e.type === 'overloaded_error') err.status = 529;
+          else if (e.type === 'rate_limit_error') err.status = 429;
+          throw err;
+        }
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          fullText += event.delta.text;
+          if (opts.onText) opts.onText(event.delta.text, fullText);
+        }
+        if (event.type === 'message_delta' && event.delta?.stop_reason) stopReason = event.delta.stop_reason;
+        if (event.type === 'message_stop') sawStop = true;
       }
     }
   } finally {
     try { await reader.cancel(); } catch {}
   }
 
+  if (stopReason === 'max_tokens') {
+    const err = new Error('response truncated (max_tokens) — retry with a shorter input or higher limit');
+    err.truncated = true;
+    throw err;
+  }
+  if (!sawStop) {
+    const err = new Error('stream ended early (no terminator) — connection dropped mid-response');
+    err.truncated = true;
+    throw err;
+  }
   return fullText;
+}
+
+/** True for errors worth an automatic retry: rate limits, overload,
+ * server errors, network drops, aborts, truncation, and parse failures
+ * (which are usually truncation in disguise). */
+export function isRetryableClaudeError(err) {
+  const s = err?.status;
+  if (s === 429 || s === 529 || (typeof s === 'number' && s >= 500)) return true;
+  if (err?.name === 'AbortError' || err?.name === 'TimeoutError' || err?.truncated) return true;
+  return /truncated|stream ended early|stream error|parse failed|not an array|could not parse|failed to fetch|networkerror|load failed|inactive/i
+    .test(String(err?.message || ''));
+}
+
+/** Retry with jittered exponential backoff on retryable errors only. */
+export async function withClaudeRetries(fn, { attempts = 3, label = '' } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try { return await fn(); } catch (err) {
+      lastErr = err;
+      if (i === attempts - 1 || !isRetryableClaudeError(err)) throw err;
+      const delay = 1000 * Math.pow(2, i) + Math.random() * 500;
+      console.warn(`[claude-retry] ${label || 'call'} attempt ${i + 1} failed (${err?.message}); retrying in ${Math.round(delay)}ms`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Call Claude via our proxy. Streams the response and accumulates text.
+ * All waiting happens in the browser — the proxy just pipes bytes.
+ * Inactivity watchdog: if no bytes arrive for 60s the request is aborted
+ * (rejects the pending read) instead of hanging a batch job forever.
+ */
+async function callClaude(systemPrompt, userMessage, maxTokens = 2000) {
+  const ctrl = new AbortController();
+  let watchdog = null;
+  const arm = () => {
+    clearTimeout(watchdog);
+    watchdog = setTimeout(() => ctrl.abort(new DOMException('stream inactive for 60s', 'AbortError')), 60000);
+  };
+  arm();
+  try {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: maxTokens,
+        stream: true,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      const err = new Error(`Claude API error ${res.status}: ${text.slice(0, 200)}`);
+      err.status = res.status;
+      throw err;
+    }
+
+    return await streamClaude(res, { onActivity: arm });
+  } finally {
+    clearTimeout(watchdog);
+  }
 }
 
 /** Extract JSON from Claude's text response */
@@ -162,11 +243,11 @@ Respond with JSON only (no markdown fencing):
   "questions": [{ "id": "q1", "segment_range": "15-18", "quoted_text": "...", "question": "...", "why": "..." }]
 }`;
 
-  const rawText = await callClaude(
+  const rawText = await withClaudeRetries(() => callClaude(
     systemPrompt,
     `Transcript (${labeled.length} labeled, ${genericCount} unlabeled ignored):\n\n${transcriptText}`,
     2000,
-  );
+  ), { label: 'analyze' });
 
   const result = extractJSON(rawText);
   result.generic_segments = genericNums;
@@ -300,39 +381,69 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
       .map(s => `SEG ${s.number} [${s.speaker || ''}]: ${s.text}`)
       .join('\n');
 
-    const rawText = await callClaude(
-      systemPrompt,
-      `Translate these ${batchSegments.length} segments:\n\n${segmentText}`,
-      8192,
-    );
-
-    let translated;
     try {
-      translated = extractJSON(rawText);
-    } catch (e) {
-      console.error('Failed to parse batch response. Raw text:', rawText.slice(0, 500));
-      throw new Error(`Batch parse failed: ${e.message}`);
+      // Retries make one flaky batch survivable; the catch below makes a
+      // dead batch non-fatal. Before this, one failed batch out of 30
+      // rejected the whole run and discarded every completed translation.
+      const translated = await withClaudeRetries(async () => {
+        const rawText = await callClaude(
+          systemPrompt,
+          `Translate these ${batchSegments.length} segments:\n\n${segmentText}`,
+          8192,
+        );
+        let parsed;
+        try {
+          parsed = extractJSON(rawText);
+        } catch (e) {
+          console.error('Failed to parse batch response. Raw text:', rawText.slice(0, 500));
+          throw new Error(`Batch parse failed: ${e.message}`);
+        }
+        if (!Array.isArray(parsed)) {
+          console.error('Not an array. Got:', typeof parsed, rawText.slice(0, 500));
+          throw new Error('Translation response is not an array');
+        }
+        return parsed;
+      }, { attempts: 3, label: `translate batch (${batchSegments[0]?.number}…)` });
+      completed++;
+      if (onProgress) onProgress(completed, batches.length);
+      return { batch, translated };
+    } catch (err) {
+      console.error('Translate batch failed after retries:', err?.message || err);
+      completed++;
+      if (onProgress) onProgress(completed, batches.length);
+      return { batch, translated: null, failed: true };
     }
-    if (!Array.isArray(translated)) {
-      console.error('Not an array. Got:', typeof translated, rawText.slice(0, 500));
-      throw new Error('Translation response is not an array');
-    }
-
-    completed++;
-    if (onProgress) onProgress(completed, batches.length);
-
-    return { batch, translated };
   };
 
   const batchResults = await mapWithConcurrency(batches, 5, runBatch);
 
-  for (const { batch, translated } of batchResults) {
+  let failedBatches = 0;
+  for (const { batch, translated, failed } of batchResults) {
+    if (failed) {
+      failedBatches++;
+      // Explicit failure flags — NOT kept_original, which would disguise
+      // untranslated source language as an intentional English pass-through.
+      for (const { segment, resultIndex } of batch) {
+        results[resultIndex] = {
+          number: segment.number,
+          original: segment.text,
+          translated: segment.text,
+          language: 'unknown',
+          kept_original: false,
+          translation_failed: true,
+        };
+      }
+      continue;
+    }
     for (const { resultIndex, value } of reassembleBatch(batch, translated, segments)) {
       results[resultIndex] = value;
     }
   }
 
-  return Array.from(results);
+  const out = Array.from(results);
+  out.failedBatches = failedBatches;
+  out.totalBatches = batches.length;
+  return out;
 }
 
 // ── Soundbite Workshop ──
@@ -379,7 +490,7 @@ Respond with JSON only (no markdown fencing):
     `TRANSCRIPT (${labeled.length} segments):\n\n${transcriptText}`,
   ].filter(Boolean).join('\n');
 
-  const rawText = await callClaude(systemPrompt, userMsg, 2000);
+  const rawText = await withClaudeRetries(() => callClaude(systemPrompt, userMsg, 2000), { label: 'detect themes' });
   const result = extractJSON(rawText);
   return Array.isArray(result?.themes) ? result.themes : [];
 }
@@ -451,7 +562,7 @@ Respond with JSON only (no markdown fencing):
     // partial result is just partial.
     let rawText;
     try {
-      rawText = await callClaude(systemPrompt, userMsg, 4000);
+      rawText = await withClaudeRetries(() => callClaude(systemPrompt, userMsg, 4000), { label: 'soundbite chunk' });
     } catch (e) {
       console.warn('[extractSoundbites] chunk fetch failed:', e?.message || e);
       failedChunks++;
@@ -547,11 +658,11 @@ Rules:
 - "polished" is the cleaned version — concatenate the keep chunks, then lightly fix capitalization at sentence starts after a strike.
 - Aim to cut 20-50% of words. If the text is already tight, cut less.`;
 
-  const rawText = await callClaude(
+  const rawText = await withClaudeRetries(() => callClaude(
     systemPrompt,
     `Soundbite to polish:\n\n${text}`,
     1200,
-  );
+  ), { label: 'zap polish' });
   const result = extractJSON(rawText);
   if (!Array.isArray(result?.chunks)) {
     throw new Error('Polish response missing chunks array');

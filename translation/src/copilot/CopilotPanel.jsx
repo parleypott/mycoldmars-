@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { buildCopilotSystemPrompt, buildPassagePrompt, buildMultiHighlightPrompt, buildSummaryPrompt, QUICK_ACTIONS } from './copilot-prompts.js';
+import { streamClaude } from '../api-client.js';
 import { SummaryView } from './SummaryView.jsx';
 
 function extractSuggestions(text) {
@@ -122,40 +123,15 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
 
       if (!res.ok) throw new Error(`API error: ${res.status}`);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let assistantText = '';
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          // Bail if the panel unmounted mid-stream — no point parsing more.
-          if (!isMountedRef.current) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
-
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            try {
-              const event = JSON.parse(data);
-              if (event.type === 'content_block_delta' && event.delta?.text) {
-                assistantText += event.delta.text;
-                if (isMountedRef.current) {
-                  setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
-                }
-              }
-            } catch {}
+      // Shared parser (throws on mid-stream API errors + truncation).
+      // Unmount aborts via abortRef → AbortError → handled below.
+      const assistantText = await streamClaude(res, {
+        onText: (_delta, full) => {
+          if (isMountedRef.current) {
+            setMessages([...newMessages, { role: 'assistant', content: full }]);
           }
-        }
-      } finally {
-        try { await reader.cancel(); } catch {}
-      }
+        },
+      });
 
       if (isMountedRef.current) {
         setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
@@ -204,37 +180,9 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
 
       if (!res.ok) throw new Error(`API error: ${res.status}`);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let text = '';
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!isMountedRef.current) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
-
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            try {
-              const event = JSON.parse(data);
-              if (event.type === 'content_block_delta' && event.delta?.text) {
-                text += event.delta.text;
-                if (isMountedRef.current) setSummaryContent(text);
-              }
-            } catch {}
-          }
-        }
-      } finally {
-        try { await reader.cancel(); } catch {}
-      }
+      const text = await streamClaude(res, {
+        onText: (_delta, full) => { if (isMountedRef.current) setSummaryContent(full); },
+      });
 
       if (isMountedRef.current) setSummaryContent(text);
     } catch (err) {

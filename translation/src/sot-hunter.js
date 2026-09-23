@@ -3,6 +3,7 @@
 // match in the editor and logs thumbs feedback to localStorage so we can audit
 // guess quality over time.
 import { formatPreciseTimecode } from './timecode-utils.js';
+import { streamClaude } from './api-client.js';
 import { extractSequenceBase, getSequenceMetadata, cleanSpeakerName } from './csv-parser.js';
 import { escapeHtml } from './html-escape.js';
 
@@ -190,30 +191,9 @@ Rules:
     throw new Error(`Hunter API error ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let full = '';
-  let buf = '';
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6);
-        if (data === '[DONE]') continue;
-        try {
-          const ev = JSON.parse(data);
-          if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
-        } catch {}
-      }
-    }
-  } finally {
-    try { await reader.cancel(); } catch {}
-  }
+  // Shared parser: surfaces mid-stream API errors and max_tokens truncation
+  // instead of feeding a silently cut-off response to parseHunterJSON.
+  const full = await streamClaude(res);
 
   return parseHunterJSON(full);
 }
@@ -284,30 +264,7 @@ Rules:
     throw new Error(`Hunter API error ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let full = '';
-  let buf = '';
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6);
-        if (data === '[DONE]') continue;
-        try {
-          const ev = JSON.parse(data);
-          if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
-        } catch {}
-      }
-    }
-  } finally {
-    try { await reader.cancel(); } catch {}
-  }
+  const full = await streamClaude(res);
 
   const parsed = parseHunterJSON(full);
   return Array.isArray(parsed?.soundbites) ? parsed.soundbites : [];

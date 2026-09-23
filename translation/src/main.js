@@ -10,7 +10,7 @@ import { initialsOf } from './initials.js';
 import { relativeAgo } from './relative-ago.js';
 import { enrichSegmentRefs } from './segment-ref.js';
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
-import { analyzeTranscript, translateSegments } from './api-client.js';
+import { analyzeTranscript, translateSegments, streamClaude } from './api-client.js';
 import { buildSRT, timeToSeconds } from './srt-builder.js';
 import { parseSummaryBullets } from './summary-bullets.js';
 import { parseEnrichedSummaryBullets } from './enriched-summary-bullets.js';
@@ -5313,6 +5313,10 @@ async function startTranslation() {
       };
     });
 
+    if (result.failedBatches > 0) {
+      showError(`${result.failedBatches} of ${result.totalBatches} translation batches failed after retries — the affected segments show their original text. Run Translate again to fill them in.`);
+    }
+
     renderTranslations();
     editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map, { hideUnintelligible });
     editorInstance = null;
@@ -5858,35 +5862,9 @@ async function generateAutoSummary() {
       return;
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let text = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-          try {
-            const event = JSON.parse(data);
-            if (event.type === 'content_block_delta' && event.delta?.text) {
-              text += event.delta.text;
-            }
-          } catch {}
-        }
-      }
-    } finally {
-      try { await reader.cancel(); } catch {}
-    }
+    // Shared parser: throws on mid-stream errors and max_tokens truncation
+    // instead of silently persisting a cut-off summary via autosave.
+    const text = await streamClaude(res);
 
     // Store raw text for re-parsing on reload
     rawSummary = text;
