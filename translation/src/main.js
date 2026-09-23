@@ -92,7 +92,6 @@ let librarySortKey = 'updated_at';
 let librarySortAsc = false;
 const librarySelected = new Set(); // ids of currently-selected transcripts (for bulk ops)
 let libraryCache = null;           // { transcripts, projects, deleted, ts }
-const LIBRARY_CACHE_TTL = 5000;
 const LIBRARY_CACHE_LS_KEY = 'np_library_cache_v3';
 
 // Persist library snapshots to localStorage so a hard refresh shows the
@@ -392,14 +391,14 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
   if ((!transcripts || transcripts.length === 0) && (!projectsList || projectsList.length === 0) && (!deletedTranscripts || deletedTranscripts.length === 0)) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
-    renderSidebarFolders(projectsList || []);
+    renderSidebarFolders(projectsList || [], transcripts || []);
     updateSidebarCounts();
     return;
   }
 
   libraryEmpty.classList.add('hidden');
-  renderBreadcrumb();
-  renderSidebarFolders(projectsList || []);
+  renderBreadcrumb(transcripts || []);
+  renderSidebarFolders(projectsList || [], transcripts || []);
   updateSidebarCounts();
 
   const rows = [];
@@ -579,13 +578,14 @@ function renderFileRow(t) {
     </div>`;
 }
 
-function renderBreadcrumb() {
+function renderBreadcrumb(listOverride) {
   const crumbEl = document.querySelector('.lib-breadcrumb');
   if (!crumbEl) return;
   // Total count for the current view — shown as a quiet right-aligned badge.
   // Folder counts in their own renderFolderRow; this is the toolbar-level
   // 'X transcripts in this view' indicator.
-  const transcripts = libraryCache?.transcripts || [];
+  // Prefer the list actually being rendered — the global cache can lag it.
+  const transcripts = listOverride || libraryCache?.transcripts || [];
   const inView = libraryCurrentProject
     ? transcripts.filter(t => t.project_id === libraryCurrentProject).length
     : transcripts.length;
@@ -604,7 +604,7 @@ function renderBreadcrumb() {
   crumbEl.innerHTML = html;
   crumbEl.querySelector('.lib-crumb--root')?.addEventListener('click', () => {
     libraryCurrentProject = null;
-    fetchLibrary(true);
+    fetchLibrary();
   });
   // Right-click on the current-folder crumb → quick rename / delete.
   const currentCrumb = crumbEl.querySelector('.lib-crumb--current');
@@ -672,7 +672,7 @@ function updateSidebarCounts() {
 
 // Render the folder list in the sidebar — same data as the inline folder
 // rows in the main view, but as a quick-jump nav surface.
-function renderSidebarFolders(projectsList) {
+function renderSidebarFolders(projectsList, listOverride) {
   const host = document.querySelector('[data-sidebar-folders]');
   if (!host) return;
   if (!projectsList || projectsList.length === 0) {
@@ -680,7 +680,7 @@ function renderSidebarFolders(projectsList) {
     return;
   }
   host.innerHTML = projectsList.map(p => {
-    const count = (libraryCache?.transcripts || []).filter(t => t.project_id === p.id).length;
+    const count = (listOverride || libraryCache?.transcripts || []).filter(t => t.project_id === p.id).length;
     const isCurrent = libraryCurrentProject === p.id && libraryActiveView === 'all';
     return `
       <button class="lib-sidebar-folder ${isCurrent ? 'lib-sidebar-folder--active' : ''}" data-side-folder="${esc(p.id)}" data-droppable="side">
@@ -873,7 +873,7 @@ function wireLibraryEvents() {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.lib-row-delete')) return;
       libraryCurrentProject = row.dataset.projectId;
-      fetchLibrary(true);
+      fetchLibrary();
     });
   });
 
@@ -1322,7 +1322,15 @@ async function bulkDeleteSelected() {
   if (ids.length === 0) return;
   if (!confirm(`Delete ${ids.length} transcript${ids.length === 1 ? '' : 's'}? You can restore from Recently Deleted.`)) return;
   try {
-    await Promise.all(ids.map(id => deleteTranscript(id)));
+    const settled = await Promise.allSettled(ids.map(id => deleteTranscript(id)));
+    const failed = settled.filter(s => s.status === 'rejected').length;
+    if (failed) {
+      showErrorToast(`Deleted ${ids.length - failed} of ${ids.length} — ${failed} failed and remain in the library.`);
+      librarySelected.clear();
+      invalidateLibraryCache();
+      await fetchLibrary();
+      return;
+    }
     showSuccess(`Deleted ${ids.length} transcript${ids.length === 1 ? '' : 's'}`, {
       action: 'Undo',
       onAction: async () => {
@@ -1451,11 +1459,24 @@ async function applyMove(ids, projectId) {
     }
   }
   try {
-    await Promise.all(ids.map(id => updateTranscript(id, { projectId }).then(absorbOwnWrite)));
+    // allSettled: one failed row used to reject the whole batch and revert
+    // rows that HAD moved — report partial reality instead.
+    const settled = await Promise.allSettled(ids.map(id => updateTranscript(id, { projectId }).then(absorbOwnWrite)));
+    const failedIds = ids.filter((_, i) => settled[i].status === 'rejected');
+    // Revert only the rows that actually failed.
+    if (failedIds.length && libraryCache?.transcripts) {
+      for (const t of libraryCache.transcripts) {
+        if (failedIds.includes(t.id) && prior.has(t.id)) t.project_id = prior.get(t.id);
+      }
+    }
     invalidateLibraryCache();
     await fetchLibrary();
     librarySelected.clear();
     const folderName = projectId ? (projects.find(p => p.id === projectId)?.name || 'folder') : 'Unsorted';
+    if (failedIds.length) {
+      showErrorToast(`Moved ${ids.length - failedIds.length} of ${ids.length} to ${folderName} — ${failedIds.length} failed, left in place.`);
+      return;
+    }
     showSuccess(`Moved ${ids.length} to ${folderName}`, {
       action: 'Undo',
       onAction: async () => {
@@ -4221,6 +4242,13 @@ async function runUploadWorker() {
       renderUploadPanel();
     }
   }
+  // Queue drained. If the library is on screen, refresh it so the freshly
+  // imported rows appear without a manual reload (they used to sit invisible
+  // until the user navigated away and back).
+  if (uploadQueue.some(u => u.status === 'done')) {
+    invalidateLibraryCache();
+    if (libraryShowing) fetchLibrary();
+  }
   // uploadWorkerActive is cleared by the caller's .finally(). Don't
   // race-clear it here — a re-enqueue between this line and the
   // finally would see `active = false` and spawn a second worker.
@@ -5362,10 +5390,11 @@ function renderTranslations() {
       const isUnintelligible = t.unintelligible;
       return `<tr class="${isUnintelligible ? 'unintelligible' : ''}">
         <td>${t.number}</td>
-        <td>${esc(t.original)}</td>
-        <td class="${isUnintelligible ? '' : 'editable'}" data-idx="${i}">
+        <td dir="auto">${esc(t.original)}</td>
+        <td class="${isUnintelligible ? '' : 'editable'} ${t.translation_failed ? 'translation-failed' : ''}" data-idx="${i}">
           ${esc(t.translated)}
           ${t.kept_original ? '<span class="kept-badge">kept</span>' : ''}
+          ${t.translation_failed ? '<span class="kept-badge" style="background:var(--np-red);color:#fff;" title="This batch failed after retries — run Translate again">failed</span>' : ''}
         </td>
       </tr>`;
     })
@@ -5699,7 +5728,7 @@ btnNewProject.addEventListener('click', () => {
       const proj = await createProject({ name });
       projects.push(proj);
       invalidateLibraryCache();
-      fetchLibrary(true);
+      fetchLibrary();
     } catch (err) {
       console.error('Failed to create folder:', err);
     }
@@ -7632,10 +7661,24 @@ function safeInit(name, fn) {
     try {
       const stuck = await listStuckMediaUploads({ olderThanMinutes: 10 });
       if (!stuck.length) return;
+      // Cross-check: a transcript already referencing the upload means the
+      // transcription FINISHED and only the done-status write was lost —
+      // flipping that to "abandoned" lied about completed work.
+      let claimed = new Set();
+      try {
+        const existing = await listTranscripts();
+        claimed = new Set(existing.map(t => t.media_upload_id).filter(Boolean));
+      } catch {}
       // Best-effort flip — RLS owners only, so foreign rows are silently
       // skipped which is the correct behavior.
       let flipped = 0;
       for (const row of stuck) {
+        if (claimed.has(row.id)) {
+          try {
+            await updateMediaUpload(row.id, { transcriptionStatus: 'done', transcriptionCompletedAt: new Date().toISOString() });
+          } catch {}
+          continue;
+        }
         try {
           await updateMediaUpload(row.id, {
             transcriptionStatus: 'error',

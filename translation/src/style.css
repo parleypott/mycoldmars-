@@ -2046,6 +2046,9 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--np-sepia);
   opacity: 0.7;
   font-style: italic;
+  /* RTL sources (Arabic, Hassaniya) render in their natural direction —
+     plaintext picks direction per-line from the content itself. */
+  unicode-bidi: plaintext;
 }
 
 .editor-deleted {
@@ -2822,6 +2825,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   font-size: 12px;
   color: var(--np-sepia);
   font-style: italic;
+  unicode-bidi: plaintext;
 }
 
 .copilot-quick-actions {

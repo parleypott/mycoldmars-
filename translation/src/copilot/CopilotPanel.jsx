@@ -290,7 +290,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
           <div className="copilot-context-label">Selected passage:</div>
           <p className="copilot-context-text">{selection.text}</p>
           {selection.originalText && (
-            <p className="copilot-context-original">{selection.originalText}</p>
+            <p className="copilot-context-original" dir="auto">{selection.originalText}</p>
           )}
         </div>
       )}

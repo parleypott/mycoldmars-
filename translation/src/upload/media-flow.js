@@ -169,13 +169,18 @@ export async function runTranscription({ mediaUploadId, signedUrl, sizeBytes, la
     end: w.end,
   }));
 
-  await updateMediaUpload(mediaUploadId, {
+  // Retry the done-status write once: if it fails, boot cleanup later sees a
+  // "stuck" upload and marks a perfectly good transcription as abandoned.
+  const markDone = () => updateMediaUpload(mediaUploadId, {
     transcriptionStatus: 'done',
     transcriptionCompletedAt: new Date().toISOString(),
     transcriptionProvider: whisper.provider || 'auto',
     sourceLanguage: whisper.language || null,
     durationSeconds: whisper.duration_seconds || undefined,
-  }).catch(() => {});
+  });
+  await markDone().catch(() =>
+    new Promise(r => setTimeout(r, 2000)).then(markDone).catch((e) =>
+      console.warn('[media-flow] done-status write failed twice:', e?.message || e)));
 
   return {
     segments,
