@@ -6134,7 +6134,10 @@ function openCopilot(selection) {
     segments,
     translations,
     speakerMap,
-    highlights: [], // extracted from editor state in future
+    // Real highlights (with tagName + textPreview for the summary prompt) —
+    // NOT currentEditorHighlights(), which strips those fields for media-deck.
+    highlights: editorState ? (extractHighlightsFromEditor(editorState) || []) : [],
+    summary: currentSummary || '',
     editorialFocus,
     onClose: () => {
       panel.classList.remove('active');

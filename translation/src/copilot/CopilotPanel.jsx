@@ -67,7 +67,10 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       abortRef.current = null;
     }
     setMessages([]);
-    setDeepContext(false);
+    // deepContext intentionally NOT reset here: it's a conversation-level
+    // mode ("search the whole transcript"), and resetting it on every
+    // selection change silently shrank whole-transcript soundbite hunts
+    // back to ±10 segments mid-conversation.
     setCommitted(new Set());
     setLoading(false);
   }, [selection?.text]);
@@ -92,8 +95,9 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     setMessages(newMessages);
     setInput('');
     setLoading(true);
-    // Reset deep context after each send
-    setDeepContext(false);
+    // deepContext stays on until the user toggles it off — it's visible
+    // next to send, and auto-resetting it made "find soundbites in the
+    // whole transcript" work for exactly one message.
 
     try {
       const allMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
@@ -148,6 +152,13 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
   }
 
   async function generateHighlightSummary() {
+    if (!highlights || highlights.length === 0) {
+      // Running the prompt over zero highlights produced a confident
+      // summary of nothing. Say so instead.
+      setShowSummary(true);
+      setSummaryContent('No highlights yet — highlight passages in the editor first, then generate a summary.');
+      return;
+    }
     setLoading(true);
     setShowSummary(true);
 
@@ -264,7 +275,12 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       <div className="copilot-header">
         <span className="np-eyebrow np-eyebrow--red">AI Copilot</span>
         <div className="copilot-header-actions">
-          <button className="copilot-summary-btn" onClick={generateHighlightSummary}>Summary</button>
+          <button
+            className="copilot-summary-btn"
+            onClick={generateHighlightSummary}
+            disabled={!highlights || highlights.length === 0}
+            title={(!highlights || highlights.length === 0) ? 'Highlight passages in the editor first' : 'Summarize highlighted passages'}
+          >Summary</button>
           <button className="tag-picker-close" onClick={onClose}>&times;</button>
         </div>
       </div>

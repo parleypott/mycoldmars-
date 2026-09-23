@@ -209,6 +209,7 @@ export function extractHighlightsFromEditor(editorState) {
         if (mark.type === 'highlight' && mark.attrs?.tagId) {
           highlights.push({
             tagId: mark.attrs.tagId,
+            tagName: mark.attrs.tagName || '',
             segmentNumbers: mark.attrs.segmentNumbers || [],
             textPreview: node.text?.slice(0, 200) || '',
             originalTextPreview: mark.attrs.originalText?.slice(0, 200) || '',
