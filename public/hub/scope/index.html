@@ -1,0 +1,87 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>THE Scope · Questionnaire</title><style>
+:root{--bg:#0f0e0c;--ink:#ece7db;--dim:#8b8577;--tc:#e0983a;--line:#2b2923;--green:#7fb389;--card:#171614}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Georgia,serif;line-height:1.5;padding:36px 18px 120px}
+.w{max-width:600px;margin:0 auto}
+.kicker{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--tc);margin-bottom:8px}
+h1{font-size:30px;font-style:italic;font-weight:400;margin-bottom:8px}
+.sub{color:var(--dim);font-style:italic;font-size:14.5px;margin-bottom:8px}
+#prog{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--green);margin-bottom:24px}
+h2{font-size:22px;font-style:italic;font-weight:400;color:var(--tc);margin:38px 0 6px;border-top:1px solid var(--line);padding-top:26px}
+.intro{color:var(--dim);font-size:14px;font-style:italic;margin-bottom:18px}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 12px;margin-bottom:14px}
+.q p.text{font-size:16.5px;margin-bottom:12px}
+.opt{display:block;width:100%;text-align:left;background:none;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:Georgia,serif;font-size:14.5px;padding:11px 13px;margin-bottom:7px;cursor:pointer;font-style:italic}
+.opt.on{border-color:var(--tc);color:var(--tc)}
+textarea{width:100%;min-height:40px;background:#12110f;border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:Georgia,serif;font-style:italic;font-size:13.5px;padding:8px;margin-top:4px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(15,14,12,.94);border-top:1px solid var(--line);padding:12px 18px}
+.bar .w{display:flex;gap:10px}
+.bar button{flex:1;padding:13px;border-radius:10px;border:1px solid var(--tc);background:var(--tc);color:#131210;font-family:Georgia,serif;font-style:italic;font-size:15px;cursor:pointer}
+</style></head><body><div class="w">
+<div class="kicker">The Human Element · editorial scope</div>
+<h1>The Scope Questionnaire</h1>
+<div class="sub">32 questions in six rooms. Tap what's true, add a note anywhere your answer is really “yes, but.” Saves on your phone as you go. When done (or half done, anything helps), hit Copy My Answers and paste it to me.</div>
+<div id="prog"></div>
+<div id="root"></div>
+</div>
+<div class="bar"><div class="w">
+<button onclick="exportA(this)">Copy My Answers</button>
+</div></div>
+<script>
+const DATA={"sections":[{"title":"The Spine","intro":"What the show is at its core. Your original language said antidote to the broken information ecosystem. Your new instinct says resilience, ingenuity, beauty. These aren't the same show. Let's find out which one you're making.","questions":[{"id":"spine1","q":"When someone finishes an episode, the primary thing they should feel is:","opts":["I understand something I didn't","I care about someone I didn't","I feel less alone in the world","I want to go see the world myself"]},{"id":"spine2","q":"The original pitch was built on fixing the information ecosystem (outrage, numbness, context collapse). Is that still the enemy?","opts":["Yes, that's still the why","Partly, but it's become background","No, the why has shifted to connection itself","The enemy framing is wrong altogether"]},{"id":"spine3","q":"Which sentence is closest to the show's soul right now?","opts":["Hidden forces, seen through the people they land on","The resilience of people inside a changing world","Proof that strangers are knowable","The world is more beautiful and complicated than the news lets on"]},{"id":"spine4","q":"'It's not about getting people to agree, it's about getting them to care.' Still load-bearing?","opts":["Yes, that's the mission sentence","Yes but it needs sharper language","It's true but not the center anymore"]},{"id":"spine5","q":"Is Johnny's own transformation (journalist learning to feel) part of the show's text, or behind the camera?","opts":["On screen, part of the show's story","Present but never named","Behind the camera entirely"]}]},{"title":"What Qualifies","intro":"The hunter's aperture. Every question here becomes a literal rule in the story-hunting engine. Answer with your gut, then note exceptions.","questions":[{"id":"scope1","q":"The core anchor of a Human Element story is:","opts":["A place under threat and how people respond","A place in motion (any big change, good or bad)","A community with an unusually strong bond","Any human story that makes the abstract world concrete"]},{"id":"scope2","q":"Could an episode be anchored in pure joy or ingenuity, with no threat at all? (A town that reinvented itself, a craft renaissance, a festival that binds a region)","opts":["Yes, actively hunt these","Yes, but rare seasoning","Only if change/stakes lurk underneath","No, stakes are the genre"]},{"id":"scope3","q":"Urban and modern stories (a delivery rider in Seoul, a Lagos startup scene, a Cairo apartment block):","opts":["Fully in scope, hunt them","In scope if the community bond is strong","Only when the place itself is the story","The show's lane is remote and rural"]},{"id":"scope4","q":"Stories in the US and Western Europe:","opts":["Yes, the human element is everywhere","Yes but sparingly, the passport is part of the brand","Only extraordinary cases","No, the show looks outward"]},{"id":"scope5","q":"The protagonist unit the hunter should optimize for:","opts":["One person who embodies the story (a Jaba)","A community (village, crew, congregation, block)","A relationship (family split, two sides of a border)","Vary it deliberately"]},{"id":"scope6","q":"Must every story have a 'bigger issue' explainer layer (geopolitics, climate, economics)?","opts":["Yes, that's the format's DNA","Usually, but a pure human story can carry alone sometimes","The bigger issue can be universal (grief, aging, leaving) not just geopolitical","No, drop the requirement"]},{"id":"scope7","q":"Timeliness. The canon is meant to be evergreen. When news breaks somewhere:","opts":["Chase it while it's hot, news is access","Note it, hunt it after the cameras leave","Only evergreen; the show ignores the news cycle"]},{"id":"scope8","q":"Should the hunter filter for shootability (access, safety, cost, permits), or bring everything and let you filter?","opts":["Filter hard, only bring shootable stories","Flag feasibility but bring the story anyway","Ignore feasibility, ideas first"]},{"id":"scope9","q":"Hard red lines the hunter should never cross (pick all that apply):","multi":true,"opts":["Poverty as spectacle","Stories requiring undercover deception","Active war zones","Stories where consent would be doubtful","Stories already saturated by Western media","None of these are absolute"]}]},{"title":"The Palette","intro":"Six episodes in, the show's emotional register is grief-forward: beautiful places losing something. Your new instinct pushes toward resilience and joy. Set the mix.","questions":[{"id":"pal1","q":"The ideal season of 8 episodes contains:","opts":["Mostly loss/threat stories, it's what the format does best","Half threat, half resilience/ingenuity/joy","Mostly resilience and connection, threat as seasoning","Each episode should contain BOTH inside itself"]},{"id":"pal2","q":"Which unmade story excites you most? (This calibrates the hunter more than any rule)","opts":["A dying glacier village's last winter","A war-torn city's underground music scene thriving anyway","An island where old women run everything and it works","A megacity neighborhood that functions on pure improvised trust"]},{"id":"pal3","q":"Humor and absurdity on this show:","opts":["Essential, the show should be funny sometimes","Welcome inside episodes, never as the premise","Light touch only, tone is earnest"]},{"id":"pal4","q":"The feeling the show should NEVER produce:","opts":["Pity","Despair","Guilt","Detachment"]}]},{"title":"The Form","intro":"You said: less explainer vibe, more traditional documentary, with adventure and explainer crafted in uniquely. Let's pin what that means for story selection, since form shapes what's huntable.","questions":[{"id":"form1","q":"The balance in a typical episode:","opts":["70% v\u00e9rit\u00e9 human story, 30% explainer/maps","50/50, the braid is the format","Explainer as short interludes only (like chapter breaks)","Varies per story, no formula"]},{"id":"form2","q":"Johnny on camera is:","opts":["The audience's body: guide, learner, companion","A journalist investigating","Increasingly invisible, subjects carry it","Depends on the story"]},{"id":"form3","q":"Multi-story episodes (three short human stories around one theme) vs single-story immersion:","opts":["Always single story, depth is the brand","Open to anthology episodes","Season mix of both"]},{"id":"form4","q":"Should the hunter also hunt FORMS (a story that wants to be a phone-footage diary, a story told backward, an episode with no narration)?","opts":["Yes, flag form opportunities on every dossier","Occasionally, when the story demands it","No, form is decided in development"]}]},{"title":"The Hunter","intro":"Mechanics of the weekly hunt. It will search in many languages, across local press, regional forums, academic fieldwork, NGO reports, and community threads, then verify and build dossiers. These questions set its behavior.","questions":[{"id":"hunt1","q":"Weekly volume. Each Monday the canon should grow by:","opts":["3-5 deeply developed dossiers","8-12 lighter finds, you triage","1-2 exceptional ones only, quality bar maximal"]},{"id":"hunt2","q":"Geographic strategy:","opts":["Roam free, surprise me","Rotate regions weekly for coverage","Weight toward my curiosity orbit (Asia, borders, islands, mountains)","I'll set target regions each month"]},{"id":"hunt3","q":"Sources you most want mined (pick all that apply):","multi":true,"opts":["Local-language press","Academic fieldwork and ethnographies","NGO and UN field reports","Reddit/forums/diaspora communities","Local documentary and photo projects","Newpress community submissions"]},{"id":"hunt4","q":"A dossier's verdict options should be:","opts":["Green / Yellow / Red with required reason","Star rating plus notes","Just notes, keep it loose"]},{"id":"hunt5","q":"When you red-light a story, the reason feeds the hunter's DNA. How aggressively should it generalize from your rejections?","opts":["Aggressively, each rejection prunes a whole category","Gently, rejections are data points not rules","Ask me before generalizing any rejection into a rule"]},{"id":"hunt6","q":"Should the hunter resurface old rejected stories when circumstances change (new access, new event)?","opts":["Yes, nothing dies permanently","Only yellow-lighted ones","No, red is red"]}]},{"title":"The Hub","intro":"The product itself: who sees it and what the Soul Room becomes.","questions":[{"id":"hub1","q":"Audience for the hub:","opts":["Just me and Parley","Me plus the team (share links)","Eventually a recruiting surface for hires and partners","All of the above, with layers"]},{"id":"hub2","q":"The Soul Room (promo/language sandbox) should generate weekly:","opts":["New thesis language and one-liners (like Soul Finder)","Full PR artifacts: blurbs, releases, deck copy","Positioning experiments: taglines, titles, thumbnails","All of it, in small weekly batches"]},{"id":"hub3","q":"Locked language (things you've approved) should become:","opts":["A living show bible page, the source of truth","Just a saved list I can copy from","Auto-woven into a recruiting one-pager"]},{"id":"hub4","q":"Story dossiers should include a speculative title + thumbnail concept:","opts":["Yes, always, packaging thinking from day one","Only for green-lit stories","No, packaging comes later and pollutes judgment"]}]}]};
+const K='the-scope-v1';
+let S=JSON.parse(localStorage.getItem(K)||'{"a":{},"n":{}}');
+const save=()=>{localStorage.setItem(K,JSON.stringify(S));prog();};
+const root=document.getElementById('root');
+DATA.sections.forEach((sec,si)=>{
+  const h=document.createElement('h2');h.textContent=(si+1)+'. '+sec.title;root.appendChild(h);
+  const it=document.createElement('div');it.className='intro';it.textContent=sec.intro;root.appendChild(it);
+  sec.questions.forEach(q=>{
+    const d=document.createElement('div');d.className='q';
+    d.innerHTML='<p class="text">'+q.q+'</p>'+q.opts.map((o,oi)=>
+      '<button class="opt" data-q="'+q.id+'" data-o="'+oi+'">'+o+'</button>').join('')+
+      '<textarea placeholder="note (optional)" data-q="'+q.id+'"></textarea>';
+    root.appendChild(d);
+    d.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{
+      const id=b.dataset.q,oi=+b.dataset.o;
+      if(DATA.sections.flatMap(s=>s.questions).find(x=>x.id===id).multi){
+        S.a[id]=S.a[id]||[];const p=S.a[id].indexOf(oi);
+        p>=0?S.a[id].splice(p,1):S.a[id].push(oi);
+      } else { S.a[id]=(S.a[id]===oi)?null:oi; if(S.a[id]===null)delete S.a[id]; }
+      save();paint();
+    }));
+    const t=d.querySelector('textarea');
+    t.value=S.n[q.id]||'';
+    t.addEventListener('input',()=>{S.n[q.id]=t.value;save();});
+  });
+});
+function paint(){
+  document.querySelectorAll('.opt').forEach(b=>{
+    const id=b.dataset.q,oi=+b.dataset.o,v=S.a[id];
+    b.classList.toggle('on',Array.isArray(v)?v.includes(oi):v===oi);
+  });
+}
+const ALLQ=DATA.sections.flatMap(s=>s.questions);
+function prog(){
+  const n=ALLQ.filter(q=>S.a[q.id]!==undefined&&S.a[q.id]!==null&&(!Array.isArray(S.a[q.id])||S.a[q.id].length)).length;
+  document.getElementById('prog').textContent=n+' / '+ALLQ.length+' answered';
+}
+function exportA(btn){
+  let out='THE SCOPE, my answers:\n';
+  DATA.sections.forEach(sec=>{
+    out+='\n== '+sec.title+' ==\n';
+    sec.questions.forEach(q=>{
+      const v=S.a[q.id];
+      let a='(skipped)';
+      if(Array.isArray(v)&&v.length)a=v.map(i=>q.opts[i]).join(' + ');
+      else if(typeof v==='number')a=q.opts[v];
+      out+='- '+q.q+'\n  -> '+a+'\n';
+      if(S.n[q.id])out+='  note: '+S.n[q.id]+'\n';
+    });
+  });
+  navigator.clipboard.writeText(out).then(()=>{btn.textContent='Copied ✓ paste it to Parley';});
+}
+paint();prog();
+</script></body></html>
