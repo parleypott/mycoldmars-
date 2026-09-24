@@ -1,5 +1,271 @@
 [
   {
+    "id": "F0C54B883U0",
+    "name": "Screenshot 2026-09-24 at 8.10.26 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 35668,
+    "local_path": "images/F0C54B883U0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "all his videos are so high quality, whenever they drop I get excited",
+      "commenter": "@joker-x5r5l",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "consistency",
+        "anticipation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:39:55.839Z"
+  },
+  {
+    "id": "F0C4DLCPK7W",
+    "name": "Screenshot 2026-09-24 at 2.49.46 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 33561,
+    "local_path": "images/F0C4DLCPK7W.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "Your journey in Finland is one of my favorite videos of yours",
+      "commenter": "Woobeewuu",
+      "sentiment": "praise",
+      "themes": [
+        "finland",
+        "travel",
+        "favorites",
+        "video"
+      ],
+      "video_hint": "A journey/travel video set in Finland",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:39:56.742Z"
+  },
+  {
+    "id": "F0C4BUBCUAV",
+    "name": "Screenshot 2026-09-24 at 8.10.18 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47443,
+    "local_path": "images/F0C4BUBCUAV.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "Hell yeah, Johnny I've been a fan of your filmmaking for a long time. I've always wanted to know the secret, i guess we'll never know.",
+      "commenter": "@editempire_agency",
+      "sentiment": "praise",
+      "themes": [
+        "filmmaking",
+        "secrets",
+        "fan",
+        "curiosity"
+      ],
+      "video_hint": "likely a filmmaking or behind-the-scenes video by a creator named Johnny",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:39:56.779Z"
+  },
+  {
+    "id": "F0C54B82QEL",
+    "name": "Screenshot 2026-09-24 at 2.49.32 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 41506,
+    "local_path": "images/F0C54B82QEL.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "3 hours of johnny talking about his journey... YES. What I Needed Today.",
+      "commenter": "samuellong3766",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "long-form",
+        "personal journey",
+        "viewer satisfaction"
+      ],
+      "video_hint": "A long-form (~3 hour) video featuring someone named Johnny discussing his personal journey",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:39:57.615Z"
+  },
+  {
+    "id": "F0C4DLDQ0FN",
+    "name": "Screenshot 2026-09-24 at 8.13.30 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31213,
+    "local_path": "images/F0C4DLDQ0FN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "You learn and teach us. thank you",
+      "commenter": "digiibass",
+      "sentiment": "praise",
+      "themes": [
+        "gratitude",
+        "education",
+        "host",
+        "community"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:39:58.207Z"
+  },
+  {
+    "id": "F0C44UE4EA1",
+    "name": "Screenshot 2026-09-24 at 8.14.28 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30165,
+    "local_path": "images/F0C44UE4EA1.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "Another compilation. FY",
+      "commenter": "lazyloser678",
+      "sentiment": "critical",
+      "themes": [
+        "compilation",
+        "content type",
+        "disappointment"
+      ],
+      "video_hint": "a compilation video",
+      "is_question": false,
+      "is_criticism": true
+    },
+    "analyzed_at": "2026-09-24T20:39:58.841Z"
+  },
+  {
+    "id": "F0C4BUCAFAM",
+    "name": "Screenshot 2026-09-24 at 8.13.48 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 22873,
+    "local_path": "images/F0C4BUCAFAM.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "great informatic videos keep it up",
+      "commenter": "JoshXFern",
+      "sentiment": "praise",
+      "themes": [
+        "informative",
+        "encouragement",
+        "content quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:39:59.468Z"
+  },
+  {
+    "id": "F0C4823KATY",
+    "name": "Screenshot 2026-09-24 at 8.16.04 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28359,
+    "local_path": "images/F0C4823KATY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "It's insane how much I've come to understand through your videos. Thank you!",
+      "commenter": "tanianegrau2391",
+      "sentiment": "praise",
+      "themes": [
+        "learning",
+        "gratitude",
+        "education",
+        "content quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:40:00.960Z"
+  },
+  {
+    "id": "F0C43PMHB0B",
+    "name": "Screenshot 2026-09-24 at 9.59.59 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 41791,
+    "local_path": "images/F0C43PMHB0B.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "Jonny drops 3 hour vid, click without hesitation,why? Cos I know he always delivers 🙌",
+      "commenter": "@Geknight",
+      "sentiment": "praise",
+      "themes": [
+        "trust",
+        "long-form content",
+        "host",
+        "loyalty"
+      ],
+      "video_hint": "A 3-hour video by a creator named Jonny",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:40:01.307Z"
+  },
+  {
+    "id": "F0C43PLC42F",
+    "name": "Screenshot 2026-09-24 at 10.00.25 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 25305,
+    "local_path": "images/F0C43PLC42F.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790275927.797369",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790275927797369",
+    "posted_at": "2026-09-24T18:52:07.797Z",
+    "analysis": {
+      "comment_text": "Beautiful videos that change my life are common here",
+      "commenter": "zackgoldinvests",
+      "sentiment": "praise",
+      "themes": [
+        "video quality",
+        "life impact",
+        "channel praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-09-24T20:40:01.429Z"
+  },
+  {
     "id": "F0C3Y94RBAA",
     "name": "Screenshot 2026-09-23 at 3.16.17 PM.png",
     "ext": "png",
