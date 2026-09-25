@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>The Thesis Dig — a worksheet</title>
+<style>
+  :root{
+    --ink:#141210; --paper:#fbfaf6; --rule:#111; --faint:#d8d2c4; --dim:#6e6a5e; --accent:#b3441f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#e9e5db;color:var(--ink);font-family:Georgia,'Times New Roman',serif;line-height:1.5}
+  .sheet{max-width:760px;margin:24px auto;background:var(--paper);padding:56px 60px;box-shadow:0 1px 6px rgba(0,0,0,.14)}
+  .kick{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:40px;font-weight:400;font-style:italic;line-height:1.04;margin:6px 0 4px}
+  .sub{color:var(--dim);font-style:italic;font-size:16px;margin-bottom:22px}
+  .rules{border-top:2px solid var(--rule);border-bottom:1px solid var(--faint);padding:16px 0;margin-bottom:8px;font-size:14.5px}
+  .rules b{font-variant:small-caps;letter-spacing:.04em}
+  .rules ul{list-style:none;margin-top:8px}
+  .rules li{padding-left:20px;position:relative;margin-bottom:5px;color:#33302a}
+  .rules li::before{content:"—";position:absolute;left:0;color:var(--accent)}
+  .step{border-top:1px solid var(--faint);padding-top:26px;margin-top:30px;page-break-inside:avoid}
+  .step:first-of-type{page-break-before:auto}
+  .num{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.14em;color:var(--accent)}
+  .step h2{font-size:23px;font-weight:400;font-style:italic;margin:2px 0 2px;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .time{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--dim);white-space:nowrap;font-style:normal;letter-spacing:.08em}
+  .why{font-size:13.5px;color:var(--dim);font-style:italic;margin-bottom:14px}
+  .step p{font-size:15px;margin-bottom:12px}
+  .step p .lead{}
+  .fill{border-bottom:1px solid var(--faint);height:26px;margin-bottom:4px}
+  .fill.tall{height:34px}
+  .lbl{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:block;margin:14px 0 4px}
+  .box{border:1px solid var(--faint);padding:12px 14px;margin:10px 0}
+  .prompt{font-style:italic}
+  .prompt b{font-style:normal;font-variant:small-caps;letter-spacing:.03em}
+  .fills4 .lbl{margin-top:10px}
+  .test{display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-top:1px dotted var(--faint)}
+  .test:first-child{border-top:none}
+  .chk{width:16px;height:16px;border:1.5px solid var(--ink);flex:none;margin-top:2px}
+  .test .t{font-size:14.5px}
+  .test .t b{font-variant:small-caps;letter-spacing:.03em}
+  .test .t span{color:var(--dim);font-style:italic}
+  .commit{border:2px solid var(--rule);padding:18px;margin-top:14px}
+  .commit .lbl{margin-top:0}
+  .sig{display:flex;gap:30px;margin-top:18px}
+  .sig div{flex:1}
+  .sig .fill{margin-bottom:2px}
+  .sig small{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.1em;color:var(--dim)}
+  footer{border-top:2px solid var(--rule);margin-top:36px;padding-top:14px;font-size:12.5px;color:var(--dim);font-style:italic}
+  .lineage{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--dim);letter-spacing:.06em;margin-top:8px;font-style:normal}
+  .printbar{position:fixed;top:14px;right:14px}
+  .printbar button{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;background:var(--accent);color:#fff;border:none;padding:9px 14px;cursor:pointer;border-radius:2px}
+  @media print{
+    body{background:#fff}
+    .sheet{box-shadow:none;margin:0;max-width:none;padding:0 8px}
+    .printbar{display:none}
+    .step{page-break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<div class="printbar"><button onclick="window.print()">PRINT / PDF</button></div>
+<div class="sheet">
+
+  <div class="kick">The Human Element · a worksheet · do it by hand</div>
+  <h1>The Thesis Dig</h1>
+  <div class="sub">Seven steps to find the one thing the show is actually about. Ninety minutes. Pen, not screen.</div>
+
+  <div class="rules">
+    <b>Before you start.</b>
+    <ul>
+      <li>A thesis is not a slogan. It is the controlling idea: the thing every episode secretly obeys, whether you named it or not.</li>
+      <li>You already have one. Five episodes made it, unconsciously. This is excavation, not invention. Dig, don't dream.</li>
+      <li>Do not edit while you generate. Ugly handwriting, crossed-out words, arrows in the margin. That is the work looking healthy.</li>
+      <li>Alone first. Then, if you want, hand the blank to two people who know the work and compare digs. Do not average them.</li>
+      <li>The hard part is not finding a true sentence. It is killing the four other true sentences so one can stand.</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 01</div>
+    <h2><span>The evidence</span><span class="time">15 min · look back before you look forward</span></h2>
+    <div class="why">The thesis is already in the footage you love most. Not the prettiest shot. The moment that felt like the reason you flew there.</div>
+    <p>For each episode, write the <b>one moment</b> that made you feel you were doing the real thing. One line. Instinct, not analysis.</p>
+    <span class="lbl">Palau</span><div class="fill"></div>
+    <span class="lbl">Nile</span><div class="fill"></div>
+    <span class="lbl">Myanmar</span><div class="fill"></div>
+    <span class="lbl">Taiwan</span><div class="fill"></div>
+    <span class="lbl">Nepal</span><div class="fill"></div>
+    <p style="margin-top:14px">Now read the five back. Circle the <b>word or feeling</b> they share. Write it here. That is your first fossil.</p>
+    <div class="box"><span class="lbl" style="margin-top:0">The shared thing</span><div class="fill tall"></div></div>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 02</div>
+    <h2><span>The viewer of one</span><span class="time">10 min · forget the millions</span></h2>
+    <div class="why">You cannot make something for everyone. You can make it for one real person and let it travel. Aim narrow; it carries wide.</div>
+    <p>Name <b>one real person you know</b> you want this show to reach. Not a demographic. A face.</p>
+    <span class="lbl">Their name</span><div class="fill"></div>
+    <p style="margin-top:12px">They just finished an episode, alone, late. Not what they <em>learned</em>. What they <b>feel</b>, or say out loud, or text a friend. Write the first answer. Then ask "and underneath that?" and write again. Then a third time. The third answer is usually the true one.</p>
+    <div class="fill"></div><div class="fill"></div><div class="fill"></div>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 03</div>
+    <h2><span>The enemy</span><span class="time">10 min · fast, don't think</span></h2>
+    <div class="why">Every show worth making is against something. Not a topic. A force. What you refuse is often sharper than what you want.</div>
+    <p class="prompt">The force this show exists to fight is</p><div class="fill"></div>
+    <p class="prompt">If we never made it, the world would have a little more</p><div class="fill"></div>
+    <p class="prompt">The kind of storytelling I would never make, even for the numbers, is</p><div class="fill"></div>
+    <p style="font-size:13.5px;color:var(--dim);font-style:italic">Name a real show or style in that last blank. The boundary you draw is the edge of your thesis.</p>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 04</div>
+    <h2><span>The four altitudes</span><span class="time">15 min · break it, find the weak floor</span></h2>
+    <div class="why">Most theses are strong at two altitudes and generic at the other two. Find the generic floor and rebuild it until only your show could stand on it.</div>
+    <p>Write your <b>current</b> one-liner for the show, however rough:</p>
+    <div class="fill"></div><div class="fill"></div>
+    <p style="margin-top:12px">Now split it into four layers. Fill what yours says at each:</p>
+    <div class="fills4">
+      <span class="lbl">The world — what territory?</span><div class="fill"></div>
+      <span class="lbl">The method — how do you enter it?</span><div class="fill"></div>
+      <span class="lbl">The feeling — what happens to the viewer?</span><div class="fill"></div>
+      <span class="lbl">The why — what is it ultimately for?</span><div class="fill"></div>
+    </div>
+    <p style="margin-top:14px"><b>The test:</b> which layer is weakest, the one <em>any</em> show could say? Cross it out. Rewrite it three times below until it could only belong to you.</p>
+    <div class="fill"></div><div class="fill"></div><div class="fill"></div>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 05</div>
+    <h2><span>The only test</span><span class="time">10 min · un-copyable or bust</span></h2>
+    <div class="why">If a competitor could put their logo on your thesis and it would still be true for them, it is not yours yet.</div>
+    <p class="prompt">The Human Element is the only show that</p>
+    <div class="fill"></div><div class="fill"></div>
+    <p style="margin-top:8px;font-size:13.5px;color:var(--dim);font-style:italic">Can you name another show that also does exactly that? If yes, cross it out and go again. Keep going until the blank is true and no one else can claim it.</p>
+    <div class="fill"></div>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 06</div>
+    <h2><span>Converge · three candidates</span><span class="time">15 min · genuinely different, not rephrased</span></h2>
+    <div class="why">Do not write one sentence three ways. Write three different souls for the same show and make them fight.</div>
+    <p>From everything above, write three thesis sentences. One line each. No semicolons. A stranger could repeat it. Give each a name.</p>
+    <span class="lbl">Candidate A — name it (the missionary? the poet? the witness?)</span><div class="fill"></div><div class="fill"></div>
+    <span class="lbl">Candidate B — name it</span><div class="fill"></div><div class="fill"></div>
+    <span class="lbl">Candidate C — name it</span><div class="fill"></div><div class="fill"></div>
+  </div>
+
+  <div class="step">
+    <div class="num">STEP 07</div>
+    <h2><span>The kill</span><span class="time">10 min · your body knows before your head</span></h2>
+    <div class="why">Run all three through four tests. Mark each A / B / C where it passes. The one that survives, or fails most gracefully, is the thesis.</div>
+    <div class="test"><span class="chk"></span><div class="t"><b>The dinner test.</b> <span>Could a viewer retell it in one sentence the next morning, without the footage?</span><div class="fill" style="margin-top:6px"></div></div></div>
+    <div class="test"><span class="chk"></span><div class="t"><b>The episode test.</b> <span>Does it govern an episode you have NOT made yet? Name it.</span><div class="fill" style="margin-top:6px"></div></div></div>
+    <div class="test"><span class="chk"></span><div class="t"><b>The exclusion test.</b> <span>Does it tell you what NOT to make? Name a good story it rightly rejects.</span><div class="fill" style="margin-top:6px"></div></div></div>
+    <div class="test"><span class="chk"></span><div class="t"><b>The goosebump test.</b> <span>Read each aloud. Which one moves your chest? Do not overrule the body.</span><div class="fill" style="margin-top:6px"></div></div></div>
+
+    <div class="commit">
+      <span class="lbl">The thesis of The Human Element is</span>
+      <div class="fill tall"></div><div class="fill tall"></div>
+      <div class="sig">
+        <div><div class="fill"></div><small>SIGNED</small></div>
+        <div><div class="fill"></div><small>DATE</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">AFTER</div>
+    <h2><span>Validate in the wild</span><span class="time">the following week · do not trust the room</span></h2>
+    <div class="why">A thesis that cannot shoot a scene is not a thesis yet. Three field tests before you believe it.</div>
+    <p><b>1. The eyes.</b> Say your one sentence to three people who do not know the show. Watch their faces, not their words. Note who leaned in.</p>
+    <div class="fill"></div>
+    <p><b>2. The picker.</b> Hold it against your next three Story Hunter dossiers. Does it cleanly pick winners and reject the near-misses? A real thesis sorts.</p>
+    <div class="fill"></div>
+    <p><b>3. The scene.</b> Try to write the cold open of the Nepal episode using your thesis as the only instruction. If it writes the scene, it is real. If it just sounds nice, dig again.</p>
+    <div class="fill"></div>
+  </div>
+
+  <footer>
+    Keep this page. When the show drifts, it is almost always because an episode stopped obeying the sentence you signed. Come back, read it aloud, and either the episode is wrong or the sentence has grown. Both are worth knowing.
+    <div class="lineage">Built on the bones of: McKee's controlling idea · Neumeier's onlyness test · Collins' hedgehog · the five whys · the eulogy method. Adapted for The Human Element, 2026.</div>
+  </footer>
+
+</div>
+</body>
+</html>

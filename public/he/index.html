@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>The Human Element — Command</title>
+<style>
+  :root{
+    --paper:#f7f3ea; --ink:#191612; --dim:#726c5e; --accent:#c0431c; --rule:#191612; --faint:#ddd6c6; --card:#fefdf9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --paper:#131110; --ink:#ece5d7; --dim:#8b8474; --accent:#e0783f; --rule:#ece5d7; --faint:#2c2823; --card:#1b1815; }
+  }
+  :root[data-theme="dark"]{ --paper:#131110; --ink:#ece5d7; --dim:#8b8474; --accent:#e0783f; --rule:#ece5d7; --faint:#2c2823; --card:#1b1815; }
+  :root[data-theme="light"]{ --paper:#f7f3ea; --ink:#191612; --dim:#726c5e; --accent:#c0431c; --rule:#191612; --faint:#ddd6c6; --card:#fefdf9; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:Georgia,'Times New Roman',serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .w{max-width:720px;margin:0 auto;padding:0 22px 90px}
+  header{padding:52px 0 20px;border-bottom:3px double var(--rule)}
+  .kick{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(38px,9vw,66px);font-weight:400;font-style:italic;line-height:.98;margin:8px 0 10px;letter-spacing:-.01em}
+  .tag{font-size:16px;color:var(--dim);font-style:italic;max-width:40ch}
+  h2{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:40px 0 14px}
+  .hero{display:block;text-decoration:none;color:var(--ink);border:2px solid var(--accent);background:var(--card);padding:22px 24px;margin-top:22px;position:relative}
+  .hero:hover{background:var(--accent);color:#fff}
+  .hero:hover .h-sub,.hero:hover .h-meta{color:rgba(255,255,255,.85)}
+  .hero .h-t{font-size:27px;font-style:italic;margin-bottom:4px}
+  .hero .h-sub{font-size:15px;color:var(--dim)}
+  .hero .h-meta{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;color:var(--accent);margin-top:12px;text-transform:uppercase}
+  a.row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;text-decoration:none;color:var(--ink);padding:14px 0;border-top:1px solid var(--faint)}
+  a.row:first-of-type{border-top:none}
+  a.row:hover .r-t{color:var(--accent)}
+  .r-l{flex:1}
+  .r-t{font-size:19px;font-style:italic;transition:color .12s}
+  .r-d{font-size:14px;color:var(--dim);margin-top:2px}
+  .r-tag{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.08em;color:var(--dim);white-space:nowrap;text-transform:uppercase;padding-top:5px}
+  footer{margin-top:52px;padding-top:16px;border-top:3px double var(--rule);font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .lock{opacity:.62}
+  .lock .r-tag{color:var(--accent)}
+</style>
+</head>
+<body><div class="w">
+
+<header>
+  <div class="kick">Newpress · command · one place</div>
+  <h1>The Human Element</h1>
+  <div class="tag">Everything built for the show, in one door. The tool, the film, the thinking, the people, the sentence it all serves.</div>
+</header>
+
+<h2>The daily driver</h2>
+<a class="hero" href="https://story-hunter.vercel.app">
+  <div class="h-t">Story Hunter</div>
+  <div class="h-sub">The weekly story ledger. Hunted candidates, dossiers, ratings, the map, the Bible, the Soul loom — all in one sheet. Password protected.</div>
+  <div class="h-meta">story-hunter.vercel.app · open the sheet →</div>
+</a>
+
+<h2>The film · Nepal</h2>
+<a class="row" href="/nepal/"><div class="r-l"><div class="r-t">The Nepal Kit</div><div class="r-d">The field hub: letter, brief, Jaba card, advisor, podcast, everything for the shoot.</div></div><div class="r-tag">hub</div></a>
+<a class="row" href="/brief/00-a-letter-before-the-road.html"><div class="r-l"><div class="r-t">A Letter Before the Road</div><div class="r-d">The mentor letter. 22 min, read by George. Listen first.</div></div><div class="r-tag">listen</div></a>
+<a class="row" href="/brief/01-field-brief.html"><div class="r-l"><div class="r-t">The Field Brief</div><div class="r-d">Theme, the Jaba interview plan, the visual evidence, the daily rules.</div></div><div class="r-tag">read</div></a>
+<a class="row" href="/karnali/index.html"><div class="r-l"><div class="r-t">The Karnali Essays</div><div class="r-d">Ten literary essays for the drive, ten voices. Two hours.</div></div><div class="r-tag">listen</div></a>
+<a class="row" href="/pod/"><div class="r-l"><div class="r-t">The podcast feed</div><div class="r-d">All of it as episodes: offline, locked-phone, saves your place.</div></div><div class="r-tag">subscribe</div></a>
+
+<h2>The thinking</h2>
+<a class="row" href="/thesis/"><div class="r-l"><div class="r-t">The Thesis Dig</div><div class="r-d">A seven-step printable worksheet to find what the show is actually about.</div></div><div class="r-tag">print</div></a>
+<a class="row" href="/soulfinder/"><div class="r-l"><div class="r-t">The Soul Finder</div><div class="r-d">The loom: four altitudes, fifty theses in nine schools. Play until it rings.</div></div><div class="r-tag">sandbox</div></a>
+<a class="row" href="/memo/"><div class="r-l"><div class="r-t">The Storytelling Memo</div><div class="r-d">Your three cuts diagnosed against Krulwich and Chase. The ten field practices.</div></div><div class="r-tag">read</div></a>
+<a class="row" href="/brief/03-market-brief.html"><div class="r-l"><div class="r-t">The Market Brief</div><div class="r-d">What makes documentaries travel. Jiro to Free Solo to Bourdain, applied to you.</div></div><div class="r-tag">listen</div></a>
+<a class="row" href="/brief/11-the-machinery-of-feeling.html"><div class="r-l"><div class="r-t">Film School I–IV</div><div class="r-d">Feeling, truth, time, the face. Four essays on the craft of cinema.</div></div><div class="r-tag">listen</div></a>
+
+<h2>The people</h2>
+<a class="row" href="/talent/"><div class="r-l"><div class="r-t">The Talent Deck</div><div class="r-d">Fifteen showrunners, producers, and brain-picks. Swipe, note, mark interested.</div></div><div class="r-tag">deck</div></a>
+
+<h2>The show</h2>
+<a class="row" href="/hub/bible/"><div class="r-l"><div class="r-t">The Show Bible</div><div class="r-d">The Hunter DNA, the locked language, the constitution the hunt obeys.</div></div><div class="r-tag">canon</div></a>
+<a class="row" href="/hub/scope/"><div class="r-l"><div class="r-t">The Scope Questionnaire</div><div class="r-d">Your editorial answers, amendable. Where the guardrails come from.</div></div><div class="r-tag">answered</div></a>
+
+<footer>
+  <span>Newpress · The Human Element</span>
+  <span>add to home screen</span>
+</footer>
+
+</div></body></html>
