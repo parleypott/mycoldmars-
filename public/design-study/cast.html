@@ -1,0 +1,136 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>The Casting Wall — development study</title>
+<style>
+:root{--paper:#f4efe4;--ink:#1a1712;--dim:#726c5e;--accent:#c0431c;--rule:#1a1712;--faint:#ddd5c4;--wax:#d8281c;--darkroom:#100e0a;--film:#c8922e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e6e0d4;color:var(--ink);font-family:Georgia,'Times New Roman',serif;line-height:1.5}
+.wrap{max-width:940px;margin:0 auto;background:var(--paper)}
+header{padding:54px 46px 26px;border-bottom:3px double var(--rule)}
+.kick{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(34px,6vw,52px);font-style:italic;font-weight:400;line-height:1.02;margin:8px 0 12px}
+.lede{font-size:17px;color:#3a352c;max-width:64ch}.lede b{font-style:italic}
+section{padding:40px 46px 8px;border-top:1px solid var(--faint);margin-top:30px}
+.sn{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.16em;color:var(--accent)}
+h2{font-size:29px;font-style:italic;font-weight:400;margin:3px 0 6px}
+.pick{display:inline-block;font-family:ui-monospace,monospace;font-size:9.5px;letter-spacing:.16em;background:var(--accent);color:#fff;padding:3px 8px;margin-left:8px;vertical-align:middle}
+.trad{font-size:14px;color:var(--dim);font-style:italic;margin-bottom:12px}
+.body{font-size:15.5px;margin-bottom:14px;max-width:64ch}
+.caption{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.05em;color:var(--dim);margin-top:6px;text-transform:uppercase}
+.wax{fill:none;stroke:var(--wax);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:.9;filter:url(#rough)}
+.wax.kill{stroke-width:4}.wax.grn{stroke:#3f8f4a;stroke-width:3.6}
+.legend{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:8px 0 6px}
+.lg{border:1px solid var(--faint);background:#fbf8f0}
+.lg .fr{margin:0}.lg .lgl{padding:8px 10px}
+.lg .lgl b{font-size:14px}.lg .lgl span{font-size:12.5px;color:var(--dim);display:block}
+.fr{position:relative;margin:0;background:#000;overflow:hidden}
+.fr img{width:100%;display:block}
+.fr .mk{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.fr figcaption{font-family:ui-monospace,monospace;font-size:8.5px;color:#cbb;background:#000;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr .fnum{position:absolute;top:2px;left:3px;font-family:ui-monospace,monospace;font-size:8px;color:var(--film);z-index:2;text-shadow:0 0 2px #000}
+.proof{background:var(--darkroom);padding:22px 20px 16px}
+.proof .brand{font-family:ui-monospace,monospace;font-size:9px;color:var(--film);letter-spacing:.2em;margin-bottom:10px;opacity:.8}
+.proof .rows{display:grid;grid-template-columns:repeat(6,1fr);gap:0}
+.proof .pf{border:1px solid #000;background:#000}.proof .pf img{opacity:.92}
+.cull{background:#14120e;padding:18px}
+.cull .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cull .wl{border:2px solid #2a251c}
+.cull .cstar{position:absolute;top:5px;right:7px;font-family:ui-monospace,monospace;font-size:12px;color:var(--film);letter-spacing:1px;z-index:2;text-shadow:0 0 3px #000}
+.cull .cstar.unrated{color:#555}
+.cull .bar{display:flex;gap:16px;margin-top:14px;font-family:ui-monospace,monospace;font-size:10px;color:#8a8474;letter-spacing:.08em;flex-wrap:wrap}
+.cull .bar b{color:var(--film)}
+.kp{background:var(--darkroom);padding:24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.kp .big{flex:1;min-width:280px;position:relative;border:1px solid #000}
+.kp .big img{width:100%;display:block;opacity:.95}
+.kp .ctrl{flex:none;width:200px;color:#cbb}
+.kp .ctrl .q{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.1em;color:var(--film);margin-bottom:10px}
+.kp .ctrl .keys{display:flex;gap:8px;margin-bottom:14px}
+.kp .ctrl .k{font-family:ui-monospace,monospace;font-size:13px;border:1px solid #444;padding:8px 12px;color:#ddd}
+.kp .ctrl .k.keep{border-color:#3f8f4a;color:#7fc98a}.kp .ctrl .k.kill{border-color:var(--wax);color:#e88}
+.kp .ctrl p{font-size:12.5px;color:#8a8474;font-style:italic;line-height:1.5}
+.kp .prog{font-family:ui-monospace,monospace;font-size:10px;color:#8a8474;margin-top:10px}
+.mat{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mat .sw{padding:14px}.mat .dark{background:var(--darkroom)}.mat .light{background:#efe9dc}
+.mat .lab{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.mat .dark .lab{color:var(--film)}.mat .light .lab{color:var(--accent)}
+.mat .light .fr{background:#ded7c8}
+.moves{list-style:none;font-size:14.5px;margin:6px 0 4px}
+.moves li{padding-left:18px;position:relative;margin-bottom:6px;color:#33302a}
+.moves li::before{content:"\2192";position:absolute;left:0;color:var(--accent);font-family:ui-monospace,monospace;font-size:12px}
+footer{padding:40px 46px;border-top:3px double var(--rule);margin-top:36px;font-size:15px;color:#3a352c;font-style:italic}
+@media(max-width:640px){header,section,footer{padding-left:20px;padding-right:20px}.legend,.mat{grid-template-columns:1fr 1fr}.proof .rows{grid-template-columns:repeat(3,1fr)}.cull .grid{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<svg width="0" height="0"><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4"/></filter></svg>
+<div class="wrap">
+<header>
+<div class="kick">Story Hunter · design study II · developing the casting wall</div>
+<h1>The Casting Wall</h1>
+<p class="lede">You picked this room. Now we develop it with real <b>contact-sheet energy</b> — the photographer's proof sheet and the grease pencil, married to how professional editors actually <b>cull</b> (Photo Mechanic, Capture One). Every frame below is one of your real week-39 scouts. The goal: lock the exact look and the marking language before we build.</p>
+</header>
+<section>
+<div class="sn">THE HEART · the marking language</div>
+<h2>China-marker vocabulary</h2>
+<div class="trad">Every mark is a hand-drawn wax stroke, never a clean shape — the wobble is the authenticity. These ARE the interaction: a click circles, again crosses out, a modifier boxes. Keyboard mirrors it.</div>
+<div class="legend"><div class="lg"><figure class="fr "><img src="img/cheran.jpg" alt=""><svg class="mk" viewBox="0 0 144 96" preserveAspectRatio="none"><path class="wax" d="M128.3,42.4 L124.7,54.7 L120.9,66.5 L112.7,75.4 L96.6,83.5 L79.8,88.3 L59.8,87.1 L43.1,80.7 L27.6,75.6 L17.5,65.4 L16.1,51.7 L13.7,38.3 L24.0,30.3 L34.9,18.7 L49.7,12.1 L68.0,10.3 L87.4,10.8 L105.2,12.9 L119.7,23.6 L126.8,33.5 L132.0,45.7 L125.4,59.1 L118.1,68.2 "/></svg><figcaption>The Town That Fired Everyo</figcaption></figure><div class="lgl"><b>Circle = select</b><span>the loop that overshoots. "This one."</span></div></div><div class="lg"><figure class="fr "><img src="img/vultures.jpg" alt=""><svg class="mk" viewBox="0 0 144 96" preserveAspectRatio="none"><path class="wax kill" d="M31.7,7.7 Q72.4,47.6 112.3,88.3 M112.3,7.7 Q72.5,46.2 31.7,88.3"/></svg><figcaption>The City That Lost Its Vul</figcaption></figure><div class="lgl"><b>Cross-out = kill</b><span>the angry red X. Dead.</span></div></div><div class="lg"><figure class="fr "><img src="img/rjukan.jpg" alt=""><svg class="mk" viewBox="0 0 144 96" preserveAspectRatio="none"><path class="wax" d="M3.7,8.8 L136.5,5.9 M136.9,6.2 L137.2,88.0 M139.0,86.9 L4.0,89.5 M8.3,89.3 L7.2,3.9"/></svg><figcaption>The Town That Built Its Ow</figcaption></figure><div class="lgl"><b>Box = favorite</b><span>a squared-off keeper, above a select.</span></div></div><div class="lg"><figure class="fr "><img src="img/valencia.jpg" alt=""><svg class="mk" viewBox="0 0 144 96" preserveAspectRatio="none"><path class="wax grn" d="M106.9,18.4 L117.2,28.2 L131.5,7.6"/></svg><figcaption>The Water Court of Valenci</figcaption></figure><div class="lgl"><b>Tick = maybe</b><span>the lighter yes. Non-committal.</span></div></div><div class="lg"><figure class="fr"><img src="img/the-cafe-street-the-gove.jpg"><svg class="mk" viewBox="0 0 144 96" preserveAspectRatio="none"><path class="wax" d="M6,20 L6,6 L20,6 M124,6 L138,6 L138,20 M6,76 L6,90 L20,90 M124,90 L138,90 L138,76"/></svg><figcaption>Crop corners</figcaption></figure><div class="lgl"><b>Crop corners</b><span>frame it — a note on composition.</span></div></div><div class="lg"><figure class="fr"><img src="img/kinmen.jpg"><svg class="mk" viewBox="0 0 144 96" preserveAspectRatio="none"><path class="wax" d="M23.5,7.1 L27.4,17.1 L38.5,16.5 L29.0,24.6 L32.3,33.6 L25.0,28.2 L15.9,34.1 L18.3,23.2 L10.0,18.1 L20.3,17.4 Z"/></svg><figcaption>Star = the opener</figcaption></figure><div class="lgl"><b>Star = the opener</b><span>the standout. The cold-open.</span></div></div></div>
+<div class="caption">the six-mark wax vocabulary, drawn over your real frames</div>
+</section>
+<section>
+<div class="sn">TREATMENT A</div>
+<h2>The Proof Sheet</h2>
+<div class="trad">Tradition: the darkroom contact print · Magnum contact sheets · the 36-exposure roll</div>
+<p class="body">The whole week as one 8×10 sheet: small dense frames in film-strip rows, frame numbers along the rebate (1, 1A, 2…), deep photographic black gutters, on warm near-black proof paper. You mark selects and kills straight onto it in red wax. The most authentic — it feels like a real object on a light box.</p>
+<div class="proof"><div class="brand">NEWPRESS · HE-2026 · ROLL 39 · KODAK TRI-X · &#9679; contact</div><div class="rows"><figure class="fr pf"><img src="img/cheran.jpg" alt=""><span class="fnum">1</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax" d="M106.0,46.5 L102.0,55.1 L92.8,64.4 L80.0,69.6 L65.9,73.1 L52.0,74.3 L38.8,68.7 L25.1,62.1 L17.9,55.5 L10.0,46.5 L14.6,35.7 L19.8,26.7 L24.1,16.0 L37.6,11.4 L51.6,8.5 L64.6,9.1 L80.0,8.7 L91.1,17.6 L99.4,24.8 L107.7,32.7 L110.8,42.8 L104.5,51.6 L96.8,59.8 "/></svg><figcaption>The Town That Fired Everyo</figcaption></figure><figure class="fr pf"><img src="img/kinmen.jpg" alt=""><span class="fnum">1A</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Island That Forges Bom</figcaption></figure><figure class="fr pf"><img src="img/crab.jpg" alt=""><span class="fnum">2</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax kill" d="M26.4,6.4 Q60.4,39.6 93.6,73.6 M93.6,6.4 Q60.5,38.2 26.4,73.6"/></svg><figcaption>The Crab They Named After </figcaption></figure><figure class="fr pf"><img src="img/rjukan.jpg" alt=""><span class="fnum">3</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax" d="M106.8,38.1 L107.0,48.1 L100.2,57.0 L89.6,64.7 L76.2,70.2 L61.9,71.5 L47.8,70.9 L32.0,67.1 L22.5,60.4 L16.9,50.4 L14.1,41.2 L12.2,30.7 L19.9,22.2 L30.2,14.9 L40.5,10.3 L55.2,5.4 L70.4,9.2 L83.4,14.9 L95.4,19.4 L102.0,27.0 L109.5,35.6 L107.5,45.8 L101.7,56.6 "/></svg><figcaption>The Town That Built Its Ow</figcaption></figure><figure class="fr pf"><img src="img/bookfair.jpg" alt=""><span class="fnum">4</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>Book Fair of a Country Tha</figcaption></figure><figure class="fr pf"><img src="img/valencia.jpg" alt=""><span class="fnum">4A</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax" d="M5.2,9.0 L113.0,7.5 M113.1,6.9 L112.3,73.0 M116.0,73.7 L5.1,73.5 M8.9,75.3 L7.0,4.5"/></svg><figcaption>The Water Court of Valenci</figcaption></figure><figure class="fr pf"><img src="img/vultures.jpg" alt=""><span class="fnum">5</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The City That Lost Its Vul</figcaption></figure><figure class="fr pf"><img src="img/the-donkey-wears-couture.jpg" alt=""><span class="fnum">6</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax kill" d="M26.4,6.4 Q60.3,41.5 93.6,73.6 M93.6,6.4 Q61.5,42.2 26.4,73.6"/></svg><figcaption>The Donkey Wears Couture</figcaption></figure><figure class="fr pf"><img src="img/the-cafe-street-the-gove.jpg" alt=""><span class="fnum">7</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Cafe Street the Govern</figcaption></figure><figure class="fr pf"><img src="img/the-world-s-highest-ski-.jpg" alt=""><span class="fnum">8</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax" d="M109.7,42.0 L105.5,52.7 L96.9,62.7 L83.9,68.3 L70.2,72.2 L56.7,73.3 L39.5,72.5 L27.9,65.1 L20.4,57.1 L12.3,47.6 L13.8,39.0 L14.0,27.0 L21.5,20.3 L36.2,12.9 L47.0,8.2 L62.1,8.2 L77.5,8.6 L90.3,13.9 L100.2,21.6 L107.7,30.2 L106.0,40.9 L102.4,50.7 L98.1,60.1 "/></svg><figcaption>The World's Highest Ski Re</figcaption></figure><figure class="fr pf"><img src="img/the-last-bang-bang-men-o.jpg" alt=""><span class="fnum">8A</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Last Bang Bang Men of </figcaption></figure><figure class="fr pf"><img src="img/the-town-america-forgot-.jpg" alt=""><span class="fnum">9</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax grn" d="M83.8,20.2 L95.3,29.5 L109.2,8.3"/></svg><figcaption>The Town America Forgot to</figcaption></figure><figure class="fr pf"><img src="img/cheran.jpg" alt=""><span class="fnum">10</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Town That Fired Everyo</figcaption></figure><figure class="fr pf"><img src="img/kinmen.jpg" alt=""><span class="fnum">11</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax" d="M105.3,34.8 L107.8,44.3 L102.1,53.2 L94.7,62.3 L81.6,68.8 L67.9,72.5 L52.1,71.8 L37.3,68.3 L26.9,61.5 L16.7,54.7 L11.8,45.8 L13.0,33.6 L17.3,26.0 L25.2,16.6 L37.9,11.2 L53.7,8.4 L67.5,10.7 L82.6,11.7 L95.4,17.2 L106.3,26.3 L106.2,36.9 L107.8,45.9 L104.0,55.8 "/></svg><figcaption>The Island That Forges Bom</figcaption></figure><figure class="fr pf"><img src="img/crab.jpg" alt=""><span class="fnum">12</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Crab They Named After </figcaption></figure><figure class="fr pf"><img src="img/rjukan.jpg" alt=""><span class="fnum">12A</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Town That Built Its Ow</figcaption></figure><figure class="fr pf"><img src="img/bookfair.jpg" alt=""><span class="fnum">13</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"><path class="wax kill" d="M26.4,6.4 Q58.6,40.3 93.6,73.6 M93.6,6.4 Q61.2,42.8 26.4,73.6"/></svg><figcaption>Book Fair of a Country Tha</figcaption></figure><figure class="fr pf"><img src="img/valencia.jpg" alt=""><span class="fnum">14</span><svg class="mk" viewBox="0 0 120 80" preserveAspectRatio="none"></svg><figcaption>The Water Court of Valenci</figcaption></figure></div></div>
+<div class="caption">mockup · 18 of your scouts as a proof sheet; six marked in wax</div>
+</section>
+<section>
+<div class="sn">TREATMENT B<span class="pick">WHAT I'D BUILD</span></div>
+<h2>The Culling Wall</h2>
+<div class="trad">Tradition: Photo Mechanic / Capture One culling · the working casting board</div>
+<p class="body">The proof sheet's soul, made a working tool: bigger frames you can judge, the wax marks as the decision layer, plus the pro-culling chrome — a star rating in the corner, a tag for the shortlist, a live count. Keyboard-first with auto-advance: mark a frame and it jumps to the next, so you cull a whole week in one fast pass, no mouse.</p>
+<ul class="moves">
+<li>Keyboard-only with auto-advance: X kills, F tags, 1–5 rates, then jumps to the next frame</li>
+<li>Reject-first two-pass: a Kill Pass (keep/kill only), then rate the survivors</li>
+<li>Filter-to-picks in one key: collapse the wall to only your tagged selects</li>
+<li>The loupe: press-and-hold any frame to read its full dossier without leaving the wall</li>
+</ul>
+<div class="cull"><div class="grid"><figure class="fr wl"><img src="img/cheran.jpg" alt=""><svg class="mk" viewBox="0 0 200 134" preserveAspectRatio="none"><path class="wax" d="M177.0,77.9 L169.5,92.6 L154.5,107.1 L133.7,116.1 L110.2,121.9 L86.1,123.8 L64.3,114.4 L41.9,104.6 L29.6,92.3 L16.6,77.3 L23.8,59.8 L32.7,44.9 L40.0,27.6 L62.1,19.6 L85.4,14.8 L108.1,14.4 L133.4,15.2 L151.9,28.7 L165.5,41.3 L179.1,54.7 L184.5,71.5 L173.9,86.6 L161.7,100.7 "/></svg><figcaption>The Town That Fired Everyo</figcaption><span class="cstar">★★★★·</span></figure><figure class="fr wl"><img src="img/kinmen.jpg" alt=""><svg class="mk" viewBox="0 0 200 134" preserveAspectRatio="none"></svg><figcaption>The Island That Forges Bom</figcaption><span class="cstar">★★★··</span></figure><figure class="fr wl"><img src="img/crab.jpg" alt=""><svg class="mk" viewBox="0 0 200 134" preserveAspectRatio="none"><path class="wax kill" d="M44.0,11.0 Q100.4,66.6 156.0,123.0 M156.0,11.0 Q100.5,65.2 44.0,123.0"/></svg><figcaption>The Crab They Named After </figcaption><span class="cstar unrated">·····</span></figure><figure class="fr wl"><img src="img/rjukan.jpg" alt=""><svg class="mk" viewBox="0 0 200 134" preserveAspectRatio="none"></svg><figcaption>The Town That Built Its Ow</figcaption><span class="cstar">★★★★★</span></figure><figure class="fr wl"><img src="img/bookfair.jpg" alt=""><svg class="mk" viewBox="0 0 200 134" preserveAspectRatio="none"></svg><figcaption>Book Fair of a Country Tha</figcaption><span class="cstar">★★···</span></figure><figure class="fr wl"><img src="img/valencia.jpg" alt=""><svg class="mk" viewBox="0 0 200 134" preserveAspectRatio="none"><path class="wax" d="M5.2,9.0 L193.0,7.5 M193.1,6.9 L192.3,127.0 M196.0,127.7 L5.1,127.5 M8.9,129.3 L7.0,4.5"/></svg><figcaption>The Water Court of Valenci</figcaption><span class="cstar">★★★★·</span></figure></div>
+<div class="bar"><span><b>G</b> wall</span><span><b>E</b> loupe</span><span><b>C</b> compare</span><span><b>X</b> kill</span><span><b>F</b> tag</span><span><b>1&ndash;5</b> rate</span><span><b>&#9003;</b> undo</span><span style="margin-left:auto">&mdash; 6 shown · 3 selected · 1 killed</span></div></div>
+<div class="caption">mockup · the working wall — wax marks + star rating + keyboard cull; my recommended build</div>
+</section>
+<section>
+<div class="sn">TREATMENT C</div>
+<h2>The Kill Pass</h2>
+<div class="trad">Tradition: the reject-first cull · FastRawViewer's binary flow</div>
+<p class="body">The fastest mode: one frame at a time, full and big, only two choices — keep or kill. You blast through the week's drop in a minute, killing the obvious no's; whatever survives goes to the wall for real rating. This is how pros clear 80% of the pile before they think hard.</p>
+<div class="kp"><div class="big"><img src="img/the-world-s-highest-ski-.jpg"></div>
+<div class="ctrl"><div class="q">frame 7 / 18 · Bolivia · loss</div>
+<div class="keys"><span class="k keep">&uarr; keep</span><span class="k kill">&darr; kill</span></div>
+<p>Space skips. Every choice auto-advances. Nothing is rated yet — this pass only clears the dead weight.</p>
+<div class="prog">&#9632;&#9632;&#9632;&#9632;&#9632;&#9632;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633;&#9633; · 6 kept · 0 killed</div></div></div>
+<div class="caption">mockup · the binary keep/kill pass — clears the pile before the real judging</div>
+</section>
+<section>
+<div class="sn">TREATMENT D</div>
+<h2>The Loupe</h2>
+<div class="trad">Tradition: the chrome-and-glass magnifier on the light box</div>
+<p class="body">When a frame stops you, press and hold: it magnifies under a loupe and the dossier reads beside it as field notes. You inspect without leaving the wall — the words are always one press away, so a weak scout photo never sinks a strong story.</p>
+<div class="kp" style="align-items:stretch"><div class="big" style="max-width:340px"><img src="img/cheran.jpg">
+<div style="position:absolute;left:38%;top:26%;width:150px;height:150px;border-radius:50%;border:6px solid #3a3a3a;box-shadow:0 0 0 2px #666,inset 0 0 20px rgba(0,0,0,.4);overflow:hidden;background:#000"><img src="img/cheran.jpg" style="width:280%;max-width:none;position:absolute;left:-90%;top:-60%"></div></div>
+<div class="ctrl" style="width:280px"><div class="q">HE-2026-040 · resilience · &#9733;&#9733;&#9733;&#9733;</div>
+<p style="color:#cbb;font-style:normal;font-size:13px;line-height:1.5">A town that fired its entire government fifteen years ago and still governs itself by assembly. The story is not the uprising — it's the maintenance. What fifteen years of self-rule does to a place, and what the second generation, raised without parties, thinks politics even is.</p></div></div>
+<div class="caption">mockup · press-and-hold to inspect — the loupe magnifies, the dossier reads as field notes</div>
+</section>
+<section>
+<div class="sn">THE CHOICE · materiality</div>
+<h2>Darkroom or proof paper</h2>
+<div class="trad">The same frame, two substrates. Which world does the wall live in?</div>
+<div class="mat">
+<div class="sw dark"><div class="lab">&#9679; darkroom · warm near-black</div><figure class="fr"><img src="img/cheran.jpg"><svg class="mk" viewBox="0 0 180 120" preserveAspectRatio="none"></svg></figure><div style="color:#8a8474;font-size:12.5px;font-style:italic;margin-top:6px">The proof-sheet world. Frames glow, the wax pops, it feels like a light box at night. My lean.</div></div>
+<div class="sw light"><div class="lab">&#9679; proof paper · semi-gloss white</div><figure class="fr" style="border:1px solid #c9c0ad"><img src="img/cheran.jpg"><svg class="mk" viewBox="0 0 180 120" preserveAspectRatio="none"></svg></figure><div style="color:var(--dim);font-size:12.5px;font-style:italic;margin-top:6px">The print-in-hand world. Continuous with the white spreadsheet; calmer, more editorial.</div></div>
+</div>
+<div class="caption">mockup · pick the substrate — dark light-box vs warm proof paper</div>
+</section>
+<footer>
+What I'd build: <b>Treatment B, the Culling Wall</b>, in the <b>darkroom</b> substrate — the working tool with real culling ergonomics (keyboard cull, kill-pass, filter-to-picks, the loupe), wearing the proof sheet's soul. Treatment A (the pure proof sheet) becomes a "print view" you switch to when you want the whole week as one object. C and D aren't separate screens — they're modes inside B (the Kill Pass is a toggle, the Loupe is press-and-hold). It sits as a new tab beside your spreadsheet, same data, same verdicts written back. Tell me: darkroom or proof paper, and whether the wax marks feel right — then I build it for real.
+</footer>
+</div></body></html>
