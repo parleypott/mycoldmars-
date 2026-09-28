@@ -1,0 +1,142 @@
+/* The James Watch Hunt — public gallery. Editorial catalogue, mobile-first, flat. */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-2: #eee9dd;
+  --ink: #201c16;
+  --ink-60: rgba(32, 28, 22, 0.62);
+  --ink-35: rgba(32, 28, 22, 0.35);
+  --hairline: rgba(32, 28, 22, 0.16);
+  --accent: #8a3324;
+  --approve: #2c7a4b;
+  --card-bg: #fbf8f1;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17150f; --paper-2: #1e1b14; --ink: #eae4d4;
+    --ink-60: rgba(234,228,212,0.62); --ink-35: rgba(234,228,212,0.35);
+    --hairline: rgba(234,228,212,0.16); --accent: #c96a4f; --approve: #58b381; --card-bg: #201d15;
+  }
+}
+:root[data-theme="light"] { --paper:#f5f1e8; --paper-2:#eee9dd; --ink:#201c16; --ink-60:rgba(32,28,22,.62); --ink-35:rgba(32,28,22,.35); --hairline:rgba(32,28,22,.16); --accent:#8a3324; --approve:#2c7a4b; --card-bg:#fbf8f1; }
+:root[data-theme="dark"]  { --paper:#17150f; --paper-2:#1e1b14; --ink:#eae4d4; --ink-60:rgba(234,228,212,.62); --ink-35:rgba(234,228,212,.35); --hairline:rgba(234,228,212,.16); --accent:#c96a4f; --approve:#58b381; --card-bg:#201d15; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-serif); line-height: 1.5;
+  min-height: 100vh; display: flex; flex-direction: column;
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; width: 100%; }
+
+/* ---- masthead ---- */
+.masthead { padding: max(28px, env(safe-area-inset-top)) 0 22px; border-bottom: 1px solid var(--hairline); }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.34em;
+  text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 12px;
+}
+.masthead h1 {
+  font-size: clamp(38px, 11vw, 92px); font-weight: 700; line-height: 0.98; letter-spacing: -0.01em;
+}
+.brk { display: none; }
+.lede { margin-top: 14px; font-size: clamp(15px, 4vw, 19px); color: var(--ink-60); max-width: 34ch; text-wrap: balance; }
+
+.controls { margin-top: 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.seg { display: inline-flex; border: 1px solid var(--hairline); }
+.seg-btn {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  background: none; color: var(--ink-60); border: none; padding: 11px 16px; cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--hairline); }
+.seg-btn.active { background: var(--ink); color: var(--paper); }
+.seg-btn .c { opacity: 0.7; margin-left: 2px; }
+.ghost { background: none; border: 1px solid var(--hairline); color: var(--ink-60); font-size: 16px; width: 40px; height: 40px; cursor: pointer; }
+
+/* ---- grid ---- */
+.grid {
+  flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 26px 20px 60px;
+  display: grid; gap: 22px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.grid[aria-busy="true"]::after { content: "loading the hunt…"; font-family: var(--font-mono); font-size: 12px; color: var(--ink-35); grid-column: 1/-1; text-align: center; padding: 40px; }
+
+.card {
+  background: var(--card-bg); border: 1px solid var(--hairline);
+  display: flex; flex-direction: column; position: relative;
+  transition: border-color 0.2s;
+}
+.card.approved { border-color: var(--approve); }
+.card.hide { display: none; }
+
+.photo {
+  aspect-ratio: 1 / 0.95; background: var(--paper-2); overflow: hidden; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo .fallback { width: 58%; height: 58%; color: var(--ink-35); }
+
+.ribbon {
+  position: absolute; top: 12px; left: 12px; font-family: var(--font-mono);
+  font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  background: var(--approve); color: #f5f1e8; padding: 4px 10px; display: none;
+}
+.card.approved .ribbon { display: block; }
+
+.body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.title { font-size: 19px; line-height: 1.24; cursor: pointer; }
+.title:hover { color: var(--accent); }
+.meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.price { font-size: 23px; font-weight: 700; font-feature-settings: "tnum" 1, "lnum" 1; }
+.dealer {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-60); display: flex; align-items: center; gap: 6px;
+}
+.dealer .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--approve); flex: none; }
+
+.open {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-60); text-decoration: none; border-bottom: 1px solid var(--hairline);
+  align-self: flex-start; padding-bottom: 2px;
+}
+.open:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ---- the Mel Approves checkbox (big tap target) ---- */
+.approve-btn {
+  margin-top: auto; display: flex; align-items: center; gap: 12px; width: 100%;
+  background: none; border: 1px solid var(--hairline); cursor: pointer;
+  padding: 14px 16px; font-family: var(--font-serif); font-size: 16px; color: var(--ink);
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 52px; /* comfortable thumb target */
+}
+.approve-btn:hover { border-color: var(--ink); }
+.approve-btn .box {
+  width: 26px; height: 26px; border: 2px solid var(--ink-35); flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: 17px; color: transparent;
+}
+.approve-btn .lbl { font-weight: 400; }
+.approve-btn.on { background: var(--approve); border-color: var(--approve); color: #f5f1e8; }
+.approve-btn.on .box { border-color: #f5f1e8; color: #f5f1e8; }
+.approve-btn.on .lbl { font-weight: 700; }
+.approve-btn.busy { opacity: 0.55; pointer-events: none; }
+
+footer { border-top: 1px solid var(--hairline); }
+footer .wrap { padding: 18px 20px calc(24px + env(safe-area-inset-bottom)); }
+#foot { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-35); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--ink); color: var(--paper); font-family: var(--font-mono); font-size: 11.5px;
+  padding: 11px 20px; opacity: 0; pointer-events: none; transition: opacity 0.25s; max-width: 86vw; text-align: center;
+}
+.toast.show { opacity: 1; }
+
+.empty { grid-column: 1/-1; text-align: center; color: var(--ink-60); padding: 70px 20px; font-size: 17px; }
+
+@media (min-width: 560px) { .brk { display: inline; } }
+@media (max-width: 559px) {
+  .grid { grid-template-columns: 1fr; gap: 18px; padding: 20px 16px 50px; }
+  .wrap { padding: 0 16px; }
+  .masthead h1 { font-size: clamp(40px, 13vw, 72px); }
+}

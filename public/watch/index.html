@@ -2,43 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Watch Hunt</title>
-  <link rel="stylesheet" href="/watch/style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The James Watch Hunt</title>
+  <meta name="description" content="A hand-picked shortlist of vintage watches — verified in stock. Tap the ones you like." />
+  <meta property="og:title" content="The James Watch Hunt" />
+  <meta property="og:description" content="Vintage, classy, low profile. Verified in stock — tap the ones you like." />
+  <meta name="theme-color" content="#f5f1e8" />
+  <link rel="stylesheet" href="/watch/gallery.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='none' stroke='%238a3324' stroke-width='6'/><line x1='50' y1='50' x2='50' y2='24' stroke='%238a3324' stroke-width='6' stroke-linecap='round'/><line x1='50' y1='50' x2='68' y2='58' stroke='%238a3324' stroke-width='5' stroke-linecap='round'/></svg>" />
-  <meta name="description" content="A hand-verified catalogue of vintage watches — 86 pieces, each confirmed in stock at a trusted dealer." />
-  <meta property="og:title" content="Watch Hunt" />
-  <meta property="og:description" content="86 vintage watches, verified in stock. Vintage, classy, low profile." />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
   <header class="masthead">
-    <div class="masthead-inner">
-      <div class="brand">
-        <span class="eyebrow">a private catalogue · est. 2026</span>
-        <h1>Watch&nbsp;Hunt</h1>
-        <span class="tagline">vintage, classy, low&nbsp;profile — verified in stock, ready to&nbsp;buy</span>
+    <div class="wrap">
+      <span class="eyebrow">vintage · classy · low profile</span>
+      <h1>The&nbsp;James<br class="brk" /> Watch&nbsp;Hunt</h1>
+      <p class="lede">A hand-picked shortlist, each one verified in stock. Mel — tap the ones you love.</p>
+      <div class="controls">
+        <div class="seg" id="seg">
+          <button class="seg-btn active" data-filter="all">All <span id="count-all" class="c"></span></button>
+          <button class="seg-btn" data-filter="mel">Mel's picks <span id="count-mel" class="c"></span></button>
+        </div>
+        <button id="theme" class="ghost" title="light / dark" aria-label="toggle theme">◐</button>
       </div>
-      <nav>
-        <button data-view="quiz" class="nav-btn active">The Questionnaire</button>
-        <button data-view="results" class="nav-btn">The Hunt</button>
-        <button data-view="shortlist" class="nav-btn">Shortlist <span id="shortlist-count" class="count" hidden></span></button>
-        <button id="theme-toggle" class="nav-btn ghost" title="toggle dark/light">◐</button>
-      </nav>
     </div>
-    <div class="rule"></div>
   </header>
 
-  <main id="app">
-    <!-- views are rendered by app.js -->
-  </main>
+  <main id="grid" class="grid" aria-busy="true"></main>
 
-  <footer>
-    <div class="rule"></div>
-    <p class="colophon">every listing shown here was machine-verified against the live dealer page · nothing is taken on faith</p>
-  </footer>
+  <footer><div class="wrap"><span id="foot"></span></div></footer>
 
-  <script>window.WH_STATIC = true; window.WH_BASE = "/watch"; window.WH_SNAPSHOT_DATE = "September 21, 2026";</script>
-  <script src="/watch/app.js"></script>
+  <div class="toast" id="toast"></div>
+
+  <script>window.WH_BASE="/watch";window.WH_APPROVALS_API="/api/watch-approvals";</script>
+  <script src="/watch/gallery.js"></script>
 </body>
 </html>
