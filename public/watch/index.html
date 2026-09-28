@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Watch Hunt</title>
+  <link rel="stylesheet" href="/watch/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='none' stroke='%238a3324' stroke-width='6'/><line x1='50' y1='50' x2='50' y2='24' stroke='%238a3324' stroke-width='6' stroke-linecap='round'/><line x1='50' y1='50' x2='68' y2='58' stroke='%238a3324' stroke-width='5' stroke-linecap='round'/></svg>" />
+  <meta name="description" content="A hand-verified catalogue of vintage watches — 86 pieces, each confirmed in stock at a trusted dealer." />
+  <meta property="og:title" content="Watch Hunt" />
+  <meta property="og:description" content="86 vintage watches, verified in stock. Vintage, classy, low profile." />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand">
+        <span class="eyebrow">a private catalogue · est. 2026</span>
+        <h1>Watch&nbsp;Hunt</h1>
+        <span class="tagline">vintage, classy, low&nbsp;profile — verified in stock, ready to&nbsp;buy</span>
+      </div>
+      <nav>
+        <button data-view="quiz" class="nav-btn active">The Questionnaire</button>
+        <button data-view="results" class="nav-btn">The Hunt</button>
+        <button data-view="shortlist" class="nav-btn">Shortlist <span id="shortlist-count" class="count" hidden></span></button>
+        <button id="theme-toggle" class="nav-btn ghost" title="toggle dark/light">◐</button>
+      </nav>
+    </div>
+    <div class="rule"></div>
+  </header>
+
+  <main id="app">
+    <!-- views are rendered by app.js -->
+  </main>
+
+  <footer>
+    <div class="rule"></div>
+    <p class="colophon">every listing shown here was machine-verified against the live dealer page · nothing is taken on faith</p>
+  </footer>
+
+  <script>window.WH_STATIC = true; window.WH_BASE = "/watch"; window.WH_SNAPSHOT_DATE = "September 21, 2026";</script>
+  <script src="/watch/app.js"></script>
+</body>
+</html>
