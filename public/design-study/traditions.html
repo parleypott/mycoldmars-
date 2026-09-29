@@ -7,17 +7,18 @@
 <title>Four Traditions — breaking the house style</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Roboto Mono is real. Playfair stands in for SAILING CLUB, Archivo (heavy, wide-tracked)
-     stands in for SÖHNE BREIT — the real licensed faces drop in later. Judge the tradition,
-     not the exact glyphs. -->
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,600&family=Archivo:wght@800;900&display=swap" rel="stylesheet">
+<!-- REAL fonts now: Sailing Club + Söhne Breit Dreiviertelfett, self-hosted. Roboto Mono via Google. -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+  @font-face{font-family:'Sailing Club';src:url('fonts/sailing-club-regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+  @font-face{font-family:'Sailing Club';src:url('fonts/sailing-club-italic.otf') format('opentype');font-weight:400;font-style:italic;font-display:swap}
+  @font-face{font-family:'Sohne Breit';src:url('fonts/sohne-breit-dreiviertelfett.otf') format('opentype');font-weight:600;font-style:normal;font-display:swap}
   :root{
     --red:#f83500; --orange:#ff5206; --cream:#f0e3bb;
     --blue:#568d9f; --teal:#265f6f; --ink:#1c1c1c; --paper:#efefef;
     --mono:'Roboto Mono',ui-monospace,Menlo,monospace;
-    --display:'Playfair Display',Georgia,serif;   /* ← Sailing Club */
-    --wide:'Archivo',system-ui,sans-serif;         /* ← Söhne Breit */
+    --display:'Sailing Club',Georgia,serif;   /* main font — display, faux-bold */
+    --wide:'Sohne Breit',system-ui,sans-serif; /* large centered numbers only */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
@@ -43,7 +44,7 @@
 
   section.dir{padding:40px 0 64px;border-top:2px solid var(--ink)}
   .dirhead{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:8px}
-  .dirhead .n{font-family:var(--wide);font-weight:900;font-size:15px;letter-spacing:.02em;color:var(--red)}
+  .dirhead .n{font-family:var(--wide);font-weight:600;font-size:15px;letter-spacing:.02em;color:var(--red)}
   .dirhead h2{font-family:var(--display);font-weight:800;font-size:clamp(28px,4vw,44px);line-height:1}
   .dirhead .masters{font-family:var(--mono);font-size:12px;color:#666;text-align:right;max-width:34ch}
   .rationale{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:14px 0 26px}
@@ -70,8 +71,8 @@
   .m-cine .grain{position:absolute;inset:0;opacity:.09;background-image:radial-gradient(rgba(255,255,255,.6) .5px, transparent .6px);background-size:3px 3px}
   .m-cine .inner{position:relative;z-index:4;padding:0 clamp(28px,6vw,76px)}
   .m-cine .num{font-family:var(--mono);font-size:15px;letter-spacing:.2em;color:var(--cream);opacity:.85}
-  .m-cine .title{font-family:var(--display);font-style:italic;font-weight:600;color:var(--red);
-     font-size:clamp(38px,7.5vw,96px);line-height:.92;letter-spacing:-.005em;margin:.12em 0 0;text-shadow:0 2px 30px rgba(0,0,0,.4)}
+  .m-cine .title{font-family:var(--display);font-style:normal;font-weight:700;color:var(--red);
+     font-size:clamp(40px,8vw,104px);line-height:.9;letter-spacing:0;margin:.12em 0 0;text-shadow:0 2px 30px rgba(0,0,0,.4)}
   .m-cine .strip{position:absolute;left:0;right:0;bottom:12%;z-index:4;display:flex;gap:22px;
      padding:0 clamp(28px,6vw,76px);font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--cream);opacity:.9}
   .m-cine .strip b{color:var(--orange);font-weight:500}
@@ -86,7 +87,7 @@
   .m-term .kv{display:flex;gap:18px;font-size:11px;letter-spacing:.08em;color:#8a8a82;flex-wrap:wrap}
   .m-term .kv span b{color:var(--blue);font-weight:400;display:block;font-size:9px;letter-spacing:.16em}
   .m-term .r{padding:clamp(18px,3vw,34px);display:flex;flex-direction:column;justify-content:space-between;background:#171717}
-  .m-term .readout{font-family:var(--wide);font-weight:900;font-size:clamp(64px,12vw,150px);line-height:.8;letter-spacing:-.02em;color:var(--red)}
+  .m-term .readout{font-family:var(--wide);font-weight:600;font-size:clamp(64px,12vw,150px);line-height:.8;letter-spacing:-.02em;color:var(--red)}
   .m-term .readsub{font-size:10px;letter-spacing:.2em;color:#666;text-transform:uppercase}
   .m-term .bars{display:flex;gap:4px;margin-top:14px}
   .m-term .bars i{height:6px;flex:1;background:#333}
@@ -114,7 +115,7 @@
   .m-way .body{padding:clamp(22px,3.6vw,44px);position:relative}
   .m-way .sys{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#666}
   .m-way .row{display:flex;align-items:flex-start;gap:22px;margin-top:12px}
-  .m-way .big{font-family:var(--wide);font-weight:900;font-size:clamp(70px,13vw,150px);line-height:.78;color:var(--teal);letter-spacing:-.03em}
+  .m-way .big{font-family:var(--wide);font-weight:600;font-size:clamp(70px,13vw,150px);line-height:.78;color:var(--teal);letter-spacing:-.03em}
   .m-way h4{font-family:var(--display);font-weight:800;font-size:clamp(24px,3.4vw,40px);line-height:1;margin-bottom:10px}
   .m-way .meta{font-family:var(--mono);font-size:12px;color:#444;line-height:1.7}
   .m-way .meta b{color:var(--red);font-weight:500}
