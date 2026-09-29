@@ -14,6 +14,14 @@
   },
   "rewrites": [
     {
+      "source": "/art/",
+      "destination": "https://backlot-navy.vercel.app/"
+    },
+    {
+      "source": "/art/:path*",
+      "destination": "https://backlot-navy.vercel.app/:path*"
+    },
+    {
       "source": "/universe",
       "destination": "/queen-scarlet-school/universe/index.html"
     },
@@ -139,6 +147,11 @@
     }
   ],
   "redirects": [
+    {
+      "source": "/art",
+      "destination": "/art/",
+      "permanent": false
+    },
     {
       "source": "/novel",
       "destination": "/burgundy",
