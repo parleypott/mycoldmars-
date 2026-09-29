@@ -82,16 +82,50 @@ async function fetchSource(chunk, before, after) {
   return res.json();
 }
 
+const MD_LINK = /\[([^\]]*)\]\((?:[^()]|\([^)]*\))*\)/g;
+const MD_IMAGE = /!\[[^\]]*\]\((?:[^()]|\([^)]*\))*\)/g;
+
+// Web sources were captured as Jina Reader markdown: links, images, and whole navigation
+// menus. Read them as prose. Links become their text, images go, a line that was nothing
+// but links (a menu, "Skip to content") is dropped, and heading/bullet/emphasis marks go.
+export function forReading(text) {
+  const out = [];
+  for (const raw of String(text || '').split('\n')) {
+    const line = raw.replace(MD_IMAGE, '');
+    if (MD_LINK.test(line)) {
+      MD_LINK.lastIndex = 0;
+      if (!line.replace(MD_LINK, '').replace(/[\s*•|·,>-]+/g, '')) continue;
+    }
+    MD_LINK.lastIndex = 0;
+    out.push(line
+      .replace(MD_LINK, '$1')
+      .replace(/^\s{0,3}#{1,6}\s+/, '')
+      .replace(/^\s*[*+-]\s+/, '• ')
+      .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+      .replace(/__([^_\n]+)__/g, '$1'));
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// The capture's own headline beats a title rebuilt from the URL slug.
+export function headlineOf(data) {
+  const first = data.chunks.find((c) => c.seq === 0);
+  if (!first) return null;
+  const m = /^Title:\s*(.+)$/m.exec(first.text) || /^#\s+(.+)$/m.exec(first.text);
+  return m ? forReading(m[1]).trim() || null : null;
+}
+
 function Reading({ data, quote, focusRef }) {
   const parts = [];
   data.chunks.forEach((c, i) => {
     if (i > 0 && !c.continues) parts.push(<div class="gap" key={`gap-${c.chunk_id}`} role="separator">· · ·</div>);
-    let body = c.display_text;
+    const text = forReading(c.display_text);
+    let body = text;
     if (c.is_focus) {
-      const hit = quote ? findQuote(c.display_text, quote) : null;
+      const hit = quote ? findQuote(text, quote) : null;
       body = hit
-        ? [c.display_text.slice(0, hit[0]), <mark class="quote" ref={focusRef} key="q">{c.display_text.slice(hit[0], hit[1])}</mark>, c.display_text.slice(hit[1])]
-        : c.display_text;
+        ? [text.slice(0, hit[0]), <mark class="quote" ref={focusRef} key="q">{text.slice(hit[0], hit[1])}</mark>, text.slice(hit[1])]
+        : text;
       parts.push(<span class="focus" key={c.chunk_id} ref={hit ? undefined : focusRef} id="focus">{body}</span>);
     } else {
       parts.push(<span key={c.chunk_id}>{body}</span>);
@@ -184,7 +218,7 @@ function App() {
   }, [state.phase]);
 
   useEffect(() => {
-    if (state.phase === 'ready') document.title = `${state.data.source.title} — Newpress citations`;
+    if (state.phase === 'ready') document.title = `${headlineOf(state.data) || state.data.source.title} — Newpress citations`;
   }, [state.phase]);
 
   if (state.phase === 'missing') {
@@ -204,7 +238,7 @@ function App() {
   const href = outboundHref(source.url, QUOTE, focus?.display_text || focus?.text);
   const note = ACCESS_NOTES[source.access_method];
   const partial = data.total > data.chunks.length;
-  const quoteMissing = QUOTE && focus && !findQuote(focus.display_text, QUOTE);
+  const quoteMissing = QUOTE && focus && !findQuote(forReading(focus.display_text), QUOTE);
   const canBefore = partial && data.has_before && !spent.before;
   const canAfter = partial && !spent.after && data.chunks.length > 1;
   const looksLikeSingle = data.chunks.length === 1 && data.first_seq == null;
@@ -213,7 +247,7 @@ function App() {
     <div class="page">
       <header class="head">
         <div class="brand">NEWPRESS · CITATIONS</div>
-        <h1>{source.title}</h1>
+        <h1>{headlineOf(data) || source.title}</h1>
         <p class="meta">
           {href
             ? <a class="out" href={href} target="_blank" rel="noopener noreferrer">Open the original{hostOf(source.url) ? ` on ${hostOf(source.url)}` : ''} ↗</a>
