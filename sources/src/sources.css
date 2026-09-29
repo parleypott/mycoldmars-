@@ -73,10 +73,12 @@ button { font: inherit; }
 }
 @media (min-width: 900px) { .text { font-size: 1.1875rem; } }
 .focus {
+  display: block;
   background: var(--focus-bg);
-  box-shadow: 0 0 0 4px var(--focus-bg);
-  border-radius: 2px;
-  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  border-left: 3px solid var(--focus-edge);
+  border-radius: 4px;
+  padding: .7em 1em;
+  margin: .5em -1em;
 }
 .quote {
   background: var(--quote-bg); color: inherit;

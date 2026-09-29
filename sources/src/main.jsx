@@ -97,10 +97,11 @@ export function forReading(text) {
       if (!line.replace(MD_LINK, '').replace(/[\s*•|·,>-]+/g, '')) continue;
     }
     MD_LINK.lastIndex = 0;
-    out.push(line
-      .replace(MD_LINK, '$1')
-      .replace(/^\s{0,3}#{1,6}\s+/, '')
-      .replace(/^\s*[*+-]\s+/, '• ')
+    let l = line.replace(MD_LINK, '$1');
+    const bullet = /^\s*[*+-]\s+/.exec(l);
+    if (bullet) l = l.slice(bullet[0].length);
+    l = l.replace(/^\s{0,3}#{1,6}\s+/, '');
+    out.push((bullet ? '• ' + l : l)
       .replace(/\*\*([^*\n]+)\*\*/g, '$1')
       .replace(/__([^_\n]+)__/g, '$1'));
   }
@@ -159,7 +160,7 @@ function Rail({ data }) {
                 return (
                   <div class="cite" key={i}>
                     {c.context && <p class="ctx">{c.context}</p>}
-                    {c.quoted_span && <p class="span">“{c.quoted_span}”</p>}
+                    {c.quoted_span && !/^\[?\s*citation\s*\]?$/i.test(c.quoted_span) && <p class="span">“{c.quoted_span}”</p>}
                     {href && <a href={href} target="_blank" rel="noopener noreferrer">Open the script doc</a>}
                   </div>
                 );
