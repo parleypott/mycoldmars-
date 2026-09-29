@@ -1,0 +1,111 @@
+/* sources — reading view for a citation. No external fonts or CDNs. */
+:root {
+  --bg: #faf8f4;
+  --panel: #f2eee6;
+  --ink: #1d1b18;
+  --dim: #6b655b;
+  --line: #ddd6c8;
+  --accent: #1f5fbf;
+  --focus-bg: #fff3c4;
+  --focus-edge: #e0b526;
+  --quote-bg: #ffd84d;
+  --err: #a12b1f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15140f;
+    --panel: #1e1c16;
+    --ink: #e9e5da;
+    --dim: #a19a8b;
+    --line: #34312a;
+    --accent: #7fb0ff;
+    --focus-bg: #3a3212;
+    --focus-edge: #a7861a;
+    --quote-bg: #7a6410;
+    --err: #ff8f80;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+a { color: var(--accent); }
+code { font-size: .9em; background: var(--panel); padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+button { font: inherit; }
+
+.msg { max-width: 34rem; margin: 18vh auto 0; padding: 0 16px; }
+.msg h1 { font: 600 1.3rem/1.3 system-ui, sans-serif; }
+.err { color: var(--err); }
+.small { font-size: .9rem; }
+.dim { color: var(--dim); }
+
+.page { max-width: 68rem; margin: 0 auto; padding: 20px 16px 96px; }
+.head { max-width: 46rem; margin-bottom: 20px; }
+.brand { font: 600 .72rem/1 system-ui, sans-serif; letter-spacing: .14em; color: var(--dim); margin-bottom: 10px; }
+.head h1 { font: 700 1.55rem/1.25 Georgia, "Iowan Old Style", "Times New Roman", serif; margin: 0 0 8px; overflow-wrap: anywhere; }
+.meta { margin: 0 0 8px; font-size: .95rem; overflow-wrap: anywhere; }
+.out { font-weight: 600; }
+.note {
+  margin: 10px 0 0; padding: 10px 12px; font-size: .9rem; color: var(--dim);
+  background: var(--panel); border-left: 3px solid var(--line); border-radius: 0 6px 6px 0;
+}
+
+.cols { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.rail { order: -1; }
+@media (min-width: 900px) {
+  .page { padding-top: 40px; }
+  .head h1 { font-size: 1.9rem; }
+  .cols { grid-template-columns: minmax(0, 1fr) 20rem; gap: 40px; align-items: start; }
+  .rail { order: 0; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
+}
+
+/* reading column */
+.read { min-width: 0; }
+.text {
+  font: 1.125rem/1.75 Georgia, "Iowan Old Style", "Times New Roman", serif;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 42rem;
+}
+@media (min-width: 900px) { .text { font-size: 1.1875rem; } }
+.focus {
+  background: var(--focus-bg);
+  box-shadow: 0 0 0 4px var(--focus-bg);
+  border-radius: 2px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.quote {
+  background: var(--quote-bg); color: inherit;
+  border-bottom: 2px solid var(--focus-edge);
+  padding: 0 1px;
+}
+.gap { text-align: center; color: var(--dim); letter-spacing: .4em; margin: 1.2em 0; white-space: normal; }
+.more {
+  display: block; margin: 0 0 20px; padding: 9px 16px; cursor: pointer;
+  color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 999px;
+}
+.text + .more { margin: 20px 0 0; }
+.more:hover:not(:disabled) { background: var(--panel); }
+.more:disabled { opacity: .6; cursor: default; }
+.edge { color: var(--dim); font-size: .85rem; font-style: italic; margin: 16px 0; }
+.text + .edge { margin-top: 20px; }
+
+/* rail */
+.rail details { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.rail summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; }
+.rail summary::-webkit-details-marker { display: none; }
+.rail h2 { font: 700 .8rem/1.2 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.rail .count { color: var(--dim); font-size: .85rem; }
+.rail ul { list-style: none; margin: 12px 0 0; padding: 0; }
+.rail li { padding: 12px 0; border-top: 1px solid var(--line); }
+.rail li:first-child { border-top: 0; padding-top: 4px; }
+.vid { font-weight: 600; margin-bottom: 4px; overflow-wrap: anywhere; }
+.cite { margin: 8px 0 0; font-size: .9rem; }
+.cite p { margin: 0 0 4px; }
+.cite .ctx { color: var(--dim); }
+.cite .span { font-family: Georgia, serif; font-style: italic; overflow-wrap: anywhere; }
+.cite a { font-weight: 600; }

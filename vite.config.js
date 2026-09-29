@@ -236,6 +236,7 @@ export default defineConfig(({ mode }) => {
         palauScript: resolve(__dirname, 'palau-script/index.html'),
         palau2Script: resolve(__dirname, 'palau2-script/index.html'),
         scriptsLibrary: resolve(__dirname, 'scripts-library/index.html'),
+        sources: resolve(__dirname, 'sources/index.html'),
       },
     },
   },
