@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Four Traditions — breaking the house style</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Roboto Mono is real. Playfair stands in for SAILING CLUB, Archivo (heavy, wide-tracked)
+     stands in for SÖHNE BREIT — the real licensed faces drop in later. Judge the tradition,
+     not the exact glyphs. -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,600&family=Archivo:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#f83500; --orange:#ff5206; --cream:#f0e3bb;
+    --blue:#568d9f; --teal:#265f6f; --ink:#1c1c1c; --paper:#efefef;
+    --mono:'Roboto Mono',ui-monospace,Menlo,monospace;
+    --display:'Playfair Display',Georgia,serif;   /* ← Sailing Club */
+    --wide:'Archivo',system-ui,sans-serif;         /* ← Söhne Breit */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--mono);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  /* ── intro ── */
+  header.top{padding:70px 0 34px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--red);font-weight:500}
+  header.top h1{font-family:var(--display);font-weight:900;font-size:clamp(40px,7vw,84px);line-height:.98;letter-spacing:-.01em;margin:12px 0 18px}
+  header.top p{max-width:64ch;font-size:16px;color:#333;font-family:var(--mono)}
+  header.top .rut{margin-top:16px;padding:14px 18px;border:1px solid #ccc;background:#e6e6e6;font-size:14px;max-width:70ch}
+  header.top .rut b{color:var(--red)}
+  .story-note{margin-top:26px;font-size:13px;color:#555;border-top:1px solid #ccc;padding-top:14px}
+  .story-note b{color:var(--ink)}
+
+  /* the shared story content, so the ONLY variable is the aesthetic */
+  .jump{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .jump a{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-decoration:none;color:var(--ink);border:1px solid var(--ink);padding:8px 13px}
+  .jump a:hover{background:var(--ink);color:var(--paper)}
+  .jump a.pick{border-color:var(--red);color:var(--red)}
+  .jump a.pick:hover{background:var(--red);color:#fff}
+
+  section.dir{padding:40px 0 64px;border-top:2px solid var(--ink)}
+  .dirhead{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:8px}
+  .dirhead .n{font-family:var(--wide);font-weight:900;font-size:15px;letter-spacing:.02em;color:var(--red)}
+  .dirhead h2{font-family:var(--display);font-weight:800;font-size:clamp(28px,4vw,44px);line-height:1}
+  .dirhead .masters{font-family:var(--mono);font-size:12px;color:#666;text-align:right;max-width:34ch}
+  .rationale{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:14px 0 26px}
+  .rationale div{font-size:13px;line-height:1.5}
+  .rationale .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);display:block;margin-bottom:4px}
+  .pickflag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;background:var(--red);color:#fff;padding:5px 11px;margin-left:10px}
+  @media(max-width:720px){.rationale{grid-template-columns:1fr}}
+
+  /* the mock frame each treatment lives in */
+  .mock{width:100%;aspect-ratio:16/9;overflow:hidden;position:relative;border:1px solid #ccc}
+
+  /* ═══ 1 · TITLE SEQUENCE ═══ */
+  .m-cine{background:
+     radial-gradient(120% 80% at 70% 20%, rgba(86,141,159,.5), transparent 60%),
+     linear-gradient(180deg,#20343b 0%, #2a4a55 45%, #1c2f36 100%);
+     display:flex;flex-direction:column;justify-content:center;padding:0}
+  .m-cine::before,.m-cine::after{content:"";position:absolute;left:0;right:0;height:10%;background:#0c0c0c;z-index:3}
+  .m-cine::before{top:0}.m-cine::after{bottom:0}
+  /* faint 'mountain' suggestion */
+  .m-cine .ridge{position:absolute;inset:0;background:
+     linear-gradient(105deg, transparent 55%, rgba(12,20,24,.55) 56%, rgba(12,20,24,.2) 72%, transparent 74%),
+     linear-gradient(80deg, rgba(40,70,80,.4) 0%, transparent 30%);
+     mix-blend-mode:multiply}
+  .m-cine .grain{position:absolute;inset:0;opacity:.09;background-image:radial-gradient(rgba(255,255,255,.6) .5px, transparent .6px);background-size:3px 3px}
+  .m-cine .inner{position:relative;z-index:4;padding:0 clamp(28px,6vw,76px)}
+  .m-cine .num{font-family:var(--mono);font-size:15px;letter-spacing:.2em;color:var(--cream);opacity:.85}
+  .m-cine .title{font-family:var(--display);font-style:italic;font-weight:600;color:var(--red);
+     font-size:clamp(38px,7.5vw,96px);line-height:.92;letter-spacing:-.005em;margin:.12em 0 0;text-shadow:0 2px 30px rgba(0,0,0,.4)}
+  .m-cine .strip{position:absolute;left:0;right:0;bottom:12%;z-index:4;display:flex;gap:22px;
+     padding:0 clamp(28px,6vw,76px);font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--cream);opacity:.9}
+  .m-cine .strip b{color:var(--orange);font-weight:500}
+
+  /* ═══ 2 · FIELD TERMINAL ═══ */
+  .m-term{background:var(--ink);color:#d8d8d0;font-family:var(--mono);display:grid;grid-template-columns:1.4fr 1fr;gap:0}
+  .m-term .l{padding:clamp(20px,3.5vw,40px);display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid #333}
+  .m-term .tag{font-size:11px;letter-spacing:.18em;color:var(--blue)}
+  .m-term .tag b{color:var(--orange)}
+  .m-term .head{font-family:var(--mono);font-weight:700;font-size:clamp(20px,2.6vw,30px);line-height:1.08;color:#f2f2ee;margin:14px 0}
+  .m-term .prem{font-size:13px;color:#a8a8a0;max-width:44ch;line-height:1.6}
+  .m-term .kv{display:flex;gap:18px;font-size:11px;letter-spacing:.08em;color:#8a8a82;flex-wrap:wrap}
+  .m-term .kv span b{color:var(--blue);font-weight:400;display:block;font-size:9px;letter-spacing:.16em}
+  .m-term .r{padding:clamp(18px,3vw,34px);display:flex;flex-direction:column;justify-content:space-between;background:#171717}
+  .m-term .readout{font-family:var(--wide);font-weight:900;font-size:clamp(64px,12vw,150px);line-height:.8;letter-spacing:-.02em;color:var(--red)}
+  .m-term .readsub{font-size:10px;letter-spacing:.2em;color:#666;text-transform:uppercase}
+  .m-term .bars{display:flex;gap:4px;margin-top:14px}
+  .m-term .bars i{height:6px;flex:1;background:#333}
+  .m-term .bars i.on{background:var(--orange)}
+  .m-term .status{font-size:11px;letter-spacing:.14em;color:var(--teal)}
+  .m-term .status b{color:var(--orange)}
+
+  /* ═══ 3 · OVERPRINT PRESS ═══ */
+  .m-press{background:var(--cream);padding:clamp(22px,4vw,46px);position:relative;overflow:hidden}
+  .m-press .dots{position:absolute;inset:0;opacity:.5;background-image:radial-gradient(var(--teal) 1.3px, transparent 1.5px);background-size:9px 9px;mix-blend-mode:multiply;pointer-events:none}
+  .m-press .masthead{position:relative;display:flex;justify-content:space-between;border-bottom:3px solid var(--ink);padding-bottom:8px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink)}
+  .m-press .masthead b{color:var(--red)}
+  .m-press h3{position:relative;font-family:var(--display);font-weight:900;font-size:clamp(34px,6.2vw,74px);line-height:.9;color:var(--red);margin:.18em 0 .1em;
+     text-shadow:3px 3px 0 rgba(38,95,111,.55)} /* misregistered teal ghost */
+  .m-press .lead{position:relative;font-family:var(--mono);font-size:14px;line-height:1.6;max-width:52ch;color:#2a2a2a;
+     border-left:4px solid var(--orange);padding-left:14px;margin-top:6px}
+  .m-press .foot{position:relative;margin-top:18px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#555;text-transform:uppercase}
+
+  /* ═══ 4 · WAYFINDING SYSTEM ═══ */
+  .m-way{background:var(--paper);display:grid;grid-template-columns:120px 1fr;gap:0}
+  .m-way .rail{background:var(--ink);display:flex;flex-direction:column}
+  .m-way .rail .chip{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:#0000;writing-mode:vertical-rl}
+  .m-way .rail .chip.on{color:var(--ink);font-weight:700}
+  .m-way .c1{background:var(--red)}.m-way .c2{background:var(--orange)}.m-way .c3{background:var(--blue)}.m-way .c4{background:var(--teal)}.m-way .c5{background:var(--cream)}
+  .m-way .body{padding:clamp(22px,3.6vw,44px);position:relative}
+  .m-way .sys{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#666}
+  .m-way .row{display:flex;align-items:flex-start;gap:22px;margin-top:12px}
+  .m-way .big{font-family:var(--wide);font-weight:900;font-size:clamp(70px,13vw,150px);line-height:.78;color:var(--teal);letter-spacing:-.03em}
+  .m-way h4{font-family:var(--display);font-weight:800;font-size:clamp(24px,3.4vw,40px);line-height:1;margin-bottom:10px}
+  .m-way .meta{font-family:var(--mono);font-size:12px;color:#444;line-height:1.7}
+  .m-way .meta b{color:var(--red);font-weight:500}
+  .m-way .pin{width:34px;height:34px;border:3px solid var(--red);border-radius:50% 50% 50% 0;transform:rotate(-45deg);margin-top:6px}
+
+  footer{padding:50px 0 90px;border-top:2px solid var(--ink);margin-top:20px}
+  footer .eyebrow{color:var(--teal)}
+  footer p{margin-top:12px;font-size:15px;max-width:66ch}
+  .palette{display:flex;gap:0;margin:24px 0;border:1px solid var(--ink)}
+  .palette i{flex:1;height:44px;display:flex;align-items:flex-end;justify-content:center;font-family:var(--mono);font-size:9px;padding-bottom:3px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">The Human Element · design study · breaking the house style</div>
+  <h1>Four ways out.</h1>
+  <p>One story — the Zapotec woman mapping the wind turbines swallowing her village — rendered four different ways, each in a named tradition, all built from your fonts and your palette. Same content, four aesthetics, so the only variable is the taste.</p>
+  <div class="rut"><b>What we're leaving behind:</b> cream paper, Georgia serif, one orange accent, tidy mono eyebrows, double rules. The literary broadsheet. It's become a reflex — and it's the exact look the whole design world now reads as generic. Every direction below is a deliberate break from it.</div>
+  <div class="story-note"><b>The test story · </b> “The Woman Who Maps the Wind” — Dell Alvarado, 35, a Zapotec artist in Unión Hidalgo, Oaxaca, hand-draws maps of the wind farms carving up her people's land. Sources: Zona Docs, Istmo Press, Desinformémonos.</div>
+  <div class="jump">
+    <a class="pick" href="#cine">01 · Title Sequence ★</a>
+    <a href="#term">02 · Field Terminal</a>
+    <a href="#press">03 · Overprint Press</a>
+    <a href="#way">04 · Wayfinding System</a>
+  </div>
+</header>
+</div>
+
+<!-- 1 -->
+<div class="wrap"><section class="dir" id="cine">
+  <div class="dirhead">
+    <div><div class="n">01</div><h2>The Title Sequence <span class="pickflag">what I'd pick</span></h2></div>
+    <div class="masters">Saul Bass · Pablo Ferro · Criterion Collection · A24 · Rodrigo Corral</div>
+  </div>
+  <div class="rationale">
+    <div><span class="k">What it is</span>Image-first, not text-first. The scouted frame fills the screen, graded to your teal; the title lands in vermilion Sailing Club like a film's opening card; a mono strip carries the facts. Letterboxed. The trench becomes a reel.</div>
+    <div><span class="k">Why it fits</span>These are films-in-waiting, and this is literally your existing brand — the “Island Called Beautiful” treatment — made into the whole tool. Real people, real places, cinematic. Nothing is more you.</div>
+    <div><span class="k">The risk</span>It leans on the photograph. Stories without a strong frame need a fallback (a duotone plate, a map). We'd have to solve the “no image yet” state.</div>
+  </div>
+  <div class="mock m-cine">
+    <div class="ridge"></div><div class="grain"></div>
+    <div class="inner">
+      <div class="num">(01)</div>
+      <div class="title">The Woman Who<br>Maps the Wind</div>
+    </div>
+    <div class="strip"><span><b>MEXICO</b> · UNIÓN HIDALGO, OAXACA</span><span><b>ZONA DOCS</b></span><span>AI 79</span></div>
+  </div>
+</section></div>
+
+<!-- 2 -->
+<div class="wrap"><section class="dir" id="term">
+  <div class="dirhead">
+    <div><div class="n">02</div><h2>The Field Terminal</h2></div>
+    <div class="masters">Bloomberg Terminal · Teenage Engineering · Dieter Rams / Braun · NASA mission control</div>
+  </div>
+  <div class="rationale">
+    <div><span class="k">What it is</span>An instrument, not a document. Near-black ground, Roboto Mono everywhere, the AI score as a giant Söhne Breit readout, the two blues as data categories, orange as the only alert. A scouting console.</div>
+    <div><span class="k">Why it fits</span>It's a tool with a hundred-plus items — the console register is honest, and it's maximally far from cozy paper. The dense spreadsheet already leans this way; this commits.</div>
+    <div><span class="k">The risk</span>It can read cold for stories about human loss. The warmth has to come entirely from the photography and the writing, not the chrome.</div>
+  </div>
+  <div class="mock m-term">
+    <div class="l">
+      <div class="tag">STORY.ID <b>0061</b> · WK40 · ES/ZAPOTEC</div>
+      <div class="head">The Woman Who Maps the Wind</div>
+      <div class="prem">A Zapotec artist in Oaxaca hand-draws the wind turbines swallowing her village — redrawing dispossession one map at a time.</div>
+      <div class="kv">
+        <span><b>REGION</b>Unión Hidalgo, OAX</span>
+        <span><b>SOURCE</b>Zona Docs ×3</span>
+        <span><b>SUBJECT</b>Dell Alvarado, 35</span>
+      </div>
+    </div>
+    <div class="r">
+      <div><div class="readsub">AI SCORE</div><div class="readout">79</div></div>
+      <div>
+        <div class="bars"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+        <div class="status" style="margin-top:14px">STATUS <b>NEW</b> · VERIFIED · 2 SRC</div>
+      </div>
+    </div>
+  </div>
+</section></div>
+
+<!-- 3 -->
+<div class="wrap"><section class="dir" id="press">
+  <div class="dirhead">
+    <div><div class="n">03</div><h2>The Overprint Press</h2></div>
+    <div class="masters">Emory Douglas · Tibor Kalman / Colors · OSPAAAL posters · Grapus · Reza Abedini</div>
+  </div>
+  <div class="rationale">
+    <div><span class="k">What it is</span>Cheap-print, spot-colour, political. Cream as newsprint stock; vermilion and teal overprinted with deliberate misregistration and halftone dots; a woodblock headline; mono as wire copy. Rough, urgent, tactile.</div>
+    <div><span class="k">Why it fits</span>The trench is full of resistance and dispossession — Zapotec defenders, Sahrawi camps, Kanak independence. A press aesthetic gives those stories heat and dignity instead of a museum hush.</div>
+    <div><span class="k">The risk</span>Loud. Pushed too far it competes with the journalism and starts to feel “designed.” Discipline keeps it a press, not a poster.</div>
+  </div>
+  <div class="mock m-press">
+    <div class="dots"></div>
+    <div class="masthead"><span>THE HUMAN ELEMENT · <b>DISPATCH №61</b></span><span>OAXACA · MX</span></div>
+    <h3>The Woman Who<br>Maps the Wind</h3>
+    <div class="lead">A Zapotec artist in Unión Hidalgo hand-draws the turbines swallowing her land — turning cartography into resistance against a wind boom the world calls green.</div>
+    <div class="foot">Zona Docs · Istmo Press · Desinformémonos — verified, two sources</div>
+  </div>
+</section></div>
+
+<!-- 4 -->
+<div class="wrap"><section class="dir" id="way">
+  <div class="dirhead">
+    <div><div class="n">04</div><h2>The Wayfinding System</h2></div>
+    <div class="masters">Massimo Vignelli / Unimark · Otl Aicher (Munich '72) · Lance Wyman (Mexico '68)</div>
+  </div>
+  <div class="rationale">
+    <div><span class="k">What it is</span>Signage confidence. Off-white and near-black, the continents as a colour-coded rail (you already do this), a big Söhne Breit index number, a pin pictogram, mono labels. The world's stories as a transit system you navigate.</div>
+    <div><span class="k">Why it fits</span>A hundred-plus stories across five continents IS a wayfinding problem, and the colour-coding is already in the tool. Systematic, calm, scalable.</div>
+    <div><span class="k">The risk</span>Closest to the “safe Swiss” zone — it can tip corporate. It needs the photography and one hot accent to keep a pulse.</div>
+  </div>
+  <div class="mock m-way">
+    <div class="rail">
+      <div class="chip c1 on">AMÉRICAS</div><div class="chip c2"></div><div class="chip c3"></div><div class="chip c4"></div><div class="chip c5"></div>
+    </div>
+    <div class="body">
+      <div class="sys">Americas / Mexico / Oaxaca — line 02</div>
+      <div class="row">
+        <div class="big">61</div>
+        <div>
+          <h4>The Woman Who<br>Maps the Wind</h4>
+          <div class="meta"><b>Unión Hidalgo, Oaxaca</b> · Zapotec · wind / extraction<br>Zona Docs · verified · AI 79</div>
+        </div>
+        <div class="pin"></div>
+      </div>
+    </div>
+  </div>
+</section></div>
+
+<div class="wrap"><footer>
+  <div class="eyebrow">the palette, and the call</div>
+  <div class="palette">
+    <i style="background:var(--red);color:#fff">f83500</i>
+    <i style="background:var(--orange);color:#fff">ff5206</i>
+    <i style="background:var(--cream);color:#333">f0e3bb</i>
+    <i style="background:var(--blue);color:#fff">568d9f</i>
+    <i style="background:var(--teal);color:#fff">265f6f</i>
+    <i style="background:var(--ink);color:#fff">1c1c1c</i>
+    <i style="background:var(--paper);color:#333;border-left:1px solid #ccc">efefef</i>
+  </div>
+  <p>My pick is <b style="color:var(--red)">01 · The Title Sequence</b> — it's the biggest break from the broadsheet, it's already your brand, and it treats every story as the film it wants to be. But this is your call and the choice is the work. Tell me which tradition rings, and I'll build the real font tokens (Sailing Club, Söhne Breit) and re-skin the whole tool — reader, brief, report, grid — in that one world.</p>
+</footer></div>
+
+</body>
+</html>
