@@ -1,5 +1,268 @@
 [
   {
+    "id": "F0C75E27SAU",
+    "name": "Screenshot 2026-10-02 at 8.47.50 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 35547,
+    "local_path": "images/F0C75E27SAU.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "I feel like Max would be a fantastic elementary school teacher",
+      "commenter": "EightBitMeddler",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "personality",
+        "teaching",
+        "humor"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:19.013Z"
+  },
+  {
+    "id": "F0C75E1K47J",
+    "name": "Screenshot 2026-10-02 at 8.14.41 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29481,
+    "local_path": "images/F0C75E1K47J.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "Talking about what really matters",
+      "commenter": "HunterBiden226",
+      "sentiment": "insightful",
+      "themes": [
+        "relevance",
+        "content",
+        "topic"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:19.056Z"
+  },
+  {
+    "id": "F0C5VMK517Z",
+    "name": "Screenshot 2026-10-02 at 8.30.05 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 19535,
+    "local_path": "images/F0C5VMK517Z.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "Don't stop using the board",
+      "commenter": "Nazy101",
+      "sentiment": "praise",
+      "themes": [
+        "board",
+        "continuity",
+        "format",
+        "encouragement"
+      ],
+      "video_hint": "likely a video featuring a whiteboard or chalkboard presentation element",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:19.127Z"
+  },
+  {
+    "id": "F0C6AU5QX8S",
+    "name": "Screenshot 2026-10-02 at 9.43.43 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 45891,
+    "local_path": "images/F0C6AU5QX8S.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "Great explainer man\nI like how you summarises the situation perfectly in simple terms",
+      "commenter": "lokeshbadam1480",
+      "sentiment": "praise",
+      "themes": [
+        "explanation",
+        "clarity",
+        "simplicity",
+        "host"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:19.400Z"
+  },
+  {
+    "id": "F0C694J944E",
+    "name": "Screenshot 2026-10-02 at 9.44.21 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 25211,
+    "local_path": "images/F0C694J944E.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "This video rules",
+      "commenter": "mike110111",
+      "sentiment": "praise",
+      "themes": [
+        "general praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:20.819Z"
+  },
+  {
+    "id": "F0C6EP9FSA0",
+    "name": "Screenshot 2026-10-02 at 11.34.37 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 24187,
+    "local_path": "images/F0C6EP9FSA0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "best channel everrr",
+      "commenter": "lort9",
+      "sentiment": "praise",
+      "themes": [
+        "channel quality",
+        "general praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:21.196Z"
+  },
+  {
+    "id": "F0C694JA6LW",
+    "name": "Screenshot 2026-10-02 at 9.44.37 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 34871,
+    "local_path": "images/F0C694JA6LW.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "I enjoy your videos, format, cadence and content. Keep it up",
+      "commenter": "@michaeld1560",
+      "sentiment": "praise",
+      "themes": [
+        "format",
+        "pacing",
+        "content",
+        "host"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:21.580Z"
+  },
+  {
+    "id": "F0C6EP93P8C",
+    "name": "Screenshot 2026-10-02 at 9.44.03 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 44314,
+    "local_path": "images/F0C6EP93P8C.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "Great explanation Max\nHow does this compare to the gas crisis of the seventies?",
+      "commenter": "KenJohnsonFlyfishing",
+      "sentiment": "question",
+      "themes": [
+        "praise",
+        "energy crisis",
+        "history",
+        "comparison"
+      ],
+      "video_hint": "Video likely covers a gas or energy crisis topic, possibly current fuel prices or supply issues",
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:22.432Z"
+  },
+  {
+    "id": "F0C65PRTLSH",
+    "name": "Screenshot 2026-10-02 at 11.34.57 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 22026,
+    "local_path": "images/F0C65PRTLSH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "Thanks Max for keeping us informed.",
+      "commenter": "johngilliam6934",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "information",
+        "gratitude"
+      ],
+      "video_hint": "Informational or news-style video hosted by someone named Max",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:23.628Z"
+  },
+  {
+    "id": "F0C650D94JF",
+    "name": "Screenshot 2026-10-02 at 11.57.50 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 58308,
+    "local_path": "images/F0C650D94JF.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1790955864.739069",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1790955864739069",
+    "posted_at": "2026-10-02T15:44:24.739Z",
+    "analysis": {
+      "comment_text": "Thank you sooooo much for explaining everything with that chart. i need visuals so bad to learn anything these days, and nobody else explains it like you. thank you so much sir!! 🧡 I finally understand. You don't know how much that means to me. 😊",
+      "commenter": "tinytina6730",
+      "sentiment": "praise",
+      "themes": [
+        "visual learning",
+        "charts",
+        "explanation style",
+        "gratitude"
+      ],
+      "video_hint": "A video that uses a chart or visual aid to explain a concept",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-02T20:05:25.362Z"
+  },
+  {
     "id": "F0C54B883U0",
     "name": "Screenshot 2026-09-24 at 8.10.26 AM.png",
     "ext": "png",
