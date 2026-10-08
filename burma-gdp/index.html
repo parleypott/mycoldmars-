@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Growth of the Burmese Economy — Chart Studio</title>
+<link href="fonts.css" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c1c1c; --paper:#efefef;
+    --orange:#ff5206;
+    --green:#4f7d5a; --red:#b0472e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#111;color:#e8e8e8;font-family:'Sohne Mono',ui-monospace,monospace}
+  #app{display:flex;height:100vh;width:100vw;overflow:hidden}
+
+  /* ---- stage ---- */
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;background:
+    radial-gradient(120% 120% at 50% 0%, #1a1a1a 0%, #0e0e0e 70%);padding:26px;position:relative;min-width:0}
+  #frame{position:relative;width:100%;max-width:calc((100vh - 52px) * 1.7778);aspect-ratio:16/9;
+    box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05);border-radius:4px;overflow:hidden;background:var(--paper)}
+  #chart{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #stamp{position:absolute;left:14px;top:12px;font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.35);
+    text-transform:uppercase;pointer-events:none;z-index:5}
+
+  /* ---- side rail ---- */
+  #rail{width:312px;background:#141414;border-left:1px solid #262626;display:flex;flex-direction:column;flex-shrink:0}
+  #rail header{padding:20px 20px 14px;border-bottom:1px solid #232323}
+  #rail header .k{font-size:10px;letter-spacing:.28em;color:var(--orange);text-transform:uppercase}
+  #rail header h1{margin:6px 0 0;font-family:'Sailing Club',Georgia,serif;font-weight:800;font-size:20px;color:#fff;line-height:1.05}
+  #rail header p{margin:8px 0 0;font-size:11px;line-height:1.5;color:#7c7c7c}
+  .rail-body{padding:8px 20px 20px;overflow-y:auto;flex:1}
+  .grp{margin-top:20px}
+  .grp>.lbl{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6f6f6f;margin-bottom:11px;display:flex;justify-content:space-between}
+  .grp>.lbl b{color:#c9c9c9;font-weight:700}
+
+  .transport{display:flex;gap:8px}
+  .btn{flex:1;border:1px solid #333;background:#1f1f1f;color:#eaeaea;border-radius:8px;padding:11px 8px;
+    font-family:inherit;font-size:12px;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .12s}
+  .btn:hover{background:#282828;border-color:#444}
+  .btn.primary{background:var(--orange);border-color:var(--orange);color:#1c1c1c;font-weight:700}
+  .btn.primary:hover{background:#ff6a2b}
+  .btn svg{width:14px;height:14px}
+
+  input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:#333;border-radius:3px;outline:none;margin:4px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--orange);cursor:pointer;border:2px solid #141414}
+  .val{font-family:'Sailing Club',Georgia,serif;color:#fff;font-size:13px}
+
+  .colorrow{display:flex;align-items:center;gap:10px;padding:7px 2px}
+  .colorrow input[type=color]{width:34px;height:24px;padding:0;border:1px solid #333;border-radius:5px;background:#000;cursor:pointer}
+  .colorrow label{font-size:11px;color:#c5c5c5;flex:1}
+
+  .segbtns{display:flex;gap:6px}
+  .segbtns button{flex:1;background:#1f1f1f;border:1px solid #333;color:#bbb;border-radius:6px;padding:7px;
+    font-family:inherit;font-size:11px;cursor:pointer}
+  .segbtns button.on{background:var(--orange);border-color:var(--orange);color:#1c1c1c;font-weight:700}
+
+  #expstat{margin-top:10px;font-size:10px;line-height:1.5;color:#8a8a8a;min-height:14px}
+  #expstat .bar{height:4px;background:#2a2a2a;border-radius:2px;margin-top:6px;overflow:hidden}
+  #expstat .bar i{display:block;height:100%;width:0;background:var(--orange);transition:width .2s}
+  .hint{font-size:10px;color:#5f5f5f;line-height:1.5;margin-top:9px}
+  .footer{padding:12px 20px;border-top:1px solid #232323;font-size:9px;letter-spacing:.1em;color:#555;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="frame">
+      <canvas id="chart"></canvas>
+      <div id="stamp">006 · BURMA GDP</div>
+    </div>
+  </div>
+
+  <aside id="rail">
+    <header>
+      <div class="k">The Human Element · Chart Studio</div>
+      <h1>Growth of the Burmese Economy</h1>
+      <p>GDP growth, annual %, 2000–2025. World Bank. Draw it slow, export a 4K clip.</p>
+    </header>
+    <div class="rail-body">
+
+      <div class="grp">
+        <div class="lbl">Transport</div>
+        <div class="transport">
+          <button class="btn primary" id="playBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span id="playLbl">Play</span>
+          </button>
+          <button class="btn" id="restartBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>
+            Restart
+          </button>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl"><span>Animation speed</span><b class="val" id="spdVal">1.0×</b></div>
+        <input type="range" id="spd" min="0.1" max="3" step="0.05" value="1">
+        <div class="lbl" style="margin-top:16px"><span>Line weight</span><b class="val" id="wVal">1.0×</b></div>
+        <input type="range" id="wgt" min="0.6" max="1.8" step="0.05" value="1">
+      </div>
+
+      <div class="grp">
+        <div class="lbl">Colors</div>
+        <div class="colorrow"><input type="color" id="cGrowth" value="#4f7d5a"><label>growth fill (above zero)</label></div>
+        <div class="colorrow"><input type="color" id="cDecline" value="#b0472e"><label>decline fill (below zero)</label></div>
+        <div class="colorrow"><input type="color" id="cLine" value="#1c1c1c"><label>line</label></div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl">Export · 16:9</div>
+        <div class="segbtns" id="fpsBtns">
+          <button data-fps="30">30 fps</button>
+          <button data-fps="60" class="on">60 fps</button>
+        </div>
+        <div class="segbtns" style="margin-top:8px" id="resBtns">
+          <button data-res="1920">1080p</button>
+          <button data-res="3840" class="on">4K UHD</button>
+        </div>
+        <div class="lbl" style="margin-top:14px"><span>Hold after draw</span><b class="val" id="holdVal">4.0s</b></div>
+        <input type="range" id="hold" min="0" max="8" step="0.5" value="4">
+        <button class="btn primary" id="exportBtn" style="margin-top:14px;width:100%">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          Export video
+        </button>
+        <div id="expstat"></div>
+        <div class="hint">Renders every frame deterministically then records it — no dropped frames, buttery at any resolution. Saves .mp4 where your browser supports it, otherwise .webm.</div>
+      </div>
+
+    </div>
+    <div class="footer">Source · World Bank</div>
+  </aside>
+</div>
+
+<script>
+/* ============================================================
+   DATA — World Bank, GDP growth (annual %), Myanmar
+   NY.GDP.MKTP.KD.ZG, fetched 2026-10-08 (last updated 2026-07-13)
+   ============================================================ */
+const SERIES = [
+  [2000,13.75],[2001,11.34],[2002,12.03],[2003,13.84],[2004,13.56],
+  [2005,13.57],[2006,13.08],[2007,11.99],[2008,10.26],[2009,10.55],
+  [2010, 9.63],[2011, 5.59],[2012, 7.33],[2013, 8.43],[2014, 8.17],
+  [2015, 6.99],[2016, 5.86],[2017, 6.14],[2018, 6.27],[2019, 6.58],
+  [2020,-9.05],[2021,-12.02],[2022, 4.04],[2023, 0.96],[2024,-0.97],
+  [2025,-2.01],
+];
+const YEARS = SERIES.map(r=>r[0]);
+const VALUES = SERIES.map(r=>r[1]);
+const N = SERIES.length;
+const LAST = VALUES[N-1];
+
+/* coup marker — the military seized power 1 Feb 2021 */
+const COUP_YEAR = 2021;
+const COUP_IDX = YEARS.indexOf(COUP_YEAR);
+
+/* ============================================================
+   TIMELINE (in "beats" — real seconds = beats / speed)
+   ============================================================ */
+const T = {
+  axes0:0.15, axes1:0.9,     // axes + title fade
+  draw0:0.7,  drawSpan:6.0,  // line draw window — long, built for slow
+  labelFade:0.7,             // end label fade after the line lands
+};
+const DRAW_END_BEATS = T.draw0 + T.drawSpan;
+
+/* ============================================================
+   GEOMETRY & CURVE SAMPLING
+   ============================================================ */
+const Y_MIN = -15, Y_MAX = 15, X0 = 0, X1 = N-1;
+const SAMPLES = 760;
+
+function layout(W,H){
+  return { x:W*0.075, y:H*0.300, w:W*(1-0.075-0.160), h:H*(1-0.300-0.130) };
+}
+function xForIdx(i, box){ return box.x + box.w*((i-X0)/(X1-X0)); }
+function yForVal(v, box){ return box.y + box.h*(1 - (v-Y_MIN)/(Y_MAX-Y_MIN)); }
+
+/* Monotone cubic (Fritsch–Carlson) → dense polyline in data space.
+   No overshoot: the curve never dips past a data point, so the
+   −12.0% coup-year floor stays −12.0%, not a spline artifact. */
+function samplePath(vals){
+  const n = vals.length;
+  const d = [];                       // secant slopes
+  for(let i=0;i<n-1;i++) d.push(vals[i+1]-vals[i]);
+  const m = [d[0]];                   // tangents
+  for(let i=1;i<n-1;i++){
+    m.push(d[i-1]*d[i] <= 0 ? 0 : (d[i-1]+d[i])/2);
+  }
+  m.push(d[n-2]);
+  for(let i=0;i<n-1;i++){
+    if(d[i]===0){ m[i]=0; m[i+1]=0; continue; }
+    const a=m[i]/d[i], b=m[i+1]/d[i], s=a*a+b*b;
+    if(s>9){ const t=3/Math.sqrt(s); m[i]=t*a*d[i]; m[i+1]=t*b*d[i]; }
+  }
+  const pts=[];
+  const per = Math.max(2, Math.floor(SAMPLES/(n-1)));
+  for(let i=0;i<n-1;i++){
+    for(let s=0;s<per;s++){
+      const t=s/per, t2=t*t, t3=t2*t;
+      const h00=2*t3-3*t2+1, h10=t3-2*t2+t, h01=-2*t3+3*t2, h11=t3-t2;
+      pts.push([i+t, h00*vals[i] + h10*m[i] + h01*vals[i+1] + h11*m[i+1]]);
+    }
+  }
+  pts.push([n-1, vals[n-1]]);
+  return pts;
+}
+const SAMP = samplePath(VALUES);
+
+/* easing */
+const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+const clamp01 = t => t<0?0:t>1?1:t;
+
+/* partial polyline up to prog, as canvas-space points */
+function partialPts(prog, box){
+  const n = SAMP.length;
+  const fk = prog*(n-1);
+  const k = Math.floor(fk);
+  const out=[];
+  for(let i=0;i<=k;i++) out.push([xForIdx(SAMP[i][0],box), yForVal(SAMP[i][1],box)]);
+  if(k < n-1){
+    const f = fk-k, a=SAMP[k], b=SAMP[k+1];
+    out.push([xForIdx(a[0]+(b[0]-a[0])*f,box), yForVal(a[1]+(b[1]-a[1])*f,box)]);
+  }
+  return out;
+}
+
+/* ============================================================
+   RENDER — one deterministic frame. Shared by preview + export.
+   ============================================================ */
+function renderFrame(ctx, W, H, tSec, speed){
+  const fs = H/1080;
+  const beats = tSec * speed;
+  const box = layout(W,H);
+
+  ctx.fillStyle = '#efefef';
+  ctx.fillRect(0,0,W,H);
+
+  const axesA = clamp01((beats - T.axes0)/(T.axes1 - T.axes0));
+  const prog  = easeInOut(clamp01((beats - T.draw0)/T.drawSpan));
+
+  drawAxes(ctx, box, fs, axesA);
+  drawTitle(ctx, W, H, fs, axesA);
+
+  const zeroY = yForVal(0, box);
+  const pts = prog>0 ? partialPts(prog, box) : null;
+
+  /* ---- fills: growth green above zero, decline red below ---- */
+  if(pts && pts.length>1){
+    const first = pts[0], last = pts[pts.length-1];
+    const area = ()=>{
+      ctx.beginPath();
+      ctx.moveTo(first[0], zeroY);
+      for(const p of pts) ctx.lineTo(p[0], p[1]);
+      ctx.lineTo(last[0], zeroY);
+      ctx.closePath();
+    };
+    // green — clip to the region above zero
+    ctx.save();
+    ctx.beginPath(); ctx.rect(box.x, box.y - 2*fs, box.w, zeroY - box.y + 2*fs); ctx.clip();
+    area(); ctx.globalAlpha = 0.26; ctx.fillStyle = STATE.cGrowth; ctx.fill();
+    ctx.restore();
+    // red — clip to the region below zero
+    ctx.save();
+    ctx.beginPath(); ctx.rect(box.x, zeroY, box.w, box.y + box.h - zeroY + 2*fs); ctx.clip();
+    area(); ctx.globalAlpha = 0.26; ctx.fillStyle = STATE.cDecline; ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---- coup marker: subtle dotted line that draws on as the line passes 2021 ---- */
+  const drawnIdx = prog * X1;                       // rightmost drawn data index
+  const mk = clamp01((drawnIdx - COUP_IDX) / 0.9);  // grows over ~1 data-year
+  if(mk > 0){
+    const mx = xForIdx(COUP_IDX, box);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(28,28,28,.45)';
+    ctx.lineWidth = 1.6*fs;
+    ctx.setLineDash([1.5*fs, 7*fs]);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(mx, box.y);
+    ctx.lineTo(mx, box.y + box.h * easeInOut(mk));  // draws top → bottom
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // label, faded in after the line lands
+    const la = clamp01((mk - 0.75)/0.25);
+    if(la > 0){
+      ctx.globalAlpha = la;
+      ctx.font = `700 ${14*fs}px 'Sohne Mono', monospace`;
+      ctx.fillStyle = 'rgba(28,28,28,.70)';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      drawTracked(ctx, 'MILITARY COUP', mx + 12*fs, box.y + 6*fs, 0.14*14*fs);
+      ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
+      ctx.fillStyle = 'rgba(28,28,28,.45)';
+      ctx.fillText('FEB 2021', mx + 12*fs, box.y + 28*fs);
+    }
+    ctx.restore();
+  }
+
+  /* ---- the line ---- */
+  if(pts && pts.length>1){
+    ctx.save();
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.strokeStyle = STATE.cLine;
+    ctx.lineWidth = 5.0 * fs * STATE.weight;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ---- endpoint dot + value label ---- */
+  if(prog >= 0.999){
+    const la = clamp01((beats - DRAW_END_BEATS)/T.labelFade);
+    if(la > 0){
+      const ex = xForIdx(X1, box), ey = yForVal(LAST, box);
+      ctx.save();
+      ctx.globalAlpha = la;
+      ctx.fillStyle = '#efefef';
+      ctx.strokeStyle = STATE.cLine;
+      ctx.lineWidth = 4*fs;
+      ctx.beginPath(); ctx.arc(ex, ey, 7*fs, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.font = `800 ${30*fs}px 'Sohne', ui-sans-serif, sans-serif`;
+      ctx.fillStyle = STATE.cDecline;
+      ctx.fillText(fmtPct(LAST), ex + 18*fs, ey - 2*fs);
+      ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
+      ctx.fillStyle = 'rgba(28,28,28,.5)';
+      ctx.fillText('2025', ex + 18*fs, ey + 22*fs);
+      ctx.restore();
+    }
+  }
+
+  /* ---- footer source ---- */
+  ctx.save();
+  ctx.globalAlpha = axesA*0.9;
+  ctx.font = `${13.5*fs}px 'Sohne Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.5)';
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText('SOURCE · WORLD BANK · GDP GROWTH, ANNUAL % · NY.GDP.MKTP.KD.ZG · UPDATED JUL 2026', box.x, H - H*0.052);
+  ctx.restore();
+}
+
+function fmtPct(v){
+  const s = Math.abs(v).toFixed(1).replace(/\.0$/,'');
+  return (v<0?'−':'+') + s + '%';
+}
+
+function drawAxes(ctx, box, fs, a){
+  if(a<=0) return;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.font = `${18*fs}px 'Sohne Mono', monospace`;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let v=Y_MIN; v<=Y_MAX; v+=5){
+    const y = yForVal(v, box);
+    const isZero = v===0;
+    ctx.strokeStyle = isZero ? 'rgba(28,28,28,.38)' : 'rgba(28,28,28,.10)';
+    ctx.lineWidth = (isZero?1.6:1)*fs;
+    ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x+box.w, y); ctx.stroke();
+    ctx.fillStyle = isZero ? 'rgba(28,28,28,.9)' : 'rgba(28,28,28,.65)';
+    ctx.fillText((v>0?'+':'')+v+'%', box.x - 16*fs, y);
+  }
+  // x year ticks
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillStyle = 'rgba(28,28,28,.78)';
+  for(const yr of [2000,2005,2010,2015,2020,2025]){
+    const i = YEARS.indexOf(yr); if(i<0) continue;
+    ctx.fillText(String(yr), xForIdx(i, box), box.y+box.h + 20*fs);
+  }
+  ctx.restore();
+}
+
+function drawTitle(ctx, W, H, fs, a){
+  ctx.save();
+  ctx.globalAlpha = clamp01(a*1.2);
+  ctx.textAlign='left';
+  ctx.textBaseline='alphabetic';
+  ctx.font = `${76*fs}px 'Sailing Club', Georgia, serif`;
+  ctx.fillStyle = '#1c1c1c';
+  ctx.fillText('Growth of the Burmese Economy', W*0.075, H*0.170);
+  ctx.font = `${16*fs}px 'Sohne Mono', monospace`;
+  ctx.fillStyle = 'rgba(28,28,28,.55)';
+  ctx.fillText('GDP growth, annual %  ·  2000–2025', W*0.075, H*0.222);
+  ctx.restore();
+}
+
+/* letter-spaced text helper */
+function drawTracked(ctx, str, x, y, sp){
+  let cx=x;
+  for(const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+}
+
+/* ============================================================
+   STATE + PREVIEW LOOP
+   ============================================================ */
+const STATE = { speed:1, weight:1, playing:true, fps:60, res:3840, hold:4,
+                cGrowth:'#4f7d5a', cDecline:'#b0472e', cLine:'#1c1c1c' };
+const cv = document.getElementById('chart');
+const cx = cv.getContext('2d');
+const frame = document.getElementById('frame');
+
+function fitCanvas(){
+  const r = frame.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  cv.width = Math.round(r.width*dpr);
+  cv.height = Math.round(r.height*dpr);
+}
+window.addEventListener('resize', fitCanvas);
+
+let raf=0;
+function play(){
+  STATE.playing = true;
+  document.getElementById('playLbl').textContent = 'Pause';
+  document.querySelector('#playBtn svg path').setAttribute('d','M6 5h4v14H6zM14 5h4v14h-4z');
+}
+function pause(){
+  STATE.playing = false;
+  document.getElementById('playLbl').textContent = 'Play';
+  document.querySelector('#playBtn svg path').setAttribute('d','M8 5v14l11-7z');
+}
+(function loop(){
+  cancelAnimationFrame(raf);
+  let last = null; let acc = 0;
+  function tick(ts){
+    if(last==null) last=ts;
+    const dt=(ts-last)/1000; last=ts;
+    if(STATE.playing && STATE.frozenT==null) acc += dt;
+    const useT = STATE.frozenT!=null ? STATE.frozenT : acc;
+    renderFrame(cx, cv.width, cv.height, useT, STATE.speed);
+    raf=requestAnimationFrame(tick);
+  }
+  STATE._setClock = v => { acc = v; };
+  raf=requestAnimationFrame(tick);
+})();
+
+document.getElementById('playBtn').onclick = ()=>{ STATE.playing ? pause() : play(); };
+document.getElementById('restartBtn').onclick = ()=>{ STATE._setClock(0); play(); };
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+const spd=document.getElementById('spd'), spdVal=document.getElementById('spdVal');
+spd.oninput=()=>{ STATE.speed=+spd.value; spdVal.textContent=(+spd.value).toFixed(2).replace(/0$/,'')+'×'; };
+const wgt=document.getElementById('wgt'), wVal=document.getElementById('wVal');
+wgt.oninput=()=>{ STATE.weight=+wgt.value; wVal.textContent=(+wgt.value).toFixed(2).replace(/0$/,'')+'×'; };
+const hold=document.getElementById('hold'), holdVal=document.getElementById('holdVal');
+hold.oninput=()=>{ STATE.hold=+hold.value; holdVal.textContent=(+hold.value).toFixed(1)+'s'; };
+
+document.getElementById('cGrowth').oninput  = e=> STATE.cGrowth  = e.target.value;
+document.getElementById('cDecline').oninput = e=> STATE.cDecline = e.target.value;
+document.getElementById('cLine').oninput    = e=> STATE.cLine    = e.target.value;
+
+document.querySelectorAll('#fpsBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#fpsBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); STATE.fps=+b.dataset.fps;
+});
+document.querySelectorAll('#resBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#resBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); STATE.res=+b.dataset.res;
+});
+
+/* ============================================================
+   EXPORT — deterministic frames → MediaRecorder (mp4/webm)
+   captureStream(0) + requestFrame() = frame-perfect, zero drops
+   ============================================================ */
+const exportBtn=document.getElementById('exportBtn'), expstat=document.getElementById('expstat');
+function setStat(msg, pct){ expstat.innerHTML = msg + (pct!=null?`<div class="bar"><i style="width:${pct}%"></i></div>`:''); }
+
+exportBtn.onclick = async ()=>{
+  const W=STATE.res, H=Math.round(W*9/16), fps=STATE.fps;
+  const speed=STATE.speed;
+  const drawSec = (DRAW_END_BEATS + T.labelFade + 0.3)/speed;
+  const total = drawSec + STATE.hold;
+  const frames = Math.ceil(total*fps);
+
+  const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
+  const octx=oc.getContext('2d');
+
+  const stream=oc.captureStream(0);
+  const track=stream.getVideoTracks()[0];
+
+  const prefs=[
+    'video/mp4;codecs=avc1.640033','video/mp4;codecs=avc1.42E01E','video/mp4',
+    'video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'
+  ];
+  let mime=prefs.find(m=>MediaRecorder.isTypeSupported(m)) || '';
+  const ext = mime.startsWith('video/mp4')?'mp4':'webm';
+  const bitrate = W>=3840? 60_000_000 : 20_000_000;
+  const rec=new MediaRecorder(stream,{mimeType:mime||undefined, videoBitsPerSecond:bitrate});
+  const chunks=[];
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  const done=new Promise(res=> rec.onstop=res);
+
+  exportBtn.disabled=true; exportBtn.style.opacity=.5;
+  setStat(`Rendering ${frames} frames · ${W}×${H} · ${fps}fps · ${ext.toUpperCase()}`, 0);
+  rec.start();
+
+  for(let f=0; f<frames; f++){
+    const tSec=f/fps;
+    renderFrame(octx, W, H, tSec, speed);
+    if(track.requestFrame) track.requestFrame();
+    else stream.getVideoTracks()[0].requestFrame?.();
+    if(f%3===0){ setStat(`Rendering frame ${f+1} / ${frames}`, (f/frames)*100); await new Promise(r=>setTimeout(r,0)); }
+  }
+  setStat('Encoding…', 99);
+  await new Promise(r=>setTimeout(r,120));
+  rec.stop();
+  await done;
+
+  const blob=new Blob(chunks,{type:mime||'video/webm'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`burma-gdp_${W}x${H}_${fps}fps.${ext}`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  setStat(`✓ Saved ${a.download} · ${(blob.size/1e6).toFixed(1)} MB`, 100);
+  exportBtn.disabled=false; exportBtn.style.opacity=1;
+};
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+function boot(){
+  fitCanvas();
+  const qt = new URLSearchParams(location.search).get('t');
+  STATE.frozenT = qt!=null ? parseFloat(qt) : null;
+  STATE._setClock(0); play();
+  Promise.all([
+    document.fonts.load("400 76px 'Sailing Club'"),
+    document.fonts.load("400 14px 'Sohne Mono'"),
+    document.fonts.load("700 14px 'Sohne Mono'"),
+    document.fonts.load("800 30px 'Sohne'")
+  ]).catch(()=>{});
+}
+boot();
+</script>
+</body>
+</html>
