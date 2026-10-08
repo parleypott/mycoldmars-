@@ -1,5 +1,214 @@
 [
   {
+    "id": "F0C7RKE2F9U",
+    "name": "Screenshot 2026-10-08 at 11.03.52 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 18669,
+    "local_path": "images/F0C7RKE2F9U.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "This is true journalism.",
+      "commenter": "Tarq08",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "quality",
+        "credibility"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:50.753Z"
+  },
+  {
+    "id": "F0C7RKEJP6J",
+    "name": "Screenshot 2026-10-08 at 11.08.02 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30522,
+    "local_path": "images/F0C7RKEJP6J.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "Amazing project!!! 🎉🎊",
+      "commenter": "AdrianoMagesky",
+      "sentiment": "praise",
+      "themes": [
+        "project",
+        "excitement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:51.231Z"
+  },
+  {
+    "id": "F0C7VGRHJ7K",
+    "name": "Screenshot 2026-10-08 at 11.07.42 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29526,
+    "local_path": "images/F0C7VGRHJ7K.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "mann the quality 🔥🔥🔥🔥🔥",
+      "commenter": "sugeee0_0",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "production value"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:51.246Z"
+  },
+  {
+    "id": "F0C7RKEMQSJ",
+    "name": "Screenshot 2026-10-08 at 11.09.14 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 24837,
+    "local_path": "images/F0C7RKEMQSJ.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "Getting Anthony Bourdain vibes. Looking forward to this!",
+      "commenter": "@bryanbooneart",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "travel",
+        "food",
+        "anticipation"
+      ],
+      "video_hint": "Likely a travel or food-focused video/series introduction",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:51.465Z"
+  },
+  {
+    "id": "F0C7TDSSCRY",
+    "name": "Screenshot 2026-10-08 at 11.09.19 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 19565,
+    "local_path": "images/F0C7TDSSCRY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "finally something positive",
+      "commenter": "munesw1",
+      "sentiment": "praise",
+      "themes": [
+        "positivity",
+        "reaction"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:52.550Z"
+  },
+  {
+    "id": "F0C7VGSHJF3",
+    "name": "Screenshot 2026-10-08 at 11.22.35 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 39251,
+    "local_path": "images/F0C7VGSHJF3.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "Excellent title! It feels especially fitting at such a pivotal moment in humanity's existence.",
+      "commenter": "@JonasGyllen",
+      "sentiment": "praise",
+      "themes": [
+        "title",
+        "humanity",
+        "timing",
+        "significance"
+      ],
+      "video_hint": "video with a notable or thought-provoking title, possibly related to a major world event or existential topic",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:54.208Z"
+  },
+  {
+    "id": "F0C7X991LAY",
+    "name": "Screenshot 2026-10-08 at 11.22.25 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 41033,
+    "local_path": "images/F0C7X991LAY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "Always felt that the news is reporting only the negative stuff cz that is the the eye catching thing.... Hope you fill that void with some positive stories. Can't wait!",
+      "commenter": "@yas-h5j",
+      "sentiment": "insightful",
+      "themes": [
+        "news media",
+        "positive stories",
+        "negativity bias",
+        "anticipation"
+      ],
+      "video_hint": "Creator appears to be launching or announcing a channel/show focused on positive news stories",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:55.107Z"
+  },
+  {
+    "id": "F0C7VGT0QDP",
+    "name": "Screenshot 2026-10-08 at 11.22.42 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 44992,
+    "local_path": "images/F0C7VGT0QDP.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1791474843.875149",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1791474843875149",
+    "posted_at": "2026-10-08T15:54:03.875Z",
+    "analysis": {
+      "comment_text": "Thank God this is on YouTube I was wondering if it would be behind a paywall. HBO level production 🙏",
+      "commenter": "@jyotiprakash3423",
+      "sentiment": "praise",
+      "themes": [
+        "production quality",
+        "accessibility",
+        "paywall",
+        "hbo"
+      ],
+      "video_hint": "A high-production-value video that viewers expected might be paywalled or exclusive",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-10-08T17:20:55.117Z"
+  },
+  {
     "id": "F0C75E27SAU",
     "name": "Screenshot 2026-10-02 at 8.47.50 AM.png",
     "ext": "png",
