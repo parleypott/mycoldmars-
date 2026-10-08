@@ -68,6 +68,14 @@
     font-family:inherit;font-size:11px;cursor:pointer}
   .segbtns button.on{background:var(--orange);border-color:var(--orange);color:#1c1c1c;font-weight:700}
 
+  details.guide{margin-top:18px;border:1px solid #2a2a2a;border-radius:9px;background:#181818}
+  details.guide summary{cursor:pointer;padding:11px 14px;font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:#c9c9c9;list-style:none;display:flex;justify-content:space-between}
+  details.guide summary::after{content:'+';color:var(--orange);font-size:13px}
+  details.guide[open] summary::after{content:'–'}
+  details.guide .g-body{padding:2px 14px 13px;font-size:10.5px;line-height:1.65;color:#8f8f8f}
+  details.guide .g-body b{color:#d9d9d9;font-weight:700}
+  details.guide .g-body p{margin:0 0 9px}
   #expstat{margin-top:10px;font-size:10px;line-height:1.5;color:#8a8a8a;min-height:14px}
   #expstat .bar{height:4px;background:#2a2a2a;border-radius:2px;margin-top:6px;overflow:hidden}
   #expstat .bar i{display:block;height:100%;width:0;background:var(--orange);transition:width .2s}
@@ -91,6 +99,17 @@
       <p>GDP growth, annual %, 2000–2025. World Bank. Step it with the voiceover, or play it straight through.</p>
     </header>
     <div class="rail-body">
+
+      <details class="guide">
+        <summary>New here? · team guide</summary>
+        <div class="g-body">
+          <p><b>Use Chrome</b> — the exports need it.</p>
+          <p><b>Narrating?</b> Hit <b>Next</b> (or →) to play one beat per voiceover line; each beat parks and waits. <b>Play all</b> runs the whole 4-beat sequence. Clicking a step replays just that beat.</p>
+          <p><b>Need a clip for the cut?</b> Export video → 4K .mp4, drops straight into Premiere. Set speed first; the export honors it.</p>
+          <p><b>Need it floating over footage?</b> Export alpha frames into an empty folder, then follow <b>ASSEMBLE.txt</b> inside it (two Terminal steps) → ProRes 4444 .mov with true transparency. Flip <b>ink</b> to a light color first if the footage is dark.</p>
+          <p><b>GIF</b> is for Slack/docs, not the edit.</p>
+        </div>
+      </details>
 
       <div class="grp">
         <div class="lbl">Transport</div>
@@ -882,15 +901,32 @@ alphaBtn.onclick = async ()=>{
       if(f%5===0) setAlphaStat(`Writing frame ${f+1} / ${frames} · ${W}×${H} · ${fps}fps`, (f/frames)*100);
     }
 
-    // drop the assemble recipe next to the frames
+    // drop the assemble recipe next to the frames — self-contained for anyone
     const cmd = `ffmpeg -y -framerate ${fps} -i frame_%06d.png -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le -vendor apl0 burma-growth_alpha.mov`;
     const txt = await (await (await dir.getFileHandle('ASSEMBLE.txt',{create:true})).createWritable());
-    await txt.write(`ProRes 4444 with alpha — run either of these from this folder:\n\n  alpha-assemble .\n\nor the raw command:\n\n  ${cmd}\n`);
+    await txt.write(
+`HOW TO TURN THESE FRAMES INTO A TRANSPARENT QUICKTIME (ProRes 4444 with alpha)
+
+1. Open Terminal (cmd-space, type "terminal")
+2. Type:  cd
+   …then a space, then DRAG THIS FOLDER into the Terminal window. Press return.
+3. Paste these two lines and press return:
+
+command -v ffmpeg >/dev/null 2>&1 || brew install ffmpeg
+${cmd}
+
+That's it — burma-growth_alpha.mov appears in this folder.
+Drop it on a Premiere / Final Cut timeline over footage; the background is
+genuinely transparent.
+
+(First line installs ffmpeg if the machine doesn't have it. If "brew" is
+also missing, install it first from https://brew.sh — one command, ~2 min.)
+`);
     await txt.close();
     const fpsf = await (await (await dir.getFileHandle('.fps',{create:true})).createWritable());
     await fpsf.write(String(fps)); await fpsf.close();
 
-    setAlphaStat(`✓ ${frames} frames written. In Terminal: <b style="color:#ddd">alpha-assemble</b> + drag the folder in, hit return → burma-growth_alpha.mov`, 100);
+    setAlphaStat(`✓ ${frames} frames written. Open <b style="color:#ddd">ASSEMBLE.txt</b> in that folder — two steps in Terminal → burma-growth_alpha.mov with real alpha.`, 100);
   }catch(err){
     setAlphaStat('✗ Frame export failed: '+err.message);
   }
