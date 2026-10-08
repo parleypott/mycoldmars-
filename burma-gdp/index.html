@@ -103,6 +103,14 @@
       </div>
 
       <div class="grp">
+        <div class="lbl">Story beats · after the draw</div>
+        <div class="colorrow"><input type="checkbox" id="sCovid" checked><label>"COVID" tag on the 2020 dip</label></div>
+        <div class="colorrow"><input type="checkbox" id="sTint" checked><label>junta-era tint after the coup</label></div>
+        <div class="colorrow"><input type="checkbox" id="sGhost" checked><label>no-coup ghost recovery line</label></div>
+        <div class="colorrow"><input type="checkbox" id="sKick" checked><label>poverty kicker (1 in 2)</label></div>
+      </div>
+
+      <div class="grp">
         <div class="lbl">Colors</div>
         <div class="colorrow"><input type="color" id="cGrowth" value="#4f7d5a"><label>growth fill (above zero)</label></div>
         <div class="colorrow"><input type="color" id="cDecline" value="#b0472e"><label>decline fill (below zero)</label></div>
@@ -166,6 +174,21 @@ const T = {
 };
 const DRAW_END_BEATS = T.draw0 + T.drawSpan;
 
+/* story beats — staged after the history lands, so the film reads:
+   COVID dip → coup at the bottom → the recovery that never came → the people */
+const STORY = {
+  tint0:  DRAW_END_BEATS + 0.6, tintSpan: 1.4,
+  ghost0: DRAW_END_BEATS + 1.8, ghostSpan: 2.6,
+  kick0:  DRAW_END_BEATS + 4.8, kickSpan: 0.9,
+};
+const STORY_END_BEATS = STORY.kick0 + STORY.kickSpan;
+
+/* no-coup counterfactual — World Bank Myanmar Economic Monitor (Dec 2020,
+   pre-coup) projected a ~6% rebound; regional peers did exactly that.
+   Branches off the real line at 2020. NOT DATA — a projection. */
+const GHOST_FROM = 20;                       // index of 2020
+const GHOST_VALUES = [-9.05, 6.0, 6.5, 6.3, 6.0, 6.0];  // 2020..2025
+
 /* ============================================================
    GEOMETRY & CURVE SAMPLING
    ============================================================ */
@@ -208,24 +231,26 @@ function samplePath(vals){
   return pts;
 }
 const SAMP = samplePath(VALUES);
+const GHOST_SAMP = samplePath(GHOST_VALUES).map(p=>[p[0]+GHOST_FROM, p[1]]);
 
 /* easing */
 const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
 const clamp01 = t => t<0?0:t>1?1:t;
 
 /* partial polyline up to prog, as canvas-space points */
-function partialPts(prog, box){
-  const n = SAMP.length;
+function partialPtsOf(samp, prog, box){
+  const n = samp.length;
   const fk = prog*(n-1);
   const k = Math.floor(fk);
   const out=[];
-  for(let i=0;i<=k;i++) out.push([xForIdx(SAMP[i][0],box), yForVal(SAMP[i][1],box)]);
+  for(let i=0;i<=k;i++) out.push([xForIdx(samp[i][0],box), yForVal(samp[i][1],box)]);
   if(k < n-1){
-    const f = fk-k, a=SAMP[k], b=SAMP[k+1];
+    const f = fk-k, a=samp[k], b=samp[k+1];
     out.push([xForIdx(a[0]+(b[0]-a[0])*f,box), yForVal(a[1]+(b[1]-a[1])*f,box)]);
   }
   return out;
 }
+const partialPts = (prog, box)=> partialPtsOf(SAMP, prog, box);
 
 /* ============================================================
    RENDER — one deterministic frame. Shared by preview + export.
@@ -269,11 +294,25 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.restore();
   }
 
+  /* ---- junta-era tint: everything right of the coup line belongs to it ---- */
+  const tintP = STATE.sTint ? easeInOut(clamp01((beats - STORY.tint0)/STORY.tintSpan)) : 0;
+  if(tintP > 0){
+    const mx = xForIdx(COUP_IDX, box);
+    const xr = box.x + box.w;
+    ctx.save();
+    const g = ctx.createLinearGradient(mx,0,xr,0);
+    g.addColorStop(0,  hexA(STATE.cDecline, 0.02*tintP));
+    g.addColorStop(1,  hexA(STATE.cDecline, 0.10*tintP));
+    ctx.fillStyle = g;
+    ctx.fillRect(mx, box.y, xr-mx, box.h);
+    ctx.restore();
+  }
+
   /* ---- coup marker: subtle dotted line that draws on as the line passes 2021 ---- */
   const drawnIdx = prog * X1;                       // rightmost drawn data index
   const mk = clamp01((drawnIdx - COUP_IDX) / 0.9);  // grows over ~1 data-year
+  const mx = xForIdx(COUP_IDX, box);
   if(mk > 0){
-    const mx = xForIdx(COUP_IDX, box);
     ctx.save();
     ctx.strokeStyle = 'rgba(28,28,28,.45)';
     ctx.lineWidth = 1.6*fs;
@@ -284,19 +323,34 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.lineTo(mx, box.y + box.h * easeInOut(mk));  // draws top → bottom
     ctx.stroke();
     ctx.setLineDash([]);
-    // label, faded in after the line lands
+    // label, faded in after the line lands — sits LEFT of the marker so the
+    // right side stays clear for the consequences
     const la = clamp01((mk - 0.75)/0.25);
     if(la > 0){
       ctx.globalAlpha = la;
       ctx.font = `700 ${14*fs}px 'Sohne Mono', monospace`;
       ctx.fillStyle = 'rgba(28,28,28,.70)';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      drawTracked(ctx, 'MILITARY COUP', mx + 12*fs, box.y + 6*fs, 0.14*14*fs);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      drawTrackedR(ctx, 'MILITARY COUP', mx - 12*fs, box.y + 6*fs, 0.14*14*fs);
       ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
       ctx.fillStyle = 'rgba(28,28,28,.45)';
-      ctx.fillText('FEB 2021', mx + 12*fs, box.y + 28*fs);
+      ctx.fillText('FEB 2021', mx - 12*fs, box.y + 28*fs);
     }
     ctx.restore();
+  }
+
+  /* ---- "COVID" tag on the 2020 descent — so the dip isn't read as the coup ---- */
+  if(STATE.sCovid){
+    const ca = clamp01((drawnIdx - (GHOST_FROM - 0.4)) / 0.6);
+    if(ca > 0){
+      ctx.save();
+      ctx.globalAlpha = ca;
+      ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
+      ctx.fillStyle = 'rgba(28,28,28,.55)';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      drawTrackedR(ctx, 'COVID', xForIdx(GHOST_FROM - 0.25, box) - 10*fs, yForVal(-5.2, box), 0.14*13*fs);
+      ctx.restore();
+    }
   }
 
   /* ---- the line ---- */
@@ -309,6 +363,57 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.moveTo(pts[0][0], pts[0][1]);
     for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0], pts[i][1]);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ---- no-coup ghost: the recovery that never came ---- */
+  const ghostP = STATE.sGhost ? easeInOut(clamp01((beats - STORY.ghost0)/STORY.ghostSpan)) : 0;
+  if(ghostP > 0){
+    const gpts = partialPtsOf(GHOST_SAMP, ghostP, box);
+    ctx.save();
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.strokeStyle = 'rgba(28,28,28,.55)';
+    ctx.lineWidth = 2.4 * fs * STATE.weight;
+    ctx.setLineDash([2*fs, 8*fs]);
+    ctx.beginPath();
+    ctx.moveTo(gpts[0][0], gpts[0][1]);
+    for(let i=1;i<gpts.length;i++) ctx.lineTo(gpts[i][0], gpts[i][1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // label at the ghost's live end
+    const ga = clamp01((ghostP - 0.85)/0.15);
+    if(ga > 0){
+      const gx = xForIdx(X1, box), gy = yForVal(GHOST_VALUES[GHOST_VALUES.length-1], box);
+      ctx.globalAlpha = ga;
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
+      ctx.fillStyle = 'rgba(28,28,28,.65)';
+      drawTracked(ctx, 'NO-COUP PATH', gx + 18*fs, gy - 9*fs, 0.12*13*fs);
+      ctx.font = `${10.5*fs}px 'Sohne Mono', monospace`;
+      ctx.fillStyle = 'rgba(28,28,28,.42)';
+      ctx.fillText('WORLD BANK PROJECTION,', gx + 18*fs, gy + 10*fs);
+      ctx.fillText('DEC 2020 · NOT DATA', gx + 18*fs, gy + 24*fs);
+    }
+    ctx.restore();
+  }
+
+  /* ---- kicker: what 18% contraction means for people ---- */
+  const kickA = STATE.sKick ? easeInOut(clamp01((beats - STORY.kick0)/STORY.kickSpan)) : 0;
+  if(kickA > 0){
+    const kx = box.x + box.w - 4*fs;
+    const ky = yForVal(10.6, box);
+    ctx.save();
+    ctx.globalAlpha = kickA;
+    ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+    ctx.font = `${58*fs}px 'Sailing Club', Georgia, serif`;
+    ctx.fillStyle = STATE.cDecline;
+    ctx.fillText('1 in 2', kx, ky);
+    ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
+    ctx.fillStyle = 'rgba(28,28,28,.72)';
+    ctx.fillText('PEOPLE NOW BELOW THE POVERTY LINE', kx, ky + 24*fs);
+    ctx.font = `${11*fs}px 'Sohne Mono', monospace`;
+    ctx.fillStyle = 'rgba(28,28,28,.45)';
+    ctx.fillText('1 IN 4 BEFORE THE COUP · UNDP 2024', kx, ky + 42*fs);
     ctx.restore();
   }
 
@@ -388,17 +493,30 @@ function drawTitle(ctx, W, H, fs, a){
   ctx.restore();
 }
 
-/* letter-spaced text helper */
+/* letter-spaced text helpers */
 function drawTracked(ctx, str, x, y, sp){
+  const align = ctx.textAlign; ctx.textAlign='left';
   let cx=x;
   for(const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+  ctx.textAlign = align;
+}
+function drawTrackedR(ctx, str, x, y, sp){   // right-anchored
+  let w=0; for(const ch of str) w += ctx.measureText(ch).width + sp;
+  drawTracked(ctx, str, x - w + sp, y, sp);
+}
+/* hex (#rrggbb) → rgba() at alpha */
+function hexA(hex, a){
+  const h = hex.replace('#','');
+  const r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a.toFixed(3)})`;
 }
 
 /* ============================================================
    STATE + PREVIEW LOOP
    ============================================================ */
 const STATE = { speed:1, weight:1, playing:true, fps:60, res:3840, hold:4,
-                cGrowth:'#4f7d5a', cDecline:'#b0472e', cLine:'#1c1c1c' };
+                cGrowth:'#4f7d5a', cDecline:'#b0472e', cLine:'#1c1c1c',
+                sCovid:true, sTint:true, sGhost:true, sKick:true };
 const cv = document.getElementById('chart');
 const cx = cv.getContext('2d');
 const frame = document.getElementById('frame');
@@ -450,6 +568,9 @@ wgt.oninput=()=>{ STATE.weight=+wgt.value; wVal.textContent=(+wgt.value).toFixed
 const hold=document.getElementById('hold'), holdVal=document.getElementById('holdVal');
 hold.oninput=()=>{ STATE.hold=+hold.value; holdVal.textContent=(+hold.value).toFixed(1)+'s'; };
 
+for(const k of ['sCovid','sTint','sGhost','sKick'])
+  document.getElementById(k).onchange = e=> STATE[k] = e.target.checked;
+
 document.getElementById('cGrowth').oninput  = e=> STATE.cGrowth  = e.target.value;
 document.getElementById('cDecline').oninput = e=> STATE.cDecline = e.target.value;
 document.getElementById('cLine').oninput    = e=> STATE.cLine    = e.target.value;
@@ -473,7 +594,9 @@ function setStat(msg, pct){ expstat.innerHTML = msg + (pct!=null?`<div class="ba
 exportBtn.onclick = async ()=>{
   const W=STATE.res, H=Math.round(W*9/16), fps=STATE.fps;
   const speed=STATE.speed;
-  const drawSec = (DRAW_END_BEATS + T.labelFade + 0.3)/speed;
+  const storyOn = STATE.sTint || STATE.sGhost || STATE.sKick;
+  const endBeats = storyOn ? STORY_END_BEATS + 0.3 : DRAW_END_BEATS + T.labelFade + 0.3;
+  const drawSec = endBeats/speed;
   const total = drawSec + STATE.hold;
   const frames = Math.ceil(total*fps);
 
