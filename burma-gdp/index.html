@@ -41,7 +41,16 @@
   .btn:hover{background:#282828;border-color:#444}
   .btn.primary{background:var(--orange);border-color:var(--orange);color:#1c1c1c;font-weight:700}
   .btn.primary:hover{background:#ff6a2b}
-  .btn svg{width:14px;height:14px}
+  .btn svg{width:14px;height:14px;flex-shrink:0}
+
+  /* ---- narration steps ---- */
+  .steprow{display:flex;gap:11px;padding:9px 10px;border-radius:8px;cursor:pointer;
+    font-size:11.5px;line-height:1.45;color:#b9b9b9;transition:background .12s,color .12s;align-items:baseline}
+  .steprow:hover{background:#1e1e1e}
+  .steprow.on{background:#242424;color:#fff}
+  .steprow.done{color:#777}
+  .steprow .n{font-family:'Sailing Club',Georgia,serif;font-size:14px;color:var(--orange);width:14px;flex-shrink:0}
+  .steprow.done .n{color:#666}
 
   input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:#333;border-radius:3px;outline:none;margin:4px 0}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
@@ -77,7 +86,7 @@
     <header>
       <div class="k">The Human Element · Chart Studio</div>
       <h1>Growth of the Burmese Economy</h1>
-      <p>GDP growth, annual %, 2000–2025. World Bank. Draw it slow, export a 4K clip.</p>
+      <p>GDP growth, annual %, 2000–2025. World Bank. Step it with the voiceover, or play it straight through.</p>
     </header>
     <div class="rail-body">
 
@@ -86,13 +95,22 @@
         <div class="transport">
           <button class="btn primary" id="playBtn">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <span id="playLbl">Play</span>
+            <span id="playLbl">Play all</span>
           </button>
-          <button class="btn" id="restartBtn">
+          <button class="btn" id="nextBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m0 0l-6-6m6 6l-6 6"/></svg>
+            Next
+          </button>
+          <button class="btn" id="restartBtn" style="flex:.7" title="Restart">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>
-            Restart
           </button>
         </div>
+        <div class="hint">Space = play/pause · → = next step. Clicking a step below plays just that beat.</div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl">Narration steps</div>
+        <div id="stepList"></div>
       </div>
 
       <div class="grp">
@@ -100,14 +118,6 @@
         <input type="range" id="spd" min="0.1" max="3" step="0.05" value="1">
         <div class="lbl" style="margin-top:16px"><span>Line weight</span><b class="val" id="wVal">1.0×</b></div>
         <input type="range" id="wgt" min="0.6" max="1.8" step="0.05" value="1">
-      </div>
-
-      <div class="grp">
-        <div class="lbl">Story beats · after the draw</div>
-        <div class="colorrow"><input type="checkbox" id="sCovid" checked><label>"COVID" tag on the 2020 dip</label></div>
-        <div class="colorrow"><input type="checkbox" id="sTint" checked><label>junta-era tint after the coup</label></div>
-        <div class="colorrow"><input type="checkbox" id="sGhost" checked><label>no-coup ghost recovery line</label></div>
-        <div class="colorrow"><input type="checkbox" id="sKick" checked><label>poverty kicker (1 in 2)</label></div>
       </div>
 
       <div class="grp">
@@ -134,7 +144,7 @@
           Export video
         </button>
         <div id="expstat"></div>
-        <div class="hint">Renders every frame deterministically then records it — no dropped frames, buttery at any resolution. Saves .mp4 where your browser supports it, otherwise .webm.</div>
+        <div class="hint">Export plays all steps straight through, with natural pauses between beats. Saves .mp4 where your browser supports it, otherwise .webm.</div>
       </div>
 
     </div>
@@ -160,34 +170,39 @@ const VALUES = SERIES.map(r=>r[1]);
 const N = SERIES.length;
 const LAST = VALUES[N-1];
 
-/* coup marker — the military seized power 1 Feb 2021 */
-const COUP_YEAR = 2021;
+const COUP_YEAR = 2021;                 // military seized power 1 Feb 2021
 const COUP_IDX = YEARS.indexOf(COUP_YEAR);
 
+/* the bounce-back that was supposed to happen — World Bank Myanmar
+   Economic Monitor (Dec 2020, pre-coup) projected a ~6% rebound,
+   which is roughly what comparable neighbors actually did.
+   Branches off the real line at 2020. A projection, not data. */
+const PROJ_FROM = 20;                   // index of 2020
+const PROJ_VALUES = [-9.05, 6.0, 6.5, 6.3, 6.0, 6.0];  // 2020..2025
+
 /* ============================================================
-   TIMELINE (in "beats" — real seconds = beats / speed)
+   NARRATION TIMELINE (in "beats" — real seconds = beats / speed)
+   Five steps, matched to the VO lines. Each step is a window;
+   stepping freezes the clock at the window's end.
    ============================================================ */
-const T = {
-  axes0:0.15, axes1:0.9,     // axes + title fade
-  draw0:0.7,  drawSpan:6.0,  // line draw window — long, built for slow
-  labelFade:0.7,             // end label fade after the line lands
-};
-const DRAW_END_BEATS = T.draw0 + T.drawSpan;
+const W_AXES   = [0.00, 0.90];   // title + axes fade (inside step 1)
+const W_GROWTH = [1.10, 6.10];   // history draws 2000 → 2019
+const W_COVID  = [6.30, 7.50];   // line falls into 2020, COVID tag
+const W_PROJ   = [7.80, 10.00];  // projection draws SOLID, as truth
+const W_COUP   = [10.40, 11.60]; // dotted coup marker + label
+const W_DEMOTE = [12.00, 12.90]; // projection decays solid → dotted
+const W_REAL   = [13.10, 16.10]; // the actual path draws 2020 → 2025
+const W_LABEL  = [16.10, 16.80]; // −2% endpoint label
+const W_KICK   = [17.20, 18.10]; // poverty kicker
+const TOTAL_END = 18.40;
 
-/* story beats — staged after the history lands, so the film reads:
-   COVID dip → coup at the bottom → the recovery that never came → the people */
-const STORY = {
-  tint0:  DRAW_END_BEATS + 0.6, tintSpan: 1.4,
-  ghost0: DRAW_END_BEATS + 1.8, ghostSpan: 2.6,
-  kick0:  DRAW_END_BEATS + 4.8, kickSpan: 0.9,
-};
-const STORY_END_BEATS = STORY.kick0 + STORY.kickSpan;
-
-/* no-coup counterfactual — World Bank Myanmar Economic Monitor (Dec 2020,
-   pre-coup) projected a ~6% rebound; regional peers did exactly that.
-   Branches off the real line at 2020. NOT DATA — a projection. */
-const GHOST_FROM = 20;                       // index of 2020
-const GHOST_VALUES = [-9.05, 6.0, 6.5, 6.3, 6.0, 6.0];  // 2020..2025
+/* four steps = the four VO lines */
+const STEPS = [
+  {name:'Growth before the coup was solid',       start:0.0,         end:W_GROWTH[1]},
+  {name:'COVID hit · World Bank expected a bounce-back', start:W_COVID[0],  end:W_PROJ[1]},
+  {name:'The coup — the actual line',             start:W_COUP[0],   end:W_LABEL[1]},
+  {name:'Half of all people now live in poverty', start:W_KICK[0],   end:TOTAL_END},
+];
 
 /* ============================================================
    GEOMETRY & CURVE SAMPLING
@@ -202,16 +217,13 @@ function xForIdx(i, box){ return box.x + box.w*((i-X0)/(X1-X0)); }
 function yForVal(v, box){ return box.y + box.h*(1 - (v-Y_MIN)/(Y_MAX-Y_MIN)); }
 
 /* Monotone cubic (Fritsch–Carlson) → dense polyline in data space.
-   No overshoot: the curve never dips past a data point, so the
-   −12.0% coup-year floor stays −12.0%, not a spline artifact. */
+   No overshoot: the −12.0% coup-year floor stays −12.0%. */
 function samplePath(vals){
   const n = vals.length;
-  const d = [];                       // secant slopes
+  const d = [];
   for(let i=0;i<n-1;i++) d.push(vals[i+1]-vals[i]);
-  const m = [d[0]];                   // tangents
-  for(let i=1;i<n-1;i++){
-    m.push(d[i-1]*d[i] <= 0 ? 0 : (d[i-1]+d[i])/2);
-  }
+  const m = [d[0]];
+  for(let i=1;i<n-1;i++) m.push(d[i-1]*d[i] <= 0 ? 0 : (d[i-1]+d[i])/2);
   m.push(d[n-2]);
   for(let i=0;i<n-1;i++){
     if(d[i]===0){ m[i]=0; m[i+1]=0; continue; }
@@ -231,26 +243,38 @@ function samplePath(vals){
   return pts;
 }
 const SAMP = samplePath(VALUES);
-const GHOST_SAMP = samplePath(GHOST_VALUES).map(p=>[p[0]+GHOST_FROM, p[1]]);
+const PROJ_SAMP = samplePath(PROJ_VALUES).map(p=>[p[0]+PROJ_FROM, p[1]]);
 
 /* easing */
 const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
 const clamp01 = t => t<0?0:t>1?1:t;
+const winP = (b, w) => easeInOut(clamp01((b - w[0])/(w[1]-w[0])));
 
-/* partial polyline up to prog, as canvas-space points */
-function partialPtsOf(samp, prog, box){
-  const n = samp.length;
-  const fk = prog*(n-1);
-  const k = Math.floor(fk);
+/* rightmost drawn data index of the REAL line, per the beat schedule */
+function drawnIndex(b){
+  let i = 0;
+  i = 19 * winP(b, W_GROWTH);                       // 2000 → 2019
+  if(b >= W_COVID[0]) i = 19 + winP(b, W_COVID);    // 2019 → 2020
+  if(b >= W_REAL[0])  i = 20 + 5*winP(b, W_REAL);   // 2020 → 2025
+  return i;
+}
+
+/* partial polyline up to data-index limit, as canvas-space points */
+function partialPtsOf(samp, idxLimit, box){
   const out=[];
-  for(let i=0;i<=k;i++) out.push([xForIdx(samp[i][0],box), yForVal(samp[i][1],box)]);
-  if(k < n-1){
-    const f = fk-k, a=samp[k], b=samp[k+1];
-    out.push([xForIdx(a[0]+(b[0]-a[0])*f,box), yForVal(a[1]+(b[1]-a[1])*f,box)]);
+  for(const p of samp){
+    if(p[0] <= idxLimit + 1e-9) out.push([xForIdx(p[0],box), yForVal(p[1],box)]);
+    else break;
+  }
+  // interpolate the live tip
+  const k = out.length;
+  if(k>0 && k<samp.length){
+    const a=samp[k-1], b=samp[k];
+    const f = (idxLimit - a[0]) / (b[0]-a[0]);
+    if(f>0) out.push([xForIdx(a[0]+(b[0]-a[0])*f,box), yForVal(a[1]+(b[1]-a[1])*f,box)]);
   }
   return out;
 }
-const partialPts = (prog, box)=> partialPtsOf(SAMP, prog, box);
 
 /* ============================================================
    RENDER — one deterministic frame. Shared by preview + export.
@@ -263,14 +287,13 @@ function renderFrame(ctx, W, H, tSec, speed){
   ctx.fillStyle = '#efefef';
   ctx.fillRect(0,0,W,H);
 
-  const axesA = clamp01((beats - T.axes0)/(T.axes1 - T.axes0));
-  const prog  = easeInOut(clamp01((beats - T.draw0)/T.drawSpan));
-
+  const axesA = winP(beats, W_AXES);
   drawAxes(ctx, box, fs, axesA);
   drawTitle(ctx, W, H, fs, axesA);
 
   const zeroY = yForVal(0, box);
-  const pts = prog>0 ? partialPts(prog, box) : null;
+  const idxLim = drawnIndex(beats);
+  const pts = idxLim>0 ? partialPtsOf(SAMP, idxLim, box) : null;
 
   /* ---- fills: growth green above zero, decline red below ---- */
   if(pts && pts.length>1){
@@ -282,37 +305,83 @@ function renderFrame(ctx, W, H, tSec, speed){
       ctx.lineTo(last[0], zeroY);
       ctx.closePath();
     };
-    // green — clip to the region above zero
     ctx.save();
     ctx.beginPath(); ctx.rect(box.x, box.y - 2*fs, box.w, zeroY - box.y + 2*fs); ctx.clip();
     area(); ctx.globalAlpha = 0.26; ctx.fillStyle = STATE.cGrowth; ctx.fill();
     ctx.restore();
-    // red — clip to the region below zero
     ctx.save();
     ctx.beginPath(); ctx.rect(box.x, zeroY, box.w, box.y + box.h - zeroY + 2*fs); ctx.clip();
     area(); ctx.globalAlpha = 0.26; ctx.fillStyle = STATE.cDecline; ctx.fill();
     ctx.restore();
   }
 
-  /* ---- junta-era tint: everything right of the coup line belongs to it ---- */
-  const tintP = STATE.sTint ? easeInOut(clamp01((beats - STORY.tint0)/STORY.tintSpan)) : 0;
-  if(tintP > 0){
-    const mx = xForIdx(COUP_IDX, box);
-    const xr = box.x + box.w;
+  /* ---- "COVID" tag on the 2020 descent ---- */
+  const covA = clamp01((beats - (W_COVID[1]-0.45))/0.45);
+  if(covA > 0){
     ctx.save();
-    const g = ctx.createLinearGradient(mx,0,xr,0);
-    g.addColorStop(0,  hexA(STATE.cDecline, 0.02*tintP));
-    g.addColorStop(1,  hexA(STATE.cDecline, 0.10*tintP));
-    ctx.fillStyle = g;
-    ctx.fillRect(mx, box.y, xr-mx, box.h);
+    ctx.globalAlpha = covA;
+    ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
+    ctx.fillStyle = 'rgba(28,28,28,.55)';
+    ctx.textBaseline = 'middle';
+    drawTrackedR(ctx, 'COVID', xForIdx(19.75, box) - 10*fs, yForVal(-5.2, box), 0.14*13*fs);
     ctx.restore();
   }
 
-  /* ---- coup marker: subtle dotted line that draws on as the line passes 2021 ---- */
-  const drawnIdx = prog * X1;                       // rightmost drawn data index
-  const mk = clamp01((drawnIdx - COUP_IDX) / 0.9);  // grows over ~1 data-year
-  const mx = xForIdx(COUP_IDX, box);
-  if(mk > 0){
+  /* ---- the projection: drawn SOLID first (as truth), then demoted
+         to a dotted hypothesis once reality starts drawing over it ---- */
+  const projP   = winP(beats, W_PROJ);
+  const demoteK = winP(beats, W_DEMOTE);
+  if(projP > 0){
+    const gpts = partialPtsOf(PROJ_SAMP, PROJ_FROM + 5*projP, box);
+    if(gpts.length>1){
+      // while the projection plays as truth, its green fill grows with it —
+      // and drains away as the real line takes over
+      const fillA = 0.26 * (1 - demoteK);
+      if(fillA > 0.003){
+        const first = gpts[0], last = gpts[gpts.length-1];
+        ctx.save();
+        ctx.beginPath(); ctx.rect(box.x, box.y - 2*fs, box.w, zeroY - box.y + 2*fs); ctx.clip();
+        ctx.beginPath();
+        ctx.moveTo(first[0], zeroY);
+        for(const p of gpts) ctx.lineTo(p[0], p[1]);
+        ctx.lineTo(last[0], zeroY);
+        ctx.closePath();
+        ctx.globalAlpha = fillA; ctx.fillStyle = STATE.cGrowth; ctx.fill();
+        ctx.restore();
+      }
+      const trace = ()=>{
+        ctx.beginPath();
+        ctx.moveTo(gpts[0][0], gpts[0][1]);
+        for(let i=1;i<gpts.length;i++) ctx.lineTo(gpts[i][0], gpts[i][1]);
+        ctx.stroke();
+      };
+      ctx.save();
+      ctx.lineJoin='round'; ctx.lineCap='round';
+      // solid "truth" pass, fading out through the demotion
+      if(demoteK < 1){
+        ctx.globalAlpha = 1 - demoteK;
+        ctx.strokeStyle = STATE.cLine;
+        ctx.lineWidth = 5.0 * fs * STATE.weight;
+        ctx.setLineDash([]);
+        trace();
+      }
+      // dotted "hypothesis" pass, fading in
+      if(demoteK > 0){
+        ctx.globalAlpha = 0.30 + 0.30*demoteK;
+        ctx.strokeStyle = STATE.cLine;
+        ctx.lineWidth = 2.4 * fs * STATE.weight;
+        ctx.setLineDash([2*fs, 8*fs]);
+        trace();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+    }
+  }
+
+  /* ---- coup marker: dotted vertical, draws top → bottom ---- */
+  const coupSweep = easeInOut(clamp01((beats - W_COUP[0])/0.8));
+  if(coupSweep > 0){
+    const mx = xForIdx(COUP_IDX, box);
     ctx.save();
     ctx.strokeStyle = 'rgba(28,28,28,.45)';
     ctx.lineWidth = 1.6*fs;
@@ -320,40 +389,26 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(mx, box.y);
-    ctx.lineTo(mx, box.y + box.h * easeInOut(mk));  // draws top → bottom
+    ctx.lineTo(mx, box.y + box.h * coupSweep);
     ctx.stroke();
     ctx.setLineDash([]);
-    // label, faded in after the line lands — sits LEFT of the marker so the
-    // right side stays clear for the consequences
-    const la = clamp01((mk - 0.75)/0.25);
+    const la = clamp01((beats - (W_COUP[0]+0.7))/0.5);
     if(la > 0){
       ctx.globalAlpha = la;
       ctx.font = `700 ${14*fs}px 'Sohne Mono', monospace`;
       ctx.fillStyle = 'rgba(28,28,28,.70)';
-      ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      ctx.textBaseline = 'top';
       drawTrackedR(ctx, 'MILITARY COUP', mx - 12*fs, box.y + 6*fs, 0.14*14*fs);
       ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
       ctx.fillStyle = 'rgba(28,28,28,.45)';
+      ctx.textAlign = 'right';
       ctx.fillText('FEB 2021', mx - 12*fs, box.y + 28*fs);
+      ctx.textAlign = 'left';
     }
     ctx.restore();
   }
 
-  /* ---- "COVID" tag on the 2020 descent — so the dip isn't read as the coup ---- */
-  if(STATE.sCovid){
-    const ca = clamp01((drawnIdx - (GHOST_FROM - 0.4)) / 0.6);
-    if(ca > 0){
-      ctx.save();
-      ctx.globalAlpha = ca;
-      ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
-      ctx.fillStyle = 'rgba(28,28,28,.55)';
-      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-      drawTrackedR(ctx, 'COVID', xForIdx(GHOST_FROM - 0.25, box) - 10*fs, yForVal(-5.2, box), 0.14*13*fs);
-      ctx.restore();
-    }
-  }
-
-  /* ---- the line ---- */
+  /* ---- the real line (drawn over the demoted projection) ---- */
   if(pts && pts.length>1){
     ctx.save();
     ctx.lineJoin='round'; ctx.lineCap='round';
@@ -366,39 +421,28 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.restore();
   }
 
-  /* ---- no-coup ghost: the recovery that never came ---- */
-  const ghostP = STATE.sGhost ? easeInOut(clamp01((beats - STORY.ghost0)/STORY.ghostSpan)) : 0;
-  if(ghostP > 0){
-    const gpts = partialPtsOf(GHOST_SAMP, ghostP, box);
+  /* ---- endpoint dot + value label ---- */
+  const la = clamp01((beats - W_LABEL[0])/(W_LABEL[1]-W_LABEL[0]));
+  if(la > 0){
+    const ex = xForIdx(X1, box), ey = yForVal(LAST, box);
     ctx.save();
-    ctx.lineJoin='round'; ctx.lineCap='round';
-    ctx.strokeStyle = 'rgba(28,28,28,.55)';
-    ctx.lineWidth = 2.4 * fs * STATE.weight;
-    ctx.setLineDash([2*fs, 8*fs]);
-    ctx.beginPath();
-    ctx.moveTo(gpts[0][0], gpts[0][1]);
-    for(let i=1;i<gpts.length;i++) ctx.lineTo(gpts[i][0], gpts[i][1]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // label at the ghost's live end
-    const ga = clamp01((ghostP - 0.85)/0.15);
-    if(ga > 0){
-      const gx = xForIdx(X1, box), gy = yForVal(GHOST_VALUES[GHOST_VALUES.length-1], box);
-      ctx.globalAlpha = ga;
-      ctx.textAlign='left'; ctx.textBaseline='middle';
-      ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
-      ctx.fillStyle = 'rgba(28,28,28,.65)';
-      drawTracked(ctx, 'NO-COUP PATH', gx + 18*fs, gy - 9*fs, 0.12*13*fs);
-      ctx.font = `${10.5*fs}px 'Sohne Mono', monospace`;
-      ctx.fillStyle = 'rgba(28,28,28,.42)';
-      ctx.fillText('WORLD BANK PROJECTION,', gx + 18*fs, gy + 10*fs);
-      ctx.fillText('DEC 2020 · NOT DATA', gx + 18*fs, gy + 24*fs);
-    }
+    ctx.globalAlpha = la;
+    ctx.fillStyle = '#efefef';
+    ctx.strokeStyle = STATE.cLine;
+    ctx.lineWidth = 4*fs;
+    ctx.beginPath(); ctx.arc(ex, ey, 7*fs, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.font = `800 ${30*fs}px 'Sohne', ui-sans-serif, sans-serif`;
+    ctx.fillStyle = STATE.cDecline;
+    ctx.fillText(fmtPct(LAST), ex + 18*fs, ey - 2*fs);
+    ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
+    ctx.fillStyle = 'rgba(28,28,28,.5)';
+    ctx.fillText('2025', ex + 18*fs, ey + 22*fs);
     ctx.restore();
   }
 
-  /* ---- kicker: what 18% contraction means for people ---- */
-  const kickA = STATE.sKick ? easeInOut(clamp01((beats - STORY.kick0)/STORY.kickSpan)) : 0;
+  /* ---- closing beat: half the country below the poverty line ---- */
+  const kickA = winP(beats, W_KICK);
   if(kickA > 0){
     const kx = box.x + box.w - 4*fs;
     const ky = yForVal(10.6, box);
@@ -410,33 +454,11 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.fillText('1 in 2', kx, ky);
     ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
     ctx.fillStyle = 'rgba(28,28,28,.72)';
-    ctx.fillText('PEOPLE NOW BELOW THE POVERTY LINE', kx, ky + 24*fs);
+    ctx.fillText('PEOPLE NOW LIVE IN POVERTY', kx, ky + 24*fs);
     ctx.font = `${11*fs}px 'Sohne Mono', monospace`;
     ctx.fillStyle = 'rgba(28,28,28,.45)';
-    ctx.fillText('1 IN 4 BEFORE THE COUP · UNDP 2024', kx, ky + 42*fs);
+    ctx.fillText('UNDP 2024', kx, ky + 42*fs);
     ctx.restore();
-  }
-
-  /* ---- endpoint dot + value label ---- */
-  if(prog >= 0.999){
-    const la = clamp01((beats - DRAW_END_BEATS)/T.labelFade);
-    if(la > 0){
-      const ex = xForIdx(X1, box), ey = yForVal(LAST, box);
-      ctx.save();
-      ctx.globalAlpha = la;
-      ctx.fillStyle = '#efefef';
-      ctx.strokeStyle = STATE.cLine;
-      ctx.lineWidth = 4*fs;
-      ctx.beginPath(); ctx.arc(ex, ey, 7*fs, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.textAlign='left'; ctx.textBaseline='middle';
-      ctx.font = `800 ${30*fs}px 'Sohne', ui-sans-serif, sans-serif`;
-      ctx.fillStyle = STATE.cDecline;
-      ctx.fillText(fmtPct(LAST), ex + 18*fs, ey - 2*fs);
-      ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
-      ctx.fillStyle = 'rgba(28,28,28,.5)';
-      ctx.fillText('2025', ex + 18*fs, ey + 22*fs);
-      ctx.restore();
-    }
   }
 
   /* ---- footer source ---- */
@@ -445,7 +467,7 @@ function renderFrame(ctx, W, H, tSec, speed){
   ctx.font = `${13.5*fs}px 'Sohne Mono', monospace`;
   ctx.fillStyle = 'rgba(28,28,28,.5)';
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-  ctx.fillText('SOURCE · WORLD BANK · GDP GROWTH, ANNUAL % · NY.GDP.MKTP.KD.ZG · UPDATED JUL 2026', box.x, H - H*0.052);
+  ctx.fillText('SOURCE · WORLD BANK · GDP GROWTH, ANNUAL % · PROJECTION: MYANMAR ECONOMIC MONITOR, DEC 2020', box.x, H - H*0.052);
   ctx.restore();
 }
 
@@ -469,7 +491,6 @@ function drawAxes(ctx, box, fs, a){
     ctx.fillStyle = isZero ? 'rgba(28,28,28,.9)' : 'rgba(28,28,28,.65)';
     ctx.fillText((v>0?'+':'')+v+'%', box.x - 16*fs, y);
   }
-  // x year ticks
   ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillStyle = 'rgba(28,28,28,.78)';
   for(const yr of [2000,2005,2010,2015,2020,2025]){
@@ -500,23 +521,17 @@ function drawTracked(ctx, str, x, y, sp){
   for(const ch of str){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
   ctx.textAlign = align;
 }
-function drawTrackedR(ctx, str, x, y, sp){   // right-anchored
+function drawTrackedR(ctx, str, x, y, sp){
   let w=0; for(const ch of str) w += ctx.measureText(ch).width + sp;
   drawTracked(ctx, str, x - w + sp, y, sp);
 }
-/* hex (#rrggbb) → rgba() at alpha */
-function hexA(hex, a){
-  const h = hex.replace('#','');
-  const r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
-  return `rgba(${r},${g},${b},${a.toFixed(3)})`;
-}
 
 /* ============================================================
-   STATE + PREVIEW LOOP
+   STATE + PREVIEW LOOP + STEPPER
    ============================================================ */
-const STATE = { speed:1, weight:1, playing:true, fps:60, res:3840, hold:4,
+const STATE = { speed:1, weight:1, playing:false, fps:60, res:3840, hold:4,
                 cGrowth:'#4f7d5a', cDecline:'#b0472e', cLine:'#1c1c1c',
-                sCovid:true, sTint:true, sGhost:true, sKick:true };
+                stopAt:null };   // beats value to freeze at (null = play through)
 const cv = document.getElementById('chart');
 const cx = cv.getContext('2d');
 const frame = document.getElementById('frame');
@@ -529,47 +544,108 @@ function fitCanvas(){
 }
 window.addEventListener('resize', fitCanvas);
 
-let raf=0;
-function play(){
-  STATE.playing = true;
-  document.getElementById('playLbl').textContent = 'Pause';
-  document.querySelector('#playBtn svg path').setAttribute('d','M6 5h4v14H6zM14 5h4v14h-4z');
+const playLbl = document.getElementById('playLbl');
+function setPlayIcon(on){
+  document.querySelector('#playBtn svg path').setAttribute('d', on ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M8 5v14l11-7z');
 }
-function pause(){
-  STATE.playing = false;
-  document.getElementById('playLbl').textContent = 'Play';
-  document.querySelector('#playBtn svg path').setAttribute('d','M8 5v14l11-7z');
-}
+function play(){ STATE.playing = true;  playLbl.textContent = 'Pause';    setPlayIcon(true); }
+function pause(){ STATE.playing = false; playLbl.textContent = 'Play all'; setPlayIcon(false); }
+
+let raf=0, acc=0;
 (function loop(){
   cancelAnimationFrame(raf);
-  let last = null; let acc = 0;
+  let last = null;
   function tick(ts){
     if(last==null) last=ts;
     const dt=(ts-last)/1000; last=ts;
-    if(STATE.playing && STATE.frozenT==null) acc += dt;
+    if(STATE.playing && STATE.frozenT==null){
+      acc += dt;
+      // freeze at the queued step boundary
+      if(STATE.stopAt!=null && acc*STATE.speed >= STATE.stopAt){
+        acc = STATE.stopAt/STATE.speed;
+        STATE.stopAt = null;
+        pause();
+      }
+    }
     const useT = STATE.frozenT!=null ? STATE.frozenT : acc;
     renderFrame(cx, cv.width, cv.height, useT, STATE.speed);
+    updateStepUI(useT*STATE.speed);
     raf=requestAnimationFrame(tick);
   }
-  STATE._setClock = v => { acc = v; };
   raf=requestAnimationFrame(tick);
 })();
 
-document.getElementById('playBtn').onclick = ()=>{ STATE.playing ? pause() : play(); };
-document.getElementById('restartBtn').onclick = ()=>{ STATE._setClock(0); play(); };
+/* ---- step list UI ---- */
+const stepList = document.getElementById('stepList');
+STEPS.forEach((s,i)=>{
+  const row=document.createElement('div');
+  row.className='steprow'; row.id='step'+i;
+  row.innerHTML=`<span class="n">${i+1}</span><span>${s.name}</span>`;
+  row.onclick=()=> playStep(i);
+  stepList.appendChild(row);
+});
+let uiStep=-1;
+function currentStep(beats){
+  for(let i=STEPS.length-1;i>=0;i--) if(beats > STEPS[i].start + 1e-6) return i;
+  return -1;
+}
+function updateStepUI(beats){
+  const cur = currentStep(beats);
+  if(cur===uiStep) return;
+  uiStep=cur;
+  STEPS.forEach((s,i)=>{
+    const el=document.getElementById('step'+i);
+    el.classList.toggle('on', i===cur);
+    el.classList.toggle('done', i<cur && beats>=STEPS[i].end);
+  });
+}
+function playStep(i){
+  acc = STEPS[i].start/STATE.speed;
+  STATE.stopAt = STEPS[i].end;
+  play();
+}
+function nextStep(){
+  const beats = acc*STATE.speed;
+  for(const s of STEPS){
+    if(s.end > beats + 1e-6){
+      // snap anything unfinished to done, then animate this step
+      acc = Math.max(beats, s.start)/STATE.speed;
+      if(beats < s.start) acc = s.start/STATE.speed;
+      STATE.stopAt = s.end;
+      play();
+      return;
+    }
+  }
+}
+
+document.getElementById('playBtn').onclick = ()=>{
+  if(STATE.playing){ pause(); return; }
+  STATE.stopAt = null;                              // play all = no boundaries
+  if(acc*STATE.speed >= TOTAL_END) acc = 0;         // at the end → restart
+  play();
+};
+document.getElementById('nextBtn').onclick = nextStep;
+document.getElementById('restartBtn').onclick = ()=>{ acc=0; STATE.stopAt=null; pause(); uiStep=-2; };
+
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.code==='Space'){ e.preventDefault(); document.getElementById('playBtn').onclick(); }
+  if(e.code==='ArrowRight'){ e.preventDefault(); nextStep(); }
+});
 
 /* ============================================================
    CONTROLS
    ============================================================ */
 const spd=document.getElementById('spd'), spdVal=document.getElementById('spdVal');
-spd.oninput=()=>{ STATE.speed=+spd.value; spdVal.textContent=(+spd.value).toFixed(2).replace(/0$/,'')+'×'; };
+spd.oninput=()=>{
+  const beats = acc*STATE.speed;        // keep position stable across speed change
+  STATE.speed=+spd.value; acc = beats/STATE.speed;
+  spdVal.textContent=(+spd.value).toFixed(2).replace(/0$/,'')+'×';
+};
 const wgt=document.getElementById('wgt'), wVal=document.getElementById('wVal');
 wgt.oninput=()=>{ STATE.weight=+wgt.value; wVal.textContent=(+wgt.value).toFixed(2).replace(/0$/,'')+'×'; };
 const hold=document.getElementById('hold'), holdVal=document.getElementById('holdVal');
 hold.oninput=()=>{ STATE.hold=+hold.value; holdVal.textContent=(+hold.value).toFixed(1)+'s'; };
-
-for(const k of ['sCovid','sTint','sGhost','sKick'])
-  document.getElementById(k).onchange = e=> STATE[k] = e.target.checked;
 
 document.getElementById('cGrowth').oninput  = e=> STATE.cGrowth  = e.target.value;
 document.getElementById('cDecline').oninput = e=> STATE.cDecline = e.target.value;
@@ -586,7 +662,6 @@ document.querySelectorAll('#resBtns button').forEach(b=> b.onclick=()=>{
 
 /* ============================================================
    EXPORT — deterministic frames → MediaRecorder (mp4/webm)
-   captureStream(0) + requestFrame() = frame-perfect, zero drops
    ============================================================ */
 const exportBtn=document.getElementById('exportBtn'), expstat=document.getElementById('expstat');
 function setStat(msg, pct){ expstat.innerHTML = msg + (pct!=null?`<div class="bar"><i style="width:${pct}%"></i></div>`:''); }
@@ -594,10 +669,7 @@ function setStat(msg, pct){ expstat.innerHTML = msg + (pct!=null?`<div class="ba
 exportBtn.onclick = async ()=>{
   const W=STATE.res, H=Math.round(W*9/16), fps=STATE.fps;
   const speed=STATE.speed;
-  const storyOn = STATE.sTint || STATE.sGhost || STATE.sKick;
-  const endBeats = storyOn ? STORY_END_BEATS + 0.3 : DRAW_END_BEATS + T.labelFade + 0.3;
-  const drawSec = endBeats/speed;
-  const total = drawSec + STATE.hold;
+  const total = (TOTAL_END + 0.2)/speed + STATE.hold;
   const frames = Math.ceil(total*fps);
 
   const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
@@ -651,7 +723,8 @@ function boot(){
   fitCanvas();
   const qt = new URLSearchParams(location.search).get('t');
   STATE.frozenT = qt!=null ? parseFloat(qt) : null;
-  STATE._setClock(0); play();
+  acc = 0;
+  if(STATE.frozenT==null) playStep(0);   // land ready at the end of beat 1
   Promise.all([
     document.fonts.load("400 76px 'Sailing Club'"),
     document.fonts.load("400 14px 'Sohne Mono'"),
