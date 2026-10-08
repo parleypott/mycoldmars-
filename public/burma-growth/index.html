@@ -21,6 +21,8 @@
   #frame{position:relative;width:100%;max-width:calc((100vh - 52px) * 1.7778);aspect-ratio:16/9;
     box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05);border-radius:4px;overflow:hidden;background:var(--paper)}
   #chart{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #frame.alpha{background:
+    repeating-conic-gradient(#cfcfcf 0% 25%, #e9e9e9 0% 50%) 0 0 / 28px 28px}
   #stamp{position:absolute;left:14px;top:12px;font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.35);
     text-transform:uppercase;pointer-events:none;z-index:5}
 
@@ -125,6 +127,26 @@
         <div class="colorrow"><input type="color" id="cGrowth" value="#4f7d5a"><label>growth fill (above zero)</label></div>
         <div class="colorrow"><input type="color" id="cDecline" value="#b0472e"><label>decline fill (below zero)</label></div>
         <div class="colorrow"><input type="color" id="cLine" value="#1c1c1c"><label>line</label></div>
+        <div class="colorrow"><input type="color" id="cInk" value="#1c1c1c"><label>ink — axes, labels, title</label></div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl">Overlay · transparent alpha</div>
+        <div class="colorrow"><input type="checkbox" id="alphaPrev"><label>preview on transparency</label></div>
+        <div class="segbtns" id="aFpsBtns" style="margin-top:6px">
+          <button data-fps="30" class="on">30 fps</button>
+          <button data-fps="60">60 fps</button>
+        </div>
+        <div class="segbtns" style="margin-top:8px" id="aResBtns">
+          <button data-res="1920" class="on">1080p</button>
+          <button data-res="3840">4K UHD</button>
+        </div>
+        <button class="btn" id="alphaBtn" style="margin-top:14px;width:100%">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg>
+          Export alpha frames
+        </button>
+        <div id="alphastat"></div>
+        <div class="hint">Writes transparent PNG frames into a folder you pick, plus ASSEMBLE.txt. Then run <b style="color:#aaa">alpha-assemble &lt;folder&gt;</b> in Terminal → ProRes 4444 .mov with real alpha, ready to drop over footage. Flip ink to a light color first if the footage is dark.</div>
       </div>
 
       <div class="grp">
@@ -145,6 +167,26 @@
         </button>
         <div id="expstat"></div>
         <div class="hint">Export plays all steps straight through, with natural pauses between beats. Saves .mp4 where your browser supports it, otherwise .webm.</div>
+      </div>
+
+      <div class="grp">
+        <div class="lbl">Export · GIF</div>
+        <div class="segbtns" id="gifFpsBtns">
+          <button data-fps="10">10 fps</button>
+          <button data-fps="15" class="on">15 fps</button>
+          <button data-fps="20">20 fps</button>
+        </div>
+        <div class="segbtns" style="margin-top:8px" id="gifResBtns">
+          <button data-res="720">720w</button>
+          <button data-res="960" class="on">960w</button>
+          <button data-res="1280">1280w</button>
+        </div>
+        <button class="btn" id="gifBtn" style="margin-top:14px;width:100%">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          Export GIF
+        </button>
+        <div id="gifstat"></div>
+        <div class="hint">Whole sequence, loops forever. GIFs are chunky — keep it 960w/15fps unless you need more.</div>
       </div>
 
     </div>
@@ -279,13 +321,17 @@ function partialPtsOf(samp, idxLimit, box){
 /* ============================================================
    RENDER — one deterministic frame. Shared by preview + export.
    ============================================================ */
-function renderFrame(ctx, W, H, tSec, speed){
+function renderFrame(ctx, W, H, tSec, speed, transparent){
   const fs = H/1080;
   const beats = tSec * speed;
   const box = layout(W,H);
 
-  ctx.fillStyle = '#efefef';
-  ctx.fillRect(0,0,W,H);
+  if(transparent){
+    ctx.clearRect(0,0,W,H);
+  }else{
+    ctx.fillStyle = '#efefef';
+    ctx.fillRect(0,0,W,H);
+  }
 
   const axesA = winP(beats, W_AXES);
   drawAxes(ctx, box, fs, axesA);
@@ -321,7 +367,7 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.save();
     ctx.globalAlpha = covA;
     ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
-    ctx.fillStyle = 'rgba(28,28,28,.55)';
+    ctx.fillStyle = ink(.55);
     ctx.textBaseline = 'middle';
     drawTrackedR(ctx, 'COVID', xForIdx(19.75, box) - 10*fs, yForVal(-5.2, box), 0.14*13*fs);
     ctx.restore();
@@ -383,7 +429,7 @@ function renderFrame(ctx, W, H, tSec, speed){
   if(coupSweep > 0){
     const mx = xForIdx(COUP_IDX, box);
     ctx.save();
-    ctx.strokeStyle = 'rgba(28,28,28,.45)';
+    ctx.strokeStyle = ink(.45);
     ctx.lineWidth = 1.6*fs;
     ctx.setLineDash([1.5*fs, 7*fs]);
     ctx.lineCap = 'round';
@@ -396,11 +442,11 @@ function renderFrame(ctx, W, H, tSec, speed){
     if(la > 0){
       ctx.globalAlpha = la;
       ctx.font = `700 ${14*fs}px 'Sohne Mono', monospace`;
-      ctx.fillStyle = 'rgba(28,28,28,.70)';
+      ctx.fillStyle = ink(.70);
       ctx.textBaseline = 'top';
       drawTrackedR(ctx, 'MILITARY COUP', mx - 12*fs, box.y + 6*fs, 0.14*14*fs);
       ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
-      ctx.fillStyle = 'rgba(28,28,28,.45)';
+      ctx.fillStyle = ink(.45);
       ctx.textAlign = 'right';
       ctx.fillText('FEB 2021', mx - 12*fs, box.y + 28*fs);
       ctx.textAlign = 'left';
@@ -427,16 +473,17 @@ function renderFrame(ctx, W, H, tSec, speed){
     const ex = xForIdx(X1, box), ey = yForVal(LAST, box);
     ctx.save();
     ctx.globalAlpha = la;
-    ctx.fillStyle = '#efefef';
     ctx.strokeStyle = STATE.cLine;
     ctx.lineWidth = 4*fs;
-    ctx.beginPath(); ctx.arc(ex, ey, 7*fs, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ex, ey, 7*fs, 0, Math.PI*2);
+    if(!transparent){ ctx.fillStyle = '#efefef'; ctx.fill(); }
+    ctx.stroke();
     ctx.textAlign='left'; ctx.textBaseline='middle';
     ctx.font = `800 ${30*fs}px 'Sohne', ui-sans-serif, sans-serif`;
     ctx.fillStyle = STATE.cDecline;
     ctx.fillText(fmtPct(LAST), ex + 18*fs, ey - 2*fs);
     ctx.font = `${12*fs}px 'Sohne Mono', monospace`;
-    ctx.fillStyle = 'rgba(28,28,28,.5)';
+    ctx.fillStyle = ink(.5);
     ctx.fillText('2025', ex + 18*fs, ey + 22*fs);
     ctx.restore();
   }
@@ -453,10 +500,10 @@ function renderFrame(ctx, W, H, tSec, speed){
     ctx.fillStyle = STATE.cDecline;
     ctx.fillText('1 in 2', kx, ky);
     ctx.font = `700 ${13*fs}px 'Sohne Mono', monospace`;
-    ctx.fillStyle = 'rgba(28,28,28,.72)';
+    ctx.fillStyle = ink(.72);
     ctx.fillText('PEOPLE NOW LIVE IN POVERTY', kx, ky + 24*fs);
     ctx.font = `${11*fs}px 'Sohne Mono', monospace`;
-    ctx.fillStyle = 'rgba(28,28,28,.45)';
+    ctx.fillStyle = ink(.45);
     ctx.fillText('UNDP 2024', kx, ky + 42*fs);
     ctx.restore();
   }
@@ -465,7 +512,7 @@ function renderFrame(ctx, W, H, tSec, speed){
   ctx.save();
   ctx.globalAlpha = axesA*0.9;
   ctx.font = `${13.5*fs}px 'Sohne Mono', monospace`;
-  ctx.fillStyle = 'rgba(28,28,28,.5)';
+  ctx.fillStyle = ink(.5);
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.fillText('SOURCE · WORLD BANK · GDP GROWTH, ANNUAL % · PROJECTION: MYANMAR ECONOMIC MONITOR, DEC 2020', box.x, H - H*0.052);
   ctx.restore();
@@ -485,14 +532,14 @@ function drawAxes(ctx, box, fs, a){
   for(let v=Y_MIN; v<=Y_MAX; v+=5){
     const y = yForVal(v, box);
     const isZero = v===0;
-    ctx.strokeStyle = isZero ? 'rgba(28,28,28,.38)' : 'rgba(28,28,28,.10)';
+    ctx.strokeStyle = isZero ? ink(.38) : ink(.10);
     ctx.lineWidth = (isZero?1.6:1)*fs;
     ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x+box.w, y); ctx.stroke();
-    ctx.fillStyle = isZero ? 'rgba(28,28,28,.9)' : 'rgba(28,28,28,.65)';
+    ctx.fillStyle = isZero ? ink(.9) : ink(.65);
     ctx.fillText((v>0?'+':'')+v+'%', box.x - 16*fs, y);
   }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.fillStyle = 'rgba(28,28,28,.78)';
+  ctx.fillStyle = ink(.78);
   for(const yr of [2000,2005,2010,2015,2020,2025]){
     const i = YEARS.indexOf(yr); if(i<0) continue;
     ctx.fillText(String(yr), xForIdx(i, box), box.y+box.h + 20*fs);
@@ -506,12 +553,20 @@ function drawTitle(ctx, W, H, fs, a){
   ctx.textAlign='left';
   ctx.textBaseline='alphabetic';
   ctx.font = `${76*fs}px 'Sailing Club', Georgia, serif`;
-  ctx.fillStyle = '#1c1c1c';
+  ctx.fillStyle = ink(1);
   ctx.fillText('Growth of the Burmese Economy', W*0.075, H*0.170);
   ctx.font = `${16*fs}px 'Sohne Mono', monospace`;
-  ctx.fillStyle = 'rgba(28,28,28,.55)';
+  ctx.fillStyle = ink(.55);
   ctx.fillText('GDP growth, annual %  ·  2000–2025', W*0.075, H*0.222);
   ctx.restore();
+}
+
+/* ink: axis/label/annotation color at a given alpha — recolorable so the
+   chart can flip to light ink for overlaying on dark footage */
+function ink(a){
+  const h = STATE.ink.replace('#','');
+  const r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 /* letter-spaced text helpers */
@@ -530,7 +585,8 @@ function drawTrackedR(ctx, str, x, y, sp){
    STATE + PREVIEW LOOP + STEPPER
    ============================================================ */
 const STATE = { speed:1, weight:1, playing:false, fps:60, res:3840, hold:4,
-                cGrowth:'#4f7d5a', cDecline:'#b0472e', cLine:'#1c1c1c',
+                cGrowth:'#4f7d5a', cDecline:'#b0472e', cLine:'#1c1c1c', ink:'#1c1c1c',
+                alphaPrev:false,
                 stopAt:null };   // beats value to freeze at (null = play through)
 const cv = document.getElementById('chart');
 const cx = cv.getContext('2d');
@@ -568,7 +624,7 @@ let raf=0, acc=0;
       }
     }
     const useT = STATE.frozenT!=null ? STATE.frozenT : acc;
-    renderFrame(cx, cv.width, cv.height, useT, STATE.speed);
+    renderFrame(cx, cv.width, cv.height, useT, STATE.speed, STATE.alphaPrev);
     updateStepUI(useT*STATE.speed);
     raf=requestAnimationFrame(tick);
   }
@@ -650,6 +706,11 @@ hold.oninput=()=>{ STATE.hold=+hold.value; holdVal.textContent=(+hold.value).toF
 document.getElementById('cGrowth').oninput  = e=> STATE.cGrowth  = e.target.value;
 document.getElementById('cDecline').oninput = e=> STATE.cDecline = e.target.value;
 document.getElementById('cLine').oninput    = e=> STATE.cLine    = e.target.value;
+document.getElementById('cInk').oninput     = e=> STATE.ink      = e.target.value;
+document.getElementById('alphaPrev').onchange = e=>{
+  STATE.alphaPrev = e.target.checked;
+  frame.classList.toggle('alpha', STATE.alphaPrev);
+};
 
 document.querySelectorAll('#fpsBtns button').forEach(b=> b.onclick=()=>{
   document.querySelectorAll('#fpsBtns button').forEach(x=>x.classList.remove('on'));
@@ -717,14 +778,137 @@ exportBtn.onclick = async ()=>{
 };
 
 /* ============================================================
+   EXPORT — GIF via gifenc. Same deterministic frames; one global
+   palette (built from the final frame, which contains every color
+   the chart ever shows) so flat fills don't flicker frame-to-frame.
+   ============================================================ */
+const GIF = { fps:15, res:960 };
+document.querySelectorAll('#gifFpsBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#gifFpsBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); GIF.fps=+b.dataset.fps;
+});
+document.querySelectorAll('#gifResBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#gifResBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); GIF.res=+b.dataset.res;
+});
+const gifBtn=document.getElementById('gifBtn'), gifstat=document.getElementById('gifstat');
+const AUTOGIF = new URLSearchParams(location.search).has('autogif');   // headless smoke-test hook
+function setGifStat(msg, pct){
+  gifstat.innerHTML = msg + (pct!=null?`<div class="bar"><i style="width:${pct}%"></i></div>`:'');
+  if(AUTOGIF) document.title = msg;
+}
+
+gifBtn.onclick = async ()=>{
+  gifBtn.disabled=true; gifBtn.style.opacity=.5;
+  try{
+    setGifStat('Loading encoder…');
+    const {GIFEncoder, quantize, applyPalette} =
+      await import('https://cdn.jsdelivr.net/npm/gifenc@1.0.3/+esm');
+
+    const W=GIF.res, H=Math.round(W*9/16), fps=GIF.fps, speed=STATE.speed;
+    const total = (TOTAL_END + 0.2)/speed + STATE.hold;
+    const frames = Math.ceil(total*fps);
+    const delay = Math.round(1000/fps);
+
+    const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
+    const octx=oc.getContext('2d', {willReadFrequently:true});
+
+    // global palette from the final (most colorful) frame
+    renderFrame(octx, W, H, (TOTAL_END+0.2)/speed, speed);
+    const palette = quantize(octx.getImageData(0,0,W,H).data, 256);
+
+    const gif = GIFEncoder();
+    for(let f=0; f<frames; f++){
+      renderFrame(octx, W, H, f/fps, speed);
+      const index = applyPalette(octx.getImageData(0,0,W,H).data, palette);
+      gif.writeFrame(index, W, H, {palette, delay});
+      if(f%4===0){ setGifStat(`Encoding frame ${f+1} / ${frames}`, (f/frames)*100); await new Promise(r=>setTimeout(r,0)); }
+    }
+    gif.finish();
+
+    const blob=new Blob([gif.bytes()],{type:'image/gif'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`burma-gdp_${W}x${H}_${fps}fps.gif`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    setGifStat(`✓ Saved ${a.download} · ${(blob.size/1e6).toFixed(1)} MB`, 100);
+  }catch(err){
+    setGifStat('✗ GIF export failed: '+err.message);
+  }
+  gifBtn.disabled=false; gifBtn.style.opacity=1;
+};
+
+/* ============================================================
+   EXPORT — transparent PNG frame sequence (File System Access API)
+   → assemble locally into ProRes 4444 with alpha:  alpha-assemble <dir>
+   ============================================================ */
+const ALPHA = { fps:30, res:1920 };
+document.querySelectorAll('#aFpsBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#aFpsBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); ALPHA.fps=+b.dataset.fps;
+});
+document.querySelectorAll('#aResBtns button').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#aResBtns button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); ALPHA.res=+b.dataset.res;
+});
+const alphaBtn=document.getElementById('alphaBtn'), alphastat=document.getElementById('alphastat');
+function setAlphaStat(msg, pct){ alphastat.innerHTML = msg + (pct!=null?`<div class="bar"><i style="width:${pct}%"></i></div>`:''); }
+
+alphaBtn.onclick = async ()=>{
+  if(!window.showDirectoryPicker){
+    setAlphaStat('✗ Needs Chrome/Edge — Safari lacks the File System Access API.');
+    return;
+  }
+  let dir;
+  try{ dir = await showDirectoryPicker({mode:'readwrite'}); }
+  catch(e){ return; }   // user cancelled
+
+  alphaBtn.disabled=true; alphaBtn.style.opacity=.5;
+  try{
+    const W=ALPHA.res, H=Math.round(W*9/16), fps=ALPHA.fps, speed=STATE.speed;
+    const total = (TOTAL_END + 0.2)/speed + STATE.hold;
+    const frames = Math.ceil(total*fps);
+
+    const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
+    const octx=oc.getContext('2d');
+
+    for(let f=0; f<frames; f++){
+      renderFrame(octx, W, H, f/fps, speed, true);
+      const blob = await new Promise(r=> oc.toBlob(r, 'image/png'));
+      const fh = await dir.getFileHandle(`frame_${String(f).padStart(6,'0')}.png`, {create:true});
+      const ws = await fh.createWritable();
+      await ws.write(blob); await ws.close();
+      if(f%5===0) setAlphaStat(`Writing frame ${f+1} / ${frames} · ${W}×${H} · ${fps}fps`, (f/frames)*100);
+    }
+
+    // drop the assemble recipe next to the frames
+    const cmd = `ffmpeg -y -framerate ${fps} -i frame_%06d.png -c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le -vendor apl0 burma-growth_alpha.mov`;
+    const txt = await (await (await dir.getFileHandle('ASSEMBLE.txt',{create:true})).createWritable());
+    await txt.write(`ProRes 4444 with alpha — run either of these from this folder:\n\n  alpha-assemble .\n\nor the raw command:\n\n  ${cmd}\n`);
+    await txt.close();
+    const fpsf = await (await (await dir.getFileHandle('.fps',{create:true})).createWritable());
+    await fpsf.write(String(fps)); await fpsf.close();
+
+    setAlphaStat(`✓ ${frames} frames written. In Terminal: <b style="color:#ddd">alpha-assemble</b> + drag the folder in, hit return → burma-growth_alpha.mov`, 100);
+  }catch(err){
+    setAlphaStat('✗ Frame export failed: '+err.message);
+  }
+  alphaBtn.disabled=false; alphaBtn.style.opacity=1;
+};
+
+/* ============================================================
    BOOT
    ============================================================ */
 function boot(){
   fitCanvas();
-  const qt = new URLSearchParams(location.search).get('t');
+  const q = new URLSearchParams(location.search);
+  const qt = q.get('t');
   STATE.frozenT = qt!=null ? parseFloat(qt) : null;
+  if(q.has('alpha')){ STATE.alphaPrev = true; frame.classList.add('alpha'); document.getElementById('alphaPrev').checked = true; }
   acc = 0;
   if(STATE.frozenT==null) playStep(0);   // land ready at the end of beat 1
+  if(AUTOGIF){ GIF.res=720; GIF.fps=10; STATE.speed=3; STATE.frozenT=0; pause(); setTimeout(()=>gifBtn.onclick(), 600); }
   Promise.all([
     document.fonts.load("400 76px 'Sailing Club'"),
     document.fonts.load("400 14px 'Sohne Mono'"),
